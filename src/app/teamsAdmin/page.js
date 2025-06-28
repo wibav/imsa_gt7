@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { FirebaseService } from "../services/firebaseService";
 
 // Ejemplo de datos iniciales con nueva estructura de puntos por ID de pista
 const initialTeams = [
@@ -196,9 +197,9 @@ const initialTeams = [
 
 const categoryColors = {
     'Gr1': 'from-red-600 to-red-800',
-    'Gr2': 'from-blue-600 to-blue-800',
+    'Gr2': 'from-yellow-500 to-yellow-700',
     'Gr3': 'from-green-600 to-green-800',
-    'Gr4': 'from-yellow-500 to-yellow-700'
+    'Gr4': 'from-blue-600 to-blue-800'
 };
 
 export default function TeamsAdminPage() {
@@ -213,17 +214,20 @@ export default function TeamsAdminPage() {
 
     const fetchData = async () => {
         try {
-            // Fetch teams and tracks
-            const [teamsResponse, tracksResponse] = await Promise.all([
-                fetch("/api/teams").then(res => res.json()),
-                fetch("/api/tracks").then(res => res.json())
+            setLoading(true);
+
+            // Usar el servicio de Firebase directamente
+            const [fetchedTeams, fetchedTracks] = await Promise.all([
+                FirebaseService.getTeams(),
+                FirebaseService.getTracks()
             ]);
 
-            const fetchedTeams = teamsResponse.length > 0 ? teamsResponse : initialTeams;
-            const fetchedTracks = tracksResponse.length > 0 ? tracksResponse : [];
+            // Si no hay datos en Firebase, usar datos iniciales
+            const teamsToUse = fetchedTeams.length > 0 ? fetchedTeams : initialTeams;
+            const tracksToUse = fetchedTracks.length > 0 ? fetchedTracks : [];
 
             // Migrar datos antiguos (array) a nueva estructura (objeto con IDs)
-            const updatedTeams = fetchedTeams.map(team => ({
+            const updatedTeams = teamsToUse.map(team => ({
                 ...team,
                 drivers: team.drivers.map(driver => {
                     let points = {};
@@ -231,7 +235,7 @@ export default function TeamsAdminPage() {
                     if (Array.isArray(driver.points)) {
                         // Migrar de array a objeto con IDs
                         driver.points.forEach((point, index) => {
-                            const trackId = fetchedTracks[index]?.id;
+                            const trackId = tracksToUse[index]?.id;
                             if (trackId) {
                                 points[trackId.toString()] = point || 0;
                             }
@@ -242,7 +246,7 @@ export default function TeamsAdminPage() {
                     }
 
                     // Asegurar que todos los tracks tengan entrada
-                    fetchedTracks.forEach(track => {
+                    tracksToUse.forEach(track => {
                         if (!points.hasOwnProperty(track.id.toString())) {
                             points[track.id.toString()] = 0;
                         }
@@ -256,15 +260,18 @@ export default function TeamsAdminPage() {
             }));
 
             setTeams(updatedTeams);
-            setTracks(fetchedTracks);
+            setTracks(tracksToUse);
 
             // Auto-seleccionar la próxima carrera a completar
-            const nextTrackId = findNextRaceToComplete(fetchedTracks, updatedTeams);
+            const nextTrackId = findNextRaceToComplete(tracksToUse, updatedTeams);
             setSelectedTrackId(nextTrackId);
 
-            setLoading(false);
         } catch (error) {
             console.error("Error fetching data:", error);
+            // En caso de error, usar datos iniciales
+            setTeams(initialTeams);
+            setTracks([]);
+        } finally {
             setLoading(false);
         }
     };
@@ -299,19 +306,14 @@ export default function TeamsAdminPage() {
         return sortedTracks[0]?.id || null;
     };
 
-    const saveTeams = async (teams) => {
+    // Guarda los equipos usando el servicio de Firebase
+    const handleSave = async () => {
         try {
-            const response = await fetch("/api/teams", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(teams)
-            });
-            if (!response.ok) throw new Error("Error al guardar los equipos");
-            return response.json();
+            await FirebaseService.saveTeams(teams);
+            alert("Equipos guardados correctamente en Firebase");
         } catch (error) {
             console.error("Error saving teams:", error);
+            alert("Error al guardar equipos: " + error.message);
         }
     };
 
@@ -352,12 +354,6 @@ export default function TeamsAdminPage() {
         updated[teamIdx].drivers[driverIdx].points[trackId.toString()] = points;
 
         setTeams(updated);
-    };
-
-    // Guarda los equipos en Firestore
-    const handleSave = async () => {
-        await saveTeams(teams);
-        alert("Equipos guardados correctamente");
     };
 
     // Obtener el estado de la carrera (pasada, actual, futura)
@@ -448,8 +444,8 @@ export default function TeamsAdminPage() {
                                                 key={track.id}
                                                 onClick={() => setSelectedTrackId(track.id)}
                                                 className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${selectedTrackId === track.id
-                                                        ? `border-orange-400 bg-white/25 shadow-lg ring-2 ring-orange-400/50`
-                                                        : `${borderColor} bg-white/10 hover:bg-white/20`
+                                                    ? `border-orange-400 bg-white/25 shadow-lg ring-2 ring-orange-400/50`
+                                                    : `${borderColor} bg-white/10 hover:bg-white/20`
                                                     }`}
                                             >
                                                 <div className="text-white font-semibold text-sm mb-1">
@@ -587,10 +583,10 @@ export default function TeamsAdminPage() {
                                                                     const points = driver.points?.[track.id.toString()] || 0;
                                                                     return (
                                                                         <div key={track.id} className={`text-center p-2 rounded text-xs ${selectedTrackId === track.id
-                                                                                ? 'bg-orange-500 text-white border-2 border-orange-300'
-                                                                                : points > 0
-                                                                                    ? 'bg-green-600 text-white'
-                                                                                    : 'bg-gray-600 text-gray-300'
+                                                                            ? 'bg-orange-500 text-white border-2 border-orange-300'
+                                                                            : points > 0
+                                                                                ? 'bg-green-600 text-white'
+                                                                                : 'bg-gray-600 text-gray-300'
                                                                             }`}>
                                                                             <div className="font-bold">{track.name.substring(0, 8)}</div>
                                                                             <div className="font-bold">{points}</div>
