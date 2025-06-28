@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { FirebaseService } from "../services/firebaseService";
+import ProtectedRoute from "../components/ProtectedRoute";
+import AdminNavigation from "../components/AdminNavigation";
 
 // Ejemplo de datos iniciales con nueva estructura de puntos por ID de pista
 const initialTeams = [
@@ -388,233 +390,236 @@ export default function TeamsAdminPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 p-8">
-            <div className="max-w-7xl mx-auto">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-t-lg p-6 border-b-4 border-blue-500">
-                    <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                        <span className="text-4xl">🏎️</span>
-                        Administrar Equipos IMSA GT7
-                    </h1>
-                    <p className="text-orange-100 mt-2">Gestiona los equipos, pilotos y puntos del campeonato</p>
-                </div>
+        <ProtectedRoute requireAdmin={true}>
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-800">
+                <div className="max-w-7xl mx-auto">
+                    {/* Header */}
+                    <AdminNavigation currentPage="teams" />
+                    {/* <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-t-lg p-6 border-b-4 border-blue-500">
+                        <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+                            <span className="text-4xl">🏎️</span>
+                            Administrar Equipos IMSA GT7
+                        </h1>
+                        <p className="text-orange-100 mt-2">Gestiona los equipos, pilotos y puntos del campeonato</p>
+                    </div> */}
 
-                {/* Content */}
-                <div className="bg-white/10 backdrop-blur-sm rounded-b-lg p-6">
-                    {/* Track Selector */}
-                    {tracks.length > 0 && (
-                        <div className="mb-8">
-                            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                                🏁 Seleccionar Carrera para Editar Puntos:
-                            </h3>
-                            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                                {tracks
-                                    .sort((a, b) => new Date(a.date) - new Date(b.date))
-                                    .map((track) => {
-                                        const status = getTrackStatus(track.date, track.id);
-                                        let statusColor = '';
-                                        let statusText = '';
-                                        let borderColor = '';
-
-                                        switch (status) {
-                                            case 'completed':
-                                                statusColor = 'from-green-600 to-emerald-600';
-                                                statusText = '✅ Completada';
-                                                borderColor = 'border-green-400';
-                                                break;
-                                            case 'missing':
-                                                statusColor = 'from-red-600 to-red-700';
-                                                statusText = '❗ Faltan Puntos';
-                                                borderColor = 'border-red-400';
-                                                break;
-                                            case 'current':
-                                                statusColor = 'from-yellow-600 to-orange-600';
-                                                statusText = '🔥 Esta Semana';
-                                                borderColor = 'border-yellow-400';
-                                                break;
-                                            case 'future':
-                                                statusColor = 'from-blue-600 to-indigo-600';
-                                                statusText = '📅 Próxima';
-                                                borderColor = 'border-blue-400';
-                                                break;
-                                        }
-
-                                        return (
-                                            <button
-                                                key={track.id}
-                                                onClick={() => setSelectedTrackId(track.id)}
-                                                className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${selectedTrackId === track.id
-                                                    ? `border-orange-400 bg-white/25 shadow-lg ring-2 ring-orange-400/50`
-                                                    : `${borderColor} bg-white/10 hover:bg-white/20`
-                                                    }`}
-                                            >
-                                                <div className="text-white font-semibold text-sm mb-1">
-                                                    Carrera #{track.id}
-                                                </div>
-                                                <div className="text-orange-300 font-bold">
-                                                    {track.name}
-                                                </div>
-                                                <div className="text-gray-300 text-xs mt-1">
-                                                    📍 {track.country}
-                                                </div>
-                                                <div className="text-gray-300 text-xs">
-                                                    📅 {new Date(track.date).toLocaleDateString('es-ES')}
-                                                </div>
-                                                <div className={`bg-gradient-to-r ${statusColor} text-white px-2 py-1 rounded-full text-xs font-bold mt-2 inline-block`}>
-                                                    {statusText}
-                                                </div>
-                                                {status === 'missing' && (
-                                                    <div className="text-red-300 text-xs mt-1 font-semibold">
-                                                        ⚠️ Carrera pasada sin puntos
-                                                    </div>
-                                                )}
-                                            </button>
-                                        );
-                                    })}
-                            </div>
-
-                            {/* Instructions */}
-                            <div className="mt-4 bg-blue-900/30 border border-blue-400/50 rounded-lg p-4">
-                                <h4 className="text-blue-300 font-semibold mb-2">📝 Instrucciones:</h4>
-                                <ul className="text-blue-200 text-sm space-y-1">
-                                    <li>• <span className="text-green-400">Verde ✅</span>: Carrera completada con puntos</li>
-                                    <li>• <span className="text-red-400">Rojo ❗</span>: Carrera pasada SIN puntos (necesita actualizar)</li>
-                                    <li>• <span className="text-yellow-400">Amarillo 🔥</span>: Carrera de esta semana</li>
-                                    <li>• <span className="text-blue-400">Azul 📅</span>: Carrera futura</li>
-                                </ul>
-                            </div>
+                    {/* Content */}
+                    <div className="bg-white/10 backdrop-blur-sm rounded-b-lg p-6">
+                        {/* Instructions */}
+                        <div className="mt-4 bg-blue-900/30 border border-blue-400/50 rounded-lg p-4">
+                            <h4 className="text-blue-300 font-semibold mb-2">📝 Instrucciones:</h4>
+                            <ul className="text-blue-200 text-sm space-y-1">
+                                <li>• <span className="text-green-400">Verde ✅</span>: Carrera completada con puntos</li>
+                                <li>• <span className="text-red-400">Rojo ❗</span>: Carrera pasada SIN puntos (necesita actualizar)</li>
+                                <li>• <span className="text-yellow-400">Amarillo 🔥</span>: Carrera de esta semana</li>
+                                <li>• <span className="text-blue-400">Azul 📅</span>: Carrera futura</li>
+                            </ul>
                         </div>
-                    )}
+                        {/* Track Selector */}
+                        {tracks.length > 0 && (
+                            <div className="mb-8">
+                                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                    🏁 Seleccionar Carrera para Editar Puntos:
+                                </h3>
+                                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                    {tracks
+                                        .sort((a, b) => new Date(a.date) - new Date(b.date))
+                                        .map((track) => {
+                                            const status = getTrackStatus(track.date, track.id);
+                                            let statusColor = '';
+                                            let statusText = '';
+                                            let borderColor = '';
 
-                    {/* Teams Grid */}
-                    <div className="grid gap-8 lg:grid-cols-2">
-                        {teams.map((team, idx) => (
-                            <div
-                                key={team.id}
-                                className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg p-6 hover:bg-white/25 transition-all duration-300 shadow-lg hover:shadow-xl"
-                            >
-                                {/* Team Header */}
-                                <div className="mb-6">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div
-                                            className={`w-6 h-6 rounded-full`}
-                                            style={{ backgroundColor: team.color }}
-                                        ></div>
-                                        <h2 className="text-xl font-bold text-white">Equipo #{idx + 1}</h2>
-                                        <div className="ml-auto bg-gradient-to-r from-purple-600 to-purple-800 text-white px-3 py-1 rounded-full font-bold">
-                                            Total: {calculateTeamTotal(team.drivers)} pts
+                                            switch (status) {
+                                                case 'completed':
+                                                    statusColor = 'from-green-600 to-emerald-600';
+                                                    statusText = '✅ Completada';
+                                                    borderColor = 'border-green-400';
+                                                    break;
+                                                case 'missing':
+                                                    statusColor = 'from-red-600 to-red-700';
+                                                    statusText = '❗ Faltan Puntos';
+                                                    borderColor = 'border-red-400';
+                                                    break;
+                                                case 'current':
+                                                    statusColor = 'from-yellow-600 to-orange-600';
+                                                    statusText = '🔥 Esta Semana';
+                                                    borderColor = 'border-yellow-400';
+                                                    break;
+                                                case 'future':
+                                                    statusColor = 'from-blue-600 to-indigo-600';
+                                                    statusText = '📅 Próxima';
+                                                    borderColor = 'border-blue-400';
+                                                    break;
+                                            }
+
+                                            return (
+                                                <button
+                                                    key={track.id}
+                                                    onClick={() => setSelectedTrackId(track.id)}
+                                                    className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${selectedTrackId === track.id
+                                                        ? `border-orange-400 bg-white/25 shadow-lg ring-2 ring-orange-400/50`
+                                                        : `${borderColor} bg-white/10 hover:bg-white/20`
+                                                        }`}
+                                                >
+                                                    <div className="text-white font-semibold text-sm mb-1">
+                                                        Carrera #{track.id}
+                                                    </div>
+                                                    <div className="text-orange-300 font-bold">
+                                                        {track.name}
+                                                    </div>
+                                                    <div className="text-gray-300 text-xs mt-1">
+                                                        📍 {track.country}
+                                                    </div>
+                                                    <div className="text-gray-300 text-xs">
+                                                        📅 {new Date(track.date).toLocaleDateString('es-ES')}
+                                                    </div>
+                                                    <div className={`bg-gradient-to-r ${statusColor} text-white px-2 py-1 rounded-full text-xs font-bold mt-2 inline-block`}>
+                                                        {statusText}
+                                                    </div>
+                                                    {status === 'missing' && (
+                                                        <div className="text-red-300 text-xs mt-1 font-semibold">
+                                                            ⚠️ Carrera pasada sin puntos
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Teams Grid */}
+                        <div className="grid gap-8 lg:grid-cols-2">
+                            {teams.map((team, idx) => (
+                                <div
+                                    key={team.id}
+                                    className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg p-6 hover:bg-white/25 transition-all duration-300 shadow-lg hover:shadow-xl"
+                                >
+                                    {/* Team Header */}
+                                    <div className="mb-6">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <div
+                                                className={`w-6 h-6 rounded-full`}
+                                                style={{ backgroundColor: team.color }}
+                                            ></div>
+                                            <h2 className="text-xl font-bold text-white">Equipo #{idx + 1}</h2>
+                                            <div className="ml-auto bg-gradient-to-r from-purple-600 to-purple-800 text-white px-3 py-1 rounded-full font-bold">
+                                                Total: {calculateTeamTotal(team.drivers)} pts
+                                            </div>
+                                        </div>
+
+                                        <label className="block text-orange-300 font-semibold mb-2">
+                                            🏆 Nombre del equipo:
+                                        </label>
+                                        <input
+                                            className="w-full bg-white/20 border border-white/40 rounded-lg p-3 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200 font-semibold"
+                                            value={team.name}
+                                            onChange={e => handleTeamNameChange(idx, e.target.value)}
+                                            placeholder="Nombre del equipo"
+                                        />
+                                    </div>
+
+                                    {/* Drivers */}
+                                    <div>
+                                        <label className="block text-orange-300 font-semibold mb-4 text-lg">
+                                            👥 Pilotos:
+                                        </label>
+                                        <div className="space-y-4">
+                                            {team.drivers.map((driver, dIdx) => (
+                                                <div
+                                                    key={dIdx}
+                                                    className="bg-white/10 rounded-lg p-4 border border-white/20 hover:bg-white/15 transition-all duration-200"
+                                                >
+                                                    <div className="flex flex-wrap items-center gap-3 mb-3">
+                                                        <div className={`bg-gradient-to-r ${categoryColors[driver.category]} text-white px-3 py-1 rounded-full font-bold text-sm`}>
+                                                            {driver.category}
+                                                        </div>
+
+                                                        <input
+                                                            className="flex-1 min-w-[120px] bg-white/20 border border-white/40 rounded-lg p-2 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 font-semibold"
+                                                            value={driver.name}
+                                                            onChange={e => handleDriverNameChange(idx, dIdx, e.target.value)}
+                                                            placeholder="Nombre del piloto"
+                                                        />
+
+                                                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white px-3 py-1 rounded-full font-bold text-sm">
+                                                            Total: {calculateDriverTotal(driver.points)} pts
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Points for selected track */}
+                                                    {selectedTrack && (
+                                                        <div className="mt-3 p-4 bg-white/15 rounded-lg border-2 border-orange-400/70">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <span className="text-orange-300 font-bold text-sm">
+                                                                    🏁 {selectedTrack.name} (ID: {selectedTrack.id})
+                                                                </span>
+                                                                <span className="text-gray-300 text-xs">
+                                                                    📅 {new Date(selectedTrack.date).toLocaleDateString('es-ES')}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="text-white font-semibold">Puntos:</span>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="50"
+                                                                    className="w-24 bg-white/20 border-2 border-orange-400/50 rounded-lg p-2 text-white text-center font-bold focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg"
+                                                                    value={driver.points?.[selectedTrack.id.toString()] || 0}
+                                                                    onChange={e => handlePointsChange(idx, dIdx, selectedTrack.id, e.target.value)}
+                                                                    placeholder="0"
+                                                                />
+                                                                <span className="text-white font-semibold">pts</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* All points summary by track */}
+                                                    <div className="mt-3 text-xs">
+                                                        <div className="bg-gray-700/50 text-gray-300 px-3 py-2 rounded-lg">
+                                                            <div className="font-semibold mb-2">Historial por Pista:</div>
+                                                            <div className="grid grid-cols-3 gap-1">
+                                                                {tracks
+                                                                    .sort((a, b) => new Date(a.date) - new Date(b.date))
+                                                                    .map((track) => {
+                                                                        const points = driver.points?.[track.id.toString()] || 0;
+                                                                        return (
+                                                                            <div key={track.id} className={`text-center p-2 rounded text-xs ${selectedTrackId === track.id
+                                                                                ? 'bg-orange-500 text-white border-2 border-orange-300'
+                                                                                : points > 0
+                                                                                    ? 'bg-green-600 text-white'
+                                                                                    : 'bg-gray-600 text-gray-300'
+                                                                                }`}>
+                                                                                <div className="font-bold">{track.name.substring(0, 8)}</div>
+                                                                                <div className="font-bold">{points}</div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
-
-                                    <label className="block text-orange-300 font-semibold mb-2">
-                                        🏆 Nombre del equipo:
-                                    </label>
-                                    <input
-                                        className="w-full bg-white/20 border border-white/40 rounded-lg p-3 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-200 font-semibold"
-                                        value={team.name}
-                                        onChange={e => handleTeamNameChange(idx, e.target.value)}
-                                        placeholder="Nombre del equipo"
-                                    />
                                 </div>
+                            ))}
 
-                                {/* Drivers */}
-                                <div>
-                                    <label className="block text-orange-300 font-semibold mb-4 text-lg">
-                                        👥 Pilotos:
-                                    </label>
-                                    <div className="space-y-4">
-                                        {team.drivers.map((driver, dIdx) => (
-                                            <div
-                                                key={dIdx}
-                                                className="bg-white/10 rounded-lg p-4 border border-white/20 hover:bg-white/15 transition-all duration-200"
-                                            >
-                                                <div className="flex flex-wrap items-center gap-3 mb-3">
-                                                    <div className={`bg-gradient-to-r ${categoryColors[driver.category]} text-white px-3 py-1 rounded-full font-bold text-sm`}>
-                                                        {driver.category}
-                                                    </div>
+                        </div>
 
-                                                    <input
-                                                        className="flex-1 min-w-[120px] bg-white/20 border border-white/40 rounded-lg p-2 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 font-semibold"
-                                                        value={driver.name}
-                                                        onChange={e => handleDriverNameChange(idx, dIdx, e.target.value)}
-                                                        placeholder="Nombre del piloto"
-                                                    />
-
-                                                    <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white px-3 py-1 rounded-full font-bold text-sm">
-                                                        Total: {calculateDriverTotal(driver.points)} pts
-                                                    </div>
-                                                </div>
-
-                                                {/* Points for selected track */}
-                                                {selectedTrack && (
-                                                    <div className="mt-3 p-4 bg-white/15 rounded-lg border-2 border-orange-400/70">
-                                                        <div className="flex items-center justify-between mb-2">
-                                                            <span className="text-orange-300 font-bold text-sm">
-                                                                🏁 {selectedTrack.name} (ID: {selectedTrack.id})
-                                                            </span>
-                                                            <span className="text-gray-300 text-xs">
-                                                                📅 {new Date(selectedTrack.date).toLocaleDateString('es-ES')}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-white font-semibold">Puntos:</span>
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                max="50"
-                                                                className="w-24 bg-white/20 border-2 border-orange-400/50 rounded-lg p-2 text-white text-center font-bold focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-lg"
-                                                                value={driver.points?.[selectedTrack.id.toString()] || 0}
-                                                                onChange={e => handlePointsChange(idx, dIdx, selectedTrack.id, e.target.value)}
-                                                                placeholder="0"
-                                                            />
-                                                            <span className="text-white font-semibold">pts</span>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* All points summary by track */}
-                                                <div className="mt-3 text-xs">
-                                                    <div className="bg-gray-700/50 text-gray-300 px-3 py-2 rounded-lg">
-                                                        <div className="font-semibold mb-2">Historial por Pista:</div>
-                                                        <div className="grid grid-cols-3 gap-1">
-                                                            {tracks
-                                                                .sort((a, b) => new Date(a.date) - new Date(b.date))
-                                                                .map((track) => {
-                                                                    const points = driver.points?.[track.id.toString()] || 0;
-                                                                    return (
-                                                                        <div key={track.id} className={`text-center p-2 rounded text-xs ${selectedTrackId === track.id
-                                                                            ? 'bg-orange-500 text-white border-2 border-orange-300'
-                                                                            : points > 0
-                                                                                ? 'bg-green-600 text-white'
-                                                                                : 'bg-gray-600 text-gray-300'
-                                                                            }`}>
-                                                                            <div className="font-bold">{track.name.substring(0, 8)}</div>
-                                                                            <div className="font-bold">{points}</div>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Save Button */}
-                    <div className="mt-8 text-center">
-                        <button
-                            onClick={handleSave}
-                            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-4 rounded-lg font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
-                        >
-                            💾 Guardar Equipos
-                        </button>
+                        {/* Save Button */}
+                        <div className="mt-8 text-center">
+                            <button
+                                onClick={handleSave}
+                                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-4 rounded-lg font-bold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                            >
+                                💾 Guardar Equipos
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </ProtectedRoute>
     );
 }
