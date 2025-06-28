@@ -20,7 +20,7 @@ export default function Dashboard() {
     const [teams, setTeams] = useState([]);
     const [tracks, setTracks] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [selectedView, setSelectedView] = useState('teams'); // 'teams' or 'drivers'
+    const [selectedView, setSelectedView] = useState('teams'); // 'teams', 'drivers', or 'tracks'
     const [selectedCategory, setSelectedCategory] = useState('all');
 
     useEffect(() => {
@@ -35,6 +35,17 @@ export default function Dashboard() {
                 FirebaseService.getTracks()
             ]);
 
+            console.log("=== DEBUGGING DATA ===");
+            console.log("Teams data:", teamsResponse);
+            console.log("Tracks data:", tracksResponse);
+
+            // Debug específico para puntos de pilotos
+            if (teamsResponse.length > 0 && teamsResponse[0].drivers) {
+                console.log("First driver points structure:", teamsResponse[0].drivers[0].points);
+                console.log("Points type:", typeof teamsResponse[0].drivers[0].points);
+                console.log("Is array:", Array.isArray(teamsResponse[0].drivers[0].points));
+            }
+
             setTeams(teamsResponse);
             setTracks(tracksResponse);
         } catch (error) {
@@ -44,14 +55,53 @@ export default function Dashboard() {
         }
     };
 
+    // Obtiene las pistas ordenadas por fecha
+    const getSortedTracks = () => {
+        return tracks.sort((a, b) => new Date(a.date) - new Date(b.date));
+    };
+
+    // Función helper para obtener puntos de un piloto en una pista específica
+    const getDriverPointsForTrack = (driver, track) => {
+        if (!driver.points || !track) {
+            return 0;
+        }
+
+        if (typeof driver.points === 'object' && !Array.isArray(driver.points)) {
+            // Los datos están como: {1: 2, 2: 3, 3: 3, ...}
+            // Intentar acceso directo con número
+            const points = driver.points[track.id] ||
+                driver.points[parseInt(track.id)] ||
+                driver.points[track.id.toString()] ||
+                0;
+
+            return parseInt(points) || 0;
+        }
+
+        if (Array.isArray(driver.points)) {
+            const sortedTracks = getSortedTracks();
+            const trackIndex = sortedTracks.findIndex(t => t.id === track.id);
+            const pointsByIndex = driver.points[trackIndex] || 0;
+            return parseInt(pointsByIndex) || 0;
+        }
+
+        return 0;
+    };
+
     // Calcula el total de puntos de un piloto
     const calculateDriverTotal = (points) => {
         if (!points) return 0;
-        return Object.values(points).reduce((sum, point) => sum + (parseInt(point) || 0), 0);
+        if (typeof points === 'object' && !Array.isArray(points)) {
+            return Object.values(points).reduce((sum, point) => sum + (parseInt(point) || 0), 0);
+        }
+        if (Array.isArray(points)) {
+            return points.reduce((sum, point) => sum + (parseInt(point) || 0), 0);
+        }
+        return 0;
     };
 
     // Calcula el total de puntos de un equipo
     const calculateTeamTotal = (drivers) => {
+        if (!drivers || !Array.isArray(drivers)) return 0;
         return drivers.reduce((sum, driver) => sum + calculateDriverTotal(driver.points), 0);
     };
 
@@ -59,15 +109,17 @@ export default function Dashboard() {
     const getAllDrivers = () => {
         const allDrivers = [];
         teams.forEach((team, teamIndex) => {
-            team.drivers.forEach(driver => {
-                allDrivers.push({
-                    ...driver,
-                    teamName: team.name,
-                    teamColor: team.color,
-                    teamIndex: teamIndex + 1,
-                    total: calculateDriverTotal(driver.points)
+            if (team.drivers && Array.isArray(team.drivers)) {
+                team.drivers.forEach(driver => {
+                    allDrivers.push({
+                        ...driver,
+                        teamName: team.name,
+                        teamColor: team.color,
+                        teamIndex: teamIndex + 1,
+                        total: calculateDriverTotal(driver.points)
+                    });
                 });
-            });
+            }
         });
         return allDrivers.sort((a, b) => b.total - a.total);
     };
@@ -93,11 +145,11 @@ export default function Dashboard() {
     const getCompletedRaces = () => {
         if (teams.length === 0 || tracks.length === 0) return 0;
 
-        const sortedTracks = tracks.sort((a, b) => new Date(a.date) - new Date(b.date));
+        const sortedTracks = getSortedTracks();
         let completedCount = 0;
 
         for (let track of sortedTracks) {
-            const hasResults = teams[0]?.drivers[0]?.points?.[track.id.toString()] > 0;
+            const hasResults = teams[0]?.drivers?.[0]?.points?.[track.id.toString()] > 0;
             if (hasResults) {
                 completedCount++;
             } else {
@@ -106,6 +158,18 @@ export default function Dashboard() {
         }
 
         return completedCount;
+    };
+
+    // Obtiene el estado de una carrera
+    const getTrackStatus = (trackDate) => {
+        const today = new Date();
+        const raceDate = new Date(trackDate);
+        const diffTime = raceDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays < -1) return 'completed';
+        if (diffDays <= 7 && diffDays >= -1) return 'current';
+        return 'upcoming';
     };
 
     if (loading) {
@@ -171,6 +235,15 @@ export default function Dashboard() {
                         >
                             👤 Pilotos
                         </button>
+                        <button
+                            onClick={() => setSelectedView('tracks')}
+                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 ${selectedView === 'tracks'
+                                ? 'bg-white text-orange-600 shadow-lg'
+                                : 'bg-white/20 text-white hover:bg-white/30'
+                                }`}
+                        >
+                            🏁 Pistas
+                        </button>
                     </div>
                 </div>
             </div>
@@ -215,53 +288,60 @@ export default function Dashboard() {
 
                                     {/* Drivers Grid */}
                                     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                        {team.drivers.map((driver, idx) => (
-                                            <div
-                                                key={idx}
-                                                className="bg-white/10 rounded-lg p-4 border border-white/20 hover:bg-white/15 transition-all duration-200"
-                                            >
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <div className={`bg-gradient-to-r ${categoryColors[driver.category]} text-white px-3 py-1 rounded-full font-bold text-sm flex items-center gap-1`}>
-                                                        <span>{categoryIcons[driver.category]}</span>
-                                                        {driver.category}
+                                        {team.drivers && team.drivers.map((driver, idx) => {
+                                            const driverTotal = calculateDriverTotal(driver.points);
+                                            return (
+                                                <div
+                                                    key={idx}
+                                                    className="bg-white/10 rounded-lg p-4 border border-white/20 hover:bg-white/15 transition-all duration-200"
+                                                >
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className={`bg-gradient-to-r ${categoryColors[driver.category]} text-white px-3 py-1 rounded-full font-bold text-sm flex items-center gap-1`}>
+                                                            <span>{categoryIcons[driver.category]}</span>
+                                                            {driver.category}
+                                                        </div>
+                                                        <div className="bg-indigo-600 text-white px-2 py-1 rounded-full text-xs font-bold">
+                                                            {driverTotal} pts
+                                                        </div>
                                                     </div>
-                                                    <div className="bg-indigo-600 text-white px-2 py-1 rounded-full text-xs font-bold">
-                                                        {calculateDriverTotal(driver.points)} pts
-                                                    </div>
-                                                </div>
-                                                <div className="text-white font-bold text-lg">{driver.name}</div>
+                                                    <div className="text-white font-bold text-lg mb-3">{driver.name}</div>
 
-                                                {/* Recent Races */}
-                                                <div className="mt-3">
-                                                    <div className="text-gray-400 text-xs mb-1">Últimas carreras:</div>
-                                                    <div className="flex gap-1">
-                                                        {tracks
-                                                            .sort((a, b) => new Date(a.date) - new Date(b.date))
-                                                            .slice(-5)
-                                                            .map(track => {
-                                                                const points = driver.points?.[track.id.toString()] || 0;
-                                                                return (
-                                                                    <div
-                                                                        key={track.id}
-                                                                        className={`w-8 h-8 rounded flex items-center justify-center text-xs font-bold ${points > 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-400'
-                                                                            }`}
-                                                                        title={`${track.name}: ${points} pts`}
-                                                                    >
-                                                                        {points}
-                                                                    </div>
-                                                                );
-                                                            })
-                                                        }
+                                                    {/* Recent Races */}
+                                                    <div className="mt-3">
+                                                        <div className="text-gray-400 text-xs mb-1">Carreras con puntos:</div>
+                                                        <div className="flex gap-1 flex-wrap">
+                                                            {getSortedTracks()
+                                                                .map(track => {
+                                                                    const points = getDriverPointsForTrack(driver, track);
+
+                                                                    return (
+                                                                        <div
+                                                                            key={track.id}
+                                                                            className={`w-8 h-8 rounded flex items-center justify-center text-xs font-bold ${points > 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-400'
+                                                                                }`}
+                                                                            title={`${track.name}: ${points} pts (ID: ${track.id})`}
+                                                                        >
+                                                                            {points}
+                                                                        </div>
+                                                                    );
+                                                                })
+                                                            }
+                                                        </div>
+
+                                                        {/* Debug simplificado - temporalmente cambiar para ver las primeras */}
+                                                        <div className="mt-1 text-xs text-yellow-400">
+                                                            Primeras: {getSortedTracks().slice(0, 5).map(t => `${t.id}:${driver.points[t.id] || 0}`).join(', ')}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
-                ) : (
+                ) : selectedView === 'drivers' ? (
                     /* Drivers View */
                     <div>
                         <div className="flex flex-wrap items-center justify-between mb-8">
@@ -331,31 +411,136 @@ export default function Dashboard() {
                                         </div>
                                     </div>
 
-                                    {/* Race History */}
+                                    {/* Race History - USANDO getDriverPointsForTrack */}
                                     <div>
                                         <div className="text-gray-400 text-sm mb-2 text-center">Historial de Carreras</div>
                                         <div className="grid grid-cols-5 gap-1">
-                                            {tracks
-                                                .sort((a, b) => new Date(a.date) - new Date(b.date))
-                                                .map(track => {
-                                                    const points = driver.points?.[track.id.toString()] || 0;
-                                                    return (
-                                                        <div
-                                                            key={track.id}
-                                                            className={`h-10 rounded flex flex-col items-center justify-center text-xs font-bold ${points > 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-400'
-                                                                }`}
-                                                            title={`${track.name}: ${points} pts`}
-                                                        >
-                                                            <div className="text-xs">{track.name.substring(0, 3)}</div>
-                                                            <div>{points}</div>
-                                                        </div>
-                                                    );
-                                                })
-                                            }
+                                            {getSortedTracks().map(track => {
+                                                const points = getDriverPointsForTrack(driver, track);
+
+                                                return (
+                                                    <div
+                                                        key={track.id}
+                                                        className={`h-10 rounded flex flex-col items-center justify-center text-xs font-bold ${points > 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-400'
+                                                            }`}
+                                                        title={`${track.name}: ${points} pts`}
+                                                    >
+                                                        <div className="text-xs">{track.name.substring(0, 3)}</div>
+                                                        <div>{points}</div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                ) : (
+                    /* Tracks View - sin cambios */
+                    <div>
+                        <h2 className="text-3xl font-bold text-white mb-8 flex items-center gap-3">
+                            🏁 Calendario de Pistas
+                        </h2>
+                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                            {getSortedTracks().map((track, index) => {
+                                const status = getTrackStatus(track.date);
+                                let statusColor = '';
+                                let statusText = '';
+                                let statusIcon = '';
+
+                                switch (status) {
+                                    case 'completed':
+                                        statusColor = 'from-green-600 to-emerald-600';
+                                        statusText = 'Completada';
+                                        statusIcon = '✅';
+                                        break;
+                                    case 'current':
+                                        statusColor = 'from-yellow-600 to-orange-600';
+                                        statusText = 'En Curso / Esta Semana';
+                                        statusIcon = '🔥';
+                                        break;
+                                    case 'upcoming':
+                                        statusColor = 'from-blue-600 to-indigo-600';
+                                        statusText = 'Próxima';
+                                        statusIcon = '📅';
+                                        break;
+                                }
+
+                                return (
+                                    <div
+                                        key={track.id}
+                                        className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-6 hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl"
+                                    >
+                                        {/* Track Header */}
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full border-2 border-orange-400">
+                                                <span className="text-lg font-bold text-white">#{index + 1}</span>
+                                            </div>
+                                            <div className={`bg-gradient-to-r ${statusColor} text-white px-3 py-1 rounded-full font-bold text-sm flex items-center gap-1`}>
+                                                <span>{statusIcon}</span>
+                                                {statusText}
+                                            </div>
+                                        </div>
+
+                                        <div className="text-center mb-4">
+                                            <h3 className="text-xl font-bold text-white mb-2">{track.name}</h3>
+                                            <div className="text-gray-300 text-sm mb-1">
+                                                📍 {track.country}
+                                            </div>
+                                            <div className="text-orange-300 font-semibold">
+                                                📅 {new Date(track.date).toLocaleDateString('es-ES', {
+                                                    weekday: 'long',
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric'
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* Track Details */}
+                                        <div className="space-y-2">
+                                            {track.length && (
+                                                <div className="flex items-center justify-between text-sm">
+                                                    <span className="text-gray-400">Longitud:</span>
+                                                    <span className="text-white font-semibold">{track.length}</span>
+                                                </div>
+                                            )}
+                                            {track.category && (
+                                                <div className="flex items-center justify-between text-sm">
+                                                    <span className="text-gray-400">Categoría:</span>
+                                                    <span className="text-white font-semibold">{track.category}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-gray-400">ID de Pista:</span>
+                                                <span className="text-orange-400 font-bold">#{track.id}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Progress Indicator */}
+                                        <div className="mt-4 pt-4 border-t border-white/20">
+                                            <div className="text-center">
+                                                {status === 'completed' && (
+                                                    <div className="text-green-400 font-semibold text-sm">
+                                                        🏆 Resultados disponibles
+                                                    </div>
+                                                )}
+                                                {status === 'current' && (
+                                                    <div className="text-yellow-400 font-semibold text-sm">
+                                                        ⚡ Carrera activa
+                                                    </div>
+                                                )}
+                                                {status === 'upcoming' && (
+                                                    <div className="text-blue-400 font-semibold text-sm">
+                                                        ⏳ Próxima carrera
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
