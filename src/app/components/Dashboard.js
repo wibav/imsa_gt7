@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
+import { FirebaseService } from "../services/firebaseService";
 
 const categoryColors = {
     'Gr1': 'from-red-600 to-red-800',
-    'Gr2': 'from-blue-600 to-blue-800',
+    'Gr2': 'from-yellow-500 to-yellow-700',
     'Gr3': 'from-green-600 to-green-800',
-    'Gr4': 'from-yellow-500 to-yellow-700'
+    'Gr4': 'from-blue-600 to-blue-800'
 };
 
 const categoryIcons = {
@@ -30,15 +31,15 @@ export default function Dashboard() {
         setLoading(true);
         try {
             const [teamsResponse, tracksResponse] = await Promise.all([
-                fetch("/api/teams").then(res => res.json()),
-                fetch("/api/tracks").then(res => res.json())
+                FirebaseService.getTeams(),
+                FirebaseService.getTracks()
             ]);
 
             setTeams(teamsResponse);
             setTracks(tracksResponse);
-            setLoading(false);
         } catch (error) {
             console.error("Error fetching data:", error);
+        } finally {
             setLoading(false);
         }
     };

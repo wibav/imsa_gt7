@@ -1,26 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-
-const initialTracks = [
-    { "id": 1, "name": "Watkins Glen", "country": "USA", "date": "2024-04-11" },
-    { "id": 2, "name": "Monza", "country": "Italia", "date": "2024-04-25" },
-    { "id": 3, "name": "LeMans", "country": "Francia", "date": "2024-05-16" },
-    { "id": 4, "name": "Brands Hatch", "country": "UK", "date": "2024-05-30" },
-    { "id": 5, "name": "Interlagos", "country": "Brasil", "date": "2024-06-13" },
-    { "id": 6, "name": "Daytona", "country": "USA", "date": "2024-06-27" },
-    { "id": 7, "name": "Nurburgring GP", "country": "Alemania", "date": "2024-07-11" },
-    { "id": 8, "name": "Suzuka", "country": "Japón", "date": "2024-07-25" },
-    { "id": 9, "name": "Laguna Seca", "country": "USA", "date": "2024-08-08" },
-    { "id": 10, "name": "Fuji", "country": "Japón", "date": "2024-08-22" },
-    { "id": 11, "name": "Road Atlanta", "country": "USA", "date": "2024-09-12" },
-    { "id": 12, "name": "RedBull Ring", "country": "Austria", "date": "2024-10-17" },
-    { "id": 13, "name": "Spa Francorchamps", "country": "Bélgica", "date": "2024-10-31" },
-    { "id": 14, "name": "Mount Panorama", "country": "Australia", "date": "2024-11-14" },
-    { "id": 15, "name": "Catalunya", "country": "España", "date": "2024-11-30" }
-]
+import { FirebaseService } from "../services/firebaseService";
 
 export default function TracksAdminPage() {
-    const [tracks, setTracks] = useState(initialTracks);
+    const [tracks, setTracks] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -29,33 +12,24 @@ export default function TracksAdminPage() {
 
     const fetchTracks = async () => {
         try {
-            const tracks = await fetch("/api/tracks", {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }).then(res => res.json());
-            setTracks(tracks.length > 0 ? tracks : initialTracks);
-            setLoading(false);
+            setLoading(true);
+            const fetchedTracks = await FirebaseService.getTracks();
+            setTracks(fetchedTracks);
         } catch (error) {
             console.error("Error fetching tracks:", error);
+            setTracks([]);
+        } finally {
             setLoading(false);
         }
     };
 
-    const saveTracks = async (tracks) => {
+    const handleSave = async () => {
         try {
-            const response = await fetch("/api/tracks", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(tracks)
-            });
-            if (!response.ok) throw new Error("Error al guardar las pistas");
-            return response.json();
+            await FirebaseService.saveTracks(tracks);
+            alert("Pistas guardadas correctamente en Firebase");
         } catch (error) {
             console.error("Error saving tracks:", error);
+            alert("Error al guardar pistas: " + error.message);
         }
     };
 
@@ -90,11 +64,6 @@ export default function TracksAdminPage() {
     const removeTrack = (index) => {
         const updatedTracks = tracks.filter((_, i) => i !== index);
         setTracks(updatedTracks);
-    };
-
-    const handleSave = async () => {
-        await saveTracks(tracks);
-        alert("Pistas guardadas correctamente");
     };
 
     if (loading) {

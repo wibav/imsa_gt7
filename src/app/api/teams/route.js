@@ -3,6 +3,7 @@ import { getFirestore, collection, getDocs, setDoc, doc } from "firebase/firesto
 import { app } from "../firebase/firebaseConfig";
 
 const db = getFirestore(app);
+export const dynamic = "force-static";
 
 export async function GET(request) {
     try {
