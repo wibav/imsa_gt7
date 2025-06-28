@@ -2,11 +2,11 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAnalytics, isSupported } from "firebase/analytics";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
     apiKey: "AIzaSyAkwr4sH48c2syY_BAfjWaaOTHl4nhqVmo",
-    authDomain: "localhost",
-    // authDomain: "imsa-bd5b6.firebaseapp.com",
+    authDomain: "imsa.trenit.com",
     projectId: "imsa-bd5b6",
     storageBucket: "imsa-bd5b6.firebasestorage.app",
     messagingSenderId: "144914068113",
@@ -17,15 +17,31 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
-// Initialize Analytics only on the client and if supported
-let analytics;
-if (typeof window !== "undefined") {
-    isSupported().then((supported) => {
-        if (supported) {
-            analytics = getAnalytics(app);
+// Initialize Analytics with better error handling
+let analytics = null;
+
+const initializeAnalytics = async () => {
+    if (typeof window !== "undefined" && !analytics) {
+        try {
+            const supported = await isSupported();
+            if (supported) {
+                const { getAnalytics } = await import("firebase/analytics");
+                analytics = getAnalytics(app);
+                console.log("✅ Firebase Analytics initialized successfully");
+                return analytics;
+            } else {
+                console.warn("⚠️ Firebase Analytics not supported in this environment");
+            }
+        } catch (error) {
+            console.error("❌ Error initializing Firebase Analytics:", error);
         }
-    });
-}
+    }
+    return analytics;
+};
 
-export { app, db, analytics };
+// Auto-initialize analytics
+initializeAnalytics();
+
+export { app, db, auth, analytics, initializeAnalytics };
