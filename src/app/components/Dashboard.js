@@ -243,8 +243,17 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between mb-6">
                         <div>
                             <h1 className="text-4xl font-bold text-white flex items-center gap-4">
-                                <span className="text-5xl">🏆</span>
+
+                                <img
+                                    src="/logo_gt7.png"
+                                    alt="GT7 ESP Racing Club Logo"
+                                    className="w-16 h-16 object-contain"
+                                    onError={(e) => {
+                                        e.target.style.display = 'none';
+                                    }}
+                                />
                                 IMSA GT7 Racing Club ESP
+                                <span className="text-5xl">🏆</span>
                             </h1>
                             <p className="text-orange-100 text-lg mt-2">Temporada 2025 - Dashboard de Resultados</p>
                         </div>
