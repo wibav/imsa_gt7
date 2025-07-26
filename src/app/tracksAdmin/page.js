@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { FirebaseService } from "../services/firebaseService";
 import ProtectedRoute from "../components/ProtectedRoute";
 import AdminNavigation from "../components/AdminNavigation";
+import Image from "next/image";
 
 export default function TracksAdminPage() {
     const [tracks, setTracks] = useState([]);
@@ -126,7 +127,7 @@ export default function TracksAdminPage() {
                                 {/* Vista previa de la imagen */}
                                 <div className="relative h-40 bg-gradient-to-br from-gray-800 to-gray-900">
                                     {track.layoutImage ? (
-                                        <img
+                                        <Image
                                             src={track.layoutImage}
                                             alt={`Trazado de ${track.name}`}
                                             className="w-full h-full object-contain p-2"
