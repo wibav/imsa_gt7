@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { FirebaseService } from "../services/firebaseService";
 import { useAuth } from '../context/AuthContext';
+import Image from "next/image";
 
 const categoryColors = {
     'Gr1': 'from-red-600 to-red-800',
@@ -244,7 +245,7 @@ export default function Dashboard() {
                         <div>
                             <h1 className="text-4xl font-bold text-white flex items-center gap-4">
 
-                                <img
+                                <Image
                                     src="/logo_gt7.png"
                                     alt="GT7 ESP Racing Club Logo"
                                     className="w-16 h-16 object-contain"
@@ -574,7 +575,7 @@ export default function Dashboard() {
                                         {/* Imagen del trazado */}
                                         <div className="relative h-48 bg-gradient-to-br from-gray-800 to-gray-900">
                                             {track.layoutImage && !hasImageError ? (
-                                                <img
+                                                <Image
                                                     src={track.layoutImage}
                                                     alt={`Trazado de ${track.name}`}
                                                     className="w-full h-full object-contain p-4"
