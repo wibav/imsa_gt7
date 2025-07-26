@@ -1,0 +1,50 @@
+<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fondo con gradiente -->
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#16213e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f3460;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Fondo -->
+  <rect width="1200" height="630" fill="url(#gradient)"/>
+  
+  <!-- Líneas decorativas -->
+  <line x1="0" y1="100" x2="1200" y2="100" stroke="#e53e3e" stroke-width="3" opacity="0.7"/>
+  <line x1="0" y1="530" x2="1200" y2="530" stroke="#e53e3e" stroke-width="3" opacity="0.7"/>
+  
+  <!-- Título principal -->
+  <text x="600" y="200" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="64" font-weight="bold">
+    IMSA GT7 Racing Club
+  </text>
+  
+  <!-- Subtítulo -->
+  <text x="600" y="250" text-anchor="middle" fill="#e53e3e" font-family="Arial, sans-serif" font-size="32" font-weight="600">
+    España
+  </text>
+  
+  <!-- Descripción -->
+  <text x="600" y="320" text-anchor="middle" fill="#cbd5e0" font-family="Arial, sans-serif" font-size="28">
+    Dashboard de Resultados del Campeonato
+  </text>
+  
+  <!-- Elementos decorativos (círculos) -->
+  <circle cx="150" cy="315" r="40" fill="none" stroke="#e53e3e" stroke-width="3" opacity="0.5"/>
+  <circle cx="1050" cy="315" r="40" fill="none" stroke="#e53e3e" stroke-width="3" opacity="0.5"/>
+  
+  <!-- Iconos de carreras (representación simple) -->
+  <rect x="130" y="295" width="40" height="40" rx="20" fill="#e53e3e" opacity="0.7"/>
+  <rect x="1030" y="295" width="40" height="40" rx="20" fill="#e53e3e" opacity="0.7"/>
+  
+  <!-- Texto inferior -->
+  <text x="600" y="450" text-anchor="middle" fill="#a0aec0" font-family="Arial, sans-serif" font-size="24">
+    Estadísticas • Clasificaciones • Resultados en Tiempo Real
+  </text>
+  
+  <!-- URL del sitio -->
+  <text x="600" y="500" text-anchor="middle" fill="#718096" font-family="Arial, sans-serif" font-size="20">
+    imsa.trenkit.com
+  </text>
+</svg>
