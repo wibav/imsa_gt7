@@ -130,6 +130,8 @@ export default function TracksAdminPage() {
                                         <Image
                                             src={track.layoutImage}
                                             alt={`Trazado de ${track.name}`}
+                                            width={400}
+                                            height={160}
                                             className="w-full h-full object-contain p-2"
                                             onError={(e) => {
                                                 e.target.style.display = 'none';

@@ -244,10 +244,11 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between mb-6">
                         <div>
                             <h1 className="text-4xl font-bold text-white flex items-center gap-4">
-
                                 <Image
                                     src="/logo_gt7.png"
                                     alt="GT7 ESP Racing Club Logo"
+                                    width={64}
+                                    height={64}
                                     className="w-16 h-16 object-contain"
                                     onError={(e) => {
                                         e.target.style.display = 'none';
@@ -578,6 +579,8 @@ export default function Dashboard() {
                                                 <Image
                                                     src={track.layoutImage}
                                                     alt={`Trazado de ${track.name}`}
+                                                    width={400}
+                                                    height={192}
                                                     className="w-full h-full object-contain p-4"
                                                     onError={() => handleImageError(track.id)}
                                                     onLoad={() => handleImageLoad(track.id)}
