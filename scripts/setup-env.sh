@@ -8,7 +8,7 @@ echo "🔧 Configurando variables de entorno en Firebase..."
 # Configurar las variables de entorno en Firebase Functions (si las usas)
 firebase functions:config:set \
   firebase.api_key="AIzaSyAkwr4sH48c2syY_BAfjWaaOTHl4nhqVmo" \
-  firebase.auth_domain="imsa.trenit.com" \
+  firebase.auth_domain="imsa.trenkit.com" \
   firebase.project_id="imsa-bd5b6" \
   firebase.storage_bucket="imsa-bd5b6.firebasestorage.app" \
   firebase.messaging_sender_id="144914068113" \
