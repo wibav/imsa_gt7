@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, initializeFirestore } from "firebase/firestore";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 
@@ -16,7 +16,19 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// Firestore: auto-detect long polling to evitar bloqueos de extensiones/ad-blockers
+// Si estamos en entorno browser usamos initializeFirestore con experimentalAutoDetectLongPolling.
+// Fallback a getFirestore (p.ej. en SSR) para no romper renderizado en el servidor.
+let db;
+if (typeof window !== "undefined") {
+    db = initializeFirestore(app, {
+        experimentalAutoDetectLongPolling: true,
+        useFetchStreams: false // desactiva fetch streaming que suele detonar bloqueos
+    });
+    // console.info("Firestore inicializado con auto-detección de long polling");
+} else {
+    db = getFirestore(app);
+}
 const auth = getAuth(app);
 
 // Initialize Analytics with better error handling
