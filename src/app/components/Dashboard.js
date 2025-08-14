@@ -237,13 +237,13 @@ export default function Dashboard() {
     const progressPercentage = totalRaces > 0 ? (completedRaces / totalRaces) * 100 : 0;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 overflow-x-hidden">
             {/* Header */}
-            <div className="bg-gradient-to-r from-orange-600 via-red-600 to-orange-600 p-8">
-                <div className="max-w-7xl mx-auto">
-                    <div className="flex items-center justify-between mb-6">
+            <div className="bg-gradient-to-r from-orange-600 via-red-600 to-orange-600 px-4 py-6 sm:p-8">
+                <div className="max-w-7xl mx-auto w-full">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
                         <div>
-                            <h1 className="text-4xl font-bold text-white flex items-center gap-4">
+                            <h1 className="text-3xl sm:text-4xl font-bold text-white flex items-center gap-4">
                                 <Image
                                     src="/logo_gt7.png"
                                     alt="GT7 ESP Racing Club Logo"
@@ -255,15 +255,15 @@ export default function Dashboard() {
                                     }}
                                 />
                                 IMSA GT7 Racing Club ESP
-                                <span className="text-5xl">🏆</span>
+                                <span className="text-4xl sm:text-5xl">🏆</span>
                             </h1>
                             <p className="text-orange-100 text-lg mt-2">Temporada 2025 - Dashboard de Resultados</p>
                         </div>
-                        <div className="text-right">
-                            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
+                        <div className="w-full md:w-auto text-left md:text-right">
+                            <div className="bg-white/20 backdrop-blur-sm rounded-xl md:rounded-lg p-4 w-full md:w-auto">
                                 <div className="text-white font-bold text-lg">Progreso del Campeonato</div>
                                 <div className="text-orange-200 text-sm">{completedRaces} de {totalRaces} carreras</div>
-                                <div className="w-48 bg-gray-700 rounded-full h-3 mt-2">
+                                <div className="w-full md:w-64 bg-gray-700 rounded-full h-3 mt-2">
                                     <div
                                         className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-500"
                                         style={{ width: `${progressPercentage}%` }}
@@ -275,10 +275,10 @@ export default function Dashboard() {
                     </div>
 
                     {/* Navigation */}
-                    <div className="flex flex-wrap gap-4">
+                    <div className="flex flex-wrap gap-4 w-full">
                         <button
                             onClick={() => setSelectedView('teams')}
-                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 ${selectedView === 'teams'
+                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 w-full xs:w-auto sm:w-auto ${selectedView === 'teams'
                                 ? 'bg-white text-orange-600 shadow-lg'
                                 : 'bg-white/20 text-white hover:bg-white/30'
                                 }`}
@@ -287,7 +287,7 @@ export default function Dashboard() {
                         </button>
                         <button
                             onClick={() => setSelectedView('drivers')}
-                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 ${selectedView === 'drivers'
+                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 w-full xs:w-auto sm:w-auto ${selectedView === 'drivers'
                                 ? 'bg-white text-orange-600 shadow-lg'
                                 : 'bg-white/20 text-white hover:bg-white/30'
                                 }`}
@@ -296,7 +296,7 @@ export default function Dashboard() {
                         </button>
                         <button
                             onClick={() => setSelectedView('tracks')}
-                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 ${selectedView === 'tracks'
+                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 w-full xs:w-auto sm:w-auto ${selectedView === 'tracks'
                                 ? 'bg-white text-orange-600 shadow-lg'
                                 : 'bg-white/20 text-white hover:bg-white/30'
                                 }`}
@@ -353,18 +353,18 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto p-8">
+            <div className="max-w-7xl mx-auto px-4 py-8 sm:p-8">
                 {selectedView === 'teams' ? (
                     /* Teams View - mantienes el código existente */
                     <div>
-                        <h2 className="text-3xl font-bold text-white mb-8 flex items-center gap-3">
+                        <h2 className="text-2xl sm:text-3xl font-bold text-white mb-8 flex items-center gap-3">
                             🏁 Clasificación de Equipos
                         </h2>
                         <div className="grid gap-6">
                             {getSortedTeams().map((team, position) => (
                                 <div
                                     key={team.id}
-                                    className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-6 hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl"
+                                    className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-6 hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl overflow-hidden"
                                 >
                                     {/* Team Header */}
                                     <div className="flex items-center justify-between mb-6">
@@ -445,7 +445,7 @@ export default function Dashboard() {
                     /* Drivers View - mantienes el código existente */
                     <div>
                         <div className="flex flex-wrap items-center justify-between mb-8">
-                            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+                            <h2 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
                                 👤 Clasificación de Pilotos
                             </h2>
 
@@ -539,7 +539,7 @@ export default function Dashboard() {
                 ) : (
                     /* Tracks View - ACTUALIZADO con funcionalidad de click */
                     <div>
-                        <h2 className="text-3xl font-bold text-white mb-8 flex items-center gap-3">
+                        <h2 className="text-2xl sm:text-3xl font-bold text-white mb-8 flex items-center gap-3">
                             🏁 Calendario de Pistas
                         </h2>
                         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
