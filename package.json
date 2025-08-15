@@ -4,11 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/prepare-og.js && next build && node scripts/inject-meta.js",
     "start": "next start",
     "lint": "next lint",
-    "export": "next export",
-    "build:firebase": "next build && next export",
+    "export": "node scripts/prepare-og.js && next build",
+    "build:firebase": "node scripts/prepare-og.js && next build",
     "deploy": "./scripts/deploy.sh",
     "setup-env": "./scripts/setup-env.sh"
   },
