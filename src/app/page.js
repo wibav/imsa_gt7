@@ -7,7 +7,7 @@ export const metadata = {
   openGraph: {
     title: "Dashboard - GT7 ESP Racing Club",
     description: "Consulta en tiempo real las estadísticas, clasificaciones y resultados del campeonato GT7 ESP Racing Club.",
-    images: ["/og-image.jpg", "/logo_gt7.png"],
+    images: ["/logo_gt7.png"],
   },
 }
 
