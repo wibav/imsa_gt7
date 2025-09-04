@@ -21,6 +21,7 @@ const categoryIcons = {
 export default function Dashboard() {
     const [teams, setTeams] = useState([]);
     const [tracks, setTracks] = useState([]);
+    const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedView, setSelectedView] = useState('teams');
     const [selectedCategory, setSelectedCategory] = useState('all');
@@ -35,13 +36,15 @@ export default function Dashboard() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [teamsResponse, tracksResponse] = await Promise.all([
+            const [teamsResponse, tracksResponse, eventsResponse] = await Promise.all([
                 FirebaseService.getTeams(),
-                FirebaseService.getTracks()
+                FirebaseService.getTracks(),
+                FirebaseService.getEvents().catch(() => [])
             ]);
 
             setTeams(teamsResponse);
             setTracks(tracksResponse);
+            setEvents(eventsResponse || []);
         } catch (error) {
             console.error("Error fetching data:", error);
         } finally {
@@ -49,9 +52,37 @@ export default function Dashboard() {
         }
     };
 
+    // Determinar si una fecha está en la misma semana (lunes-domingo) que hoy
+    const isInCurrentWeek = (isoDate) => {
+        if (!isoDate) return false;
+        const date = new Date(isoDate + "T00:00:00");
+        const now = new Date();
+        // Normalizar a medianoche
+        const startOfWeek = new Date(now);
+        const day = (now.getDay() + 6) % 7; // 0 = lunes
+        startOfWeek.setDate(now.getDate() - day);
+        startOfWeek.setHours(0, 0, 0, 0);
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 7);
+        return date >= startOfWeek && date < endOfWeek;
+    };
+
+    // Obtener el evento activo de la semana, si existe (el primero por fecha)
+    const getActiveEvent = () => {
+        if (!events || events.length === 0) return null;
+        const sorted = [...events].sort((a, b) => new Date(a.date) - new Date(b.date));
+        return sorted.find(ev => isInCurrentWeek(ev.date)) || null;
+    };
+
     // Obtiene las pistas ordenadas por fecha
     const getSortedTracks = () => {
         return tracks.sort((a, b) => new Date(a.date) - new Date(b.date));
+    };
+
+    // Obtiene los eventos ordenados por fecha
+    const getSortedEvents = () => {
+        if (!events || events.length === 0) return [];
+        return [...events].sort((a, b) => new Date(a.date) - new Date(b.date));
     };
 
     // Función helper para obtener puntos de un piloto en una pista específica
@@ -303,6 +334,15 @@ export default function Dashboard() {
                         >
                             🏁 Pistas
                         </button>
+                        <button
+                            onClick={() => setSelectedView('events')}
+                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 w-full xs:w-auto sm:w-auto ${selectedView === 'events'
+                                ? 'bg-white text-orange-600 shadow-lg'
+                                : 'bg-white/20 text-white hover:bg-white/30'
+                                }`}
+                        >
+                            🎉 Eventos
+                        </button>
                         {/* Admin Controls */}
                         {currentUser ? (
                             <div className="flex items-center gap-4 mt-4">
@@ -331,6 +371,12 @@ export default function Dashboard() {
                                         >
                                             🏁 Admin Pistas
                                         </button>
+                                        <button
+                                            onClick={() => window.location.href = '/eventsAdmin'}
+                                            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200"
+                                        >
+                                            🎉 Admin Eventos
+                                        </button>
                                     </>
                                 )}
 
@@ -354,6 +400,87 @@ export default function Dashboard() {
             </div>
 
             <div className="max-w-7xl mx-auto px-4 py-8 sm:p-8">
+                {/* Evento especial de la semana */}
+                {(() => {
+                    const activeEvent = getActiveEvent();
+                    if (!activeEvent) return null;
+                    const participants = activeEvent.participants || [];
+                    return (
+                        <div className="mb-10 bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl overflow-hidden shadow-xl">
+                            <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-red-600 p-4 sm:p-6">
+                                <div className="flex items-center justify-between gap-4 flex-wrap">
+                                    <div>
+                                        <div className="text-white text-sm opacity-90">Evento especial de esta semana</div>
+                                        <h2 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">🎉 {activeEvent.title}</h2>
+                                        <div className="text-orange-100 mt-1 flex flex-wrap items-center gap-2 text-sm">
+                                            <span>📅 {new Date(activeEvent.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+                                            {activeEvent.hour ? <span>• 🕢 {activeEvent.hour}h (Hora España)</span> : null}
+                                            {activeEvent.track ? <span>• 🏁 {activeEvent.track}</span> : null}
+                                        </div>
+                                    </div>
+                                    {activeEvent.banner ? (
+                                        <div className="w-full sm:w-80 h-40 relative rounded-lg overflow-hidden border border-white/30 bg-black/30">
+                                            <Image src={activeEvent.banner} alt={activeEvent.title} fill className="object-contain p-2" />
+                                        </div>
+                                    ) : null}
+                                </div>
+                            </div>
+
+                            {/* Detalles y participantes */}
+                            <div className="p-4 sm:p-6">
+                                {activeEvent.description ? (
+                                    <p className="text-white/90 mb-4">{activeEvent.description}</p>
+                                ) : null}
+
+                                <div className="grid md:grid-cols-2 gap-6">
+                                    {/* Reglas */}
+                                    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                                        <div className="text-white font-semibold mb-3">Reglamento</div>
+                                        <ul className="text-sm text-gray-200 space-y-1">
+                                            {activeEvent?.rules?.duration && <li>• Carrera: {activeEvent.rules.duration}</li>}
+                                            {activeEvent?.rules?.bop && <li>• BOP: {activeEvent.rules.bop}</li>}
+                                            {activeEvent?.rules?.adjustments && <li>• Ajustes: {activeEvent.rules.adjustments}</li>}
+                                            {activeEvent?.rules?.damage && <li>• Daños: {activeEvent.rules.damage}</li>}
+                                            {activeEvent?.rules?.engineSwap && <li>• Swap de motor: {activeEvent.rules.engineSwap}</li>}
+                                            {activeEvent?.rules?.penalties && <li>• Penalizaciones: {activeEvent.rules.penalties}</li>}
+                                            {/* Compatibilidad antigua */}
+                                            {activeEvent?.rules?.wear && <li>• Desgaste y consumo: {activeEvent.rules.wear}</li>}
+                                            {/* Nuevas reglas */}
+                                            {typeof activeEvent?.rules?.tyreWear === 'number' && <li>• Desgaste de neumáticos: x{activeEvent.rules.tyreWear}</li>}
+                                            {typeof activeEvent?.rules?.fuelWear === 'number' && <li>• Desgaste de combustible: x{activeEvent.rules.fuelWear}</li>}
+                                            {typeof activeEvent?.rules?.fuelWear === 'number' && activeEvent.rules.fuelWear > 0 && typeof activeEvent?.rules?.fuelRefillRate === 'number' && (
+                                                <li>• Velocidad de recarga de combustible: {activeEvent.rules.fuelRefillRate} L/s</li>
+                                            )}
+                                            {activeEvent?.rules?.mandatoryTyre && <li>• Neumático obligatorio: {activeEvent.rules.mandatoryTyre}</li>}
+                                        </ul>
+                                    </div>
+
+                                    {/* Participantes */}
+                                    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="text-white font-semibold">Participantes ({participants.length}/{activeEvent.maxParticipants || 16})</div>
+                                        </div>
+                                        {participants.length === 0 ? (
+                                            <div className="text-gray-300 text-sm">Aún no hay inscritos.</div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                {participants.slice(0, activeEvent.maxParticipants || 16).map((p, idx) => (
+                                                    <div key={p.id || idx} className="bg-white/10 rounded px-3 py-2 text-white flex items-center gap-2">
+                                                        <div className="w-6 h-6 rounded-full bg-orange-600/70 text-xs flex items-center justify-center">{idx + 1}</div>
+                                                        <div className="flex-1">
+                                                            <div className="font-semibold text-sm">{p.name}</div>
+                                                            {p.team ? <div className="text-xs text-gray-300">{p.team}</div> : null}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
                 {selectedView === 'teams' ? (
                     /* Teams View - mantienes el código existente */
                     <div>
@@ -535,6 +662,92 @@ export default function Dashboard() {
                                 </div>
                             ))}
                         </div>
+                    </div>
+                ) : selectedView === 'events' ? (
+                    /* Events View - lista todos los eventos */
+                    <div>
+                        <h2 className="text-2xl sm:text-3xl font-bold text-white mb-8 flex items-center gap-3">
+                            🎉 Todos los Eventos
+                        </h2>
+                        {getSortedEvents().length === 0 ? (
+                            <div className="text-gray-300">No hay eventos disponibles.</div>
+                        ) : (
+                            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                {getSortedEvents().map((ev, idx) => {
+                                    const participants = ev.participants || [];
+                                    return (
+                                        <div key={ev.id ?? idx} className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg overflow-hidden hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl">
+                                            {/* Banner */}
+                                            <div className="relative h-40 bg-gradient-to-br from-gray-800 to-gray-900">
+                                                {ev.banner ? (
+                                                    <Image src={ev.banner} alt={ev.title || `Evento ${ev.id}`} fill className="object-contain p-2" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-5xl">🏁</div>
+                                                )}
+                                                <div className="absolute top-2 left-2 bg-orange-600 text-white px-2 py-1 rounded-full text-sm font-bold">#{ev.id || idx + 1}</div>
+                                            </div>
+
+                                            <div className="p-6 space-y-4">
+                                                <div>
+                                                    <h3 className="text-xl font-bold text-white">{ev.title || 'Evento sin título'}</h3>
+                                                    <div className="text-orange-200 text-sm mt-1 flex flex-wrap items-center gap-2">
+                                                        {ev.date && (
+                                                            <span>📅 {new Date(ev.date).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                                        )}
+                                                        {ev.hour && <span>• 🕢 {ev.hour}h</span>}
+                                                        {ev.track && <span>• 🏁 {ev.track}</span>}
+                                                    </div>
+                                                </div>
+
+                                                {ev.description && (
+                                                    <p className="text-white/90 text-sm">{ev.description}</p>
+                                                )}
+
+                                                {/* Reglas */}
+                                                <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                                                    <div className="text-white font-semibold mb-2">Reglamento</div>
+                                                    <ul className="text-xs text-gray-200 space-y-1">
+                                                        {ev?.rules?.duration && <li>• Carrera: {ev.rules.duration}</li>}
+                                                        {ev?.rules?.bop && <li>• BOP: {ev.rules.bop}</li>}
+                                                        {ev?.rules?.adjustments && <li>• Ajustes: {ev.rules.adjustments}</li>}
+                                                        {ev?.rules?.damage && <li>• Daños: {ev.rules.damage}</li>}
+                                                        {ev?.rules?.engineSwap && <li>• Swap de motor: {ev.rules.engineSwap}</li>}
+                                                        {ev?.rules?.penalties && <li>• Penalizaciones: {ev.rules.penalties}</li>}
+                                                        {ev?.rules?.wear && <li>• Desgaste y consumo: {ev.rules.wear}</li>}
+                                                        {typeof ev?.rules?.tyreWear === 'number' && <li>• Desgaste de neumáticos: x{ev.rules.tyreWear}</li>}
+                                                        {typeof ev?.rules?.fuelWear === 'number' && <li>• Desgaste de combustible: x{ev.rules.fuelWear}</li>}
+                                                        {typeof ev?.rules?.fuelWear === 'number' && ev.rules.fuelWear > 0 && typeof ev?.rules?.fuelRefillRate === 'number' && (
+                                                            <li>• Velocidad de recarga de combustible: {ev.rules.fuelRefillRate} L/s</li>
+                                                        )}
+                                                        {ev?.rules?.mandatoryTyre && <li>• Neumático obligatorio: {ev.rules.mandatoryTyre}</li>}
+                                                    </ul>
+                                                </div>
+
+                                                {/* Participantes */}
+                                                <div>
+                                                    <div className="text-green-300 font-semibold mb-2 text-sm">Participantes ({participants.length}/{ev.maxParticipants || 16})</div>
+                                                    {participants.length === 0 ? (
+                                                        <div className="text-gray-300 text-xs">Aún no hay inscritos.</div>
+                                                    ) : (
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                                                            {participants.map((p, pIdx) => (
+                                                                <div key={p.id || pIdx} className="bg-white/10 rounded px-3 py-2 text-white flex items-center gap-2">
+                                                                    <div className="w-6 h-6 rounded-full bg-orange-600/70 text-xs flex items-center justify-center">{pIdx + 1}</div>
+                                                                    <div className="flex-1">
+                                                                        <div className="font-semibold text-sm">{p.name}</div>
+                                                                        {p.team ? <div className="text-xs text-gray-300">{p.team}</div> : null}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 ) : (
                     /* Tracks View - ACTUALIZADO con funcionalidad de click */
