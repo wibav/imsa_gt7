@@ -211,72 +211,72 @@ export default function TeamsAdminPage() {
     const [selectedTrackId, setSelectedTrackId] = useState(null);
 
     useEffect(() => {
-        fetchData();
-    }, []);
+        const fetchData = async () => {
+            try {
+                setLoading(true);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
+                // Usar el servicio de Firebase directamente
+                const [fetchedTeams, fetchedTracks] = await Promise.all([
+                    FirebaseService.getTeams(),
+                    FirebaseService.getTracks()
+                ]);
 
-            // Usar el servicio de Firebase directamente
-            const [fetchedTeams, fetchedTracks] = await Promise.all([
-                FirebaseService.getTeams(),
-                FirebaseService.getTracks()
-            ]);
+                // Si no hay datos en Firebase, usar datos iniciales
+                const teamsToUse = fetchedTeams.length > 0 ? fetchedTeams : initialTeams;
+                const tracksToUse = fetchedTracks.length > 0 ? fetchedTracks : [];
 
-            // Si no hay datos en Firebase, usar datos iniciales
-            const teamsToUse = fetchedTeams.length > 0 ? fetchedTeams : initialTeams;
-            const tracksToUse = fetchedTracks.length > 0 ? fetchedTracks : [];
+                // Migrar datos antiguos (array) a nueva estructura (objeto con IDs)
+                const updatedTeams = teamsToUse.map(team => ({
+                    ...team,
+                    drivers: team.drivers.map(driver => {
+                        let points = {};
 
-            // Migrar datos antiguos (array) a nueva estructura (objeto con IDs)
-            const updatedTeams = teamsToUse.map(team => ({
-                ...team,
-                drivers: team.drivers.map(driver => {
-                    let points = {};
+                        if (Array.isArray(driver.points)) {
+                            // Migrar de array a objeto con IDs
+                            driver.points.forEach((point, index) => {
+                                const trackId = tracksToUse[index]?.id;
+                                if (trackId) {
+                                    points[trackId.toString()] = point || 0;
+                                }
+                            });
+                        } else if (typeof driver.points === 'object') {
+                            // Ya está en el formato correcto
+                            points = { ...driver.points };
+                        }
 
-                    if (Array.isArray(driver.points)) {
-                        // Migrar de array a objeto con IDs
-                        driver.points.forEach((point, index) => {
-                            const trackId = tracksToUse[index]?.id;
-                            if (trackId) {
-                                points[trackId.toString()] = point || 0;
+                        // Asegurar que todos los tracks tengan entrada
+                        tracksToUse.forEach(track => {
+                            if (!points.hasOwnProperty(track.id.toString())) {
+                                points[track.id.toString()] = 0;
                             }
                         });
-                    } else if (typeof driver.points === 'object') {
-                        // Ya está en el formato correcto
-                        points = { ...driver.points };
-                    }
 
-                    // Asegurar que todos los tracks tengan entrada
-                    tracksToUse.forEach(track => {
-                        if (!points.hasOwnProperty(track.id.toString())) {
-                            points[track.id.toString()] = 0;
-                        }
-                    });
+                        return {
+                            ...driver,
+                            points: points
+                        };
+                    })
+                }));
 
-                    return {
-                        ...driver,
-                        points: points
-                    };
-                })
-            }));
+                setTeams(updatedTeams);
+                setTracks(tracksToUse);
 
-            setTeams(updatedTeams);
-            setTracks(tracksToUse);
+                // Auto-seleccionar la próxima carrera a completar
+                const nextTrackId = findNextRaceToComplete(tracksToUse, updatedTeams);
+                setSelectedTrackId(nextTrackId);
 
-            // Auto-seleccionar la próxima carrera a completar
-            const nextTrackId = findNextRaceToComplete(tracksToUse, updatedTeams);
-            setSelectedTrackId(nextTrackId);
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                // En caso de error, usar datos iniciales
+                setTeams(initialTeams);
+                setTracks([]);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-        } catch (error) {
-            console.error("Error fetching data:", error);
-            // En caso de error, usar datos iniciales
-            setTeams(initialTeams);
-            setTracks([]);
-        } finally {
-            setLoading(false);
-        }
-    };
+        fetchData();
+    }, []);
 
     // Encuentra la próxima carrera que necesita puntos
     const findNextRaceToComplete = (tracks, teams) => {
