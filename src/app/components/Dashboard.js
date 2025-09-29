@@ -405,6 +405,7 @@ export default function Dashboard() {
                     const activeEvent = getActiveEvent();
                     if (!activeEvent) return null;
                     const participants = activeEvent.participants || [];
+                    if (selectedView !== 'teams') return (null);
                     return (
                         <div className="mb-10 bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl overflow-hidden shadow-xl">
                             <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-red-600 p-4 sm:p-6">
