@@ -1,9 +1,12 @@
 import React, { memo } from 'react';
-import { CATEGORY_COLORS, CATEGORY_ICONS } from '../../constants/categories';
 
 const TeamsView = memo(({
-    teams,
-    completedRaces
+    sortedTeams,
+    sortedTracks,
+    getDriverPointsForTrack,
+    calculateDriverTotal,
+    CATEGORY_COLORS,
+    CATEGORY_ICONS
 }) => {
     return (
         <div>
@@ -11,7 +14,7 @@ const TeamsView = memo(({
                 🏁 Clasificación de Equipos
             </h2>
             <div className="grid gap-6">
-                {teams && teams.length > 0 ? teams.map((team, position) => (
+                {sortedTeams.map((team, position) => (
                     <div
                         key={team.id}
                         className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-6 hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl overflow-hidden"
@@ -44,16 +47,6 @@ const TeamsView = memo(({
                         {/* Drivers Grid */}
                         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
                             {team.drivers && team.drivers.map((driver, idx) => {
-                                const calculateDriverTotal = (points) => {
-                                    if (!points) return 0;
-                                    if (typeof points === 'object' && !Array.isArray(points)) {
-                                        return Object.values(points).reduce((sum, point) => sum + (parseInt(point) || 0), 0);
-                                    }
-                                    if (Array.isArray(points)) {
-                                        return points.reduce((sum, point) => sum + (parseInt(point) || 0), 0);
-                                    }
-                                    return 0;
-                                };
                                 const driverTotal = calculateDriverTotal(driver.points);
                                 return (
                                     <div
@@ -96,13 +89,7 @@ const TeamsView = memo(({
                             })}
                         </div>
                     </div>
-                )) : (
-                    <div className="text-center py-8">
-                        <div className="text-gray-400 text-lg">
-                            No hay equipos disponibles
-                        </div>
-                    </div>
-                )}
+                ))}
             </div>
         </div>
     );

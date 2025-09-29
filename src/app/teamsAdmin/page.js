@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { FirebaseService } from "../services/firebaseService";
 import ProtectedRoute from "../components/ProtectedRoute";
 import AdminNavigation from "../components/AdminNavigation";
@@ -212,9 +212,9 @@ export default function TeamsAdminPage() {
 
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+    }, []);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = async () => {
         try {
             setLoading(true);
 
@@ -276,7 +276,7 @@ export default function TeamsAdminPage() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    };
 
     // Encuentra la próxima carrera que necesita puntos
     const findNextRaceToComplete = (tracks, teams) => {
