@@ -1,11 +1,13 @@
 import React, { memo } from 'react';
-import { CATEGORY_COLORS, CATEGORY_ICONS } from '../../constants/categories';
 
 const DriversView = memo(({
-    drivers,
+    filteredDrivers,
     selectedCategory,
-    onCategoryChange,
-    completedRaces
+    setSelectedCategory,
+    sortedTracks,
+    getDriverPointsForTrack,
+    CATEGORY_COLORS,
+    CATEGORY_ICONS
 }) => {
     return (
         <div>
@@ -17,7 +19,7 @@ const DriversView = memo(({
                 {/* Category Filter */}
                 <div className="flex flex-wrap gap-2">
                     <button
-                        onClick={() => onCategoryChange('all')}
+                        onClick={() => setSelectedCategory('all')}
                         className={`px-4 py-2 rounded-lg font-bold transition-all duration-200 ${selectedCategory === 'all'
                             ? 'bg-white text-gray-800'
                             : 'bg-white/20 text-white hover:bg-white/30'
@@ -28,7 +30,7 @@ const DriversView = memo(({
                     {Object.keys(CATEGORY_COLORS).map(category => (
                         <button
                             key={category}
-                            onClick={() => onCategoryChange(category)}
+                            onClick={() => setSelectedCategory(category)}
                             className={`px-4 py-2 rounded-lg font-bold transition-all duration-200 flex items-center gap-2 ${selectedCategory === category
                                 ? 'bg-white text-gray-800'
                                 : 'bg-white/20 text-white hover:bg-white/30'
@@ -42,7 +44,7 @@ const DriversView = memo(({
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {drivers && drivers.length > 0 ? drivers.map((driver, position) => (
+                {filteredDrivers.map((driver, position) => (
                     <div
                         key={`${driver.teamName}-${driver.name}`}
                         className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-6 hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl"
@@ -98,13 +100,7 @@ const DriversView = memo(({
                             </div>
                         </div>
                     </div>
-                )) : (
-                    <div className="text-center py-8">
-                        <div className="text-gray-400 text-lg">
-                            No hay pilotos disponibles
-                        </div>
-                    </div>
-                )}
+                ))}
             </div>
         </div>
     );
