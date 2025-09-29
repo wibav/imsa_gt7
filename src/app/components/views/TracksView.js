@@ -2,142 +2,144 @@ import React, { memo } from 'react';
 import Image from 'next/image';
 
 const TracksView = memo(({
-    sortedTracks,
-    showTrackResults,
-    getTrackStatus,
-    handleImageError,
-    handleImageLoad,
-    imageErrors
+    tracks,
+    events,
+    completedRaces,
+    activeEvent,
+    progressPercentage,
+    onShowTrackResults,
+    onImageError,
+    onImageLoad
 }) => {
     return (
-        <div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-8 flex items-center gap-3">
-                🏁 Calendario de Pistas
-            </h2>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {sortedTracks.map((track, index) => {
-                    const status = getTrackStatus(track.date);
-                    const hasImageError = imageErrors[track.id];
-                    let statusColor = '';
-                    let statusText = '';
-                    let statusIcon = '';
+        <div className="space-y-6">
+            <div className="text-center mb-8">
+                <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-6 inline-block">
+                    <h3 className="text-2xl font-bold text-white mb-2 flex items-center gap-2 justify-center">
+                        <span>🏁</span>
+                        Calendario de Carreras 2024
+                    </h3>
+                    <div className="text-gray-300">
+                        <span>Progreso: </span>
+                        <span className="font-bold text-yellow-400">{progressPercentage?.toFixed(1) || 0}%</span>
+                        <span> completado</span>
+                    </div>
+                    
+                    {/* Progress Bar */}
+                    <div className="w-full bg-gray-700 rounded-full h-2 mt-3">
+                        <div 
+                            className="bg-gradient-to-r from-green-500 to-blue-500 h-2 rounded-full transition-all duration-500"
+                            style={{ width: `${progressPercentage || 0}%` }}
+                        ></div>
+                    </div>
+                </div>
+            </div>
 
-                    switch (status) {
-                        case 'completed':
-                            statusColor = 'bg-green-600';
-                            statusText = 'Completada';
-                            statusIcon = '✅';
-                            break;
-                        case 'today':
-                            statusColor = 'bg-orange-600';
-                            statusText = 'Hoy';
-                            statusIcon = '🔥';
-                            break;
-                        case 'upcoming':
-                            statusColor = 'bg-blue-600';
-                            statusText = 'Próxima';
-                            statusIcon = '⏳';
-                            break;
-                        default:
-                            statusColor = 'bg-gray-600';
-                            statusText = 'Desconocido';
-                            statusIcon = '❓';
-                    }
-
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {tracks && tracks.length > 0 ? tracks.map((track) => {
+                    const raceEvent = events?.find(e => e.trackId === track.id);
+                    const status = track.id <= completedRaces ? 'completed' : 
+                                  activeEvent && activeEvent.trackId === track.id ? 'current' : 'upcoming';
+                    
                     return (
-                        <div
-                            key={track.id}
-                            className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg overflow-hidden hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl cursor-pointer"
-                            onClick={() => status === 'completed' && showTrackResults(track)}
-                        >
-                            {/* Track Image */}
-                            <div className="relative h-48 bg-gradient-to-br from-gray-800 to-gray-900">
-                                {track.image && !hasImageError ? (
+                        <div key={track.id} className={`bg-white/10 backdrop-blur-sm border rounded-lg p-6 hover:bg-white/15 transition-all duration-200 ${
+                            status === 'completed' ? 'border-green-500/50' :
+                            status === 'current' ? 'border-yellow-500/50' :
+                            'border-white/30'
+                        }`}>
+                            <div className="relative">
+                                {/* Status Badge */}
+                                <div className={`absolute -top-2 -right-2 px-3 py-1 rounded-full text-xs font-bold z-10 ${
+                                    status === 'completed' ? 'bg-green-600 text-white' :
+                                    status === 'current' ? 'bg-yellow-600 text-white' :
+                                    'bg-blue-600 text-white'
+                                }`}>
+                                    {status === 'completed' ? '✅ Completada' :
+                                     status === 'current' ? '⚡ Activa' :
+                                     '⏳ Próxima'}
+                                </div>
+
+                                {/* Track Image */}
+                                <div className="relative mb-4 overflow-hidden rounded-lg">
                                     <Image
                                         src={track.image}
                                         alt={track.name}
-                                        fill
-                                        className="object-cover"
-                                        onError={() => handleImageError(track.id)}
-                                        onLoad={() => handleImageLoad(track.id)}
+                                        width={400}
+                                        height={200}
+                                        className="w-full h-32 object-cover transition-transform duration-300 hover:scale-105"
+                                        onError={() => onImageError && onImageError(track.id)}
+                                        onLoad={() => onImageLoad && onImageLoad(track.id)}
                                     />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-6xl">
-                                        🏁
-                                    </div>
-                                )}
-
-                                {/* Status Badge */}
-                                <div className={`absolute top-4 left-4 ${statusColor} text-white px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2`}>
-                                    <span>{statusIcon}</span>
-                                    {statusText}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                                 </div>
 
-                                {/* Track Number */}
-                                <div className="absolute top-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm font-bold">
-                                    #{index + 1}
-                                </div>
-                            </div>
-
-                            {/* Track Info */}
-                            <div className="p-6">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-xl font-bold text-white">{track.name}</h3>
-                                    {status === 'completed' && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                showTrackResults(track);
-                                            }}
-                                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm font-bold transition-colors"
-                                        >
-                                            Ver Resultados
-                                        </button>
-                                    )}
-                                </div>
-
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex items-center gap-2 text-gray-300">
-                                        <span>📅</span>
-                                        <span>{new Date(track.date).toLocaleDateString('es-ES', {
-                                            weekday: 'long',
-                                            year: 'numeric',
-                                            month: 'long',
-                                            day: 'numeric'
-                                        })}</span>
-                                    </div>
-
-                                    {track.location && (
-                                        <div className="flex items-center gap-2 text-gray-300">
-                                            <span>📍</span>
+                                {/* Track Info */}
+                                <div className="space-y-3">
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white mb-1">{track.name}</h3>
+                                        <div className="flex items-center gap-2 text-gray-300 text-sm">
+                                            <span>🌍</span>
                                             <span>{track.location}</span>
                                         </div>
-                                    )}
+                                    </div>
 
-                                    {track.length && (
-                                        <div className="flex items-center gap-2 text-gray-300">
-                                            <span>📏</span>
-                                            <span>{track.length}</span>
+                                    {/* Race Date */}
+                                    {raceEvent && (
+                                        <div className="flex items-center gap-2 text-gray-300 text-sm">
+                                            <span>📅</span>
+                                            <span>{new Date(raceEvent.date).toLocaleDateString('es-ES')}</span>
                                         </div>
                                     )}
 
-                                    {track.description && (
-                                        <p className="text-gray-400 text-xs mt-3">{track.description}</p>
-                                    )}
-                                </div>
-
-                                {/* Click hint for completed races */}
-                                {status === 'completed' && (
-                                    <div className="mt-4 text-center">
-                                        <span className="text-green-400 text-xs">
-                                            💡 Haz click para ver resultados
-                                        </span>
+                                    {/* Track Details */}
+                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                        <div className="bg-black/20 rounded p-2 text-center">
+                                            <div className="text-gray-300">Distancia</div>
+                                            <div className="text-white font-bold">{track.length}km</div>
+                                        </div>
+                                        <div className="bg-black/20 rounded p-2 text-center">
+                                            <div className="text-gray-300">Carrera</div>
+                                            <span className="text-orange-400 font-bold">#{track.id}</span>
+                                        </div>
                                     </div>
-                                )}
+
+                                    {/* Progress Indicator */}
+                                    <div className="pt-4 border-t border-white/20">
+                                        <div className="text-center">
+                                            {status === 'completed' && (
+                                                <button
+                                                    onClick={() => onShowTrackResults && onShowTrackResults(track)}
+                                                    className="w-full text-green-400 font-semibold text-sm hover:text-green-300 transition-all duration-200 cursor-pointer bg-green-600/20 px-3 py-3 rounded-lg hover:bg-green-600/30 flex items-center justify-center gap-2"
+                                                >
+                                                    <span>🏆</span>
+                                                    <span>Ver Resultados</span>
+                                                </button>
+                                            )}
+                                            {status === 'current' && (
+                                                <div className="w-full text-yellow-400 font-semibold text-sm bg-yellow-600/20 px-3 py-3 rounded-lg flex items-center justify-center gap-2">
+                                                    <span>⚡</span>
+                                                    <span>Carrera Activa</span>
+                                                </div>
+                                            )}
+                                            {status === 'upcoming' && (
+                                                <div className="w-full text-blue-400 font-semibold text-sm bg-blue-600/20 px-3 py-3 rounded-lg flex items-center justify-center gap-2">
+                                                    <span>⏳</span>
+                                                    <span>Próxima Carrera</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     );
-                })}
+                }) : (
+                    <div className="text-center py-8">
+                        <div className="text-gray-400 text-lg">
+                            No hay pistas disponibles
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

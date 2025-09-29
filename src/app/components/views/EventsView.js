@@ -1,17 +1,17 @@
 import React, { memo } from 'react';
 import Image from 'next/image';
 
-const EventsView = memo(({ sortedEvents }) => {
+const EventsView = memo(({ events, tracks }) => {
     return (
         <div>
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-8 flex items-center gap-3">
                 🎉 Todos los Eventos
             </h2>
-            {sortedEvents.length === 0 ? (
+            {!events || events.length === 0 ? (
                 <div className="text-gray-300">No hay eventos disponibles.</div>
             ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {sortedEvents.map((ev, idx) => {
+                    {events.map((ev, idx) => {
                         const participants = ev.participants || [];
                         return (
                             <div key={ev.id ?? idx} className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg overflow-hidden hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl">

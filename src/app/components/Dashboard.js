@@ -80,7 +80,7 @@ export default function Dashboard() {
     }, [events]);
 
     // Función helper para obtener puntos de un piloto en una pista específica
-    const getDriverPointsForTrack = (driver, track) => {
+    const getDriverPointsForTrack = useCallback((driver, track) => {
         if (!driver.points || !track) return 0;
 
         if (typeof driver.points === 'object' && !Array.isArray(driver.points)) {
@@ -98,7 +98,7 @@ export default function Dashboard() {
         }
 
         return 0;
-    };
+    }, [sortedTracks]);
 
     // Obtiene los resultados de una carrera específica
     const getTrackResults = (track) => {
@@ -136,10 +136,10 @@ export default function Dashboard() {
     };
 
     // Calcula el total de puntos de un equipo
-    const calculateTeamTotal = (drivers) => {
+    const calculateTeamTotal = useCallback((drivers) => {
         if (!drivers || !Array.isArray(drivers)) return 0;
         return drivers.reduce((sum, driver) => sum + calculateDriverTotal(driver.points), 0);
-    };
+    }, []);
 
     // Obtiene todos los pilotos con sus totales
     const allDrivers = useMemo(() => {
@@ -171,7 +171,7 @@ export default function Dashboard() {
                 total: calculateTeamTotal(team.drivers)
             }))
             .sort((a, b) => b.total - a.total);
-    }, [teams]);
+    }, [teams, calculateTeamTotal]);
 
     // Obtiene las carreras completadas
     const completedRaces = useMemo(() => {
@@ -185,7 +185,7 @@ export default function Dashboard() {
             if (hasResults) completedCount++;
         }
         return completedCount;
-    }, [teams, sortedTracks]);
+    }, [teams, tracks.length, sortedTracks, getDriverPointsForTrack]);
 
     // Función para mostrar resultados de una carrera
     const showTrackResults = useCallback((track) => {
