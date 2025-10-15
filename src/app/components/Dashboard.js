@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { FirebaseService } from "../services/firebaseService";
 import { useAuth } from '../context/AuthContext';
 import Image from "next/image";
+import { BannerAd, RectangleAd } from './ads';
 
 const categoryColors = {
     'Gr1': 'from-red-600 to-red-800',
@@ -305,6 +306,11 @@ export default function Dashboard() {
                         </div>
                     </div>
 
+                    {/* Ad Banner */}
+                    <div className="mt-6 mb-4 flex justify-center">
+                        <BannerAd className="max-w-4xl w-full" />
+                    </div>
+
                     {/* Navigation */}
                     <div className="flex flex-wrap gap-4 w-full">
                         <button
@@ -400,514 +406,538 @@ export default function Dashboard() {
             </div>
 
             <div className="max-w-7xl mx-auto px-4 py-8 sm:p-8">
-                {/* Evento especial de la semana */}
-                {(() => {
-                    const activeEvent = getActiveEvent();
-                    if (!activeEvent) return null;
-                    const participants = activeEvent.participants || [];
-                    if (selectedView !== 'teams') return (null);
-                    return (
-                        <div className="mb-10 bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl overflow-hidden shadow-xl">
-                            <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-red-600 p-4 sm:p-6">
-                                <div className="flex items-center justify-between gap-4 flex-wrap">
-                                    <div>
-                                        <div className="text-white text-sm opacity-90">Evento especial de esta semana</div>
-                                        <h2 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">🎉 {activeEvent.title}</h2>
-                                        <div className="text-orange-100 mt-1 flex flex-wrap items-center gap-2 text-sm">
-                                            <span>📅 {new Date(activeEvent.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
-                                            {activeEvent.hour ? <span>• 🕢 {activeEvent.hour}h (Hora España)</span> : null}
-                                            {activeEvent.track ? <span>• 🏁 {activeEvent.track}</span> : null}
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    {/* Main Content */}
+                    <div className="lg:col-span-3">
+                        {/* Evento especial de la semana */}
+                        {(() => {
+                            const activeEvent = getActiveEvent();
+                            if (!activeEvent) return null;
+                            const participants = activeEvent.participants || [];
+                            if (selectedView !== 'teams') return (null);
+                            return (
+                                <div className="mb-10 bg-white/10 backdrop-blur-sm border border-white/30 rounded-xl overflow-hidden shadow-xl">
+                                    <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-red-600 p-4 sm:p-6">
+                                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                                            <div>
+                                                <div className="text-white text-sm opacity-90">Evento especial de esta semana</div>
+                                                <h2 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">🎉 {activeEvent.title}</h2>
+                                                <div className="text-orange-100 mt-1 flex flex-wrap items-center gap-2 text-sm">
+                                                    <span>📅 {new Date(activeEvent.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+                                                    {activeEvent.hour ? <span>• 🕢 {activeEvent.hour}h (Hora España)</span> : null}
+                                                    {activeEvent.track ? <span>• 🏁 {activeEvent.track}</span> : null}
+                                                </div>
+                                            </div>
+                                            {activeEvent.banner ? (
+                                                <div className="w-full sm:w-80 h-40 relative rounded-lg overflow-hidden border border-white/30 bg-black/30">
+                                                    <Image src={activeEvent.banner} alt={activeEvent.title} fill className="object-contain p-2" />
+                                                </div>
+                                            ) : null}
                                         </div>
                                     </div>
-                                    {activeEvent.banner ? (
-                                        <div className="w-full sm:w-80 h-40 relative rounded-lg overflow-hidden border border-white/30 bg-black/30">
-                                            <Image src={activeEvent.banner} alt={activeEvent.title} fill className="object-contain p-2" />
+
+                                    {/* Detalles y participantes */}
+                                    <div className="p-4 sm:p-6">
+                                        {activeEvent.description ? (
+                                            <p className="text-white/90 mb-4">{activeEvent.description}</p>
+                                        ) : null}
+
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            {/* Reglas */}
+                                            <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                                                <div className="text-white font-semibold mb-3">Reglamento</div>
+                                                <ul className="text-sm text-gray-200 space-y-1">
+                                                    {activeEvent?.rules?.duration && <li>• Carrera: {activeEvent.rules.duration}</li>}
+                                                    {activeEvent?.rules?.bop && <li>• BOP: {activeEvent.rules.bop}</li>}
+                                                    {activeEvent?.rules?.adjustments && <li>• Ajustes: {activeEvent.rules.adjustments}</li>}
+                                                    {activeEvent?.rules?.damage && <li>• Daños: {activeEvent.rules.damage}</li>}
+                                                    {activeEvent?.rules?.engineSwap && <li>• Swap de motor: {activeEvent.rules.engineSwap}</li>}
+                                                    {activeEvent?.rules?.penalties && <li>• Penalizaciones: {activeEvent.rules.penalties}</li>}
+                                                    {/* Compatibilidad antigua */}
+                                                    {activeEvent?.rules?.wear && <li>• Desgaste y consumo: {activeEvent.rules.wear}</li>}
+                                                    {/* Nuevas reglas */}
+                                                    {typeof activeEvent?.rules?.tyreWear === 'number' && <li>• Desgaste de neumáticos: x{activeEvent.rules.tyreWear}</li>}
+                                                    {typeof activeEvent?.rules?.fuelWear === 'number' && <li>• Desgaste de combustible: x{activeEvent.rules.fuelWear}</li>}
+                                                    {typeof activeEvent?.rules?.fuelWear === 'number' && activeEvent.rules.fuelWear > 0 && typeof activeEvent?.rules?.fuelRefillRate === 'number' && (
+                                                        <li>• Velocidad de recarga de combustible: {activeEvent.rules.fuelRefillRate} L/s</li>
+                                                    )}
+                                                    {activeEvent?.rules?.mandatoryTyre && <li>• Neumático obligatorio: {activeEvent.rules.mandatoryTyre}</li>}
+                                                </ul>
+                                            </div>
+
+                                            {/* Participantes */}
+                                            <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="text-white font-semibold">Participantes ({participants.length}/{activeEvent.maxParticipants || 16})</div>
+                                                </div>
+                                                {participants.length === 0 ? (
+                                                    <div className="text-gray-300 text-sm">Aún no hay inscritos.</div>
+                                                ) : (
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                        {participants.slice(0, activeEvent.maxParticipants || 16).map((p, idx) => (
+                                                            <div key={p.id || idx} className="bg-white/10 rounded px-3 py-2 text-white flex items-center gap-2">
+                                                                <div className="w-6 h-6 rounded-full bg-orange-600/70 text-xs flex items-center justify-center">{idx + 1}</div>
+                                                                <div className="flex-1">
+                                                                    <div className="font-semibold text-sm">{p.name}</div>
+                                                                    {p.team ? <div className="text-xs text-gray-300">{p.team}</div> : null}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                    ) : null}
+                                    </div>
                                 </div>
-                            </div>
-
-                            {/* Detalles y participantes */}
-                            <div className="p-4 sm:p-6">
-                                {activeEvent.description ? (
-                                    <p className="text-white/90 mb-4">{activeEvent.description}</p>
-                                ) : null}
-
-                                <div className="grid md:grid-cols-2 gap-6">
-                                    {/* Reglas */}
-                                    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                                        <div className="text-white font-semibold mb-3">Reglamento</div>
-                                        <ul className="text-sm text-gray-200 space-y-1">
-                                            {activeEvent?.rules?.duration && <li>• Carrera: {activeEvent.rules.duration}</li>}
-                                            {activeEvent?.rules?.bop && <li>• BOP: {activeEvent.rules.bop}</li>}
-                                            {activeEvent?.rules?.adjustments && <li>• Ajustes: {activeEvent.rules.adjustments}</li>}
-                                            {activeEvent?.rules?.damage && <li>• Daños: {activeEvent.rules.damage}</li>}
-                                            {activeEvent?.rules?.engineSwap && <li>• Swap de motor: {activeEvent.rules.engineSwap}</li>}
-                                            {activeEvent?.rules?.penalties && <li>• Penalizaciones: {activeEvent.rules.penalties}</li>}
-                                            {/* Compatibilidad antigua */}
-                                            {activeEvent?.rules?.wear && <li>• Desgaste y consumo: {activeEvent.rules.wear}</li>}
-                                            {/* Nuevas reglas */}
-                                            {typeof activeEvent?.rules?.tyreWear === 'number' && <li>• Desgaste de neumáticos: x{activeEvent.rules.tyreWear}</li>}
-                                            {typeof activeEvent?.rules?.fuelWear === 'number' && <li>• Desgaste de combustible: x{activeEvent.rules.fuelWear}</li>}
-                                            {typeof activeEvent?.rules?.fuelWear === 'number' && activeEvent.rules.fuelWear > 0 && typeof activeEvent?.rules?.fuelRefillRate === 'number' && (
-                                                <li>• Velocidad de recarga de combustible: {activeEvent.rules.fuelRefillRate} L/s</li>
-                                            )}
-                                            {activeEvent?.rules?.mandatoryTyre && <li>• Neumático obligatorio: {activeEvent.rules.mandatoryTyre}</li>}
-                                        </ul>
-                                    </div>
-
-                                    {/* Participantes */}
-                                    <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <div className="text-white font-semibold">Participantes ({participants.length}/{activeEvent.maxParticipants || 16})</div>
-                                        </div>
-                                        {participants.length === 0 ? (
-                                            <div className="text-gray-300 text-sm">Aún no hay inscritos.</div>
-                                        ) : (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                {participants.slice(0, activeEvent.maxParticipants || 16).map((p, idx) => (
-                                                    <div key={p.id || idx} className="bg-white/10 rounded px-3 py-2 text-white flex items-center gap-2">
-                                                        <div className="w-6 h-6 rounded-full bg-orange-600/70 text-xs flex items-center justify-center">{idx + 1}</div>
-                                                        <div className="flex-1">
-                                                            <div className="font-semibold text-sm">{p.name}</div>
-                                                            {p.team ? <div className="text-xs text-gray-300">{p.team}</div> : null}
+                            );
+                        })()}
+                        {selectedView === 'teams' ? (
+                            /* Teams View - mantienes el código existente */
+                            <div>
+                                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-8 flex items-center gap-3">
+                                    🏁 Clasificación de Equipos
+                                </h2>
+                                <div className="grid gap-6">
+                                    {getSortedTeams().map((team, position) => (
+                                        <div
+                                            key={team.id}
+                                            className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-6 hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl overflow-hidden"
+                                        >
+                                            {/* Team Header */}
+                                            <div className="flex items-center justify-between mb-6">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full border-4 border-orange-400 shadow-lg">
+                                                        <span className="text-2xl font-bold text-white">#{position + 1}</span>
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="text-2xl font-bold text-white">{team.name}</h3>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <div
+                                                                className="w-4 h-4 rounded-full border-2 border-white"
+                                                                style={{ backgroundColor: team.color }}
+                                                            ></div>
+                                                            <span className="text-gray-300 text-sm">Equipo #{team.id}</span>
                                                         </div>
                                                     </div>
-                                                ))}
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white px-6 py-3 rounded-lg">
+                                                        <div className="text-sm text-purple-200">Puntos Totales</div>
+                                                        <div className="text-3xl font-bold">{team.total}</div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        )}
-                                    </div>
+
+                                            {/* Drivers Grid */}
+                                            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                {team.drivers && team.drivers.map((driver, idx) => {
+                                                    const driverTotal = calculateDriverTotal(driver.points);
+                                                    return (
+                                                        <div
+                                                            key={idx}
+                                                            className="bg-white/10 rounded-lg p-4 border border-white/20 hover:bg-white/15 transition-all duration-200"
+                                                        >
+                                                            <div className="flex items-center justify-between mb-3">
+                                                                <div className={`bg-gradient-to-r ${categoryColors[driver.category]} text-white px-3 py-1 rounded-full font-bold text-sm flex items-center gap-1`}>
+                                                                    <span>{categoryIcons[driver.category]}</span>
+                                                                    {driver.category}
+                                                                </div>
+                                                                <div className="bg-indigo-600 text-white px-2 py-1 rounded-full text-xs font-bold">
+                                                                    {driverTotal} pts
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-white font-bold text-lg mb-3">{driver.name}</div>
+
+                                                            {/* Recent Races */}
+                                                            <div className="mt-3">
+                                                                <div className="text-gray-400 text-xs mb-1">Carreras con puntos:</div>
+                                                                <div className="flex gap-1 flex-wrap">
+                                                                    {getSortedTracks()
+                                                                        .map(track => {
+                                                                            const points = getDriverPointsForTrack(driver, track);
+
+                                                                            return (
+                                                                                <div
+                                                                                    key={track.id}
+                                                                                    className={`w-8 h-8 rounded flex items-center justify-center text-xs font-bold ${points > 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-400'
+                                                                                        }`}
+                                                                                    title={`${track.name}: ${points} pts (ID: ${track.id})`}
+                                                                                >
+                                                                                    {points}
+                                                                                </div>
+                                                                            );
+                                                                        })
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                        </div>
-                    );
-                })()}
-                {selectedView === 'teams' ? (
-                    /* Teams View - mantienes el código existente */
-                    <div>
-                        <h2 className="text-2xl sm:text-3xl font-bold text-white mb-8 flex items-center gap-3">
-                            🏁 Clasificación de Equipos
-                        </h2>
-                        <div className="grid gap-6">
-                            {getSortedTeams().map((team, position) => (
-                                <div
-                                    key={team.id}
-                                    className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-6 hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl overflow-hidden"
-                                >
-                                    {/* Team Header */}
-                                    <div className="flex items-center justify-between mb-6">
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full border-4 border-orange-400 shadow-lg">
-                                                <span className="text-2xl font-bold text-white">#{position + 1}</span>
+                        ) : selectedView === 'drivers' ? (
+                            /* Drivers View - mantienes el código existente */
+                            <div>
+                                <div className="flex flex-wrap items-center justify-between mb-8">
+                                    <h2 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+                                        👤 Clasificación de Pilotos
+                                    </h2>
+
+                                    {/* Category Filter */}
+                                    <div className="flex flex-wrap gap-2">
+                                        <button
+                                            onClick={() => setSelectedCategory('all')}
+                                            className={`px-4 py-2 rounded-lg font-bold transition-all duration-200 ${selectedCategory === 'all'
+                                                ? 'bg-white text-gray-800'
+                                                : 'bg-white/20 text-white hover:bg-white/30'
+                                                }`}
+                                        >
+                                            Todos
+                                        </button>
+                                        {Object.keys(categoryColors).map(category => (
+                                            <button
+                                                key={category}
+                                                onClick={() => setSelectedCategory(category)}
+                                                className={`px-4 py-2 rounded-lg font-bold transition-all duration-200 flex items-center gap-2 ${selectedCategory === category
+                                                    ? 'bg-white text-gray-800'
+                                                    : 'bg-white/20 text-white hover:bg-white/30'
+                                                    }`}
+                                            >
+                                                <span>{categoryIcons[category]}</span>
+                                                {category}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                    {getFilteredDrivers().map((driver, position) => (
+                                        <div
+                                            key={`${driver.teamName}-${driver.name}`}
+                                            className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-6 hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl"
+                                        >
+                                            {/* Driver Header */}
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full border-2 border-orange-400">
+                                                    <span className="text-lg font-bold text-white">#{position + 1}</span>
+                                                </div>
+                                                <div className={`bg-gradient-to-r ${categoryColors[driver.category]} text-white px-3 py-1 rounded-full font-bold text-sm flex items-center gap-1`}>
+                                                    <span>{categoryIcons[driver.category]}</span>
+                                                    {driver.category}
+                                                </div>
                                             </div>
-                                            <div>
-                                                <h3 className="text-2xl font-bold text-white">{team.name}</h3>
-                                                <div className="flex items-center gap-2 mt-1">
+
+                                            <div className="text-center mb-4">
+                                                <h3 className="text-xl font-bold text-white">{driver.name}</h3>
+                                                <div className="flex items-center justify-center gap-2 mt-1">
                                                     <div
-                                                        className="w-4 h-4 rounded-full border-2 border-white"
-                                                        style={{ backgroundColor: team.color }}
+                                                        className="w-3 h-3 rounded-full"
+                                                        style={{ backgroundColor: driver.teamColor }}
                                                     ></div>
-                                                    <span className="text-gray-300 text-sm">Equipo #{team.id}</span>
+                                                    <span className="text-gray-300 text-sm">{driver.teamName}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="text-center mb-4">
+                                                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg inline-block">
+                                                    <div className="text-sm text-indigo-200">Puntos Totales</div>
+                                                    <div className="text-2xl font-bold">{driver.total}</div>
+                                                </div>
+                                            </div>
+
+                                            {/* Race History */}
+                                            <div>
+                                                <div className="text-gray-400 text-sm mb-2 text-center">Historial de Carreras</div>
+                                                <div className="grid grid-cols-5 gap-1">
+                                                    {getSortedTracks().map(track => {
+                                                        const points = getDriverPointsForTrack(driver, track);
+
+                                                        return (
+                                                            <div
+                                                                key={track.id}
+                                                                className={`h-10 rounded flex flex-col items-center justify-center text-xs font-bold ${points > 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-400'
+                                                                    }`}
+                                                                title={`${track.name}: ${points} pts`}
+                                                            >
+                                                                <div className="text-xs">{track.name.substring(0, 3)}</div>
+                                                                <div>{points}</div>
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <div className="bg-gradient-to-r from-purple-600 to-purple-800 text-white px-6 py-3 rounded-lg">
-                                                <div className="text-sm text-purple-200">Puntos Totales</div>
-                                                <div className="text-3xl font-bold">{team.total}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Drivers Grid */}
-                                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                        {team.drivers && team.drivers.map((driver, idx) => {
-                                            const driverTotal = calculateDriverTotal(driver.points);
+                                    ))}
+                                </div>
+                            </div>
+                        ) : selectedView === 'events' ? (
+                            /* Events View - lista todos los eventos */
+                            <div>
+                                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-8 flex items-center gap-3">
+                                    🎉 Todos los Eventos
+                                </h2>
+                                {getSortedEvents().length === 0 ? (
+                                    <div className="text-gray-300">No hay eventos disponibles.</div>
+                                ) : (
+                                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                        {getSortedEvents().map((ev, idx) => {
+                                            const participants = ev.participants || [];
                                             return (
-                                                <div
-                                                    key={idx}
-                                                    className="bg-white/10 rounded-lg p-4 border border-white/20 hover:bg-white/15 transition-all duration-200"
-                                                >
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <div className={`bg-gradient-to-r ${categoryColors[driver.category]} text-white px-3 py-1 rounded-full font-bold text-sm flex items-center gap-1`}>
-                                                            <span>{categoryIcons[driver.category]}</span>
-                                                            {driver.category}
-                                                        </div>
-                                                        <div className="bg-indigo-600 text-white px-2 py-1 rounded-full text-xs font-bold">
-                                                            {driverTotal} pts
-                                                        </div>
+                                                <div key={ev.id ?? idx} className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg overflow-hidden hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl">
+                                                    {/* Banner */}
+                                                    <div className="relative h-40 bg-gradient-to-br from-gray-800 to-gray-900">
+                                                        {ev.banner ? (
+                                                            <Image src={ev.banner} alt={ev.title || `Evento ${ev.id}`} fill className="object-contain p-2" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-5xl">🏁</div>
+                                                        )}
+                                                        <div className="absolute top-2 left-2 bg-orange-600 text-white px-2 py-1 rounded-full text-sm font-bold">#{ev.id || idx + 1}</div>
                                                     </div>
-                                                    <div className="text-white font-bold text-lg mb-3">{driver.name}</div>
 
-                                                    {/* Recent Races */}
-                                                    <div className="mt-3">
-                                                        <div className="text-gray-400 text-xs mb-1">Carreras con puntos:</div>
-                                                        <div className="flex gap-1 flex-wrap">
-                                                            {getSortedTracks()
-                                                                .map(track => {
-                                                                    const points = getDriverPointsForTrack(driver, track);
+                                                    <div className="p-6 space-y-4">
+                                                        <div>
+                                                            <h3 className="text-xl font-bold text-white">{ev.title || 'Evento sin título'}</h3>
+                                                            <div className="text-orange-200 text-sm mt-1 flex flex-wrap items-center gap-2">
+                                                                {ev.date && (
+                                                                    <span>📅 {new Date(ev.date).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                                                                )}
+                                                                {ev.hour && <span>• 🕢 {ev.hour}h</span>}
+                                                                {ev.track && <span>• 🏁 {ev.track}</span>}
+                                                            </div>
+                                                        </div>
 
-                                                                    return (
-                                                                        <div
-                                                                            key={track.id}
-                                                                            className={`w-8 h-8 rounded flex items-center justify-center text-xs font-bold ${points > 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-400'
-                                                                                }`}
-                                                                            title={`${track.name}: ${points} pts (ID: ${track.id})`}
-                                                                        >
-                                                                            {points}
+                                                        {ev.description && (
+                                                            <p className="text-white/90 text-sm">{ev.description}</p>
+                                                        )}
+
+                                                        {/* Reglas */}
+                                                        <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                                                            <div className="text-white font-semibold mb-2">Reglamento</div>
+                                                            <ul className="text-xs text-gray-200 space-y-1">
+                                                                {ev?.rules?.duration && <li>• Carrera: {ev.rules.duration}</li>}
+                                                                {ev?.rules?.bop && <li>• BOP: {ev.rules.bop}</li>}
+                                                                {ev?.rules?.adjustments && <li>• Ajustes: {ev.rules.adjustments}</li>}
+                                                                {ev?.rules?.damage && <li>• Daños: {ev.rules.damage}</li>}
+                                                                {ev?.rules?.engineSwap && <li>• Swap de motor: {ev.rules.engineSwap}</li>}
+                                                                {ev?.rules?.penalties && <li>• Penalizaciones: {ev.rules.penalties}</li>}
+                                                                {ev?.rules?.wear && <li>• Desgaste y consumo: {ev.rules.wear}</li>}
+                                                                {typeof ev?.rules?.tyreWear === 'number' && <li>• Desgaste de neumáticos: x{ev.rules.tyreWear}</li>}
+                                                                {typeof ev?.rules?.fuelWear === 'number' && <li>• Desgaste de combustible: x{ev.rules.fuelWear}</li>}
+                                                                {typeof ev?.rules?.fuelWear === 'number' && ev.rules.fuelWear > 0 && typeof ev?.rules?.fuelRefillRate === 'number' && (
+                                                                    <li>• Velocidad de recarga de combustible: {ev.rules.fuelRefillRate} L/s</li>
+                                                                )}
+                                                                {ev?.rules?.mandatoryTyre && <li>• Neumático obligatorio: {ev.rules.mandatoryTyre}</li>}
+                                                            </ul>
+                                                        </div>
+
+                                                        {/* Participantes */}
+                                                        <div>
+                                                            <div className="text-green-300 font-semibold mb-2 text-sm">Participantes ({participants.length}/{ev.maxParticipants || 16})</div>
+                                                            {participants.length === 0 ? (
+                                                                <div className="text-gray-300 text-xs">Aún no hay inscritos.</div>
+                                                            ) : (
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                                                                    {participants.map((p, pIdx) => (
+                                                                        <div key={p.id || pIdx} className="bg-white/10 rounded px-3 py-2 text-white flex items-center gap-2">
+                                                                            <div className="w-6 h-6 rounded-full bg-orange-600/70 text-xs flex items-center justify-center">{pIdx + 1}</div>
+                                                                            <div className="flex-1">
+                                                                                <div className="font-semibold text-sm">{p.name}</div>
+                                                                                {p.team ? <div className="text-xs text-gray-300">{p.team}</div> : null}
+                                                                            </div>
                                                                         </div>
-                                                                    );
-                                                                })
-                                                            }
+                                                                    ))}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ) : selectedView === 'drivers' ? (
-                    /* Drivers View - mantienes el código existente */
-                    <div>
-                        <div className="flex flex-wrap items-center justify-between mb-8">
-                            <h2 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
-                                👤 Clasificación de Pilotos
-                            </h2>
-
-                            {/* Category Filter */}
-                            <div className="flex flex-wrap gap-2">
-                                <button
-                                    onClick={() => setSelectedCategory('all')}
-                                    className={`px-4 py-2 rounded-lg font-bold transition-all duration-200 ${selectedCategory === 'all'
-                                        ? 'bg-white text-gray-800'
-                                        : 'bg-white/20 text-white hover:bg-white/30'
-                                        }`}
-                                >
-                                    Todos
-                                </button>
-                                {Object.keys(categoryColors).map(category => (
-                                    <button
-                                        key={category}
-                                        onClick={() => setSelectedCategory(category)}
-                                        className={`px-4 py-2 rounded-lg font-bold transition-all duration-200 flex items-center gap-2 ${selectedCategory === category
-                                            ? 'bg-white text-gray-800'
-                                            : 'bg-white/20 text-white hover:bg-white/30'
-                                            }`}
-                                    >
-                                        <span>{categoryIcons[category]}</span>
-                                        {category}
-                                    </button>
-                                ))}
+                                )}
                             </div>
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                            {getFilteredDrivers().map((driver, position) => (
-                                <div
-                                    key={`${driver.teamName}-${driver.name}`}
-                                    className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-6 hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl"
-                                >
-                                    {/* Driver Header */}
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-gray-700 to-gray-900 rounded-full border-2 border-orange-400">
-                                            <span className="text-lg font-bold text-white">#{position + 1}</span>
-                                        </div>
-                                        <div className={`bg-gradient-to-r ${categoryColors[driver.category]} text-white px-3 py-1 rounded-full font-bold text-sm flex items-center gap-1`}>
-                                            <span>{categoryIcons[driver.category]}</span>
-                                            {driver.category}
-                                        </div>
-                                    </div>
-
-                                    <div className="text-center mb-4">
-                                        <h3 className="text-xl font-bold text-white">{driver.name}</h3>
-                                        <div className="flex items-center justify-center gap-2 mt-1">
-                                            <div
-                                                className="w-3 h-3 rounded-full"
-                                                style={{ backgroundColor: driver.teamColor }}
-                                            ></div>
-                                            <span className="text-gray-300 text-sm">{driver.teamName}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="text-center mb-4">
-                                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg inline-block">
-                                            <div className="text-sm text-indigo-200">Puntos Totales</div>
-                                            <div className="text-2xl font-bold">{driver.total}</div>
-                                        </div>
-                                    </div>
-
-                                    {/* Race History */}
-                                    <div>
-                                        <div className="text-gray-400 text-sm mb-2 text-center">Historial de Carreras</div>
-                                        <div className="grid grid-cols-5 gap-1">
-                                            {getSortedTracks().map(track => {
-                                                const points = getDriverPointsForTrack(driver, track);
-
-                                                return (
-                                                    <div
-                                                        key={track.id}
-                                                        className={`h-10 rounded flex flex-col items-center justify-center text-xs font-bold ${points > 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-400'
-                                                            }`}
-                                                        title={`${track.name}: ${points} pts`}
-                                                    >
-                                                        <div className="text-xs">{track.name.substring(0, 3)}</div>
-                                                        <div>{points}</div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ) : selectedView === 'events' ? (
-                    /* Events View - lista todos los eventos */
-                    <div>
-                        <h2 className="text-2xl sm:text-3xl font-bold text-white mb-8 flex items-center gap-3">
-                            🎉 Todos los Eventos
-                        </h2>
-                        {getSortedEvents().length === 0 ? (
-                            <div className="text-gray-300">No hay eventos disponibles.</div>
                         ) : (
-                            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                                {getSortedEvents().map((ev, idx) => {
-                                    const participants = ev.participants || [];
-                                    return (
-                                        <div key={ev.id ?? idx} className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg overflow-hidden hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl">
-                                            {/* Banner */}
-                                            <div className="relative h-40 bg-gradient-to-br from-gray-800 to-gray-900">
-                                                {ev.banner ? (
-                                                    <Image src={ev.banner} alt={ev.title || `Evento ${ev.id}`} fill className="object-contain p-2" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-5xl">🏁</div>
-                                                )}
-                                                <div className="absolute top-2 left-2 bg-orange-600 text-white px-2 py-1 rounded-full text-sm font-bold">#{ev.id || idx + 1}</div>
-                                            </div>
+                            /* Tracks View - ACTUALIZADO con funcionalidad de click */
+                            <div>
+                                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-8 flex items-center gap-3">
+                                    🏁 Calendario de Pistas
+                                </h2>
+                                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                    {getSortedTracks().map((track, index) => {
+                                        const status = getTrackStatus(track.date);
+                                        const hasImageError = imageErrors[track.id];
+                                        let statusColor = '';
+                                        let statusText = '';
+                                        let statusIcon = '';
 
-                                            <div className="p-6 space-y-4">
-                                                <div>
-                                                    <h3 className="text-xl font-bold text-white">{ev.title || 'Evento sin título'}</h3>
-                                                    <div className="text-orange-200 text-sm mt-1 flex flex-wrap items-center gap-2">
-                                                        {ev.date && (
-                                                            <span>📅 {new Date(ev.date).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                                                        )}
-                                                        {ev.hour && <span>• 🕢 {ev.hour}h</span>}
-                                                        {ev.track && <span>• 🏁 {ev.track}</span>}
-                                                    </div>
-                                                </div>
+                                        switch (status) {
+                                            case 'completed':
+                                                statusColor = 'from-green-600 to-emerald-600';
+                                                statusText = 'Completada';
+                                                statusIcon = '✅';
+                                                break;
+                                            case 'current':
+                                                statusColor = 'from-yellow-600 to-orange-600';
+                                                statusText = 'En Curso / Esta Semana';
+                                                statusIcon = '🔥';
+                                                break;
+                                            case 'upcoming':
+                                                statusColor = 'from-blue-600 to-indigo-600';
+                                                statusText = 'Próxima';
+                                                statusIcon = '📅';
+                                                break;
+                                        }
 
-                                                {ev.description && (
-                                                    <p className="text-white/90 text-sm">{ev.description}</p>
-                                                )}
-
-                                                {/* Reglas */}
-                                                <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                                                    <div className="text-white font-semibold mb-2">Reglamento</div>
-                                                    <ul className="text-xs text-gray-200 space-y-1">
-                                                        {ev?.rules?.duration && <li>• Carrera: {ev.rules.duration}</li>}
-                                                        {ev?.rules?.bop && <li>• BOP: {ev.rules.bop}</li>}
-                                                        {ev?.rules?.adjustments && <li>• Ajustes: {ev.rules.adjustments}</li>}
-                                                        {ev?.rules?.damage && <li>• Daños: {ev.rules.damage}</li>}
-                                                        {ev?.rules?.engineSwap && <li>• Swap de motor: {ev.rules.engineSwap}</li>}
-                                                        {ev?.rules?.penalties && <li>• Penalizaciones: {ev.rules.penalties}</li>}
-                                                        {ev?.rules?.wear && <li>• Desgaste y consumo: {ev.rules.wear}</li>}
-                                                        {typeof ev?.rules?.tyreWear === 'number' && <li>• Desgaste de neumáticos: x{ev.rules.tyreWear}</li>}
-                                                        {typeof ev?.rules?.fuelWear === 'number' && <li>• Desgaste de combustible: x{ev.rules.fuelWear}</li>}
-                                                        {typeof ev?.rules?.fuelWear === 'number' && ev.rules.fuelWear > 0 && typeof ev?.rules?.fuelRefillRate === 'number' && (
-                                                            <li>• Velocidad de recarga de combustible: {ev.rules.fuelRefillRate} L/s</li>
-                                                        )}
-                                                        {ev?.rules?.mandatoryTyre && <li>• Neumático obligatorio: {ev.rules.mandatoryTyre}</li>}
-                                                    </ul>
-                                                </div>
-
-                                                {/* Participantes */}
-                                                <div>
-                                                    <div className="text-green-300 font-semibold mb-2 text-sm">Participantes ({participants.length}/{ev.maxParticipants || 16})</div>
-                                                    {participants.length === 0 ? (
-                                                        <div className="text-gray-300 text-xs">Aún no hay inscritos.</div>
+                                        return (
+                                            <div
+                                                key={track.id}
+                                                className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg overflow-hidden hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl"
+                                            >
+                                                {/* Imagen del trazado */}
+                                                <div className="relative h-48 bg-gradient-to-br from-gray-800 to-gray-900">
+                                                    {track.layoutImage && !hasImageError ? (
+                                                        <Image
+                                                            src={track.layoutImage}
+                                                            alt={`Trazado de ${track.name}`}
+                                                            width={400}
+                                                            height={192}
+                                                            className="w-full h-full object-contain p-4"
+                                                            onError={() => handleImageError(track.id)}
+                                                            onLoad={() => handleImageLoad(track.id)}
+                                                        />
                                                     ) : (
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
-                                                            {participants.map((p, pIdx) => (
-                                                                <div key={p.id || pIdx} className="bg-white/10 rounded px-3 py-2 text-white flex items-center gap-2">
-                                                                    <div className="w-6 h-6 rounded-full bg-orange-600/70 text-xs flex items-center justify-center">{pIdx + 1}</div>
-                                                                    <div className="flex-1">
-                                                                        <div className="font-semibold text-sm">{p.name}</div>
-                                                                        {p.team ? <div className="text-xs text-gray-300">{p.team}</div> : null}
-                                                                    </div>
+                                                        <div className="w-full h-full flex items-center justify-center">
+                                                            <div className="text-center">
+                                                                <div className="text-6xl mb-2">🏁</div>
+                                                                <div className="text-gray-400 text-sm">
+                                                                    {track.layoutImage ? 'Error al cargar imagen' : 'Sin imagen de trazado'}
                                                                 </div>
-                                                            ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Overlay con número de pista */}
+                                                    <div className="absolute top-4 left-4 flex items-center justify-center w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full border-2 border-orange-400 shadow-lg">
+                                                        <span className="text-lg font-bold text-white">#{index + 1}</span>
+                                                    </div>
+
+                                                    {/* Status badge */}
+                                                    <div className={`absolute top-4 right-4 bg-gradient-to-r ${statusColor} text-white px-3 py-1 rounded-full font-bold text-sm flex items-center gap-1 shadow-lg backdrop-blur-sm`}>
+                                                        <span>{statusIcon}</span>
+                                                        {statusText}
+                                                    </div>
+
+                                                    {/* Indicador de imagen */}
+                                                    {track.layoutImage && (
+                                                        <div className="absolute bottom-2 left-2">
+                                                            <div className={`px-2 py-1 rounded-full text-xs font-bold ${hasImageError
+                                                                ? 'bg-red-600/80 text-red-200'
+                                                                : 'bg-green-600/80 text-green-200'
+                                                                }`}>
+                                                                {hasImageError ? '🚫 Error' : '🖼️ Trazado'}
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
+
+                                                {/* Contenido de la tarjeta */}
+                                                <div className="p-6">
+                                                    <div className="text-center mb-4">
+                                                        <h3 className="text-xl font-bold text-white mb-2">{track.name}</h3>
+                                                        <div className="text-gray-300 text-sm mb-1 flex items-center justify-center gap-1">
+                                                            <span>📍</span>
+                                                            <span>{track.country}</span>
+                                                        </div>
+                                                        <div className="text-orange-300 font-semibold flex items-center justify-center gap-1">
+                                                            <span>📅</span>
+                                                            <span>
+                                                                {new Date(track.date).toLocaleDateString('es-ES', {
+                                                                    weekday: 'long',
+                                                                    year: 'numeric',
+                                                                    month: 'long',
+                                                                    day: 'numeric'
+                                                                })}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Track Details */}
+                                                    <div className="space-y-2 mb-4">
+                                                        {track.length && (
+                                                            <div className="flex items-center justify-between text-sm">
+                                                                <span className="text-gray-400">Longitud:</span>
+                                                                <span className="text-white font-semibold">{track.length}</span>
+                                                            </div>
+                                                        )}
+                                                        {track.category && (
+                                                            <div className="flex items-center justify-between text-sm">
+                                                                <span className="text-gray-400">Categoría:</span>
+                                                                <span className="text-white font-semibold">{track.category}</span>
+                                                            </div>
+                                                        )}
+                                                        <div className="flex items-center justify-between text-sm">
+                                                            <span className="text-gray-400">ID de Pista:</span>
+                                                            <span className="text-orange-400 font-bold">#{track.id}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Progress Indicator */}
+                                                    <div className="pt-4 border-t border-white/20">
+                                                        <div className="text-center">
+                                                            {status === 'completed' && (
+                                                                <button
+                                                                    onClick={() => showTrackResults(track)}
+                                                                    className="w-full text-green-400 font-semibold text-sm hover:text-green-300 transition-all duration-200 cursor-pointer bg-green-600/20 px-3 py-3 rounded-lg hover:bg-green-600/30 flex items-center justify-center gap-2"
+                                                                >
+                                                                    <span>🏆</span>
+                                                                    <span>Ver Resultados</span>
+                                                                </button>
+                                                            )}
+                                                            {status === 'current' && (
+                                                                <div className="w-full text-yellow-400 font-semibold text-sm bg-yellow-600/20 px-3 py-3 rounded-lg flex items-center justify-center gap-2">
+                                                                    <span>⚡</span>
+                                                                    <span>Carrera Activa</span>
+                                                                </div>
+                                                            )}
+                                                            {status === 'upcoming' && (
+                                                                <div className="w-full text-blue-400 font-semibold text-sm bg-blue-600/20 px-3 py-3 rounded-lg flex items-center justify-center gap-2">
+                                                                    <span>⏳</span>
+                                                                    <span>Próxima Carrera</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
+
+                        {/* Main Content End */}
                     </div>
-                ) : (
-                    /* Tracks View - ACTUALIZADO con funcionalidad de click */
-                    <div>
-                        <h2 className="text-2xl sm:text-3xl font-bold text-white mb-8 flex items-center gap-3">
-                            🏁 Calendario de Pistas
-                        </h2>
-                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                            {getSortedTracks().map((track, index) => {
-                                const status = getTrackStatus(track.date);
-                                const hasImageError = imageErrors[track.id];
-                                let statusColor = '';
-                                let statusText = '';
-                                let statusIcon = '';
 
-                                switch (status) {
-                                    case 'completed':
-                                        statusColor = 'from-green-600 to-emerald-600';
-                                        statusText = 'Completada';
-                                        statusIcon = '✅';
-                                        break;
-                                    case 'current':
-                                        statusColor = 'from-yellow-600 to-orange-600';
-                                        statusText = 'En Curso / Esta Semana';
-                                        statusIcon = '🔥';
-                                        break;
-                                    case 'upcoming':
-                                        statusColor = 'from-blue-600 to-indigo-600';
-                                        statusText = 'Próxima';
-                                        statusIcon = '📅';
-                                        break;
-                                }
-
-                                return (
-                                    <div
-                                        key={track.id}
-                                        className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg overflow-hidden hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl"
-                                    >
-                                        {/* Imagen del trazado */}
-                                        <div className="relative h-48 bg-gradient-to-br from-gray-800 to-gray-900">
-                                            {track.layoutImage && !hasImageError ? (
-                                                <Image
-                                                    src={track.layoutImage}
-                                                    alt={`Trazado de ${track.name}`}
-                                                    width={400}
-                                                    height={192}
-                                                    className="w-full h-full object-contain p-4"
-                                                    onError={() => handleImageError(track.id)}
-                                                    onLoad={() => handleImageLoad(track.id)}
-                                                />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center">
-                                                    <div className="text-center">
-                                                        <div className="text-6xl mb-2">🏁</div>
-                                                        <div className="text-gray-400 text-sm">
-                                                            {track.layoutImage ? 'Error al cargar imagen' : 'Sin imagen de trazado'}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Overlay con número de pista */}
-                                            <div className="absolute top-4 left-4 flex items-center justify-center w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full border-2 border-orange-400 shadow-lg">
-                                                <span className="text-lg font-bold text-white">#{index + 1}</span>
-                                            </div>
-
-                                            {/* Status badge */}
-                                            <div className={`absolute top-4 right-4 bg-gradient-to-r ${statusColor} text-white px-3 py-1 rounded-full font-bold text-sm flex items-center gap-1 shadow-lg backdrop-blur-sm`}>
-                                                <span>{statusIcon}</span>
-                                                {statusText}
-                                            </div>
-
-                                            {/* Indicador de imagen */}
-                                            {track.layoutImage && (
-                                                <div className="absolute bottom-2 left-2">
-                                                    <div className={`px-2 py-1 rounded-full text-xs font-bold ${hasImageError
-                                                        ? 'bg-red-600/80 text-red-200'
-                                                        : 'bg-green-600/80 text-green-200'
-                                                        }`}>
-                                                        {hasImageError ? '🚫 Error' : '🖼️ Trazado'}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Contenido de la tarjeta */}
-                                        <div className="p-6">
-                                            <div className="text-center mb-4">
-                                                <h3 className="text-xl font-bold text-white mb-2">{track.name}</h3>
-                                                <div className="text-gray-300 text-sm mb-1 flex items-center justify-center gap-1">
-                                                    <span>📍</span>
-                                                    <span>{track.country}</span>
-                                                </div>
-                                                <div className="text-orange-300 font-semibold flex items-center justify-center gap-1">
-                                                    <span>📅</span>
-                                                    <span>
-                                                        {new Date(track.date).toLocaleDateString('es-ES', {
-                                                            weekday: 'long',
-                                                            year: 'numeric',
-                                                            month: 'long',
-                                                            day: 'numeric'
-                                                        })}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {/* Track Details */}
-                                            <div className="space-y-2 mb-4">
-                                                {track.length && (
-                                                    <div className="flex items-center justify-between text-sm">
-                                                        <span className="text-gray-400">Longitud:</span>
-                                                        <span className="text-white font-semibold">{track.length}</span>
-                                                    </div>
-                                                )}
-                                                {track.category && (
-                                                    <div className="flex items-center justify-between text-sm">
-                                                        <span className="text-gray-400">Categoría:</span>
-                                                        <span className="text-white font-semibold">{track.category}</span>
-                                                    </div>
-                                                )}
-                                                <div className="flex items-center justify-between text-sm">
-                                                    <span className="text-gray-400">ID de Pista:</span>
-                                                    <span className="text-orange-400 font-bold">#{track.id}</span>
-                                                </div>
-                                            </div>
-
-                                            {/* Progress Indicator */}
-                                            <div className="pt-4 border-t border-white/20">
-                                                <div className="text-center">
-                                                    {status === 'completed' && (
-                                                        <button
-                                                            onClick={() => showTrackResults(track)}
-                                                            className="w-full text-green-400 font-semibold text-sm hover:text-green-300 transition-all duration-200 cursor-pointer bg-green-600/20 px-3 py-3 rounded-lg hover:bg-green-600/30 flex items-center justify-center gap-2"
-                                                        >
-                                                            <span>🏆</span>
-                                                            <span>Ver Resultados</span>
-                                                        </button>
-                                                    )}
-                                                    {status === 'current' && (
-                                                        <div className="w-full text-yellow-400 font-semibold text-sm bg-yellow-600/20 px-3 py-3 rounded-lg flex items-center justify-center gap-2">
-                                                            <span>⚡</span>
-                                                            <span>Carrera Activa</span>
-                                                        </div>
-                                                    )}
-                                                    {status === 'upcoming' && (
-                                                        <div className="w-full text-blue-400 font-semibold text-sm bg-blue-600/20 px-3 py-3 rounded-lg flex items-center justify-center gap-2">
-                                                            <span>⏳</span>
-                                                            <span>Próxima Carrera</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                    {/* Sidebar con Anuncios */}
+                    <div className="lg:col-span-1">
+                        <div className="sticky top-8 space-y-6">
+                            <RectangleAd />
+                            <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-4">
+                                <h3 className="text-white font-bold text-lg mb-3">🏆 Patrocinadores</h3>
+                                <p className="text-gray-300 text-sm">
+                                    ¿Interesado en patrocinar el campeonato GT7 ESP?
+                                    <br />
+                                    <a href="mailto:contacto@gt7esp.com" className="text-orange-400 hover:text-orange-300 underline">
+                                        Contacta con nosotros
+                                    </a>
+                                </p>
+                            </div>
                         </div>
                     </div>
-                )}
+                </div>
             </div>
 
             {/* Modal de Resultados de Carrera */}
