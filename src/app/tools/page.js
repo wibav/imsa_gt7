@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import Image from 'next/image';
 import Potrace from 'potrace';
+import Navbar from '../components/Navbar';
 
 export default function ToolsPage() {
     const [selectedFile, setSelectedFile] = useState(null);
@@ -435,39 +436,21 @@ export default function ToolsPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 overflow-x-hidden">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-orange-600 via-red-600 to-orange-600 px-4 py-6 sm:p-8">
-                <div className="max-w-7xl mx-auto w-full">
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-                        <div>
-                            <h1 className="text-3xl sm:text-4xl font-bold text-white flex items-center gap-4">
-                                <Image
-                                    src="/logo_gt7.png"
-                                    alt="IMSA GT7 Racing Club ESP Logo"
-                                    width={64}
-                                    height={64}
-                                    className="w-16 h-16 object-contain"
-                                    onError={(e) => {
-                                        e.target.style.display = 'none';
-                                    }}
-                                />
-                                GT7 Racing Club ESP
-                                <span className="text-4xl sm:text-5xl">🏆</span>
-                            </h1>
-                            <p className="text-orange-100 text-lg mt-2">Herramientas de Imagenes</p>
-                        </div>
-                        <button
-                            onClick={() => window.location.href = '/'}
-                            className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg font-bold hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center gap-2"
-                        >
-                            ← Volver al Dashboard
-                        </button>
-                    </div>
-                </div>
-            </div>
+            {/* Navbar Component */}
+            <Navbar />
 
             {/* Content */}
             <div className="max-w-7xl mx-auto px-4 py-8">
+                <div className="text-center mb-12">
+                    <h1 className="text-5xl font-bold mb-4">
+                        <span className="bg-gradient-to-r from-orange-500 to-red-500 text-transparent bg-clip-text">
+                            Herramientas IMSA GT7
+                        </span>
+                    </h1>
+                    <p className="text-xl text-gray-300">
+                        Herramientas útiles para el equipo IMSA GT7 Racing Club ESP
+                    </p>
+                </div>
 
                 {/* Image to SVG Converter */}
                 <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden shadow-2xl border border-orange-500/30 mb-8">

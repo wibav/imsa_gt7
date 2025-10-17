@@ -4,6 +4,7 @@ import { FirebaseService } from "../services/firebaseService";
 import { useAuth } from '../context/AuthContext';
 import Image from "next/image";
 import { BannerAd, RectangleAd } from './ads';
+import Navbar from './Navbar';
 
 const categoryColors = {
     'Gr1': 'from-red-600 to-red-800',
@@ -270,143 +271,73 @@ export default function Dashboard() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 overflow-x-hidden">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-orange-600 via-red-600 to-orange-600 px-4 py-6 sm:p-8">
+            {/* Navbar Component */}
+            <Navbar />
+
+            {/* Progress Section */}
+            <div className="bg-gradient-to-r from-orange-600 via-red-600 to-orange-600 px-4 py-6">
                 <div className="max-w-7xl mx-auto w-full">
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-                        <div>
-                            <h1 className="text-3xl sm:text-4xl font-bold text-white flex items-center gap-4">
-                                <Image
-                                    src="/logo_gt7.png"
-                                    alt="GT7 ESP Racing Club Logo"
-                                    width={64}
-                                    height={64}
-                                    className="w-16 h-16 object-contain"
-                                    onError={(e) => {
-                                        e.target.style.display = 'none';
-                                    }}
-                                />
-                                IMSA GT7 Racing Club ESP
-                                <span className="text-4xl sm:text-5xl">🏆</span>
-                            </h1>
-                            <p className="text-orange-100 text-lg mt-2">Temporada 2025 - Dashboard de Resultados</p>
-                        </div>
-                        <div className="w-full md:w-auto text-left md:text-right">
-                            <div className="bg-white/20 backdrop-blur-sm rounded-xl md:rounded-lg p-4 w-full md:w-auto">
-                                <div className="text-white font-bold text-lg">Progreso del Campeonato</div>
-                                <div className="text-orange-200 text-sm">{completedRaces} de {totalRaces} carreras</div>
-                                <div className="w-full md:w-64 bg-gray-700 rounded-full h-3 mt-2">
-                                    <div
-                                        className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-500"
-                                        style={{ width: `${progressPercentage}%` }}
-                                    ></div>
-                                </div>
-                                <div className="text-white font-bold text-lg mt-1">{progressPercentage.toFixed(1)}%</div>
+                    <div className="flex justify-center">
+                        <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 max-w-md w-full text-center">
+                            <div className="text-white font-bold text-lg">Progreso del Campeonato</div>
+                            <div className="text-orange-200 text-sm">{completedRaces} de {totalRaces} carreras</div>
+                            <div className="w-full bg-gray-700 rounded-full h-3 mt-2">
+                                <div
+                                    className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-500"
+                                    style={{ width: `${progressPercentage}%` }}
+                                ></div>
                             </div>
+                            <div className="text-white font-bold text-lg mt-1">{progressPercentage.toFixed(1)}%</div>
                         </div>
                     </div>
 
                     {/* Ad Banner */}
-                    <div className="mt-6 mb-4 flex justify-center">
+                    <div className="mt-6 flex justify-center">
                         <BannerAd className="max-w-4xl w-full" />
                     </div>
+                </div>
+            </div>
 
-                    {/* Navigation */}
-                    <div className="flex flex-wrap gap-4 w-full">
+            {/* View Selector */}
+            <div className="bg-slate-900/50 border-b border-white/10 sticky top-0 z-40">
+                <div className="max-w-7xl mx-auto px-4 py-4">
+                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                         <button
                             onClick={() => setSelectedView('teams')}
-                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 w-full xs:w-auto sm:w-auto ${selectedView === 'teams'
-                                ? 'bg-white text-orange-600 shadow-lg'
-                                : 'bg-white/20 text-white hover:bg-white/30'
+                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 whitespace-nowrap ${selectedView === 'teams'
+                                ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg'
+                                : 'bg-white/10 text-white hover:bg-white/20'
                                 }`}
                         >
                             🏎️ Equipos
                         </button>
                         <button
                             onClick={() => setSelectedView('drivers')}
-                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 w-full xs:w-auto sm:w-auto ${selectedView === 'drivers'
-                                ? 'bg-white text-orange-600 shadow-lg'
-                                : 'bg-white/20 text-white hover:bg-white/30'
+                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 whitespace-nowrap ${selectedView === 'drivers'
+                                ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg'
+                                : 'bg-white/10 text-white hover:bg-white/20'
                                 }`}
                         >
                             👤 Pilotos
                         </button>
                         <button
                             onClick={() => setSelectedView('tracks')}
-                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 w-full xs:w-auto sm:w-auto ${selectedView === 'tracks'
-                                ? 'bg-white text-orange-600 shadow-lg'
-                                : 'bg-white/20 text-white hover:bg-white/30'
+                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 whitespace-nowrap ${selectedView === 'tracks'
+                                ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg'
+                                : 'bg-white/10 text-white hover:bg-white/20'
                                 }`}
                         >
                             🏁 Pistas
                         </button>
                         <button
                             onClick={() => setSelectedView('events')}
-                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 w-full xs:w-auto sm:w-auto ${selectedView === 'events'
-                                ? 'bg-white text-orange-600 shadow-lg'
-                                : 'bg-white/20 text-white hover:bg-white/30'
+                            className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 whitespace-nowrap ${selectedView === 'events'
+                                ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg'
+                                : 'bg-white/10 text-white hover:bg-white/20'
                                 }`}
                         >
                             🎉 Eventos
                         </button>
-                        <button
-                            onClick={() => window.location.href = '/tools'}
-                            className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-6 py-3 rounded-lg font-bold hover:from-teal-700 hover:to-cyan-700 transition-all duration-200 flex items-center gap-2"
-                        >
-                            🛠️ Herramientas
-                        </button>
-                        {/* Admin Controls */}
-                        {currentUser ? (
-                            <div className="flex items-center gap-4 mt-4">
-                                <div className="flex items-center gap-2 bg-white/10 rounded-lg px-4 py-2">
-                                    <span className="text-white text-sm">
-                                        👤 {currentUser.email}
-                                    </span>
-                                    {isAdmin() && (
-                                        <span className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs px-2 py-1 rounded-full font-bold">
-                                            ADMIN
-                                        </span>
-                                    )}
-                                </div>
-
-                                {isAdmin() && (
-                                    <>
-                                        <button
-                                            onClick={() => window.location.href = '/teamsAdmin'}
-                                            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200"
-                                        >
-                                            ⚙️ Admin Equipos
-                                        </button>
-                                        <button
-                                            onClick={() => window.location.href = '/tracksAdmin'}
-                                            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200"
-                                        >
-                                            🏁 Admin Pistas
-                                        </button>
-                                        <button
-                                            onClick={() => window.location.href = '/eventsAdmin'}
-                                            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200"
-                                        >
-                                            🎉 Admin Eventos
-                                        </button>
-                                    </>
-                                )}
-
-                                <button
-                                    onClick={handleLogout}
-                                    className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-2 rounded-lg font-bold hover:from-red-700 hover:to-red-800 transition-all duration-200"
-                                >
-                                    🚪 Cerrar Sesión
-                                </button>
-                            </div>
-                        ) : (
-                            <button
-                                onClick={() => window.location.href = '/login'}
-                                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg font-bold hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center gap-2"
-                            >
-                                🔐 Admin Login
-                            </button>
-                        )}
                     </div>
                 </div>
             </div>
