@@ -39,7 +39,6 @@ const initializeAnalytics = async () => {
         try {
             const supported = await isSupported();
             if (supported) {
-                const { getAnalytics } = await import("firebase/analytics");
                 analytics = getAnalytics(app);
                 console.log("✅ Firebase Analytics initialized successfully");
                 return analytics;
