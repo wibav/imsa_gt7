@@ -349,6 +349,12 @@ export default function Dashboard() {
                         >
                             🎉 Eventos
                         </button>
+                        <button
+                            onClick={() => window.location.href = '/tools'}
+                            className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-6 py-3 rounded-lg font-bold hover:from-teal-700 hover:to-cyan-700 transition-all duration-200 flex items-center gap-2"
+                        >
+                            🛠️ Herramientas
+                        </button>
                         {/* Admin Controls */}
                         {currentUser ? (
                             <div className="flex items-center gap-4 mt-4">

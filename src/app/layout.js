@@ -2,6 +2,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./context/AuthContext";
 import Footer from "./components/Footer";
+import Analytics from "../components/Analytics";
+import AnalyticsDebugger from "../components/AnalyticsDebugger";
 import Script from "next/script";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -49,6 +51,8 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body className={`${inter.className} overflow-x-hidden`}>
+        <Analytics />
+        <AnalyticsDebugger />
         <AuthProvider>
           {children}
           <Footer />

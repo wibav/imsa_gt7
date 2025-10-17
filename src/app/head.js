@@ -13,6 +13,22 @@ export default function Head() {
             <title>{title}</title>
             <meta name="description" content={description} />
 
+            {/* Google Analytics (gtag) - Required for Firebase Analytics */}
+            <script async src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}`}></script>
+            <script
+                dangerouslySetInnerHTML={{
+                    __html: `
+                        window.dataLayer = window.dataLayer || [];
+                        function gtag(){dataLayer.push(arguments);}
+                        gtag('js', new Date());
+                        gtag('config', '${process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}', {
+                            page_title: document.title,
+                            page_location: window.location.href
+                        });
+                    `,
+                }}
+            />
+
             {/* Open Graph */}
             <meta property="og:type" content="website" />
             <meta property="og:url" content={url} />
