@@ -16,6 +16,73 @@ export default function ToolsPage() {
     const [optimizationInfo, setOptimizationInfo] = useState(null);
     const fileInputRef = useRef(null);
 
+    // Parámetros avanzados
+    const [advancedMode, setAdvancedMode] = useState(false);
+    const [threshold, setThreshold] = useState(128);
+    const [turdSize, setTurdSize] = useState(2);
+    const [imageComplexity, setImageComplexity] = useState(null);
+
+    // Analizar complejidad de imagen
+    const analyzeImageComplexity = (imageData) => {
+        const { data, width, height } = imageData;
+        const colorSet = new Set();
+
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
+
+            if (a > 128) {
+                const qr = Math.floor(r / 16) * 16;
+                const qg = Math.floor(g / 16) * 16;
+                const qb = Math.floor(b / 16) * 16;
+                colorSet.add(`${qr},${qg},${qb}`);
+            }
+        }
+
+        const colorCount = colorSet.size;
+        let complexity = 'simple';
+        let recThreshold = 120; // Threshold más bajo para preservar detalles
+        let recTurdSize = 1; // Turd size más bajo para mantener detalles
+
+        if (colorCount > 25) {
+            complexity = 'muy_compleja';
+            recThreshold = 130;
+            recTurdSize = 2;
+        } else if (colorCount > 15) {
+            complexity = 'compleja';
+            recThreshold = 125;
+            recTurdSize = 1;
+        } else if (colorCount > 8) {
+            complexity = 'media';
+            recThreshold = 120;
+            recTurdSize = 1;
+        }
+
+        const result = {
+            colorCount,
+            complexity,
+            recommendedThreshold: recThreshold,
+            recommendedTurdSize: recTurdSize,
+            dimensions: `${width}x${height}`
+        };
+
+        setImageComplexity(result);
+        setThreshold(recThreshold);
+        setTurdSize(recTurdSize);
+
+        return result;
+    };    // Comprimir SVG
+    const compressSvgWithSVGO = (svg) => {
+        let compressed = svg;
+        compressed = compressed.replace(/(\d+\.\d{2,})/g, (m) => parseFloat(m).toFixed(1));
+        compressed = compressed.replace(/\s+(version|xmlns:xlink)="[^"]*"/g, '');
+        compressed = compressed.replace(/stroke="none"/gi, '');
+        compressed = compressed.replace(/\s+M\s+/g, 'M').replace(/\s+L\s+/g, 'L').replace(/\s+C\s+/g, 'C');
+        return compressed;
+    };
+
     const handleFileSelect = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -180,12 +247,18 @@ export default function ToolsPage() {
                         const optimizedSize = blob.size;
                         const reduction = ((1 - optimizedSize / originalSize) * 100).toFixed(1);
 
+                        // Analizar complejidad
+                        const imageData = ctx.getImageData(0, 0, width, height);
+                        const complexity = analyzeImageComplexity(imageData);
+
                         setOptimizationInfo({
                             originalSize: (originalSize / 1024).toFixed(2),
                             optimizedSize: (optimizedSize / 1024).toFixed(2),
                             reduction: reduction,
                             dimensions: `${Math.round(width)}x${Math.round(height)}`,
-                            backgroundRemoved: true
+                            backgroundRemoved: true,
+                            complexity: complexity.complexity,
+                            colors: complexity.colorCount
                         });
 
                         resolve(optimizedUrl);
@@ -217,20 +290,21 @@ export default function ToolsPage() {
                     canvas.height = currentHeight;
                     ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
 
-                    // Intentar con diferentes configuraciones de Potrace
+                    // Estrategia: comenzar con parámetros que preserven detalles
                     let svg = null;
                     let size = Infinity;
-                    let threshold = 128; // Umbral de luminosidad
-                    let turdSize = 2; // Tamaño mínimo de características
+                    let currentThreshold = threshold; // Usar los parámetros recomendados
+                    let currentTurdSize = turdSize;
                     let attempts = 0;
-                    const maxAttempts = 15;
+                    const maxAttempts = 12;
+                    let sizeIncreasing = 0; // Contador de aumentos de tamaño
 
                     while (size > 15 * 1024 && attempts < maxAttempts) {
                         try {
-                            // Ajustar imagen según intento
-                            if (attempts > 5 && currentWidth > 150) {
-                                currentWidth = Math.floor(currentWidth * 0.85);
-                                currentHeight = Math.floor(currentHeight * 0.85);
+                            // Solo reducir dimensiones como último recurso (después de intentos 8+)
+                            if (attempts > 8 && currentWidth > 120) {
+                                currentWidth = Math.floor(currentWidth * 0.90);
+                                currentHeight = Math.floor(currentHeight * 0.90);
                                 canvas.width = currentWidth;
                                 canvas.height = currentHeight;
                                 ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
@@ -240,22 +314,35 @@ export default function ToolsPage() {
                             const imageData = ctx.getImageData(0, 0, currentWidth, currentHeight);
 
                             // Usar método simplificado con reducción de colores
-                            svg = await convertWithSimplification(imageData, currentWidth, currentHeight, threshold, turdSize);
+                            svg = await convertWithSimplification(imageData, currentWidth, currentHeight, currentThreshold, currentTurdSize);
 
                             const svgBlob = new Blob([svg], { type: 'image/svg+xml' });
                             size = svgBlob.size;
 
                             attempts++;
 
-                            // Ajustar parámetros para siguiente intento
+                            // Estrategia mejorada: aumentar parámetros de forma gradual
                             if (size > 15 * 1024) {
-                                threshold += 10; // Hacer más agresivo el threshold
-                                turdSize += 2; // Ignorar características más pequeñas
+                                sizeIncreasing++;
 
-                                if (threshold > 200) {
-                                    threshold = 128;
-                                    turdSize += 5;
+                                // Primero aumentar threshold gradualmente (preserva más detalles)
+                                if (sizeIncreasing <= 3) {
+                                    currentThreshold += 5;
                                 }
+                                // Luego aumentar turdSize (elimina detalles pequeños)
+                                else if (sizeIncreasing <= 6) {
+                                    currentThreshold += 3;
+                                    currentTurdSize += 1;
+                                }
+                                // Finalmente, ser muy agresivo
+                                else {
+                                    currentThreshold = Math.min(200, currentThreshold + 8);
+                                    currentTurdSize += 2;
+                                }
+
+                                // Limitar máximos
+                                currentThreshold = Math.min(220, currentThreshold);
+                                currentTurdSize = Math.min(6, currentTurdSize);
                             }
                         } catch (err) {
                             console.error('Error en intento de conversión:', err);
@@ -266,21 +353,29 @@ export default function ToolsPage() {
                     setFileSize(size);
 
                     if (size > 15 * 1024) {
-                        setError(`La imagen es muy compleja. Tamaño final: ${(size / 1024).toFixed(2)} KB. Intenta con una imagen más simple.`);
+                        setError(`La imagen es muy compleja. Tamaño final: ${(size / 1024).toFixed(2)} KB. Usa Modo Avanzado para ajustar parámetros.`);
                         setIsProcessing(false);
                         setProcessingStep('');
                         reject(new Error('SVG demasiado grande'));
                     } else {
-                        setSvgOutput(svg);
+                        // Aplicar compresión SVGO
+                        const compressedSvg = compressSvgWithSVGO(svg);
+                        const compressedSize = new Blob([compressedSvg], { type: 'image/svg+xml' }).size;
+
+                        setSvgOutput(compressedSvg);
                         setOptimizationInfo(prev => ({
                             ...prev,
-                            svgSize: (size / 1024).toFixed(2),
+                            svgSize: (compressedSize / 1024).toFixed(2),
+                            compressionGain: ((size - compressedSize) / size * 100).toFixed(1),
                             finalDimensions: currentWidth !== img.width ? `${currentWidth}x${currentHeight}` : null,
-                            attempts
+                            attempts,
+                            finalThreshold: currentThreshold,
+                            finalTurdSize: currentTurdSize
                         }));
+                        setFileSize(compressedSize);
                         setIsProcessing(false);
                         setProcessingStep('');
-                        resolve(svg);
+                        resolve(compressedSvg);
                     }
                 } catch (err) {
                     console.error('Error general en conversión:', err);
@@ -347,7 +442,7 @@ export default function ToolsPage() {
             // Detectar color dominante antes de procesar
             const dominantColor = getDominantColor(imageData);
 
-            // Convertir a escala de grises y aplicar threshold
+            // Convertir a escala de grises con mejora de contraste
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             canvas.width = width;
@@ -355,17 +450,33 @@ export default function ToolsPage() {
 
             const processedData = ctx.createImageData(width, height);
 
+            // Paso 1: Convertir a escala de grises y calcular estadísticas
+            const grayValues = [];
             for (let i = 0; i < data.length; i += 4) {
                 const r = data[i];
                 const g = data[i + 1];
                 const b = data[i + 2];
                 const a = data[i + 3];
 
-                // Convertir a escala de grises
                 const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                grayValues.push(gray);
+            }
 
-                // Aplicar threshold (blanco o negro)
-                const value = gray > threshold ? 255 : 0;
+            // Paso 2: Calcular min/max para normalización (mejora contraste)
+            const minGray = Math.min(...grayValues);
+            const maxGray = Math.max(...grayValues);
+            const range = maxGray - minGray || 1;
+
+            // Paso 3: Aplicar normalización y threshold mejorado
+            for (let i = 0; i < data.length; i += 4) {
+                const a = data[i + 3];
+
+                // Normalizar gris a 0-255
+                const normalizedGray = ((grayValues[i / 4] - minGray) / range) * 255;
+
+                // Aplicar threshold adaptativo (threshold como percentil)
+                const adaptiveThreshold = (minGray + maxGray) / 2 + (threshold - 128) * 0.5;
+                const value = normalizedGray > adaptiveThreshold ? 255 : 0;
 
                 processedData.data[i] = value;
                 processedData.data[i + 1] = value;
@@ -382,10 +493,11 @@ export default function ToolsPage() {
                     const buffer = Buffer.from(reader.result);
 
                     Potrace.trace(buffer, {
-                        threshold,
+                        threshold: 128, // Usar threshold fijo en Potrace (ya pre-procesamos)
                         turdSize,
-                        optTolerance: 0.4,
-                        color: dominantColor, // Usar color dominante en lugar de negro
+                        optTolerance: 0.3, // Tolerancia más fina para preservar detalles
+                        pathMargin: 0.5,
+                        color: dominantColor,
                         background: 'transparent'
                     }, (err, svg) => {
                         if (err) {
@@ -427,6 +539,10 @@ export default function ToolsPage() {
         setError(null);
         setFileSize(0);
         setOptimizationInfo(null);
+        setImageComplexity(null);
+        setAdvancedMode(false);
+        setThreshold(128);
+        setTurdSize(2);
         setIsProcessing(false);
         setProcessingStep('');
         if (fileInputRef.current) {
@@ -500,6 +616,29 @@ export default function ToolsPage() {
                             )}
                         </div>
 
+                        {/* Image Complexity Analysis */}
+                        {imageComplexity && !isProcessing && (
+                            <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800 rounded-lg">
+                                <h3 className="text-lg font-semibold mb-3 text-purple-800 dark:text-purple-400">
+                                    📊 Análisis de Complejidad
+                                </h3>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                    <div>
+                                        <p className="text-gray-600 dark:text-gray-400">Complejidad:</p>
+                                        <p className="font-semibold text-purple-600 dark:text-purple-400 capitalize">{imageComplexity.complexity}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-600 dark:text-gray-400">Colores:</p>
+                                        <p className="font-semibold">{imageComplexity.colorCount}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-600 dark:text-gray-400">Dimensiones:</p>
+                                        <p className="font-semibold">{imageComplexity.dimensions}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Optimization Info */}
                         {optimizationInfo && !isProcessing && (
                             <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-lg">
@@ -535,10 +674,16 @@ export default function ToolsPage() {
                                             </p>
                                         </div>
                                     )}
-                                    {optimizationInfo.colorsUsed && (
+                                    {optimizationInfo.colors && (
                                         <div>
-                                            <p className="text-gray-600 dark:text-gray-400">Colores SVG:</p>
-                                            <p className="font-semibold">{optimizationInfo.colorsUsed}</p>
+                                            <p className="text-gray-600 dark:text-gray-400">Colores Imagen:</p>
+                                            <p className="font-semibold">{optimizationInfo.colors}</p>
+                                        </div>
+                                    )}
+                                    {optimizationInfo.complexity && (
+                                        <div>
+                                            <p className="text-gray-600 dark:text-gray-400">Complejidad:</p>
+                                            <p className="font-semibold capitalize text-purple-600 dark:text-purple-400">{optimizationInfo.complexity}</p>
                                         </div>
                                     )}
                                     {optimizationInfo.svgSize && (
@@ -546,6 +691,14 @@ export default function ToolsPage() {
                                             <p className="text-gray-600 dark:text-gray-400">Tamaño SVG:</p>
                                             <p className="font-semibold text-green-600 dark:text-green-400">
                                                 {optimizationInfo.svgSize} KB
+                                            </p>
+                                        </div>
+                                    )}
+                                    {optimizationInfo.compressionGain && (
+                                        <div>
+                                            <p className="text-gray-600 dark:text-gray-400">Compresión SVGO:</p>
+                                            <p className="font-semibold text-blue-600 dark:text-blue-400">
+                                                {optimizationInfo.compressionGain}%
                                             </p>
                                         </div>
                                     )}
@@ -567,11 +720,65 @@ export default function ToolsPage() {
                                     )}
                                 </div>
                             </div>
-                        )}                        {/* Preview */}
+                        )}
+
+                        {/* Advanced Mode */}
+                        {optimizationInfo && !isProcessing && (
+                            <div className="mb-6 p-4 bg-slate-700/50 rounded-lg flex items-center justify-between">
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={advancedMode}
+                                        onChange={(e) => setAdvancedMode(e.target.checked)}
+                                        className="w-5 h-5 rounded"
+                                    />
+                                    <span className="text-orange-300 font-semibold">Modo Avanzado - Ajustar Parámetros</span>
+                                </label>
+                            </div>
+                        )}
+
+                        {/* Advanced Parameters */}
+                        {advancedMode && !isProcessing && (
+                            <div className="mb-6 p-4 bg-slate-700/30 border border-slate-600 rounded-lg space-y-4">
+                                <div>
+                                    <div className="flex justify-between mb-2">
+                                        <label className="text-sm font-medium text-orange-300">Threshold (Contraste)</label>
+                                        <span className="text-xs bg-slate-600 px-2 py-1 rounded">{threshold}</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="50"
+                                        max="200"
+                                        value={threshold}
+                                        onChange={(e) => setThreshold(parseInt(e.target.value))}
+                                        className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer"
+                                    />
+                                    <p className="text-xs text-gray-400 mt-1">Valores altos = más agresiva la simplificación, archivo más pequeño</p>
+                                </div>
+
+                                <div>
+                                    <div className="flex justify-between mb-2">
+                                        <label className="text-sm font-medium text-orange-300">Turd Size (Detalle)</label>
+                                        <span className="text-xs bg-slate-600 px-2 py-1 rounded">{turdSize}</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="1"
+                                        max="5"
+                                        value={turdSize}
+                                        onChange={(e) => setTurdSize(parseInt(e.target.value))}
+                                        className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer"
+                                    />
+                                    <p className="text-xs text-gray-400 mt-1">Valores altos = menos detalles finos, archivo más pequeño</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Preview */}
                         {optimizedPreview && (
                             <div className="mb-6">
                                 <h3 className="text-lg font-semibold mb-3">Vista Previa Optimizada</h3>
-                                <div className="relative w-full h-64 bg-gray-100 dark:bg-gt7-dark-800 rounded-lg overflow-hidden">
+                                <div className="relative w-full h-64 bg-gray-100 dark:bg-slate-700 rounded-lg overflow-hidden">
                                     <Image
                                         src={optimizedPreview}
                                         alt="Preview Optimizado"
