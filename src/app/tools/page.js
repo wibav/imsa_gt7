@@ -29,20 +29,20 @@ export default function ToolsPage() {
     const detectDominantColors = (imageData) => {
         const { data } = imageData;
         const colorMap = new Map();
-        
+
         for (let i = 0; i < data.length; i += 4) {
             const r = data[i];
             const g = data[i + 1];
             const b = data[i + 2];
             const a = data[i + 3];
-            
+
             if (a > 128) {
                 // Agrupar colores en buckets de 32 para detectar gamas
-                const bucket = `${Math.floor(r/32)},${Math.floor(g/32)},${Math.floor(b/32)}`;
+                const bucket = `${Math.floor(r / 32)},${Math.floor(g / 32)},${Math.floor(b / 32)}`;
                 colorMap.set(bucket, (colorMap.get(bucket) || 0) + 1);
             }
         }
-        
+
         // Retornar top 5 colores
         return Array.from(colorMap.entries())
             .sort((a, b) => b[1] - a[1])
@@ -54,7 +54,7 @@ export default function ToolsPage() {
     const analyzeImageComplexity = (imageData) => {
         const { data, width, height } = imageData;
         const colorSet = new Set();
-        
+
         // Detectar bordes para medir complejidad real
         let edgePixels = 0;
         const grayscale = [];
@@ -80,7 +80,7 @@ export default function ToolsPage() {
             for (let x = 1; x < width - 1; x++) {
                 const idx = y * width + x;
                 const gx = Math.abs(grayscale[idx + 1] - grayscale[idx - 1]) +
-                          Math.abs(grayscale[idx + width] - grayscale[idx - width]);
+                    Math.abs(grayscale[idx + width] - grayscale[idx - width]);
                 if (gx > 50) edgePixels++;
             }
         }
@@ -138,9 +138,10 @@ export default function ToolsPage() {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Validar que sea una imagen
-        if (!file.type.startsWith('image/')) {
-            setError('Por favor selecciona un archivo de imagen válido (JPG, PNG, WebP, BMP, GIF, TIFF)');
+        // Validar que sea PNG (se conserva transparencia y colores originales)
+        const isPNG = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
+        if (!isPNG) {
+            setError('Solo se admiten imágenes PNG. Exporta tu diseño con transparencia para obtener el mejor resultado.');
             return;
         }
 
@@ -506,7 +507,7 @@ export default function ToolsPage() {
             canvas.height = height;
 
             const processedData = ctx.createImageData(width, height);
-            
+
             // PIPELINE AVANZADO: Paso 1 - Análisis de contraste
             const grayValues = [];
             for (let i = 0; i < data.length; i += 4) {
@@ -547,7 +548,7 @@ export default function ToolsPage() {
                 // Threshold adaptativo con compensación de bordes
                 const adaptiveThreshold = (minGray + maxGray) / 2 + (threshold - 128) * 0.5;
                 const adjustedThreshold = adaptiveThreshold - (edgeBoost * 20); // Borde más sensible
-                
+
                 const value = normalizedGray > adjustedThreshold ? 255 : 0;
 
                 processedData.data[i] = value;
@@ -582,13 +583,13 @@ export default function ToolsPage() {
                                 .replace(/<!--[\s\S]*?-->/g, '')
                                 .replace(/\s+/g, ' ')
                                 .replace(/>\s+</g, '><');
-                            
+
                             // Reducir decimales pero preservar precisión de detalles
                             optimizedSvg = optimizedSvg.replace(/(\d+\.\d{2,})/g, (m) => {
                                 const num = parseFloat(m);
                                 return Math.abs(num) > 10 ? num.toFixed(1) : num.toFixed(2);
                             });
-                            
+
                             resolve(optimizedSvg.trim());
                         }
                     });
@@ -666,12 +667,12 @@ export default function ToolsPage() {
                         {/* File Upload */}
                         <div className="mb-6">
                             <label className="block text-sm font-medium mb-2 text-orange-300">
-                                Seleccionar Imagen (JPG, PNG, WebP, BMP, GIF, TIFF)
+                                Seleccionar Imagen (PNG)
                             </label>
                             <input
                                 ref={fileInputRef}
                                 type="file"
-                                accept="image/jpeg,image/png,image/jpg,image/webp,image/bmp,image/gif,image/tiff"
+                                accept="image/png"
                                 onChange={handleFileSelect}
                                 disabled={isProcessing}
                                 className="block w-full text-sm text-gray-500 dark:text-gray-400
