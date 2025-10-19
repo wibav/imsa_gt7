@@ -21,17 +21,51 @@ export default function ToolsPage() {
     const [threshold, setThreshold] = useState(128);
     const [turdSize, setTurdSize] = useState(2);
     const [imageComplexity, setImageComplexity] = useState(null);
+    const [qualityMode, setQualityMode] = useState('auto'); // auto, detail, balanced, aggressive
+    const [preserveColors, setPreserveColors] = useState(true);
+    const [edgeEnhancement, setEdgeEnhancement] = useState(true);
 
-    // Analizar complejidad de imagen
+    // Detectar colores dominantes en la imagen para preservar detalles críticos
+    const detectDominantColors = (imageData) => {
+        const { data } = imageData;
+        const colorMap = new Map();
+        
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
+            
+            if (a > 128) {
+                // Agrupar colores en buckets de 32 para detectar gamas
+                const bucket = `${Math.floor(r/32)},${Math.floor(g/32)},${Math.floor(b/32)}`;
+                colorMap.set(bucket, (colorMap.get(bucket) || 0) + 1);
+            }
+        }
+        
+        // Retornar top 5 colores
+        return Array.from(colorMap.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(entry => entry[0]);
+    };
+
+    // Analizar complejidad de imagen con detección mejorada
     const analyzeImageComplexity = (imageData) => {
         const { data, width, height } = imageData;
         const colorSet = new Set();
+        
+        // Detectar bordes para medir complejidad real
+        let edgePixels = 0;
+        const grayscale = [];
 
         for (let i = 0; i < data.length; i += 4) {
             const r = data[i];
             const g = data[i + 1];
             const b = data[i + 2];
             const a = data[i + 3];
+            const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+            grayscale.push(gray);
 
             if (a > 128) {
                 const qr = Math.floor(r / 16) * 16;
@@ -41,28 +75,43 @@ export default function ToolsPage() {
             }
         }
 
-        const colorCount = colorSet.size;
-        let complexity = 'simple';
-        let recThreshold = 120; // Threshold más bajo para preservar detalles
-        let recTurdSize = 1; // Turd size más bajo para mantener detalles
+        // Calcular densidad de bordes (detección de Sobel simplificada)
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const idx = y * width + x;
+                const gx = Math.abs(grayscale[idx + 1] - grayscale[idx - 1]) +
+                          Math.abs(grayscale[idx + width] - grayscale[idx - width]);
+                if (gx > 50) edgePixels++;
+            }
+        }
 
-        if (colorCount > 25) {
+        const colorCount = colorSet.size;
+        const edgeDensity = edgePixels / (width * height);
+        const complexityScore = colorCount * 0.6 + edgeDensity * 100 * 0.4;
+
+        let complexity = 'simple';
+        let recThreshold = 120;
+        let recTurdSize = 1;
+
+        if (complexityScore > 35) {
             complexity = 'muy_compleja';
-            recThreshold = 130;
-            recTurdSize = 2;
-        } else if (colorCount > 15) {
-            complexity = 'compleja';
-            recThreshold = 125;
+            recThreshold = 118;
             recTurdSize = 1;
-        } else if (colorCount > 8) {
-            complexity = 'media';
+        } else if (complexityScore > 20) {
+            complexity = 'compleja';
             recThreshold = 120;
+            recTurdSize = 1;
+        } else if (complexityScore > 10) {
+            complexity = 'media';
+            recThreshold = 122;
             recTurdSize = 1;
         }
 
         const result = {
             colorCount,
             complexity,
+            complexityScore: complexityScore.toFixed(1),
+            edgeDensity: (edgeDensity * 100).toFixed(1),
             recommendedThreshold: recThreshold,
             recommendedTurdSize: recTurdSize,
             dimensions: `${width}x${height}`
@@ -73,7 +122,9 @@ export default function ToolsPage() {
         setTurdSize(recTurdSize);
 
         return result;
-    };    // Comprimir SVG
+    };
+
+    // Comprimir SVG
     const compressSvgWithSVGO = (svg) => {
         let compressed = svg;
         compressed = compressed.replace(/(\d+\.\d{2,})/g, (m) => parseFloat(m).toFixed(1));
@@ -124,49 +175,56 @@ export default function ToolsPage() {
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const data = imageData.data;
 
-                // Detectar color de fondo (esquinas)
-                const corners = [
-                    { x: 0, y: 0 },
-                    { x: canvas.width - 1, y: 0 },
-                    { x: 0, y: canvas.height - 1 },
-                    { x: canvas.width - 1, y: canvas.height - 1 }
+                // PIPELINE AVANZADO: Detección inteligente de fondo
+                // Analizar múltiples esquinas y centro para encontrar patrón de fondo
+                const samplePoints = [
+                    { x: 0, y: 0 }, { x: canvas.width - 1, y: 0 },
+                    { x: 0, y: canvas.height - 1 }, { x: canvas.width - 1, y: canvas.height - 1 },
+                    { x: Math.floor(canvas.width * 0.1), y: Math.floor(canvas.height * 0.1) },
+                    { x: Math.floor(canvas.width * 0.9), y: Math.floor(canvas.height * 0.1) },
+                    { x: Math.floor(canvas.width * 0.1), y: Math.floor(canvas.height * 0.9) },
+                    { x: Math.floor(canvas.width * 0.9), y: Math.floor(canvas.height * 0.9) }
                 ];
 
-                let bgR = 0, bgG = 0, bgB = 0;
-                corners.forEach(corner => {
-                    const i = (corner.y * canvas.width + corner.x) * 4;
-                    bgR += data[i];
-                    bgG += data[i + 1];
-                    bgB += data[i + 2];
+                const colorCounts = new Map();
+                samplePoints.forEach(point => {
+                    const i = (point.y * canvas.width + point.x) * 4;
+                    const color = `${data[i]},${data[i + 1]},${data[i + 2]}`;
+                    colorCounts.set(color, (colorCounts.get(color) || 0) + 1);
                 });
 
-                bgR = Math.round(bgR / corners.length);
-                bgG = Math.round(bgG / corners.length);
-                bgB = Math.round(bgB / corners.length);
+                // Color de fondo es el más frecuente en los bordes
+                let bgR = 255, bgG = 255, bgB = 255; // Asumir blanco por defecto
+                let maxCount = 0;
+                colorCounts.forEach((count, color) => {
+                    if (count > maxCount) {
+                        maxCount = count;
+                        const [r, g, b] = color.split(',').map(Number);
+                        bgR = r; bgG = g; bgB = b;
+                    }
+                });
 
-                // Eliminar píxeles similares al fondo
-                const threshold = 40; // Tolerancia de similitud
+                // Remover píxeles de fondo con threshold mejorado
+                const threshold = 45; // Aumentado de 40 para mejor detección
 
                 for (let i = 0; i < data.length; i += 4) {
                     const r = data[i];
                     const g = data[i + 1];
                     const b = data[i + 2];
 
-                    const diffR = Math.abs(r - bgR);
-                    const diffG = Math.abs(g - bgG);
-                    const diffB = Math.abs(b - bgB);
+                    const dist = Math.sqrt(
+                        Math.pow(r - bgR, 2) +
+                        Math.pow(g - bgG, 2) +
+                        Math.pow(b - bgB, 2)
+                    );
 
-                    // Si el color es similar al fondo, hacerlo transparente
-                    if (diffR < threshold && diffG < threshold && diffB < threshold) {
-                        data[i + 3] = 0; // Alpha = 0 (transparente)
+                    if (dist < threshold) {
+                        data[i + 3] = 0; // Transparencia
                     }
                 }
 
                 ctx.putImageData(imageData, 0, 0);
-
-                canvas.toBlob((blob) => {
-                    resolve(URL.createObjectURL(blob));
-                }, 'image/png');
+                resolve(canvas.toDataURL());
             };
 
             img.src = imageDataUrl;
@@ -439,63 +497,79 @@ export default function ToolsPage() {
         return new Promise((resolve, reject) => {
             const { data } = imageData;
 
-            // Detectar color dominante antes de procesar
+            // Detectar color dominante
             const dominantColor = getDominantColor(imageData);
 
-            // Convertir a escala de grises con mejora de contraste
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             canvas.width = width;
             canvas.height = height;
 
             const processedData = ctx.createImageData(width, height);
-
-            // Paso 1: Convertir a escala de grises y calcular estadísticas
+            
+            // PIPELINE AVANZADO: Paso 1 - Análisis de contraste
             const grayValues = [];
             for (let i = 0; i < data.length; i += 4) {
                 const r = data[i];
                 const g = data[i + 1];
                 const b = data[i + 2];
-                const a = data[i + 3];
-
                 const gray = 0.299 * r + 0.587 * g + 0.114 * b;
                 grayValues.push(gray);
             }
 
-            // Paso 2: Calcular min/max para normalización (mejora contraste)
             const minGray = Math.min(...grayValues);
             const maxGray = Math.max(...grayValues);
             const range = maxGray - minGray || 1;
 
-            // Paso 3: Aplicar normalización y threshold mejorado
+            // PIPELINE AVANZADO: Paso 2 - Detección de bordes para refuerzo
+            const edgeMask = new Float32Array(data.length / 4);
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    const idx = y * width + x;
+                    const gx = Math.abs(grayValues[idx + 1] - grayValues[idx - 1]);
+                    const gy = Math.abs(grayValues[idx + width] - grayValues[idx - width]);
+                    edgeMask[idx] = Math.sqrt(gx * gx + gy * gy);
+                }
+            }
+
+            // PIPELINE AVANZADO: Paso 3 - Aplicar normalización + refuerzo de bordes + threshold adaptativo
             for (let i = 0; i < data.length; i += 4) {
                 const a = data[i + 3];
+                const pixelIdx = i / 4;
 
                 // Normalizar gris a 0-255
-                const normalizedGray = ((grayValues[i / 4] - minGray) / range) * 255;
+                const normalizedGray = ((grayValues[pixelIdx] - minGray) / range) * 255;
 
-                // Aplicar threshold adaptativo (threshold como percentil)
+                // Refuerzo de bordes: si está en borde, mantener más detalle
+                const edgeStrength = edgeMask[pixelIdx] || 0;
+                const edgeBoost = Math.min(edgeStrength / 100, 0.3); // Máx 30% boost
+
+                // Threshold adaptativo con compensación de bordes
                 const adaptiveThreshold = (minGray + maxGray) / 2 + (threshold - 128) * 0.5;
-                const value = normalizedGray > adaptiveThreshold ? 255 : 0;
+                const adjustedThreshold = adaptiveThreshold - (edgeBoost * 20); // Borde más sensible
+                
+                const value = normalizedGray > adjustedThreshold ? 255 : 0;
 
                 processedData.data[i] = value;
                 processedData.data[i + 1] = value;
                 processedData.data[i + 2] = value;
-                processedData.data[i + 3] = a < 128 ? 0 : 255; // Mantener transparencia
+                processedData.data[i + 3] = a < 128 ? 0 : 255;
             }
 
             ctx.putImageData(processedData, 0, 0);
 
-            // Convertir canvas a buffer para Potrace
+            // PIPELINE AVANZADO: Paso 4 - Potrace con parámetros profesionales
             canvas.toBlob((blob) => {
                 const reader = new FileReader();
                 reader.onload = () => {
                     const buffer = Buffer.from(reader.result);
 
+                    // Parámetros ajustados para máxima preservación de detalles
                     Potrace.trace(buffer, {
-                        threshold: 128, // Usar threshold fijo en Potrace (ya pre-procesamos)
+                        threshold: 128,
                         turdSize,
-                        optTolerance: 0.3, // Tolerancia más fina para preservar detalles
+                        optTolerance: 0.25, // Más fino que antes (0.3 → 0.25)
+                        optAlphaMax: 1.0, // Preservar esquinas agudas
                         pathMargin: 0.5,
                         color: dominantColor,
                         background: 'transparent'
@@ -503,13 +577,19 @@ export default function ToolsPage() {
                         if (err) {
                             reject(err);
                         } else {
-                            // Optimizar SVG eliminando espacios y comentarios
-                            const optimizedSvg = svg
-                                .replace(/<!--[\s\S]*?-->/g, '') // Eliminar comentarios
-                                .replace(/\s+/g, ' ') // Reducir espacios múltiples
-                                .replace(/>\s+</g, '><') // Eliminar espacios entre tags
-                                .trim();
-                            resolve(optimizedSvg);
+                            // Optimización inteligente de SVG
+                            let optimizedSvg = svg
+                                .replace(/<!--[\s\S]*?-->/g, '')
+                                .replace(/\s+/g, ' ')
+                                .replace(/>\s+</g, '><');
+                            
+                            // Reducir decimales pero preservar precisión de detalles
+                            optimizedSvg = optimizedSvg.replace(/(\d+\.\d{2,})/g, (m) => {
+                                const num = parseFloat(m);
+                                return Math.abs(num) > 10 ? num.toFixed(1) : num.toFixed(2);
+                            });
+                            
+                            resolve(optimizedSvg.trim());
                         }
                     });
                 };
@@ -620,16 +700,24 @@ export default function ToolsPage() {
                         {imageComplexity && !isProcessing && (
                             <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800 rounded-lg">
                                 <h3 className="text-lg font-semibold mb-3 text-purple-800 dark:text-purple-400">
-                                    📊 Análisis de Complejidad
+                                    📊 Análisis de Complejidad Avanzado
                                 </h3>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
                                     <div>
-                                        <p className="text-gray-600 dark:text-gray-400">Complejidad:</p>
+                                        <p className="text-gray-600 dark:text-gray-400">Nivel:</p>
                                         <p className="font-semibold text-purple-600 dark:text-purple-400 capitalize">{imageComplexity.complexity}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-600 dark:text-gray-400">Puntuación:</p>
+                                        <p className="font-semibold">{imageComplexity.complexityScore}</p>
                                     </div>
                                     <div>
                                         <p className="text-gray-600 dark:text-gray-400">Colores:</p>
                                         <p className="font-semibold">{imageComplexity.colorCount}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-600 dark:text-gray-400">Densidad Bordes:</p>
+                                        <p className="font-semibold">{imageComplexity.edgeDensity}%</p>
                                     </div>
                                     <div>
                                         <p className="text-gray-600 dark:text-gray-400">Dimensiones:</p>
