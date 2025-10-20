@@ -21,9 +21,6 @@ export default function ToolsPage() {
     const [threshold, setThreshold] = useState(128);
     const [turdSize, setTurdSize] = useState(2);
     const [imageComplexity, setImageComplexity] = useState(null);
-    const [qualityMode, setQualityMode] = useState('auto'); // auto, detail, balanced, aggressive
-    const [preserveColors, setPreserveColors] = useState(true);
-    const [edgeEnhancement, setEdgeEnhancement] = useState(true);
 
     // Detectar colores dominantes en la imagen para preservar detalles críticos
     const detectDominantColors = (imageData) => {
@@ -265,7 +262,7 @@ export default function ToolsPage() {
                 let height = img.height;
 
                 // Ajuste inteligente de tamaño basado en complejidad
-                let maxSize = 400; // Tamaño base
+                let maxSize = 200; // Reducido para más detalle en formas complejas
 
                 // Si la imagen es muy grande, reducir más
                 if (width > 1000 || height > 1000) {
@@ -372,9 +369,9 @@ export default function ToolsPage() {
                             // Obtener datos de imagen
                             const imageData = ctx.getImageData(0, 0, currentWidth, currentHeight);
 
-                            // Usar método simplificado con reducción de colores
-                            svg = await convertWithSimplification(imageData, currentWidth, currentHeight, currentThreshold, currentTurdSize);
-
+                            // Usar método multicapa con reducción de colores
+                            svg = await convertWithMultipleLayers(imageData, currentWidth, currentHeight, currentThreshold, currentTurdSize);
+                            console.log('SVG optimizado:', svg);
                             const svgBlob = new Blob([svg], { type: 'image/svg+xml' });
                             size = svgBlob.size;
 
@@ -421,6 +418,11 @@ export default function ToolsPage() {
                         const compressedSvg = compressSvgWithSVGO(svg);
                         const compressedSize = new Blob([compressedSvg], { type: 'image/svg+xml' }).size;
 
+                        console.log('Peso final del SVG:', (compressedSize / 1024).toFixed(2), 'KB');
+
+                        // Contar capas SVG
+                        const svgLayers = (compressedSvg.match(/<path/g) || []).length;
+
                         setSvgOutput(compressedSvg);
                         setOptimizationInfo(prev => ({
                             ...prev,
@@ -429,7 +431,8 @@ export default function ToolsPage() {
                             finalDimensions: currentWidth !== img.width ? `${currentWidth}x${currentHeight}` : null,
                             attempts,
                             finalThreshold: currentThreshold,
-                            finalTurdSize: currentTurdSize
+                            finalTurdSize: currentTurdSize,
+                            svgLayers
                         }));
                         setFileSize(compressedSize);
                         setIsProcessing(false);
@@ -494,108 +497,354 @@ export default function ToolsPage() {
         return `rgb(${r},${g},${b})`;
     };
 
-    const convertWithSimplification = async (imageData, width, height, threshold, turdSize) => {
-        return new Promise((resolve, reject) => {
-            const { data } = imageData;
+    const getUniqueColors = (imageData) => {
+        const { data } = imageData;
+        const colorMap = new Map();
 
-            // Detectar color dominante
-            const dominantColor = getDominantColor(imageData);
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
 
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d', { willReadFrequently: true });
-            canvas.width = width;
-            canvas.height = height;
-
-            const processedData = ctx.createImageData(width, height);
-
-            // PIPELINE AVANZADO: Paso 1 - Análisis de contraste
-            const grayValues = [];
-            for (let i = 0; i < data.length; i += 4) {
-                const r = data[i];
-                const g = data[i + 1];
-                const b = data[i + 2];
-                const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-                grayValues.push(gray);
+            // Solo incluir píxeles opacos
+            if (a >= 128) {
+                // Cuantizar para agrupar colores similares (buckets de 4 para más precisión)
+                const qr = Math.floor(r / 4) * 4;
+                const qg = Math.floor(g / 4) * 4;
+                const qb = Math.floor(b / 4) * 4;
+                const colorKey = `${qr},${qg},${qb}`;
+                colorMap.set(colorKey, (colorMap.get(colorKey) || 0) + 1);
             }
+        }
 
-            const minGray = Math.min(...grayValues);
-            const maxGray = Math.max(...grayValues);
-            const range = maxGray - minGray || 1;
+        // Ordenar por frecuencia descendente (colores más frecuentes primero, para formas principales)
+        return Array.from(colorMap.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(([color, count]) => {
+                const [r, g, b] = color.split(',').map(Number);
+                return { r, g, b, rgb: `rgb(${r},${g},${b})`, count };
+            });
+    };
 
-            // PIPELINE AVANZADO: Paso 2 - Detección de bordes para refuerzo
-            const edgeMask = new Float32Array(data.length / 4);
-            for (let y = 1; y < height - 1; y++) {
-                for (let x = 1; x < width - 1; x++) {
-                    const idx = y * width + x;
-                    const gx = Math.abs(grayValues[idx + 1] - grayValues[idx - 1]);
-                    const gy = Math.abs(grayValues[idx + width] - grayValues[idx - width]);
-                    edgeMask[idx] = Math.sqrt(gx * gx + gy * gy);
-                }
-            }
+    const convertWithMultipleLayers = async (imageData, width, height, threshold, turdSize) => {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const totalPixels = width * height;
+                const uniqueColors = getUniqueColors(imageData)
+                    .slice(0, 300); // Aumentado para incluir colores menos frecuentes como ojos amarillos y lengua roja
+                console.log('width', width);
+                console.log('height', height);
+                console.log('totalPixels', totalPixels);
+                console.log(`La imagen tiene ${uniqueColors.length} capas de color (procesando colores más frecuentes primero para formas principales)`);
+                // Preparar estructuras
+                let svgPathsByColor = new Map(); // Map<color, Array<pathData>>
+                let currentSize = 0;
+                const maxSize = 15 * 1024; // 15KB
 
-            // PIPELINE AVANZADO: Paso 3 - Aplicar normalización + refuerzo de bordes + threshold adaptativo
-            for (let i = 0; i < data.length; i += 4) {
-                const a = data[i + 3];
-                const pixelIdx = i / 4;
+                // Reservar bytes para detalles pequeños (oj. ojos, lengua) - aumentado para dejar espacio
+                const reserveBytes = 3.5 * 1024; // aumentado a 2KB para más espacio en secundaria
+                const usableBudgetFirstPass = Math.max(4 * 1024, maxSize - reserveBytes); // garantizar al menos 4KB
 
-                // Normalizar gris a 0-255
-                const normalizedGray = ((grayValues[pixelIdx] - minGray) / range) * 255;
+                // SVG base
+                const svgHeader = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`;
+                const svgFooter = '</svg>';
 
-                // Refuerzo de bordes: si está en borde, mantener más detalle
-                const edgeStrength = edgeMask[pixelIdx] || 0;
-                const edgeBoost = Math.min(edgeStrength / 100, 0.3); // Máx 30% boost
+                // Limitar cantidad de colores a procesar para reducir ruido - aumentado
+                const maxColorsToProcess = Math.min(150, uniqueColors.length);
+                const primaryColors = uniqueColors.slice(0, Math.min(15, maxColorsToProcess)); // principales aumentado
+                const secondaryCandidates = uniqueColors.slice(Math.min(12, maxColorsToProcess), maxColorsToProcess);
 
-                // Threshold adaptativo con compensación de bordes
-                const adaptiveThreshold = (minGray + maxGray) / 2 + (threshold - 128) * 0.5;
-                const adjustedThreshold = adaptiveThreshold - (edgeBoost * 20); // Borde más sensible
-
-                const value = normalizedGray > adjustedThreshold ? 255 : 0;
-
-                processedData.data[i] = value;
-                processedData.data[i + 1] = value;
-                processedData.data[i + 2] = value;
-                processedData.data[i + 3] = a < 128 ? 0 : 255;
-            }
-
-            ctx.putImageData(processedData, 0, 0);
-
-            // PIPELINE AVANZADO: Paso 4 - Potrace con parámetros profesionales
-            canvas.toBlob((blob) => {
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const buffer = Buffer.from(reader.result);
-
-                    // Parámetros ajustados para máxima preservación de detalles
-                    Potrace.trace(buffer, {
-                        threshold: 128,
-                        turdSize,
-                        optTolerance: 0.25, // Más fino que antes (0.3 → 0.25)
-                        optAlphaMax: 1.0, // Preservar esquinas agudas
-                        pathMargin: 0.5,
-                        color: dominantColor,
-                        background: 'transparent'
-                    }, (err, svg) => {
-                        if (err) {
-                            reject(err);
-                        } else {
-                            // Optimización inteligente de SVG
-                            let optimizedSvg = svg
-                                .replace(/<!--[\s\S]*?-->/g, '')
-                                .replace(/\s+/g, ' ')
-                                .replace(/>\s+</g, '><');
-
-                            // Reducir decimales pero preservar precisión de detalles
-                            optimizedSvg = optimizedSvg.replace(/(\d+\.\d{2,})/g, (m) => {
-                                const num = parseFloat(m);
-                                return Math.abs(num) > 10 ? num.toFixed(1) : num.toFixed(2);
-                            });
-
-                            resolve(optimizedSvg.trim());
+                // Helper: dilatar máscara simple para unir píxeles aislados (1px dilation)
+                const dilateMask = (maskData, w, h, iterations = 1) => {
+                    const copy = new Uint8ClampedArray(maskData.data);
+                    const idx = (x, y) => (y * w + x) * 4;
+                    for (let iter = 0; iter < iterations; iter++) {
+                        for (let y = 1; y < h - 1; y++) {
+                            for (let x = 1; x < w - 1; x++) {
+                                const i = idx(x, y);
+                                // if current pixel is white and any neighbor is black -> set black in copy
+                                if (copy[i] === 255) {
+                                    let found = false;
+                                    for (let oy = -1; oy <= 1 && !found; oy++) {
+                                        for (let ox = -1; ox <= 1 && !found; ox++) {
+                                            const ni = idx(x + ox, y + oy);
+                                            if (maskData.data[ni] === 0) found = true;
+                                        }
+                                    }
+                                    if (found) {
+                                        copy[i] = 0; copy[i + 1] = 0; copy[i + 2] = 0; copy[i + 3] = 255;
+                                    }
+                                }
+                            }
                         }
+                        maskData.data.set(copy);
+                    }
+                };
+
+                // Small function to trace a mask canvas with Potrace and return path d and fill
+                const traceMaskCanvas = (maskCanvas, fillColor, opts) => {
+                    return new Promise((resolvePath, rejectPath) => {
+                        maskCanvas.toBlob((blob) => {
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                                const buffer = Buffer.from(reader.result);
+                                Potrace.trace(buffer, opts, (err, svg) => {
+                                    if (err) return rejectPath(err);
+                                    const pathMatch = svg.match(/<path[^>]*d="([^"]*)"[^>]*fill="([^"]*)"[^>]*\/>/);
+                                    if (pathMatch) resolvePath({ d: pathMatch[1], fill: pathMatch[2], raw: svg });
+                                    else resolvePath(null);
+                                });
+                            };
+                            reader.readAsArrayBuffer(blob);
+                        }, 'image/png');
                     });
                 };
-                reader.readAsArrayBuffer(blob);
-            }, 'image/png');
+
+                // FIRST PASS: capture main shapes (more permissive simplification)
+                for (let i = 0; i < primaryColors.length; i++) {
+                    const color = primaryColors[i];
+                    const maskCanvas = document.createElement('canvas');
+                    const maskCtx = maskCanvas.getContext('2d');
+                    maskCanvas.width = width; maskCanvas.height = height;
+                    const maskData = maskCtx.createImageData(width, height);
+                    const { data } = imageData;
+
+                    // Tolerancia mayor para unir variantes del mismo tono
+                    const tolerance = 8;
+                    let pixelCount = 0;
+
+                    for (let j = 0; j < data.length; j += 4) {
+                        const r = data[j]; const g = data[j + 1]; const b = data[j + 2]; const a = data[j + 3];
+                        const matches = a >= 128 && Math.abs(r - color.r) <= tolerance && Math.abs(g - color.g) <= tolerance && Math.abs(b - color.b) <= tolerance;
+                        if (matches) {
+                            maskData.data[j] = 0; maskData.data[j + 1] = 0; maskData.data[j + 2] = 0; maskData.data[j + 3] = 255;
+                            pixelCount++;
+                        } else {
+                            maskData.data[j] = 255; maskData.data[j + 1] = 255; maskData.data[j + 2] = 255; maskData.data[j + 3] = 255;
+                        }
+                    }
+
+                    // If very small area, dilate gently for better tracing without deformation
+                    if (pixelCount > 0 && pixelCount < Math.max(120, Math.floor(totalPixels * 0.01))) {
+                        // apply 1 iteration dilation
+                        maskCtx.putImageData(maskData, 0, 0);
+                        const tmp = maskCtx.getImageData(0, 0, width, height);
+                        dilateMask(tmp, width, height, 1);
+                        maskCtx.putImageData(tmp, 0, 0);
+                    } else {
+                        maskCtx.putImageData(maskData, 0, 0);
+                    }
+
+                    // Try trace with permissive simplification
+                    try {
+                        const traceOpts = {
+                            threshold: Math.max(threshold - 10, 50),
+                            turdSize: Math.max(turdSize * 2.0, 2.0), // aumentado para más simplificación
+                            optTolerance: 0.2,
+                            optAlphaMax: 1.0,
+                            pathMargin: 0.8,
+                            color: color.rgb,
+                            background: 'transparent',
+                            turnpolicy: 'minority'
+                        };
+
+                        const traced = await traceMaskCanvas(maskCanvas, color.rgb, traceOpts);
+                        if (traced && traced.d && traced.d.trim() && traced.d !== 'M0 0') {
+                            // Simular tamaño tras agregar
+                            const tempMap = new Map(svgPathsByColor);
+                            tempMap.set(color.rgb, (tempMap.get(color.rgb) || []).concat([traced.d]));
+                            let tempSvgPaths = [];
+                            for (let [col, pathArr] of tempMap) {
+                                tempSvgPaths.push(`<path d="${pathArr.join(' ')}" fill="${col}" fill-rule="evenodd"/>`);
+                            }
+                            const testSvg = svgHeader + tempSvgPaths.join('') + svgFooter;
+                            const testBlob = new Blob([testSvg], { type: 'image/svg+xml' });
+                            const testSize = testBlob.size;
+
+                            if (testSize <= usableBudgetFirstPass) {
+                                svgPathsByColor.set(color.rgb, (svgPathsByColor.get(color.rgb) || []).concat([traced.d]));
+                                currentSize = testSize;
+                                console.log(`Primaria agregada: ${color.rgb}, píxeles: ${pixelCount}, tamaño actual: ${(currentSize / 1024).toFixed(2)} KB`);
+                            } else {
+                                console.log(`Primaria omitida (no cabe en primera pasada): ${color.rgb}, tamaño tentativa: ${(testSize / 1024).toFixed(2)} KB`);
+                            }
+                        }
+                    } catch (err) {
+                        console.log(`Error trazando color primario ${color.rgb}:`, err.message || err);
+                    }
+                }
+
+                // SECOND PASS: try a few important small/dominant colors within remaining budget
+                // Determine remaining budget
+                currentSize = currentSize || 0;
+                const remainingBudget = Math.max(0, maxSize - currentSize);
+
+                // Get user/detected dominant colors (top 5) and prioritize them
+                const dominantBuckets = detectDominantColors(imageData); // returns buckets like "r,g,b"
+                const dominantRgbList = dominantBuckets.map(b => {
+                    const [br, bg, bb] = b.split(',').map(Number);
+                    return `rgb(${br},${bg},${bb})`;
+                });
+
+                // Build secondary list prioritizing dominantRgbList, then yellow/red colors, then high-count secondaryCandidates
+                const secondaryOrdered = [];
+                // Add dominant colors first if present in candidates
+                for (const d of dominantRgbList) {
+                    const found = secondaryCandidates.find(c => c.rgb === d);
+                    if (found) secondaryOrdered.push(found);
+                }
+                // Add yellow/red colors next (high r/g, low b for yellows; high r, low g/b for reds)
+                const yellowRedCandidates = secondaryCandidates.filter(c => {
+                    const [r, g, b] = c.rgb.match(/\d+/g).map(Number);
+                    return (r > 200 && g > 200 && b < 100) || (r > 200 && g < 150 && b < 100); // yellows and reds
+                });
+                for (const c of yellowRedCandidates) {
+                    if (!secondaryOrdered.find(x => x.rgb === c.rgb)) secondaryOrdered.push(c);
+                }
+                // Then add remaining secondary candidates by count ascending (small areas first)
+                for (const c of secondaryCandidates) {
+                    if (!secondaryOrdered.find(x => x.rgb === c.rgb)) secondaryOrdered.push(c);
+                }
+                secondaryOrdered.sort((a, b) => a.count - b.count); // small areas first
+
+                // Limit tries to avoid explosion - aumentado para incluir más colores
+                const maxSecondary = 60;
+                for (let i = 0; i < Math.min(maxSecondary, secondaryOrdered.length); i++) {
+                    const color = secondaryOrdered[i];
+                    if (svgPathsByColor.has(color.rgb)) continue; // ya añadida
+
+                    // Build mask stricter (preserve small spots)
+                    const maskCanvas = document.createElement('canvas');
+                    const maskCtx = maskCanvas.getContext('2d');
+                    maskCanvas.width = width; maskCanvas.height = height;
+                    const maskData = maskCtx.createImageData(width, height);
+                    const { data } = imageData;
+                    const tolerance = 4; // less strict to capture color variations
+                    let pixelCount = 0;
+                    for (let j = 0; j < data.length; j += 4) {
+                        const r = data[j]; const g = data[j + 1]; const b = data[j + 2]; const a = data[j + 3];
+                        const matches = a >= 128 && Math.abs(r - color.r) <= tolerance && Math.abs(g - color.g) <= tolerance && Math.abs(b - color.b) <= tolerance;
+                        if (matches) {
+                            maskData.data[j] = 0; maskData.data[j + 1] = 0; maskData.data[j + 2] = 0; maskData.data[j + 3] = 255;
+                            pixelCount++;
+                        } else {
+                            maskData.data[j] = 255; maskData.data[j + 1] = 255; maskData.data[j + 2] = 255; maskData.data[j + 3] = 255;
+                        }
+                    }
+                    if (pixelCount === 0) continue;
+                    // If extremely small, dilate gently to help Potrace form a shape without deforming
+                    maskCtx.putImageData(maskData, 0, 0);
+                    const tmp = maskCtx.getImageData(0, 0, width, height);
+                    if (pixelCount < 120) dilateMask(tmp, width, height, 1); // single iteration for small areas
+                    maskCtx.putImageData(tmp, 0, 0);
+
+                    try {
+                        const traceOpts = {
+                            threshold: Math.max(threshold - 5, 50),
+                            turdSize: Math.max(turdSize * 1.0, 1.0), // back to default for more detail
+                            optTolerance: 0.08, // back to default for more precision
+                            optAlphaMax: 1.0,
+                            pathMargin: 0.5,
+                            color: color.rgb,
+                            background: 'transparent',
+                            turnpolicy: 'minority'
+                        };
+
+                        const traced = await traceMaskCanvas(maskCanvas, color.rgb, traceOpts);
+                        if (traced && traced.d && traced.d.trim() && traced.d !== 'M0 0') {
+                            // Simular tamaño tras agregar
+                            const tempMap = new Map(svgPathsByColor);
+                            tempMap.set(color.rgb, (tempMap.get(color.rgb) || []).concat([traced.d]));
+                            let tempSvgPaths = [];
+                            for (let [col, pathArr] of tempMap) {
+                                tempSvgPaths.push(`<path d="${pathArr.join(' ')}" fill="${col}" fill-rule="evenodd"/>`);
+                            }
+                            const testSvg = svgHeader + tempSvgPaths.join('') + svgFooter;
+                            const testBlob = new Blob([testSvg], { type: 'image/svg+xml' });
+                            const testSize = testBlob.size;
+
+                            if (testSize <= maxSize) {
+                                svgPathsByColor.set(color.rgb, (svgPathsByColor.get(color.rgb) || []).concat([traced.d]));
+                                currentSize = testSize;
+                                console.log(`Secundaria agregada: ${color.rgb}, píxeles: ${pixelCount}, tamaño actual: ${(currentSize / 1024).toFixed(2)} KB`);
+                            } else {
+                                console.log(`Secundaria omitida (no cabe): ${color.rgb}, tamaño tentativa: ${(testSize / 1024).toFixed(2)} KB`);
+                            }
+                        }
+                    } catch (err) {
+                        console.log(`Error trazando color secundario ${color.rgb}:`, err.message || err);
+                    }
+                }
+
+                // Crear SVG final combinando paths por color
+                let svgPaths = [];
+                for (let [color, pathDataArray] of svgPathsByColor) {
+                    const combinedPathData = pathDataArray.join(' ');
+                    const pathElement = `<path d="${combinedPathData}" fill="${color}" fill-rule="evenodd"/>`;
+                    svgPaths.push(pathElement);
+                }
+
+                console.log(`Total capas agregadas: ${svgPaths.length} (de ${uniqueColors.length} candidatos procesados)`);
+
+                // Fallback: si no se añadió nada, trazar la silueta completa usando color dominante
+                if (svgPaths.length === 0) {
+                    console.log('Ninguna capa pudo agregarse. Generando silueta con color dominante.');
+                    // Crear máscara de opacidad (>128) para todo el objeto
+                    const maskCanvas = document.createElement('canvas');
+                    const maskCtx = maskCanvas.getContext('2d');
+                    maskCanvas.width = width; maskCanvas.height = height;
+                    const maskData = maskCtx.createImageData(width, height);
+                    const { data } = imageData;
+                    for (let j = 0; j < data.length; j += 4) {
+                        const a = data[j + 3];
+                        if (a >= 128) {
+                            maskData.data[j] = 0; maskData.data[j + 1] = 0; maskData.data[j + 2] = 0; maskData.data[j + 3] = 255;
+                        } else {
+                            maskData.data[j] = 255; maskData.data[j + 1] = 255; maskData.data[j + 2] = 255; maskData.data[j + 3] = 255;
+                        }
+                    }
+                    maskCtx.putImageData(maskData, 0, 0);
+                    const dominant = getDominantColor(imageData);
+                    try {
+                        const traced = await traceMaskCanvas(maskCanvas, dominant, {
+                            threshold: Math.max(threshold - 5, 50),
+                            turdSize: Math.max(turdSize * 1.2, 1.2),
+                            optTolerance: 0.2,
+                            optAlphaMax: 1.0,
+                            pathMargin: 1.0,
+                            color: dominant,
+                            background: 'transparent',
+                            turnpolicy: 'minority'
+                        });
+                        if (traced && traced.d) {
+                            svgPaths.push(`<path d="${traced.d}" fill="${traced.fill || dominant}" fill-rule="evenodd"/>`);
+                        }
+                    } catch (err) {
+                        console.log('Fallback trace failed:', err.message || err);
+                    }
+                }
+
+                const finalSvg = svgHeader + svgPaths.join('') + svgFooter;
+
+                console.log('svgPaths.length:', svgPaths.length, `(capas combinadas por color)`);
+
+                // Optimizar
+                let optimizedSvg = finalSvg
+                    .replace(/<!--[\s\S]*?-->/g, '')
+                    .replace(/\s+/g, ' ')
+                    .replace(/>\s+</g, '><');
+
+                // Reducir decimales pero preservar precisión
+                optimizedSvg = optimizedSvg.replace(/(\d+\.\d{3,})/g, (m) => {
+                    const num = parseFloat(m);
+                    return num.toFixed(2);
+                });
+
+                resolve(optimizedSvg.trim());
+            } catch (err) {
+                reject(err);
+            }
         });
     };
 
@@ -734,6 +983,9 @@ export default function ToolsPage() {
                                 <h3 className="text-lg font-semibold mb-3 text-green-800 dark:text-green-400">
                                     ✓ Procesamiento Completado
                                 </h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                    La imagen ha sido optimizada, el fondo eliminado y convertida a SVG multicapa manteniendo detalles importantes como colores y formas.
+                                </p>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                                     <div>
                                         <p className="text-gray-600 dark:text-gray-400">Tamaño Original:</p>
@@ -771,7 +1023,7 @@ export default function ToolsPage() {
                                     )}
                                     {optimizationInfo.complexity && (
                                         <div>
-                                            <p className="text-gray-600 dark:text-gray-400">Complejidad:</p>
+                                            <p className="text-gray-600 dark:text-gray-400">Complejidad de Imagen:</p>
                                             <p className="font-semibold capitalize text-purple-600 dark:text-purple-400">{optimizationInfo.complexity}</p>
                                         </div>
                                     )}
@@ -791,11 +1043,11 @@ export default function ToolsPage() {
                                             </p>
                                         </div>
                                     )}
-                                    {optimizationInfo.finalDimensions && optimizationInfo.finalDimensions !== optimizationInfo.dimensions && (
+                                    {optimizationInfo.svgLayers && (
                                         <div>
-                                            <p className="text-gray-600 dark:text-gray-400">Dimensiones Finales:</p>
-                                            <p className="font-semibold text-blue-600 dark:text-blue-400">
-                                                {optimizationInfo.finalDimensions}
+                                            <p className="text-gray-600 dark:text-gray-400">Capas SVG:</p>
+                                            <p className="font-semibold text-purple-600 dark:text-purple-400">
+                                                {optimizationInfo.svgLayers}
                                             </p>
                                         </div>
                                     )}
@@ -808,6 +1060,23 @@ export default function ToolsPage() {
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Consejos para mejores resultados */}
+                        {optimizationInfo && !isProcessing && (
+                            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                <h3 className="text-lg font-semibold mb-3 text-blue-800 dark:text-blue-400">
+                                    💡 Consejos para Mejores Resultados
+                                </h3>
+                                <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
+                                    <li>• <strong>Colores planos:</strong> Las imágenes con colores sólidos y pocos gradientes convierten mejor a SVG.</li>
+                                    <li>• <strong>Pocas capas:</strong> Imágenes simples con menos de 20 colores principales producen SVGs más eficientes.</li>
+                                    <li>• <strong>Contraste alto:</strong> Asegúrate de que los detalles importantes tengan buen contraste con el fondo.</li>
+                                    <li>• <strong>Tamaño moderado:</strong> Imágenes entre 200-500px de ancho suelen dar el mejor balance calidad/tamaño.</li>
+                                    <li>• <strong>Formas simples:</strong> Evita texturas complejas o ruido; las formas geométricas se vectorizan mejor.</li>
+                                    <li>• <strong>Fondo limpio:</strong> Un fondo uniforme facilita la eliminación automática y mejora la conversión.</li>
+                                </ul>
                             </div>
                         )}
 
@@ -908,7 +1177,7 @@ export default function ToolsPage() {
                                         ✓ {(fileSize / 1024).toFixed(2)} KB
                                     </span>
                                 </div>
-                                <div className="relative w-full h-64 bg-white dark:bg-gt7-dark-800 rounded-lg overflow-hidden border-2 border-green-500">
+                                <div className="relative w-full h-64 bg-gray-100 dark:bg-slate-700 rounded-lg overflow-hidden">
                                     <div
                                         className="w-full h-full flex items-center justify-center p-4"
                                         dangerouslySetInnerHTML={{ __html: svgOutput }}
@@ -932,30 +1201,33 @@ export default function ToolsPage() {
                                 <h3 className="font-semibold mb-2 text-orange-400">¿Cómo funciona el proceso automático?</h3>
                                 <ol className="list-decimal list-inside space-y-1 ml-4">
                                     <li><strong>Elimina el fondo:</strong> Detecta y elimina automáticamente el fondo de la imagen</li>
-                                    <li><strong>Optimiza el tamaño:</strong> Ajusta las dimensiones para un resultado óptimo</li>
-                                    <li><strong>Vectoriza con Potrace:</strong> Usa algoritmo profesional de trazado vectorial</li>
-                                    <li><strong>Ajusta parámetros:</strong> Optimiza threshold y tolerancia automáticamente</li>
-                                    <li><strong>Valida el peso:</strong> Asegura que el archivo sea menor a 15KB</li>
+                                    <li><strong>Analiza complejidad:</strong> Evalúa colores, bordes y detalles para optimizar parámetros</li>
+                                    <li><strong>Vectoriza en múltiples capas:</strong> Crea SVG multicapa priorizando formas principales y detalles pequeños (ojos, lengua, colmillos)</li>
+                                    <li><strong>Optimiza con Potrace:</strong> Usa algoritmo profesional de trazado vectorial con dilatación inteligente</li>
+                                    <li><strong>Comprime con SVGO:</strong> Reduce tamaño final aplicando optimizaciones avanzadas</li>
+                                    <li><strong>Valida el peso:</strong> Asegura que el archivo sea menor a 15KB con reserva para detalles críticos</li>
                                 </ol>
                             </div>
                             <div>
                                 <h3 className="font-semibold mb-2 text-orange-400">Consejos para mejores resultados:</h3>
                                 <ul className="list-disc list-inside space-y-1 ml-4">
-                                    <li>Usa imágenes con colores sólidos y bordes definidos</li>
-                                    <li>Los logos y gráficos simples funcionan mejor</li>
+                                    <li>Usa imágenes con colores sólidos y bordes definidos para mejores capas</li>
+                                    <li>Los logos y gráficos simples funcionan mejor; evita texturas complejas</li>
+                                    <li>Imágenes con detalles pequeños (ojos, lengua) se preservan mejor con colores amarillo/rojo</li>
                                     <li>Imágenes con fondo uniforme facilitan la eliminación automática</li>
-                                    <li>El proceso usa Potrace, el mismo algoritmo de herramientas profesionales</li>
-                                    <li>Se ajustan automáticamente hasta 15 parámetros diferentes para cumplir el límite</li>
+                                    <li>El proceso usa Potrace y SVGO, algoritmos profesionales de vectorización</li>
+                                    <li>Se ajustan automáticamente hasta 15 parámetros para cumplir el límite de 15KB</li>
                                 </ul>
                             </div>
                             <div>
                                 <h3 className="font-semibold mb-2 text-orange-400">Tecnología de vectorización:</h3>
                                 <ul className="list-disc list-inside space-y-1 ml-4">
-                                    <li>Usa Potrace: algoritmo profesional de trazado de bitmap a vector</li>
-                                    <li>Convierte a escala de grises y aplica umbral inteligente</li>
-                                    <li>Optimización progresiva de threshold y tolerancia</li>
-                                    <li>Reducción de dimensiones adaptativa cuando es necesario</li>
-                                    <li>Minificación automática del SVG resultante</li>
+                                    <li>Usa Potrace: algoritmo profesional de trazado de bitmap a vector con soporte multicapa</li>
+                                    <li>Convierte a escala de grises y aplica umbral inteligente con tolerancia adaptativa</li>
+                                    <li>Optimización progresiva de threshold, turdSize y dilatación para preservar detalles</li>
+                                    <li>Compresión SVGO: reduce decimales, elimina metadatos y optimiza paths</li>
+                                    <li>Reducción de dimensiones adaptativa cuando es necesario para cumplir límites</li>
+                                    <li>Análisis de complejidad: detecta colores dominantes y densidad de bordes</li>
                                 </ul>
                             </div>
                         </div>
