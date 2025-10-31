@@ -67,6 +67,12 @@ export default function Footer() {
                                     Twitch
                                 </Link>
                             </li>
+                            <li>
+                                <Link href="https://buymeacoffee.com/wolcutorb" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4"><path d="M20.216 6.415l-.132-.666c-.119-.598-.388-1.163-.766-1.615a3.19 3.19 0 0 0-1.548-1.066c-.611-.195-1.28-.242-1.94-.12a4.19 4.19 0 0 0-1.675.637l-.343.236-.343-.236a4.19 4.19 0 0 0-1.675-.637c-.66-.122-1.329-.075-1.94.12a3.19 3.19 0 0 0-1.548 1.066c-.378.452-.647 1.017-.766 1.615l-.132.666c-.15.754-.09 1.535.17 2.256.26.721.706 1.365 1.288 1.856l4.468 3.764c.165.14.407.14.572 0l4.468-3.764a4.24 4.24 0 0 0 1.288-1.856c.26-.721.32-1.502.17-2.256zM7.288 18.675h9.424v1.5H7.288v-1.5z" /></svg>
+                                    Buy Me a Coffee
+                                </Link>
+                            </li>
                         </ul>
                     </div>
                 </div>
