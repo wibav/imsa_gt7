@@ -231,13 +231,12 @@ export default function ToolsPage() {
 
     const processImageAutomatic = async (imageDataUrl, originalFile) => {
         try {
-            // Paso 1: Eliminar fondo
-            setProcessingStep('Eliminando fondo...');
-            const noBgUrl = await removeBackground(imageDataUrl);
+            // Paso 1: Omitido - eliminación de fondo (imágenes ya sin fondo)
+            setProcessingStep('Procesando imagen...');
 
             // Paso 2: Optimizar tamaño y calidad
             setProcessingStep('Optimizando imagen...');
-            const optimizedUrl = await optimizeImageSmart(noBgUrl, originalFile);
+            const optimizedUrl = await optimizeImageSmart(imageDataUrl, originalFile);
 
             // Paso 3: Convertir a SVG automáticamente
             setProcessingStep('Convirtiendo a SVG...');
@@ -293,6 +292,11 @@ export default function ToolsPage() {
 
                 ctx.drawImage(img, 0, 0, width, height);
 
+                // SIMPLIFICACIÓN DE COLORES: Reducir paleta para mejor vectorización
+                const imageData = ctx.getImageData(0, 0, width, height);
+                const simplifiedData = simplifyColors(imageData, 16); // Reducir a 16 colores máximo
+                ctx.putImageData(simplifiedData, 0, 0);
+
                 // Convertir a blob con compresión
                 canvas.toBlob(
                     (blob) => {
@@ -303,18 +307,19 @@ export default function ToolsPage() {
                         const optimizedSize = blob.size;
                         const reduction = ((1 - optimizedSize / originalSize) * 100).toFixed(1);
 
-                        // Analizar complejidad
-                        const imageData = ctx.getImageData(0, 0, width, height);
-                        const complexity = analyzeImageComplexity(imageData);
+                        // Analizar complejidad de la imagen simplificada
+                        const finalImageData = ctx.getImageData(0, 0, width, height);
+                        const complexity = analyzeImageComplexity(finalImageData);
 
                         setOptimizationInfo({
                             originalSize: (originalSize / 1024).toFixed(2),
                             optimizedSize: (optimizedSize / 1024).toFixed(2),
                             reduction: reduction,
                             dimensions: `${Math.round(width)}x${Math.round(height)}`,
-                            backgroundRemoved: true,
+                            backgroundRemoved: false, // Ya no se elimina fondo
                             complexity: complexity.complexity,
-                            colors: complexity.colorCount
+                            colors: complexity.colorCount,
+                            colorSimplification: true
                         });
 
                         resolve(optimizedUrl);
@@ -525,6 +530,95 @@ export default function ToolsPage() {
                 const [r, g, b] = color.split(',').map(Number);
                 return { r, g, b, rgb: `rgb(${r},${g},${b})`, count };
             });
+    };
+
+    // Simplificar colores: reducir paleta para mejor vectorización SVG
+    const simplifyColors = (imageData, maxColors = 16) => {
+        const { data, width, height } = imageData;
+        const newData = new Uint8ClampedArray(data);
+
+        // Crear paleta reducida usando cuantización simple
+        const colorMap = new Map();
+        const palette = [];
+
+        // Primera pasada: recolectar colores y cuantizar
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
+
+            if (a < 128) continue; // Saltar píxeles transparentes
+
+            // Cuantizar a 8 niveles por canal (32^3 = 32768 colores posibles, reducible)
+            const qr = Math.floor(r / 32) * 32;
+            const qg = Math.floor(g / 32) * 32;
+            const qb = Math.floor(b / 32) * 32;
+            const key = `${qr},${qg},${qb}`;
+
+            if (!colorMap.has(key)) {
+                colorMap.set(key, { r: qr, g: qg, b: qb, count: 0 });
+            }
+            colorMap.get(key).count++;
+        }
+
+        // Seleccionar los colores más frecuentes hasta maxColors
+        const sortedColors = Array.from(colorMap.values())
+            .sort((a, b) => b.count - a.count)
+            .slice(0, maxColors);
+
+        // Crear paleta final
+        sortedColors.forEach(color => {
+            palette.push({ r: color.r, g: color.g, b: color.b });
+        });
+
+        // Si no hay suficientes colores, añadir algunos básicos
+        while (palette.length < Math.min(8, maxColors)) {
+            palette.push({ r: 255, g: 255, b: 255 }); // Blanco
+        }
+
+        // Segunda pasada: mapear cada píxel al color más cercano de la paleta
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
+
+            if (a < 128) {
+                // Mantener píxeles transparentes
+                newData[i] = 0;
+                newData[i + 1] = 0;
+                newData[i + 2] = 0;
+                newData[i + 3] = 0;
+                continue;
+            }
+
+            // Encontrar color más cercano en la paleta
+            let minDistance = Infinity;
+            let closestColor = palette[0];
+
+            for (const color of palette) {
+                const dr = r - color.r;
+                const dg = g - color.g;
+                const db = b - color.b;
+                const distance = dr * dr + dg * dg + db * db;
+
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestColor = color;
+                }
+            }
+
+            // Aplicar color más cercano
+            newData[i] = closestColor.r;
+            newData[i + 1] = closestColor.g;
+            newData[i + 2] = closestColor.b;
+            newData[i + 3] = a; // Mantener alpha original
+        }
+
+        // Retornar nuevo ImageData
+        const result = new ImageData(newData, width, height);
+        return result;
     };
 
     const convertWithMultipleLayers = async (imageData, width, height, threshold, turdSize) => {
@@ -908,8 +1002,8 @@ export default function ToolsPage() {
                     <div className="p-8">
                         <div className="bg-blue-900/30 border border-blue-500/30 rounded-lg p-4 mb-6">
                             <p className="text-blue-100">
-                                <strong>Proceso Completamente Automático:</strong> Solo sube tu imagen y la herramienta se encarga de:
-                                eliminar el fondo, optimizar tamaño y calidad, y convertir a SVG garantizando un peso máximo de 15KB.
+                                <strong>Proceso Completamente Automático:</strong> Solo sube tu imagen PNG (sin fondo) y la herramienta se encarga de:
+                                simplificar colores, optimizar tamaño y calidad, y convertir a SVG garantizando un peso máximo de 15KB.
                             </p>
                         </div>
 
@@ -1200,10 +1294,10 @@ export default function ToolsPage() {
                             <div>
                                 <h3 className="font-semibold mb-2 text-orange-400">¿Cómo funciona el proceso automático?</h3>
                                 <ol className="list-decimal list-inside space-y-1 ml-4">
-                                    <li><strong>Elimina el fondo:</strong> Detecta y elimina automáticamente el fondo de la imagen</li>
+                                    <li><strong>Simplifica colores:</strong> Reduce la paleta a colores sólidos para mejor vectorización</li>
                                     <li><strong>Analiza complejidad:</strong> Evalúa colores, bordes y detalles para optimizar parámetros</li>
                                     <li><strong>Vectoriza en múltiples capas:</strong> Crea SVG multicapa priorizando formas principales y detalles pequeños (ojos, lengua, colmillos)</li>
-                                    <li><strong>Optimiza con Potrace:</strong> Usa algoritmo profesional de trazado vectorial con dilatación inteligente</li>
+                                    <li><strong>Optimiza con ImageTracer:</strong> Usa algoritmo profesional de trazado vectorial con cuantización inteligente</li>
                                     <li><strong>Comprime con SVGO:</strong> Reduce tamaño final aplicando optimizaciones avanzadas</li>
                                     <li><strong>Valida el peso:</strong> Asegura que el archivo sea menor a 15KB con reserva para detalles críticos</li>
                                 </ol>
@@ -1211,20 +1305,20 @@ export default function ToolsPage() {
                             <div>
                                 <h3 className="font-semibold mb-2 text-orange-400">Consejos para mejores resultados:</h3>
                                 <ul className="list-disc list-inside space-y-1 ml-4">
-                                    <li>Usa imágenes con colores sólidos y bordes definidos para mejores capas</li>
+                                    <li>Usa imágenes PNG sin fondo con colores sólidos y bordes definidos para mejores capas</li>
                                     <li>Los logos y gráficos simples funcionan mejor; evita texturas complejas</li>
                                     <li>Imágenes con detalles pequeños (ojos, lengua) se preservan mejor con colores amarillo/rojo</li>
-                                    <li>Imágenes con fondo uniforme facilitan la eliminación automática</li>
-                                    <li>El proceso usa Potrace y SVGO, algoritmos profesionales de vectorización</li>
+                                    <li>La simplificación automática de colores mejora la calidad de vectorización</li>
+                                    <li>El proceso usa ImageTracer y SVGO, algoritmos profesionales de vectorización</li>
                                     <li>Se ajustan automáticamente hasta 15 parámetros para cumplir el límite de 15KB</li>
                                 </ul>
                             </div>
                             <div>
                                 <h3 className="font-semibold mb-2 text-orange-400">Tecnología de vectorización:</h3>
                                 <ul className="list-disc list-inside space-y-1 ml-4">
-                                    <li>Usa Potrace: algoritmo profesional de trazado de bitmap a vector con soporte multicapa</li>
-                                    <li>Convierte a escala de grises y aplica umbral inteligente con tolerancia adaptativa</li>
-                                    <li>Optimización progresiva de threshold, turdSize y dilatación para preservar detalles</li>
+                                    <li>Usa ImageTracer: algoritmo profesional de trazado vectorial con soporte multicapa</li>
+                                    <li>Simplificación de colores: reduce paleta a 16 colores para mejor vectorización</li>
+                                    <li>Optimización progresiva de threshold, turdSize y cuantización para preservar detalles</li>
                                     <li>Compresión SVGO: reduce decimales, elimina metadatos y optimiza paths</li>
                                     <li>Reducción de dimensiones adaptativa cuando es necesario para cumplir límites</li>
                                     <li>Análisis de complejidad: detecta colores dominantes y densidad de bordes</li>
