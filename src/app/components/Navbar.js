@@ -17,68 +17,46 @@ export default function Navbar() {
     };
 
     const navItems = [
-        { label: '🏎️ Equipos', href: '/?view=teams' },
-        { label: '👤 Pilotos', href: '/?view=drivers' },
-        { label: '🏁 Pistas', href: '/?view=tracks' },
-        { label: '🎉 Eventos', href: '/?view=events' },
-        { label: '🛠️ Herramientas', href: '/tools', gradient: true }
+        { label: '🎨 Creador de vinilos', href: '/tools', gradient: true }
     ];
 
     return (
-        <div className="bg-gradient-to-r from-orange-600 via-red-600 to-orange-600 px-4 py-6 sm:p-8">
+        <div className="bg-gradient-to-r from-orange-600 via-red-600 to-orange-600 px-4 py-4 sm:py-6 sticky top-0 z-50 backdrop-blur-lg bg-opacity-95">
             <div className="max-w-7xl mx-auto w-full">
                 {/* Header con Logo */}
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-                    <div className="cursor-pointer" onClick={() => window.location.href = '/'}>
-                        <h1 className="text-3xl sm:text-4xl font-bold text-white flex items-center gap-4">
-                            <Image
-                                src="/logo_gt7.png"
-                                alt="IMSA GT7 Racing Club ESP Logo"
-                                width={64}
-                                height={64}
-                                className="w-16 h-16 object-contain"
-                                onError={(e) => {
-                                    e.target.style.display = 'none';
-                                }}
-                            />
-                            IMSA GT7 Racing Club ESP
-                            <span className="text-4xl sm:text-5xl">🏆</span>
-                        </h1>
-                        <p className="text-orange-100 text-lg mt-2">Temporada 2025 - Dashboard de Resultados</p>
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
+                    <div className="cursor-pointer group" onClick={() => window.location.href = '/'}>
+                        <div className="flex items-center gap-3 sm:gap-4">
+                            <div className="relative">
+                                <Image
+                                    src="/logo_gt7.png"
+                                    alt="GT7 Racing Club ESP Logo"
+                                    width={56}
+                                    height={56}
+                                    className="w-12 h-12 sm:w-14 sm:h-14 object-contain transition-transform duration-300 group-hover:scale-110"
+                                    onError={(e) => {
+                                        e.target.style.display = 'none';
+                                    }}
+                                />
+                                <div className="absolute inset-0 bg-orange-500/20 rounded-full blur-xl group-hover:bg-orange-500/40 transition-all duration-300"></div>
+                            </div>
+                            <div>
+                                <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2 group-hover:text-orange-400 transition-colors duration-300">
+                                    GT7 Racing Club
+                                    <span className="text-orange-500">🏆</span>
+                                </h1>
+                                <p className="text-gray-400 text-sm sm:text-base">Temporada 2025 - Dashboard</p>
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                {/* Botón Hamburguesa (solo móvil) */}
-                <button
-                    onClick={() => setMenuOpen(!menuOpen)}
-                    className="lg:hidden w-full bg-white/20 text-white px-6 py-3 rounded-lg font-bold hover:bg-white/30 transition-all duration-200 flex items-center justify-between"
-                >
-                    <span>☰ Menú</span>
-                    <span className={`transform transition-transform duration-200 ${menuOpen ? 'rotate-180' : ''}`}>▼</span>
-                </button>
-
-                {/* Menú Desktop (siempre visible en pantallas grandes) */}
-                <div className="hidden lg:flex flex-wrap gap-4 items-center w-full">
-                    {navItems.map((item, index) => (
-                        <button
-                            key={index}
-                            onClick={() => window.location.href = item.href}
-                            className={item.gradient
-                                ? "bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-6 py-3 rounded-lg font-bold hover:from-teal-700 hover:to-cyan-700 transition-all duration-200"
-                                : "bg-white/20 text-white px-6 py-3 rounded-lg font-bold hover:bg-white/30 transition-all duration-200"
-                            }
-                        >
-                            {item.label}
-                        </button>
-                    ))}
-
-                    {/* Admin Controls Desktop */}
-                    <div className="flex items-center gap-4 ml-auto">
+                    {/* User Info Desktop - Movido al header */}
+                    <div className="hidden lg:flex items-center gap-3">
                         {currentUser ? (
                             <>
-                                <div className="flex items-center gap-2 bg-white/10 rounded-lg px-4 py-2">
+                                <div className="flex items-center gap-2 bg-white/10 rounded-lg px-4 py-2 backdrop-blur-sm">
                                     <span className="text-white text-sm">
-                                        👤 {currentUser.email}
+                                        👤 {currentUser.email?.split('@')[0]}
                                     </span>
                                     {isAdmin() && (
                                         <span className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs px-2 py-1 rounded-full font-bold">
@@ -86,46 +64,54 @@ export default function Navbar() {
                                         </span>
                                     )}
                                 </div>
-
-                                {isAdmin() && (
-                                    <>
-                                        <button
-                                            onClick={() => window.location.href = '/teamsAdmin'}
-                                            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200"
-                                        >
-                                            ⚙️ Admin Equipos
-                                        </button>
-                                        <button
-                                            onClick={() => window.location.href = '/tracksAdmin'}
-                                            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200"
-                                        >
-                                            🏁 Admin Pistas
-                                        </button>
-                                        <button
-                                            onClick={() => window.location.href = '/eventsAdmin'}
-                                            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200"
-                                        >
-                                            🎉 Admin Eventos
-                                        </button>
-                                    </>
-                                )}
-
                                 <button
                                     onClick={handleLogout}
-                                    className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-2 rounded-lg font-bold hover:from-red-700 hover:to-red-800 transition-all duration-200"
+                                    className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-2 rounded-lg font-semibold hover:from-red-700 hover:to-red-800 transition-all duration-200 text-sm"
                                 >
-                                    🚪 Cerrar Sesión
+                                    🚪 Salir
                                 </button>
                             </>
                         ) : (
                             <button
                                 onClick={() => window.location.href = '/login'}
-                                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg font-bold hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center gap-2"
+                                className="bg-white/20 text-white px-5 py-2 rounded-lg font-semibold hover:bg-white/30 transition-all duration-200 flex items-center gap-2 text-sm"
                             >
-                                🔐 Admin Login
+                                🔐 Login
                             </button>
                         )}
                     </div>
+                </div>
+
+                {/* Botón Hamburguesa (solo móvil) */}
+                <button
+                    onClick={() => setMenuOpen(!menuOpen)}
+                    className="lg:hidden w-full bg-white/5 border border-white/10 text-white px-4 py-3 rounded-lg font-semibold hover:bg-white/10 transition-all duration-200 flex items-center justify-between"
+                >
+                    <span>☰ Menú de Navegación</span>
+                    <span className={`transform transition-transform duration-200 ${menuOpen ? 'rotate-180' : ''}`}>▼</span>
+                </button>
+
+                {/* Menú Desktop (siempre visible en pantallas grandes) */}
+                <div className="hidden lg:flex flex-wrap gap-3 items-center w-full">
+                    {navItems.map((item, index) => (
+                        <button
+                            key={index}
+                            onClick={() => window.location.href = item.href}
+                            className="bg-white/20 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-white/30 transition-all duration-200 text-sm"
+                        >
+                            {item.label}
+                        </button>
+                    ))}
+
+                    {/* Admin Button Desktop */}
+                    {isAdmin() && (
+                        <button
+                            onClick={() => window.location.href = '/championshipsAdmin'}
+                            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 text-sm"
+                        >
+                            ⚙️ Admin
+                        </button>
+                    )}
                 </div>
 
                 {/* Menú Móvil (desplegable) */}
@@ -139,14 +125,20 @@ export default function Navbar() {
                                     window.location.href = item.href;
                                     setMenuOpen(false);
                                 }}
-                                className={item.gradient
-                                    ? "w-full bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-6 py-3 rounded-lg font-bold hover:from-teal-700 hover:to-cyan-700 transition-all duration-200"
-                                    : "w-full bg-white/20 text-white px-6 py-3 rounded-lg font-bold hover:bg-white/30 transition-all duration-200"
-                                }
+                                className="w-full bg-white/20 text-white px-5 py-3 rounded-lg font-semibold hover:bg-white/30 transition-all duration-200"
                             >
                                 {item.label}
                             </button>
                         ))}
+
+                        {isAdmin() && (
+                            <button
+                                onClick={() => window.location.href = '/championshipsAdmin'}
+                                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200"
+                            >
+                                ⚙️ Admin
+                            </button>
+                        )}
 
                         {/* Separador */}
                         <div className="border-t border-white/20 my-3"></div>
@@ -156,7 +148,7 @@ export default function Navbar() {
                             <>
                                 <div className="bg-white/10 rounded-lg px-4 py-3 text-center">
                                     <span className="text-white text-sm block mb-2">
-                                        👤 {currentUser.email}
+                                        👤 {currentUser.email?.split('@')[0]}
                                     </span>
                                     {isAdmin() && (
                                         <span className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs px-3 py-1 rounded-full font-bold inline-block">
@@ -165,32 +157,9 @@ export default function Navbar() {
                                     )}
                                 </div>
 
-                                {isAdmin() && (
-                                    <>
-                                        <button
-                                            onClick={() => window.location.href = '/teamsAdmin'}
-                                            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-3 rounded-lg font-bold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200"
-                                        >
-                                            ⚙️ Admin Equipos
-                                        </button>
-                                        <button
-                                            onClick={() => window.location.href = '/tracksAdmin'}
-                                            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-3 rounded-lg font-bold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200"
-                                        >
-                                            🏁 Admin Pistas
-                                        </button>
-                                        <button
-                                            onClick={() => window.location.href = '/eventsAdmin'}
-                                            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-3 rounded-lg font-bold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200"
-                                        >
-                                            🎉 Admin Eventos
-                                        </button>
-                                    </>
-                                )}
-
                                 <button
                                     onClick={handleLogout}
-                                    className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-3 rounded-lg font-bold hover:from-red-700 hover:to-red-800 transition-all duration-200"
+                                    className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-3 rounded-lg font-semibold hover:from-red-700 hover:to-red-800 transition-all duration-200"
                                 >
                                     🚪 Cerrar Sesión
                                 </button>
@@ -198,7 +167,7 @@ export default function Navbar() {
                         ) : (
                             <button
                                 onClick={() => window.location.href = '/login'}
-                                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg font-bold hover:from-green-700 hover:to-emerald-700 transition-all duration-200 flex items-center justify-center gap-2"
+                                className="w-full bg-white/20 text-white px-5 py-3 rounded-lg font-semibold hover:bg-white/30 transition-all duration-200 flex items-center justify-center gap-2"
                             >
                                 🔐 Admin Login
                             </button>

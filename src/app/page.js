@@ -1,4 +1,4 @@
-import Dashboard from './components/Dashboard'
+import DashboardRenovated from './components/DashboardRenovated'
 
 // Metadatos específicos para la página principal
 export const metadata = {
@@ -12,5 +12,5 @@ export const metadata = {
 }
 
 export default function Home() {
-  return <Dashboard />
+  return <DashboardRenovated />
 }

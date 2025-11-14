@@ -1,4 +1,55 @@
+# IMSA GT7 - Next.js Racing Championship Platform
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+
+## 🚀 Firebase Hosting Static Export Architecture
+
+**IMPORTANTE**: Este proyecto está configurado para **Firebase Hosting con exportación estática**. Esto significa que **NO se deben usar rutas dinámicas** (`[id]`).
+
+### ✅ Arquitectura Correcta (Query Parameters)
+
+```javascript
+// ✅ CORRECTO - Usa query parameters
+// Archivo: src/app/championships/page.js
+const searchParams = useSearchParams();
+const championshipId = searchParams.get("id");
+
+// URL: /championships?id=ABC123
+```
+
+### ❌ Arquitectura Incorrecta (Rutas Dinámicas)
+
+```javascript
+// ❌ INCORRECTO - NO usar carpetas [id]
+// Archivo: src/app/championships/[id]/page.js
+const params = useParams();
+const championshipId = params.id;
+
+// URL: /championships/ABC123
+// Requiere pre-generar todas las rutas en build time
+```
+
+### 📋 Reglas para Nuevas Funcionalidades
+
+Cuando agregues nuevas páginas que requieran IDs dinámicos:
+
+1. **NO crear carpetas** con corchetes `[id]`
+2. **USAR query parameters**: `/ruta?id=valor`
+3. **USAR `useSearchParams()`** en lugar de `useParams()`
+4. **Enlaces con query params**: `router.push('/ruta?id=123')`
+
+### 🔧 Configuración
+
+- **next.config.mjs**: `output: 'export'` habilitado
+- **Firebase Hosting**: Sirve archivos estáticos desde `/out`
+- **Datos dinámicos**: Se cargan desde Firebase Firestore en el cliente
+
+### 🎯 Beneficios
+
+- ✅ Sin limitaciones de IDs pre-generados
+- ✅ Nuevos datos disponibles inmediatamente sin rebuild
+- ✅ Build más rápido y simple
+- ✅ Compatible con Firebase Hosting gratuito
 
 ## Google AdSense Integration
 
