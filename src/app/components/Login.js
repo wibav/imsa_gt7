@@ -18,8 +18,8 @@ export default function Login() {
 
             const user = await login(email, password);
             if (user) {
-                // Redirigir al usuario a la página de administración
-                window.location.href = '/teamsAdmin';
+                // Redirigir al usuario a la página de administración de campeonatos
+                window.location.href = '/championshipsAdmin';
             }
         } catch (error) {
             let errorMessage = 'Error al iniciar sesión';
