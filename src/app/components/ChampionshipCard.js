@@ -35,18 +35,9 @@ export const calculateProgress = (tracks, championship) => {
         return { completed: 0, total: 0, percentage: 0 };
     }
 
-    const now = new Date();
-    now.setHours(0, 0, 0, 0); // Inicio del día de hoy
-
-    // Una pista se considera completada si:
-    // 1. Su fecha ya pasó
-    // 2. Tiene puntos asignados (campo points con al menos un valor)
+    // Una pista se considera completada si tiene puntos asignados
     const completed = tracks.filter(track => {
-        const trackDate = new Date(track.date + 'T00:00:00');
-        const dateHasPassed = trackDate < now;
-        const hasPoints = track.points && Object.keys(track.points).length > 0;
-
-        return dateHasPassed && hasPoints;
+        return track.points && Object.keys(track.points).length > 0;
     }).length;
 
     const total = tracks.length;

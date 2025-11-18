@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useChampionship } from '../context/ChampionshipContext';
 import { FirebaseService } from '../services/firebaseService';
+import TracksManager from '../components/TracksManager';
 
 export default function ChampionshipDetail() {
     const router = useRouter();
@@ -12,7 +13,7 @@ export default function ChampionshipDetail() {
     const championshipId = searchParams.get("id");
 
     const { currentUser, loading: authLoading } = useAuth();
-    const { championships, updateChampionship } = useChampionship();
+    const { championships, updateChampionship, loading: championshipsLoading } = useChampionship();
 
     const [championship, setChampionship] = useState(null);
     const [teams, setTeams] = useState([]);
@@ -21,6 +22,7 @@ export default function ChampionshipDetail() {
     const [activeTab, setActiveTab] = useState('info');
     const [loading, setLoading] = useState(true);
     const [editMode, setEditMode] = useState(false);
+    const [championshipsTeams, setChampionshipsTeams] = useState({}); // Equipos por campeonato
 
     // Redirigir si no está autenticado
     useEffect(() => {
@@ -29,9 +31,38 @@ export default function ChampionshipDetail() {
         }
     }, [currentUser, authLoading, router]);
 
+    // Cargar equipos de todos los campeonatos para mostrar en la lista
+    useEffect(() => {
+        if (championships && championships.length > 0 && !championshipId) {
+            loadAllChampionshipsTeams();
+        }
+    }, [championships, championshipId]);
+
+    const loadAllChampionshipsTeams = async () => {
+        try {
+            const teamsData = {};
+            for (const champ of championships) {
+                if (champ.settings?.isTeamChampionship) {
+                    const champTeams = await FirebaseService.getTeamsByChampionship(champ.id);
+                    teamsData[champ.id] = champTeams || [];
+                }
+            }
+            setChampionshipsTeams(teamsData);
+        } catch (error) {
+            console.error("Error loading championships teams:", error);
+        }
+    };
+
     const loadChampionshipData = useCallback(async () => {
+        if (!championshipId) return;
+
         try {
             setLoading(true);
+            // Reset state
+            setChampionship(null);
+            setTeams([]);
+            setTracks([]);
+            setEvents([]);
 
             // Cargar campeonato completo desde Firebase (no solo del contexto)
             const champData = await FirebaseService.getChampionship(championshipId);
@@ -59,12 +90,21 @@ export default function ChampionshipDetail() {
 
     // Cargar datos del campeonato
     useEffect(() => {
-        if (championshipId && championships.length > 0) {
+        if (championshipId) {
+            // Resetear estado cuando cambia el ID
+            setLoading(true);
+            setChampionship(null);
+            setTeams([]);
+            setTracks([]);
+            setEvents([]);
             loadChampionshipData();
+        } else {
+            // Si no hay championshipId, no estamos cargando un detalle específico
+            setLoading(false);
         }
-    }, [championshipId, championships, loadChampionshipData]);
+    }, [championshipId, loadChampionshipData]);
 
-    if (authLoading || loading) {
+    if (authLoading || (championshipId && loading)) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
                 <div className="text-white text-xl">Cargando...</div>
@@ -93,38 +133,96 @@ export default function ChampionshipDetail() {
                         </button>
                     </div>
 
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {championships.map((champ) => (
-                            <div
-                                key={champ.id}
-                                className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-6 hover:border-orange-500/50 transition-all cursor-pointer"
-                                onClick={() => router.push(`/championshipsAdmin?id=${champ.id}`)}
-                            >
-                                <h3 className="text-xl font-bold text-white mb-2">{champ.name}</h3>
-                                <p className="text-gray-300 text-sm mb-4">Temporada {champ.season}</p>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            router.push(`/championshipsAdmin?id=${champ.id}`);
-                                        }}
-                                        className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all"
-                                    >
-                                        Ver
-                                    </button>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            router.push(`/championshipsAdmin/edit?id=${champ.id}`);
-                                        }}
-                                        className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all"
-                                    >
-                                        Editar
-                                    </button>
+                    {championshipsLoading ? (
+                        <div className="text-center py-12 text-white text-xl">
+                            Cargando campeonatos...
+                        </div>
+                    ) : championships.length === 0 ? (
+                        <div className="text-center py-12 text-gray-400">
+                            No hay campeonatos creados. Crea uno nuevo para comenzar.
+                        </div>
+                    ) : (
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {championships.map((champ) => (
+                                <div
+                                    key={champ.id}
+                                    className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg overflow-hidden hover:border-orange-500/50 transition-all cursor-pointer"
+                                    onClick={() => router.push(`/championshipsAdmin?id=${champ.id}`)}
+                                >
+                                    <div className="p-6">
+                                        <div className="flex items-start justify-between mb-3">
+                                            <h3 className="text-xl font-bold text-white flex-1">{champ.name}</h3>
+                                            <StatusBadge status={champ.status} />
+                                        </div>
+
+                                        <p className="text-gray-300 text-sm mb-4">
+                                            {champ.shortName} • Temporada {champ.season}
+                                        </p>
+
+                                        {champ.description && (
+                                            <p className="text-gray-400 text-sm mb-4 line-clamp-2">
+                                                {champ.description}
+                                            </p>
+                                        )}
+
+                                        <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+                                            <div className="bg-white/5 rounded-lg p-2">
+                                                <div className="text-gray-400">Tipo</div>
+                                                <div className="text-white font-medium">
+                                                    {champ.settings?.isTeamChampionship ? '👥 Equipos' : '🏎️ Individual'}
+                                                </div>
+                                            </div>
+                                            <div className="bg-white/5 rounded-lg p-2">
+                                                <div className="text-gray-400">Pilotos</div>
+                                                <div className="text-white font-medium">
+                                                    {(() => {
+                                                        if (champ.settings?.isTeamChampionship) {
+                                                            // Para campeonatos por equipos, contar pilotos en todos los equipos
+                                                            const champTeams = championshipsTeams[champ.id] || [];
+                                                            return champTeams.reduce((total, team) => {
+                                                                return total + (team.drivers?.length || 0);
+                                                            }, 0);
+                                                        }
+                                                        // Para campeonatos individuales, contar directamente
+                                                        return champ.drivers?.length || 0;
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {(champ.startDate || champ.endDate) && (
+                                            <div className="text-xs text-gray-400 mb-4">
+                                                {champ.startDate && new Date(champ.startDate).toLocaleDateString('es-ES')}
+                                                {champ.startDate && champ.endDate && ' - '}
+                                                {champ.endDate && new Date(champ.endDate).toLocaleDateString('es-ES')}
+                                            </div>
+                                        )}
+
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    router.push(`/championshipsAdmin?id=${champ.id}`);
+                                                }}
+                                                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all text-sm font-medium"
+                                            >
+                                                📊 Ver Detalles
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    router.push(`/championshipsAdmin/edit?id=${champ.id}`);
+                                                }}
+                                                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all text-sm font-medium"
+                                            >
+                                                ✏️
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -719,13 +817,6 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
     const [fastestLapDriver, setFastestLapDriver] = useState('');
     const [savingResults, setSavingResults] = useState(false);
 
-    // Ordenar pistas por fecha
-    const sortedTracks = [...tracks].sort((a, b) => {
-        const dateA = new Date(a.date || 0);
-        const dateB = new Date(b.date || 0);
-        return dateA - dateB;
-    });
-
     // Obtener todos los pilotos según tipo de campeonato
     const allDrivers = championship?.settings?.isTeamChampionship
         ? teams.flatMap(team =>
@@ -867,162 +958,19 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
         }
     };
 
-    const handleEditTrack = (track) => {
-        setEditingTrackId(track.id);
-        // Inicializar editingPoints con los puntajes actuales
-        const currentPoints = {};
-        allDrivers.forEach(driver => {
-            currentPoints[driver.name] = track.points?.[driver.name] || 0;
-        });
-        setEditingPoints(currentPoints);
-    };
-
-    const handleSaveTrack = async (trackId) => {
-        try {
-            // Filtrar puntos vacíos o cero antes de guardar
-            const cleanedPoints = {};
-            Object.entries(editingPoints).forEach(([driver, points]) => {
-                if (points && parseInt(points) > 0) {
-                    cleanedPoints[driver] = parseInt(points);
-                }
-            });
-
-            await FirebaseService.updateTrack(championshipId, trackId, { points: cleanedPoints });
-            setEditingTrackId(null);
-            setEditingPoints({});
-            onUpdate();
-        } catch (error) {
-            alert('Error al guardar: ' + error.message);
-        }
-    };
-
-    const handleCancelEdit = () => {
-        setEditingTrackId(null);
-        setEditingPoints({});
-    };
-
-    const handlePointsChange = (driverName, value) => {
-        setEditingPoints({
-            ...editingPoints,
-            [driverName]: value
-        });
-    };
-
     return (
         <div className="text-white">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">🏎️ Calendario de Pistas ({tracks.length})</h2>
-                {!editMode && (
-                    <p className="text-sm text-gray-400">
-                        Activa el modo edición para asignar resultados
-                    </p>
-                )}
-            </div>
-
-            {sortedTracks.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                    No hay pistas registradas en este campeonato
-                </div>
-            ) : (
-                <div className="space-y-3">
-                    {sortedTracks.map((track) => (
-                        <div
-                            key={track.id}
-                            className="bg-white/10 border border-white/30 rounded-lg p-4 hover:bg-white/15 transition-all"
-                        >
-                            <div className="flex items-center justify-between flex-wrap gap-4">
-                                {/* Ronda */}
-                                <div className="flex items-center gap-4">
-                                    <div className="bg-orange-500/20 text-orange-300 border border-orange-500/30 px-3 py-1 rounded-lg font-bold">
-                                        R{track.round || '-'}
-                                    </div>
-
-                                    {/* Info de la pista */}
-                                    <div>
-                                        <h3 className="text-lg font-bold">{track.name}</h3>
-                                        <p className="text-sm text-gray-400">
-                                            📍 {track.country}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Fecha y botón editar */}
-                                <div className="flex items-center gap-4">
-                                    {track.date && (
-                                        <div className="text-right">
-                                            <div className="text-sm text-gray-400">Fecha</div>
-                                            <div className="font-medium">
-                                                {new Date(track.date).toLocaleDateString('es-ES', {
-                                                    day: 'numeric',
-                                                    month: 'long',
-                                                    year: 'numeric'
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {editMode && (
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleOpenResultsModal(track)}
-                                                className="px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white text-sm font-medium rounded-lg transition-all"
-                                            >
-                                                🏁 Asignar Resultados
-                                            </button>
-                                            {track.points && Object.keys(track.points).length > 0 && (
-                                                <button
-                                                    onClick={() => handleResetResults(track)}
-                                                    className="px-4 py-2 bg-gray-600 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-all"
-                                                    title="Eliminar todos los resultados de esta pista"
-                                                >
-                                                    🗑️ Resetear
-                                                </button>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Mostrar puntajes ya asignados */}
-                            {track.points && Object.keys(track.points).length > 0 && (
-                                <div className="mt-4 pt-4 border-t border-white/20">
-                                    <p className="text-xs text-gray-400 mb-2">Puntajes registrados (ordenados de mayor a menor):</p>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                        {Object.entries(track.points)
-                                            .sort(([, a], [, b]) => b - a) // Ordenar por puntos descendente
-                                            .map(([driverName, points], index) => (
-                                                <div
-                                                    key={driverName}
-                                                    className={`flex justify-between text-sm px-2 py-1 rounded ${index === 0 ? 'bg-yellow-500/20 border border-yellow-500/30' :
-                                                        index === 1 ? 'bg-gray-400/20 border border-gray-400/30' :
-                                                            index === 2 ? 'bg-orange-500/20 border border-orange-500/30' :
-                                                                'bg-white/5'
-                                                        }`}
-                                                >
-                                                    <span className="text-gray-300">
-                                                        {index < 3 && <span className="mr-1">{index + 1}°</span>}
-                                                        {driverName}
-                                                    </span>
-                                                    <span className={`font-bold ${index === 0 ? 'text-yellow-400' :
-                                                        index === 1 ? 'text-gray-300' :
-                                                            index === 2 ? 'text-orange-400' :
-                                                                'text-orange-400'
-                                                        }`}>
-                                                        {points} pts
-                                                    </span>
-                                                </div>
-                                            ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            <p className="text-gray-400 mt-6 text-center text-sm">
-                {editMode ? '🏁 Modo edición activo - Haz clic en "Asignar Resultados" para cada pista' : '🚧 Activa el modo edición para asignar resultados'}
-            </p>
+            {/* Usar el nuevo componente TracksManager */}
+            <TracksManager
+                championshipId={championshipId}
+                tracks={tracks}
+                onTracksUpdate={onUpdate}
+                editMode={editMode}
+                allDriverNames={allDriverNames}
+                championship={championship}
+                handleOpenResultsModal={handleOpenResultsModal}
+                handleResetResults={handleResetResults}
+            />
 
             {/* Modal para asignar resultados completos de la pista */}
             {showPositionsModal && selectedTrack && (

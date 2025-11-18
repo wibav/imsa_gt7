@@ -29,6 +29,13 @@ export default function AdminLayout({ children }) {
             ]
         },
         {
+            title: 'Catálogo de Pistas',
+            icon: '🏎️',
+            items: [
+                { name: 'Pistas GT7', path: '/tracksAdmin', icon: '🏁' },
+            ]
+        },
+        {
             title: 'Gestión de Eventos',
             icon: '📅',
             items: [
@@ -39,7 +46,7 @@ export default function AdminLayout({ children }) {
             title: 'Herramientas',
             icon: '⚙️',
             items: [
-                { name: 'Creador de Vinilos', path: '/tools', icon: '🛣️' },
+                { name: 'Creador de Vinilos', path: '/tools', icon: '🎨' },
             ]
         }
     ];
