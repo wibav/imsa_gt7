@@ -13,22 +13,17 @@ const YES_NO = [
     { value: 'no', label: 'No' }
 ];
 
-const DAMAGE_OPTIONS = [
-    { value: 'none', label: 'Sin daño' },
-    { value: 'light', label: 'Ligero' },
-    { value: 'heavy', label: 'Pesado' }
-];
+const DAMAGE_OPTIONS = ["No", "Leves", "Graves"];
 
 const WEATHER_OPTIONS = [
-    { value: 'fixed', label: 'Fijo' },
-    { value: 'dynamic', label: 'Dinámico' },
-    { value: 'random', label: 'Aleatorio' }
+    { value: "clear", label: "Despejado" },
+    { value: "rain", label: "Lluvia" },
+    { value: "variable", label: "Variable" }
 ];
-
 const TIME_OPTIONS = [
-    { value: 'fixed', label: 'Fijo' },
-    { value: 'dynamic', label: 'Dinámico' },
-    { value: 'accelerated', label: 'Acelerado' }
+    { value: "day", label: "Día" },
+    { value: "night", label: "Noche" },
+    { value: "dynamic", label: "Dinámico" }
 ];
 
 const TYRE_OPTIONS = [
@@ -96,7 +91,6 @@ export default function EditChampionship() {
     const [bannerPreview, setBannerPreview] = useState(null);
 
     // Estados para circuitos
-    const [tracks, setTracks] = useState([]);
     const [loadingTracks, setLoadingTracks] = useState(true);
     const [firebaseTracks, setFirebaseTracks] = useState([]);
     const [showTrackModal, setShowTrackModal] = useState(false);
@@ -119,12 +113,13 @@ export default function EditChampionship() {
     // Cargar circuitos del campeonato
     useEffect(() => {
         const loadChampionshipTracks = async () => {
-            if (!championshipId) return;
+            if (!championshipId || !championship) return;
 
             try {
                 setLoadingTracks(true);
                 const tracksData = await FirebaseService.getTracksByChampionship(championshipId);
-                setTracks(tracksData);
+                // Actualizar formData con tracks si ya existe
+                setFormData(prev => prev ? { ...prev, tracks: tracksData } : null);
             } catch (error) {
                 console.error('Error loading championship tracks:', error);
             } finally {
@@ -132,10 +127,8 @@ export default function EditChampionship() {
             }
         };
 
-        if (championshipId) {
-            loadChampionshipTracks();
-        }
-    }, [championshipId]);
+        loadChampionshipTracks();
+    }, [championshipId, championship]);
 
     // Cargar datos del campeonato
     useEffect(() => {
@@ -207,7 +200,8 @@ export default function EditChampionship() {
                             maxDriversPerTeam: champ.settings?.maxDriversPerTeam || (hasTeams ? 4 : 0)
                         },
                         teams: teamsData.length > 0 ? teamsData : (champ.teams || []),
-                        drivers: champ.drivers || []
+                        drivers: champ.drivers || [],
+                        tracks: [] // Se cargará en useEffect separado
                     });
 
                     console.log('✅ FormData configurado con', teamsData.length, 'teams');
@@ -362,7 +356,7 @@ export default function EditChampionship() {
     const getEmptyTrackData = () => ({
         name: '',
         date: '',
-        round: tracks.length + 1,
+        round: (formData?.tracks?.length || 0) + 1,
         category: formData?.categories?.[0] || '',
         raceType: 'carrera', // 'carrera' o 'resistencia'
         laps: 10, // Solo para tipo 'carrera'
@@ -391,7 +385,7 @@ export default function EditChampionship() {
     const handleOpenTrackModal = (index = null) => {
         if (index !== null) {
             setEditingTrackIndex(index);
-            setTrackFormData({ ...tracks[index] });
+            setTrackFormData({ ...formData.tracks[index] });
         } else {
             setEditingTrackIndex(null);
             setTrackFormData(getEmptyTrackData());
@@ -443,11 +437,11 @@ export default function EditChampionship() {
         }
 
         if (editingTrackIndex !== null) {
-            const updatedTracks = [...tracks];
+            const updatedTracks = [...formData.tracks];
             updatedTracks[editingTrackIndex] = trackFormData;
-            setTracks(updatedTracks);
+            setFormData(prev => ({ ...prev, tracks: updatedTracks }));
         } else {
-            setTracks([...tracks, trackFormData]);
+            setFormData(prev => ({ ...prev, tracks: [...prev.tracks, trackFormData] }));
         }
 
         handleCloseTrackModal();
@@ -455,7 +449,10 @@ export default function EditChampionship() {
 
     const handleDeleteTrack = (index) => {
         if (confirm('¿Estás seguro de eliminar este circuito?')) {
-            setTracks(tracks.filter((_, i) => i !== index));
+            setFormData(prev => ({
+                ...prev,
+                tracks: prev.tracks.filter((_, i) => i !== index)
+            }));
         }
     };
 
@@ -626,13 +623,14 @@ export default function EditChampionship() {
                 return;
             }
 
-            // Extraer teams antes de actualizar (los drivers SÍ se incluyen en el documento)
-            const { teams: teamsData, ...championshipDataToSave } = championshipData;
+            // Extraer teams y tracks antes de actualizar (los drivers SÍ se incluyen en el documento)
+            const { teams: teamsData, tracks: tracksData, ...championshipDataToSave } = championshipData;
 
             console.log('🔍 OBJETO COMPLETO ANTES DE ENVIAR A FIREBASE:');
             console.log('championshipDataToSave:', JSON.stringify(championshipDataToSave, null, 2));
             console.log('Drivers específicamente:', championshipDataToSave.drivers);
             console.log('Teams extraídos:', teamsData);
+            console.log('Tracks extraídos:', tracksData?.length || 0);
             console.log('isTeamChampionship:', championshipData.settings.isTeamChampionship);
 
             // Actualizar campeonato (incluye drivers si es individual)
@@ -714,17 +712,19 @@ export default function EditChampionship() {
             console.log(`✅ Resumen eliminación: ${deletedCount} eliminados, ${skippedCount} omitidos, ${uniqueTrackIds.size} IDs únicos`);
 
             // Crear todos los circuitos del estado actual
-            console.log('🏎️ Creando', tracks.length, 'nuevos tracks');
+            console.log('🏎️ Creando', tracksData?.length || 0, 'nuevos tracks');
 
-            for (const trackData of tracks) {
-                try {
-                    // Limpiar el ID si existe (para evitar conflictos)
-                    const { id, ...cleanTrackData } = trackData;
-                    console.log('➕ Creando track:', cleanTrackData.name, 'Round:', cleanTrackData.round);
-                    await FirebaseService.createTrack(championshipId, cleanTrackData);
-                } catch (error) {
-                    console.error('Error creating track:', trackData.name, error);
-                    throw error;
+            if (tracksData && tracksData.length > 0) {
+                for (const trackData of tracksData) {
+                    try {
+                        // Limpiar el ID si existe (para evitar conflictos)
+                        const { id, ...cleanTrackData } = trackData;
+                        console.log('➕ Creando track:', cleanTrackData.name, 'Round:', cleanTrackData.round);
+                        await FirebaseService.createTrack(championshipId, cleanTrackData);
+                    } catch (error) {
+                        console.error('Error creating track:', trackData.name, error);
+                        throw error;
+                    }
                 }
             }
 
@@ -1416,13 +1416,13 @@ export default function EditChampionship() {
                                             <div className="text-center text-gray-400 py-8">
                                                 Cargando circuitos...
                                             </div>
-                                        ) : tracks.length === 0 ? (
+                                        ) : formData.tracks.length === 0 ? (
                                             <div className="text-center text-gray-400 py-8">
                                                 No hay circuitos configurados. Haz clic en &quot;Agregar Circuito&quot; para comenzar.
                                             </div>
                                         ) : (
                                             <div className="space-y-3">
-                                                {tracks.map((track, index) => (
+                                                {formData.tracks.map((track, index) => (
                                                     <div key={index} className="bg-white/5 border border-white/20 rounded-lg p-4">
                                                         <div className="flex justify-between items-start">
                                                             <div className="flex-1">
@@ -1568,11 +1568,11 @@ export default function EditChampionship() {
                                     {/* Circuitos */}
                                     <div className="bg-white/5 border border-white/20 rounded-lg p-4">
                                         <h3 className="text-white font-medium mb-2">🏁 Circuitos</h3>
-                                        {tracks.length === 0 ? (
+                                        {formData.tracks.length === 0 ? (
                                             <p className="text-gray-400 text-sm">No hay circuitos configurados</p>
                                         ) : (
                                             <div className="space-y-2">
-                                                {tracks.map((track, index) => (
+                                                {formData.tracks.map((track, index) => (
                                                     <div key={index} className="bg-white/5 border border-white/10 rounded p-3">
                                                         <div className="flex items-center gap-2 mb-1">
                                                             <span className="text-orange-500 font-bold">#{track.round}</span>
