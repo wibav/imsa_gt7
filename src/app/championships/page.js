@@ -54,10 +54,12 @@ export default function ChampionshipDetailPage() {
         if (championship?.settings?.isTeamChampionship) {
             // Clasificación por equipos
             return teams.map(team => {
-                const totalPoints = team.drivers?.reduce((sum, driver) => {
-                    const driverPoints = Object.values(driver.points || {}).reduce((s, p) => s + (p || 0), 0);
-                    return sum + driverPoints;
-                }, 0) || 0;
+                // Alinear cálculo con la fuente real de resultados: points por pista
+                const totalPoints = (team.drivers || []).reduce((sum, driver) => {
+                    const driverName = driver.name;
+                    const pointsFromTracks = tracks.reduce((acc, track) => acc + (track.points?.[driverName] || 0), 0);
+                    return sum + pointsFromTracks;
+                }, 0);
 
                 return {
                     name: team.name,
@@ -559,6 +561,18 @@ export default function ChampionshipDetailPage() {
                                                         )}
                                                     </div>
                                                 </div>
+
+                                                {/* Autos específicos (si aplica) */}
+                                                {track.specificCars && (
+                                                    <div className="mt-3 inline-flex items-start gap-2 bg-orange-500/15 border border-orange-500/30 text-orange-100 px-3 py-2 rounded-lg text-sm">
+                                                        <span className="font-semibold">🚗 Autos obligatorios:</span>
+                                                        <span className="text-orange-50">
+                                                            {(track.allowedCars && track.allowedCars.length > 0)
+                                                                ? track.allowedCars.join(', ')
+                                                                : 'Lista pendiente'}
+                                                        </span>
+                                                    </div>
+                                                )}
                                                 {track.layoutImage && (
                                                     <div className="relative w-full h-40 bg-black/30 rounded-lg overflow-hidden mt-4">
                                                         <Image

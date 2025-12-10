@@ -59,6 +59,7 @@ const GT7_TRACKS = [
     "Deep Forest Raceway", "Dragon Trail - Seaside", "Dragon Trail - Gardens",
     "Fishermans Ranch", "Fuji International Speedway", "Grand Valley - Highway 1",
     "Grand Valley - South", "Grand Valley - East", "Goodwood Motor Circuit",
+    "Circuit Gilles Villeneuve", "Yas Marina Circuit",
     "High Speed Ring", "Horse Thief Mile", "Interlagos",
     "Kyoto Driving Park - Yamagiwa", "Kyoto Driving Park - Miyabi", "Lake Louise",
     "La Sarthe - Circuit de 24 Heures du Mans", "La Sarthe - Circuit de 24 Heures du Mans (No Chicane)",

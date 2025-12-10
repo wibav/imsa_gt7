@@ -66,6 +66,8 @@ const GT7_TRACKS = [
     "Goodwood Motor Circuit",
     "Grand Valley - Highway 1",
     "High Speed Ring",
+    "Circuit Gilles Villeneuve",
+    "Yas Marina Circuit",
     "Kyoto Driving Park - Miyabi",
     "Kyoto Driving Park - Yamagiwa",
     "Laguna Seca",
