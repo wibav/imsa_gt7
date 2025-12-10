@@ -10,7 +10,8 @@
     "export": "node scripts/prepare-og.js && next build",
     "build:firebase": "node scripts/prepare-og.js && next build",
     "deploy": "./scripts/deploy.sh",
-    "setup-env": "./scripts/setup-env.sh"
+    "setup-env": "./scripts/setup-env.sh",
+    "audit:championships": "node scripts/audit-championships.js"
   },
   "dependencies": {
     "firebase": "^11.8.1",
