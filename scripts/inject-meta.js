@@ -8,24 +8,24 @@ const path = require('path');
 const OUT_DIR = path.join(__dirname, '..', 'out');
 const FILES = [path.join(OUT_DIR, 'index.html')];
 
-const metaBlock = `  <title>Dashboard - GT7 ESP Racing Club</title>
-  <meta name="description" content="Consulta en tiempo real las estadísticas, clasificaciones y resultados del campeonato GT7 ESP Racing Club. Dashboard interactivo con datos actualizados.">
+const metaBlock = `  <title>Dashboard - GT7 Championships</title>
+  <meta name="description" content="Consulta en tiempo real las estadísticas, clasificaciones y resultados del campeonato GT7 Championships. Dashboard interactivo con datos actualizados.">
   <link rel="canonical" href="https://imsa.trenkit.com/">
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://imsa.trenkit.com/">
-  <meta property="og:site_name" content="GT7 ESP Racing Club">
-  <meta property="og:title" content="IMSA - GT7 ESP Racing Club">
-  <meta property="og:description" content="Consulta en tiempo real las estadísticas, clasificaciones y resultados del campeonato GT7 ESP Racing Club.">
+  <meta property="og:site_name" content="GT7 Championships">
+  <meta property="og:title" content="IMSA - GT7 Championships">
+  <meta property="og:description" content="Consulta en tiempo real las estadísticas, clasificaciones y resultados del campeonato GT7 Championships.">
     <meta property="og:image" content="https://imsa.trenkit.com/og-image.png">
     <meta property="og:image:secure_url" content="https://imsa.trenkit.com/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="GT7 ESP Racing Club - IMSA">
+  <meta property="og:image:alt" content="GT7 Championships - IMSA">
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="GT7 ESP Racing Club">
-  <meta name="twitter:description" content="IMSA GT7 ESP Racing Club">
+  <meta name="twitter:title" content="GT7 Championships">
+  <meta name="twitter:description" content="IMSA GT7 Championships">
     <meta name="twitter:image" content="https://imsa.trenkit.com/og-image.png">`;
 
 function inject(filePath) {

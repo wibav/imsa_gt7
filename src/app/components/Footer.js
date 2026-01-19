@@ -11,7 +11,7 @@ export default function Footer() {
                     {/* Brand */}
                     <div className="md:col-span-2">
                         <div className="flex items-center gap-3 mb-4">
-                            <Image src="/logo_gt7.png" alt="GT7 ESP Racing Club" width={40} height={40} className="w-10 h-10 object-contain" />
+                            <Image src="/logo_gt7.png" alt="GT7 Championships" width={40} height={40} className="w-10 h-10 object-contain" />
                             <span className="text-white font-bold text-lg">IMSA GT7 Racing Club ESP</span>
                         </div>
                         <p className="text-gray-400 max-w-prose">
@@ -78,7 +78,7 @@ export default function Footer() {
                 </div>
 
                 <div className="mt-10 flex flex-col md:flex-row items-center justify-between gap-4 border-t border-white/10 pt-6">
-                    <p className="text-sm text-gray-400">© {year} GT7 ESP Racing Club. Todos los derechos reservados.</p>
+                    <p className="text-sm text-gray-400">© {year} GT7 Championships. Todos los derechos reservados.</p>
                     <p className="text-xs text-gray-500">Desarrollado con Next.js y Tailwind CSS.</p>
                 </div>
             </div>

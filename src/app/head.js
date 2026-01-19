@@ -1,8 +1,8 @@
 export default function Head() {
-    const title = "Dashboard - GT7 ESP Racing Club";
+    const title = "Dashboard - GT7 Championships";
     const description =
-        "Consulta en tiempo real las estadísticas, clasificaciones y resultados del campeonato GT7 ESP Racing Club. Dashboard interactivo con datos actualizados.";
-    const siteName = "GT7 ESP Racing Club";
+        "Consulta en tiempo real las estadísticas, clasificaciones y resultados del campeonato GT7 Championships. Dashboard interactivo con datos actualizados.";
+    const siteName = "GT7 Championships";
     const url = "https://imsa.trenkit.com/";
     const image = "https://imsa.trenkit.com/og-image.png"; // PNG 1200x630 para previews
 
@@ -43,7 +43,7 @@ export default function Head() {
             {/* Twitter */}
             <meta name="twitter:card" content="summary_large_image" />
             <meta name="twitter:title" content={siteName} />
-            <meta name="twitter:description" content="Dashboard de resultados del campeonato GT7 ESP Racing Club" />
+            <meta name="twitter:description" content="Dashboard de resultados del campeonato GT7 Championships" />
             <meta name="twitter:image" content={image} />
 
             {fbAppId ? (
