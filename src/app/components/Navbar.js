@@ -30,7 +30,7 @@ export default function Navbar() {
                             <div className="relative">
                                 <Image
                                     src="/logo_gt7.png"
-                                    alt="GT7 Racing Club ESP Logo"
+                                    alt="GT7 Championships"
                                     width={56}
                                     height={56}
                                     className="w-12 h-12 sm:w-14 sm:h-14 object-contain transition-transform duration-300 group-hover:scale-110"
@@ -42,10 +42,10 @@ export default function Navbar() {
                             </div>
                             <div>
                                 <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2 group-hover:text-orange-400 transition-colors duration-300">
-                                    GT7 Racing Club
+                                    GT7 Championships
                                     <span className="text-orange-500">🏆</span>
                                 </h1>
-                                <p className="text-gray-400 text-sm sm:text-base">Temporada 2025 - Dashboard</p>
+                                <p className="text-gray-400 text-sm sm:text-base">Campeonatos y Eventos</p>
                             </div>
                         </div>
                     </div>

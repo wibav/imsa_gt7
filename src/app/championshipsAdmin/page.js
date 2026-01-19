@@ -125,12 +125,20 @@ export default function ChampionshipDetail() {
                         <h1 className="text-4xl font-bold text-white">
                             🏆 Administrar Campeonatos
                         </h1>
-                        <button
-                            onClick={() => router.push('/championshipsAdmin/new')}
-                            className="px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg font-bold hover:from-orange-700 hover:to-red-700"
-                        >
-                            + Nuevo Campeonato
-                        </button>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => window.location.href = '/'}
+                                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-lg transition-all border border-white/30"
+                            >
+                                🏠 Dashboard
+                            </button>
+                            <button
+                                onClick={() => router.push('/championshipsAdmin/new')}
+                                className="px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg font-bold hover:from-orange-700 hover:to-red-700"
+                            >
+                                + Nuevo Campeonato
+                            </button>
+                        </div>
                     </div>
 
                     {championshipsLoading ? (
