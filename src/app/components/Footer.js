@@ -12,7 +12,7 @@ export default function Footer() {
                     <div className="md:col-span-2">
                         <div className="flex items-center gap-3 mb-4">
                             <Image src="/logo_gt7.png" alt="GT7 Championships" width={40} height={40} className="w-10 h-10 object-contain" />
-                            <span className="text-white font-bold text-lg">IMSA GT7 Racing Club ESP</span>
+                            <span className="text-white font-bold text-lg">GT7 Championships</span>
                         </div>
                         <p className="text-gray-400 max-w-prose">
                             Resultados, clasificaciones y calendario del campeonato. Datos claros, en tiempo real y con una experiencia optimizada para escritorio y móvil.
