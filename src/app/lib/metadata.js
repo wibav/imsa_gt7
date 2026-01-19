@@ -6,7 +6,7 @@ export function generateMetadata({
     url,
     type = "website",
     keywords = [],
-    author = "GT7 ESP Racing Club",
+    author = "GT7 Championships",
     publishedTime,
     modifiedTime
 }) {

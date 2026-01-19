@@ -22,7 +22,7 @@ export const metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "GT7 ESP Racing Club - Dashboard del Campeonato",
+        alt: "GT7 Championships - Dashboard del Campeonato",
       },
     ],
     locale: "es_ES",
