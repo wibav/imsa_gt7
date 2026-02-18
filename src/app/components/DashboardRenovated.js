@@ -79,13 +79,7 @@ export default function DashboardRenovated() {
     };
 
     const handleViewEventDetails = (event) => {
-        // Navegar a página de detalle del evento (cuando exista)
-        // Por ahora redirigir al dashboard de admin si es admin, o mostrar alerta
-        if (isAdmin()) {
-            window.location.href = `/eventsAdmin/${event.id}`;
-        } else {
-            alert(`Evento: ${event.title}\nFecha: ${event.date}\nCircuito: ${event.track || 'Por definir'}`);
-        }
+        window.location.href = `/events?id=${event.id}`;
     };
 
     const handleRegisterToEvent = (event) => {

@@ -1,15 +1,23 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { FirebaseService } from "../services/firebaseService";
+import { GT7_TRACKS } from "../utils/constants";
 import Image from "next/image";
 
+/**
+ * Normaliza un nombre de pista para comparación (quita acentos, minúsculas, etc.)
+ */
+const normalizeTrackName = (name) =>
+    (name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
 export default function TracksAdminPage() {
-    const [tracks, setTracks] = useState([]);
+    const [firestoreTracks, setFirestoreTracks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingTrack, setEditingTrack] = useState(null);
     const [uploadingImage, setUploadingImage] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [imageFilter, setImageFilter] = useState('all'); // 'all' | 'with' | 'without'
 
     const [trackForm, setTrackForm] = useState({
         name: '',
@@ -25,14 +33,51 @@ export default function TracksAdminPage() {
         try {
             setLoading(true);
             const fetchedTracks = await FirebaseService.getTracks();
-            setTracks(fetchedTracks);
+            setFirestoreTracks(fetchedTracks);
         } catch (error) {
             console.error("Error fetching tracks:", error);
-            setTracks([]);
+            setFirestoreTracks([]);
         } finally {
             setLoading(false);
         }
     };
+
+    /**
+     * Fusiona las pistas de Firestore con la lista completa de GT7.
+     * Las pistas de GT7 que no existen en Firestore se muestran como "sin imagen".
+     */
+    const tracks = useMemo(() => {
+        // Mapa normalizado de pistas ya guardadas en Firestore
+        const firestoreMap = new Map();
+        firestoreTracks.forEach(t => {
+            firestoreMap.set(normalizeTrackName(t.name), t);
+        });
+
+        // Empezar con las pistas de Firestore
+        const merged = [...firestoreTracks];
+
+        // Agregar pistas de GT7_TRACKS que no están en Firestore
+        let nextId = firestoreTracks.length > 0
+            ? Math.max(...firestoreTracks.map(t => Number(t.id) || 0)) + 1
+            : 1;
+
+        GT7_TRACKS.forEach(trackName => {
+            const normalized = normalizeTrackName(trackName);
+            if (!firestoreMap.has(normalized)) {
+                merged.push({
+                    id: `gt7_${nextId++}`,
+                    name: trackName,
+                    country: '',
+                    layoutImage: '',
+                    _isVirtual: true // No guardada aún en Firestore
+                });
+            }
+        });
+
+        // Ordenar alfabéticamente
+        merged.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        return merged;
+    }, [firestoreTracks]);
 
     const openCreateModal = () => {
         setEditingTrack(null);
@@ -98,19 +143,33 @@ export default function TracksAdminPage() {
             };
 
             if (editingTrack) {
-                // Actualizar pista existente
-                trackData.id = editingTrack.id;
-                const updatedTracks = tracks.map(t =>
-                    t.id === editingTrack.id ? { ...t, ...trackData } : t
-                );
-                await FirebaseService.saveTracks(updatedTracks);
-                alert('✅ Pista actualizada correctamente');
+                if (editingTrack._isVirtual) {
+                    // Pista virtual de GT7 → crear nueva en Firestore
+                    const newId = firestoreTracks.length > 0
+                        ? Math.max(...firestoreTracks.map(t => Number(t.id) || 0)) + 1
+                        : 1;
+                    trackData.id = newId;
+                    trackData.createdAt = new Date().toISOString();
+                    const updatedTracks = [...firestoreTracks, trackData];
+                    await FirebaseService.saveTracks(updatedTracks);
+                    alert('✅ Pista guardada correctamente');
+                } else {
+                    // Actualizar pista existente en Firestore
+                    trackData.id = editingTrack.id;
+                    const updatedTracks = firestoreTracks.map(t =>
+                        t.id === editingTrack.id ? { ...t, ...trackData } : t
+                    );
+                    await FirebaseService.saveTracks(updatedTracks);
+                    alert('✅ Pista actualizada correctamente');
+                }
             } else {
                 // Crear nueva pista
-                const newId = tracks.length > 0 ? Math.max(...tracks.map(t => t.id || 0)) + 1 : 1;
+                const newId = firestoreTracks.length > 0
+                    ? Math.max(...firestoreTracks.map(t => Number(t.id) || 0)) + 1
+                    : 1;
                 trackData.id = newId;
                 trackData.createdAt = new Date().toISOString();
-                const updatedTracks = [...tracks, trackData];
+                const updatedTracks = [...firestoreTracks, trackData];
                 await FirebaseService.saveTracks(updatedTracks);
                 alert('✅ Pista creada correctamente');
             }
@@ -124,12 +183,17 @@ export default function TracksAdminPage() {
     };
 
     const handleDeleteTrack = async (track) => {
+        if (track._isVirtual) {
+            alert('Esta pista es parte del catálogo GT7 y no se puede eliminar. Solo se pueden eliminar pistas personalizadas.');
+            return;
+        }
+
         if (!confirm(`¿Estás seguro de eliminar la pista "${track.name}"?\n\nEsta acción no se puede deshacer y puede afectar campeonatos que usen esta pista.`)) {
             return;
         }
 
         try {
-            const updatedTracks = tracks.filter(t => t.id !== track.id);
+            const updatedTracks = firestoreTracks.filter(t => t.id !== track.id);
             await FirebaseService.saveTracks(updatedTracks);
             alert('✅ Pista eliminada correctamente');
             fetchTracks();
@@ -139,10 +203,30 @@ export default function TracksAdminPage() {
         }
     };
 
-    const filteredTracks = tracks.filter(track =>
-        track.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        track.country?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredTracks = useMemo(() => {
+        let result = tracks;
+
+        // Filtro por imagen
+        if (imageFilter === 'with') {
+            result = result.filter(t => t.layoutImage);
+        } else if (imageFilter === 'without') {
+            result = result.filter(t => !t.layoutImage);
+        }
+
+        // Filtro por búsqueda
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            result = result.filter(t =>
+                t.name?.toLowerCase().includes(term) ||
+                t.country?.toLowerCase().includes(term)
+            );
+        }
+
+        return result;
+    }, [tracks, searchTerm, imageFilter]);
+
+    const tracksWithImage = tracks.filter(t => t.layoutImage).length;
+    const tracksWithoutImage = tracks.length - tracksWithImage;
 
     if (loading) {
         return (
@@ -166,6 +250,10 @@ export default function TracksAdminPage() {
                         </h1>
                         <p className="text-gray-300 mt-2">
                             Catálogo maestro de pistas de Gran Turismo 7 • {tracks.length} pistas totales
+                            <span className="mx-2">•</span>
+                            <span className="text-green-400">{tracksWithImage} con imagen</span>
+                            <span className="mx-2">•</span>
+                            <span className="text-red-400">{tracksWithoutImage} sin imagen</span>
                         </p>
                     </div>
                     <button
@@ -174,6 +262,26 @@ export default function TracksAdminPage() {
                     >
                         ➕ Nueva Pista
                     </button>
+                </div>
+
+                {/* Filtros de imagen */}
+                <div className="flex gap-2 mb-4">
+                    {[
+                        { key: 'all', label: `Todas (${tracks.length})`, color: 'orange' },
+                        { key: 'with', label: `Con imagen (${tracksWithImage})`, color: 'green' },
+                        { key: 'without', label: `Sin imagen (${tracksWithoutImage})`, color: 'red' },
+                    ].map(({ key, label, color }) => (
+                        <button
+                            key={key}
+                            onClick={() => setImageFilter(key)}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${imageFilter === key
+                                    ? `bg-${color}-600 text-white`
+                                    : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                                }`}
+                        >
+                            {label}
+                        </button>
+                    ))}
                 </div>
 
                 {/* Buscador y filtros */}
@@ -214,7 +322,8 @@ export default function TracksAdminPage() {
                         {filteredTracks.map((track) => (
                             <div
                                 key={track.id}
-                                className="bg-white/10 border border-white/30 rounded-xl overflow-hidden hover:bg-white/15 transition-all"
+                                className={`bg-white/10 border rounded-xl overflow-hidden hover:bg-white/15 transition-all ${track.layoutImage ? 'border-white/30' : 'border-red-500/40'
+                                    }`}
                             >
                                 {/* Imagen */}
                                 <div className="relative h-48 bg-black/30">
@@ -226,21 +335,34 @@ export default function TracksAdminPage() {
                                             className="object-contain p-4"
                                         />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-6xl">
-                                            🏁
+                                        <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                                            <span className="text-5xl opacity-40">🏁</span>
+                                            <span className="text-xs text-red-300 font-medium">Sin imagen asignada</span>
                                         </div>
+                                    )}
+                                    {track._isVirtual && (
+                                        <span className="absolute top-2 left-2 bg-blue-600/80 text-white text-xs px-2 py-0.5 rounded">
+                                            Catálogo GT7
+                                        </span>
                                     )}
                                 </div>
 
                                 {/* Info */}
                                 <div className="p-4">
                                     <h3 className="text-xl font-bold text-white mb-2">{track.name}</h3>
-                                    <p className="text-gray-300 text-sm mb-3">📍 {track.country}</p>
+                                    <p className="text-gray-300 text-sm mb-3">
+                                        {track.country ? `📍 ${track.country}` : '📍 País no asignado'}
+                                    </p>
 
                                     <div className="flex flex-wrap gap-2 mb-4 text-xs">
                                         {!track.layoutImage && (
                                             <span className="bg-red-600/30 text-red-200 px-2 py-1 rounded">
                                                 ⚠️ Sin imagen
+                                            </span>
+                                        )}
+                                        {track._isVirtual && !track.country && (
+                                            <span className="bg-yellow-600/30 text-yellow-200 px-2 py-1 rounded">
+                                                📝 Sin país
                                             </span>
                                         )}
                                     </div>
@@ -249,16 +371,21 @@ export default function TracksAdminPage() {
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => openEditModal(track)}
-                                            className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all"
+                                            className={`flex-1 px-3 py-2 text-white text-sm font-medium rounded-lg transition-all ${!track.layoutImage
+                                                    ? 'bg-orange-600 hover:bg-orange-700'
+                                                    : 'bg-blue-600 hover:bg-blue-700'
+                                                }`}
                                         >
-                                            ✏️ Editar
+                                            {!track.layoutImage ? '📷 Asignar imagen' : '✏️ Editar'}
                                         </button>
-                                        <button
-                                            onClick={() => handleDeleteTrack(track)}
-                                            className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all"
-                                        >
-                                            🗑️
-                                        </button>
+                                        {!track._isVirtual && (
+                                            <button
+                                                onClick={() => handleDeleteTrack(track)}
+                                                className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all"
+                                            >
+                                                🗑️
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
