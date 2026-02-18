@@ -87,6 +87,21 @@ export class FirebaseService {
     }
   }
 
+  // Obtener un evento por ID
+  static async getEvent(eventId) {
+    try {
+      const eventRef = doc(db, "events", String(eventId));
+      const eventSnap = await getDoc(eventRef);
+      if (eventSnap.exists()) {
+        return { id: eventSnap.id, ...eventSnap.data() };
+      }
+      return null;
+    } catch (error) {
+      console.error("Error fetching event:", error);
+      throw error;
+    }
+  }
+
   // Obtener todos los eventos especiales
   static async getEvents() {
     try {
@@ -113,6 +128,19 @@ export class FirebaseService {
       return { success: true };
     } catch (error) {
       console.error("Error saving events: ", error);
+      throw error;
+    }
+  }
+
+  // Guardar un solo evento (crear o actualizar)
+  static async saveEvent(event) {
+    try {
+      const eventId = String(event.id);
+      const eventData = { ...event, updatedAt: new Date().toISOString() };
+      await setDoc(doc(collection(db, "events"), eventId), eventData);
+      return { success: true };
+    } catch (error) {
+      console.error("Error saving event:", error);
       throw error;
     }
   }

@@ -1,6 +1,7 @@
 # Análisis del Sistema de Campeonatos — IMSA GT7 + HGT GT7
 
-> **Fecha:** 17 de febrero de 2026  
+> **Fecha:** 18 de febrero de 2026  
+> **Última actualización:** 18 de febrero de 2026  
 > **Proyectos analizados:** `imsa_gt7`, `hgt_gt7`  
 > **Referencia externa:** PDF "WORLD SERIES LEAGUE RR 10°MA EDICIÓN" (reglamento de club)
 
@@ -16,6 +17,11 @@
 6. [Problemas y Código Duplicado Detectados](#6-problemas-y-código-duplicado-detectados)
 7. [Propuesta de Unificación de Componentes](#7-propuesta-de-unificación-de-componentes)
 8. [Ideas de Mejora para el Sistema de Campeonatos](#8-ideas-de-mejora-para-el-sistema-de-campeonatos)
+   - 8.1 [Prioridad ALTA — Funcionalidades Core](#81-prioridad-alta--funcionalidades-core) (Divisiones, Sanciones, Sprint, Standings, Inscripción, Streaming)
+   - 8.2 [Prioridad MEDIA — Reglamentación](#82-prioridad-media--reglamentación) (Reglamento, Compuestos, Clima, Coches, Reutilización)
+   - 8.3 [Prioridad BAJA — Mejoras de UX](#83-prioridad-baja--mejoras-de-ux) (Briefing, Ediciones, Gráficos, Perfiles)
+   - 8.4 [Mejoras para Eventos Únicos](#84-mejoras-para-eventos-únicos)
+   - 8.5 [Recomendaciones Adicionales](#85-recomendaciones-adicionales)
 9. [Modelo de Datos Propuesto (Unificado)](#9-modelo-de-datos-propuesto-unificado)
 10. [Roadmap Priorizado](#10-roadmap-priorizado)
 
@@ -467,6 +473,16 @@ class FirebaseService {
 
 ## 8. Ideas de Mejora para el Sistema de Campeonatos
 
+> ### 🔑 Principio de Diseño: Todo es Opcional
+>
+> **Todas las funcionalidades nuevas propuestas son configurables y opcionales por campeonato.** Un campeonato puede utilizar solo las características básicas (nombre, circuitos, puntos) o activar módulos avanzados según las necesidades del organizador. Al crear o editar un campeonato, cada sección avanzada (divisiones, sanciones, inscripción pública, formato sprint, compuestos obligatorios, streaming, etc.) tiene un **toggle de activación** que por defecto está **desactivado**. Esto garantiza que:
+>
+> - Un campeonato casual entre amigos no requiere configurar divisiones ni sanciones
+> - Un campeonato competitivo tipo club puede activar el stack completo
+> - La complejidad del formulario de creación/edición crece solo si el usuario lo necesita
+> - La migración de campeonatos existentes no se rompe (valores por defecto: `null` / `false` / `[]`)
+> - Cada módulo funciona de forma **independiente** — activar sanciones no obliga a activar divisiones
+
 ### 8.1 Prioridad ALTA — Funcionalidades Core
 
 #### 🏆 8.1.1 Sistema de Divisiones
@@ -487,16 +503,48 @@ championships/{champId}/divisions/{divId}
 └── standings (calculado)
 ```
 
-#### ⚖️ 8.1.2 Sistema de Sanciones
+#### ⚖️ 8.1.2 Sistema de Sanciones (Configurable)
 
-Gestión completa de penalizaciones:
+> **Módulo opcional** — se activa con un toggle al crear/editar el campeonato.
 
-- **Tipos de sanción**: tiempo (+30s, +1min), puntos (-3, -10, -13, -15), descalificación, expulsión
-- **Registro por carrera**: qué piloto, qué infracción, qué penalización
-- **Categorías**: Leve, Grave, Muy Grave
-- **Impacto automático** en la clasificación (restar puntos, añadir tiempo)
-- **Historial de sanciones** por piloto
-- **Formulario de reclamaciones** público para pilotos
+Gestión completa de penalizaciones con **sanciones predefinidas editables** + **sanciones personalizadas creadas por el admin**:
+
+**Sanciones Predefinidas (editables por campeonato):**
+
+El sistema incluye un catálogo de sanciones basadas en reglamentos reales de sim racing. El administrador puede **editar los valores** (puntos, tiempo), **desactivar** las que no apliquen, o **ajustar la severidad**:
+
+| Sanción Predefinida                | Tipo por defecto   | Valor por defecto | Editable |
+| ---------------------------------- | ------------------ | ----------------- | -------- |
+| No usar compuesto obligatorio      | Puntos             | -3                | ✅       |
+| Aparcar fuera de boxes en carrera  | Tiempo             | +30s              | ✅       |
+| No presentarse a sala (escudería)  | Puntos             | -15               | ✅       |
+| No presentarse a sala (individual) | Puntos             | -3                | ✅       |
+| No correr con diseño establecido   | Descalificación    | DSQ               | ✅       |
+| Empujarse en clasificación/carrera | Tiempo             | +1 min            | ✅       |
+| No respetar bandera azul           | Puntos             | -5                | ✅       |
+| Entrenamiento en salas ajenas      | Puntos             | -13               | ✅       |
+| Falta grave reiterada              | Tiempo + Expulsión | +1 min            | ✅       |
+
+**Sanciones Personalizadas (creadas por el admin):**
+
+El administrador puede **crear sanciones adicionales** ilimitadas definiendo:
+
+- **Nombre** de la infracción (texto libre, ej: "Uso de atajo no penalizado por el juego")
+- **Tipo de penalización**: tiempo, puntos, descalificación de carrera, descalificación de campeonato, expulsión, amonestación
+- **Valor**: cantidad de puntos o tiempo según el tipo
+- **Severidad**: Leve, Grave, Muy Grave
+- **Acumulable**: si se pueden sumar múltiples instancias de la misma sanción
+- **Descripción**: texto explicativo de cuándo aplica
+
+**Funcionalidades del módulo:**
+
+- **Toggle de activación**: el sistema de sanciones es opcional por campeonato
+- **Registro por carrera**: qué piloto, qué infracción, qué penalización, evidencia opcional (clip/captura)
+- **Impacto automático** en la clasificación (restar puntos, añadir tiempo al resultado)
+- **Historial de sanciones** por piloto con filtros por ronda, severidad y tipo
+- **Formulario de reclamaciones** público para pilotos (sub-toggle opcional)
+- **Sistema de amonestaciones acumulativas**: X amonestaciones = sanción automática (ej: 3 amonestaciones = -10 puntos), **configurable por el admin**
+- **Exportar resumen** de sanciones por ronda o por piloto (para compartir en Discord/WhatsApp)
 
 #### 🏎️ 8.1.3 Formato Sprint + Carrera
 
@@ -517,6 +565,61 @@ Adoptar el motor de hgt_gt7 y expandir:
 - **Estadísticas por piloto**: wins, podiums, poles, fastest laps, DNFs
 - **Gráficas de evolución de puntos** a lo largo de la temporada
 - **Comparador de pilotos** (head-to-head)
+
+#### 📝 8.1.5 Inscripción Pública de Pilotos
+
+> **Módulo opcional** — se activa con un toggle al crear/editar el campeonato.
+
+Permitir que los pilotos se inscriban directamente desde el **lado público** (cliente) sin necesidad de que el admin los agregue manualmente:
+
+- **Toggle “Inscripción abierta”** en el formulario de creación/edición del campeonato
+- **Botón “Inscribirme”** visible en la página pública del campeonato cuando está activo
+- **Formulario de inscripción** con campos configurables por el admin:
+  - Nombre del piloto (obligatorio)
+  - PSN ID / Gamertag (obligatorio)
+  - País (opcional)
+  - Equipo/escudería preferida (solo si es campeonato por equipos)
+  - Categoría (si aplica: Gr1, Gr2, etc.)
+  - División preferida (si hay múltiples salas)
+- **Modos de aprobación**:
+  - **Automática**: el piloto queda inscrito inmediatamente (ideal para eventos casuales)
+  - **Con aprobación**: el admin revisa y aprueba/rechaza (ideal para ligas competitivas)
+- **Límite de inscripciones**: máximo de pilotos global o por división/sala
+- **Fecha límite** de inscripción (opcional): después de esta fecha el botón se desactiva
+- **Aceptación del reglamento**: checkbox obligatorio antes de confirmar inscripción (solo si hay reglamento configurado)
+- **Panel admin**: lista de solicitudes pendientes con acción aprobar/rechazar en batch
+- **Notificación visual** al admin cuando hay inscripciones pendientes (badge en el panel)
+- **Estado de inscripción** visible para el piloto: pendiente, aprobado, rechazado
+
+#### 🎥 8.1.6 Caster, Host y Streaming por Sala
+
+> **Campos opcionales** disponibles al crear/editar cualquier campeonato.
+
+Asignar roles de **Caster** (narrador) y **Host** (anfitrión de sala) tanto a nivel de campeonato como por sala/división individual:
+
+**A nivel de campeonato (sala única):**
+
+- **Caster principal**: nombre del narrador del campeonato
+- **Host principal**: nombre del anfitrión de la sala (quien crea la sala en GT7)
+- **URL del canal** (opcional): enlace al canal de YouTube, Twitch, Kick u otra plataforma
+- **Plataforma**: selector de plataforma (YouTube, Twitch, Kick, Facebook Gaming, otro)
+
+**A nivel de división/sala (campeonato multi-sala):**
+
+- Cada división puede tener su **propio Caster** y **Host** diferentes al principal
+- Cada división puede tener su **propia URL de stream** (porque pueden transmitirse en paralelo)
+- Si no se especifica, hereda los valores del campeonato principal
+
+**A nivel de carrera individual:**
+
+- Override por carrera: si un Caster/Host cambia para una ronda específica
+- URL de stream específica por carrera (ej: enlace al directo del día)
+
+**En la vista pública:**
+
+- Mostrar el **nombre del Caster** y **Host** en el calendario de carreras
+- **Botón “Ver en vivo”** que enlaza al stream cuando hay URL configurada
+- **Badge “EN VIVO”** automático cuando la carrera está en estado `in-progress`
 
 ### 8.2 Prioridad MEDIA — Reglamentación
 
@@ -557,40 +660,204 @@ Regla del club: "3 coches obligatorios, usar cada uno 3 veces":
 - **Alertas** si un piloto no cumple el requisito mínimo de uso
 - **Restricción automática** o aviso para la siguiente carrera
 
+#### 🔄 8.2.5 Reutilización de Configuraciones de Campeonatos Previos
+
+> **Función del formulario de creación** — disponible al crear un nuevo campeonato.
+
+Al crear un nuevo campeonato, ofrecer la opción de **importar la configuración** de un campeonato anterior para no empezar de cero:
+
+- **Selector “Basar en campeonato anterior”** al inicio del formulario de creación
+- **Dropdown** con la lista de campeonatos previos (nombre + temporada + estado)
+- **Campos que se copian** (el admin puede editar después):
+  - Sistema de puntos (race, sprint, qualifying, pole, fastest lap)
+  - Configuración de formato (sprint, qualify, warmup)
+  - Categorías permitidas
+  - Reglamento general (texto + reglas)
+  - Configuración de sanciones (presets + personalizadas)
+  - Configuración de inscripción (modo, límites, campos requeridos)
+  - Configuración de streaming (plataforma, canal)
+  - Configuración de divisiones (estructura, máximos por sala)
+- **Campos que NO se copian** (siempre se crean nuevos):
+  - Nombre, descripción, temporada
+  - Fechas de inicio/fin
+  - Imágenes (banner, logo)
+  - Pilotos/equipos (ver 8.2.6)
+  - Circuitos y resultados
+- **Campo `clonedFrom`**: se guarda referencia al campeonato origen para trazabilidad
+- **Preview**: antes de confirmar, mostrar un resumen de qué se va a importar
+
+**Opción avanzada: Importar también los circuitos**
+
+- Toggle adicional: “Importar calendario de circuitos”
+- Copia los circuitos con su configuración (reglas, compuestos, clima, coches) pero **sin resultados ni fechas**
+- El admin solo necesita ajustar las fechas de cada ronda
+
+#### 👥 8.2.6 Reutilización de Pilotos de Campeonatos Previos
+
+> **Función del formulario de creación/edición** — disponible al gestionar pilotos/equipos.
+
+Importar la lista de pilotos o equipos de un campeonato anterior:
+
+- **Botón “Importar pilotos de campeonato anterior”** en la sección de pilotos/equipos
+- **Selector** con lista de campeonatos previos
+- **Para campeonatos individuales**:
+  - Lista de todos los pilotos del campeonato seleccionado
+  - Selección múltiple: elegir qué pilotos importar (checkboxes)
+  - Se copian: nombre, PSN ID, categoría
+  - Se resetean: puntos, estadísticas, posición
+- **Para campeonatos por equipos**:
+  - Lista de todos los equipos con sus pilotos
+  - Opción de importar **equipos completos** (equipo + pilotos + colores + logo) o **solo pilotos sueltos**
+  - Se copian: nombre equipo, color, logo, pilotos con sus datos básicos
+  - Se resetean: puntos de pilotos y equipos
+- **Detección de duplicados**: si un piloto ya existe en el nuevo campeonato, se notifica y se puede omitir o sobreescribir
+- **Importación parcial**: no es obligatorio importar todos, se puede seleccionar un subconjunto
+- **Importar y redistribuir**: en campeonatos multi-división, permitir reasignar pilotos a nuevas divisiones basado en los resultados anteriores (ej: ascensos/descensos)
+
 ### 8.3 Prioridad BAJA — Mejoras de UX
 
-#### 👤 8.3.1 Inscripción Online de Pilotos
-
-- **Formulario público** de inscripción
-- **Aprobación** por administradores
-- **Perfil de piloto**: nombre, equipo, estadísticas acumuladas entre temporadas
-- **Historial** de participación en campeonatos anteriores
-
-#### 📺 8.3.2 Integración con Streaming
-
-- **Link a retransmisión en directo** (YouTube/Twitch) por carrera
-- **Caster/Host asignado** por carrera
-- **Embed de stream** en la página de carrera en vivo
-
-#### 📋 8.3.3 Briefing Pre-Carrera
+#### � 8.3.1 Briefing Pre-Carrera
 
 - **Vista informativa** que resume todas las reglas de la carrera: circuito, compuestos, clima, coches, sanciones activas
-- **Checklist** pre-carrera para anfitriones
-- **Notificación** a pilotos (email o push)
+- **Checklist** pre-carrera para anfitriones (sala configurada, reglas verificadas, pilotos presentes)
+- **Compartir briefing** como imagen para Discord/WhatsApp
+- **Notificación** a pilotos (email o push) — futuro
 
-#### 🔄 8.3.4 Temporadas/Ediciones
+#### 🔄 8.3.2 Temporadas/Ediciones
 
 - Concepto de **"edición"** (1ᵃ, 2ᵃ, ..., 10ᵐᵃ)
-- **Historial de ediciones** pasadas
-- **Estadísticas acumuladas** entre ediciones
-- **Campeones por edición**
+- **Historial de ediciones** pasadas con acceso a clasificaciones archivadas
+- **Estadísticas acumuladas** entre ediciones (wins totales, campeonatos ganados)
+- **Campeones por edición** (galería de campeones)
 
-#### 📈 8.3.5 Gráficos y Visualización
+#### 📈 8.3.3 Gráficos y Visualización
 
 - **Gráfica de evolución de puntos** (line chart por carrera)
-- **Comparador de pilotos** (radar chart)
+- **Comparador de pilotos** (radar chart: wins, podiums, poles, fastest laps, consistency)
 - **Top performers por circuito**
 - **Mapa de circuitos** con pines interactivos
+- **Exportar clasificación como imagen** (para compartir en redes/Discord)
+
+#### 👤 8.3.4 Perfiles Globales de Piloto
+
+- **Perfil persistente** entre campeonatos: nombre, PSN ID, avatar, país
+- **Estadísticas históricas** acumuladas: total de carreras, victorias, podiums, poles, vueltas rápidas, DNFs
+- **Historial de campeonatos** en los que participó con resultados finales
+- **Historial de sanciones** acumulado (si aplica)
+- **Insignias/logros** automáticos (primera victoria, 10 podiums, campeón, etc.)
+
+---
+
+### 8.4 Mejoras para Eventos Únicos
+
+Los eventos únicos (independientes de campeonatos) también pueden beneficiarse de varias mejoras:
+
+#### 🎯 8.4.1 Inscripción Pública en Eventos
+
+> **Reutilizar el mismo módulo de inscripción de campeonatos (8.1.5).**
+
+- **Toggle "Inscripción abierta"** por evento
+- **Formulario simplificado**: nombre + PSN ID + país (configurables por evento)
+- **Límite de participantes** con lista de espera automática
+- **Fecha límite de inscripción** (opcional)
+- **Modo "primero en llegar"** (automático) o **con aprobación**
+- **Lista de inscritos** visible públicamente en la página del evento
+
+#### 🎮 8.4.2 Configuración de Reglas por Evento
+
+Aplicar el mismo sistema de reglas detalladas de los circuitos de campeonato a los eventos:
+
+- **Circuito**: selección del catálogo de 70+ pistas
+- **Reglas de carrera**: BOP, daños, desgaste neumáticos/combustible, penalizaciones, fantasma
+- **Compuestos** obligatorios (opcional)
+- **Climatología**: hora del día, multiplicador, slots climáticos
+- **Coches permitidos/obligatorios**
+- **Formato**: carrera única, sprint + carrera, resistencia, time attack
+
+#### 📺 8.4.3 Streaming y Caster en Eventos
+
+- **Caster y Host** asignados por evento (mismos campos que en campeonatos)
+- **URL de stream** (opcional)
+- **Badge "EN VIVO"** cuando el evento está en estado `live`
+
+#### 🏆 8.4.4 Resultados y Premiación
+
+- **Registro de resultados** del evento (posiciones, puntos si aplica)
+- **Premios/descripción** de premios (texto libre, ej: "Vinilo exclusivo para el ganador")
+- **Galería post-evento**: capturas, clips, podium
+- **Evento vinculado a campeonato** (opcional): evento especial que es parte de un campeonato (ej: ronda extra)
+
+#### 📅 8.4.5 Eventos Recurrentes y Series
+
+- **Eventos recurrentes**: definir un evento semanal/quincenal/mensual que se auto-replica
+- **Plantillas de evento**: guardar configuraciones de evento para reutilizar (igual que campeonatos, ver 8.2.5)
+- **Series de eventos**: agrupar eventos bajo un mismo "paraguas" (ej: "Noches de Endurance") con clasificación acumulada
+- **Categorías de evento**: Casual, Competitivo, Especial, Endurance, Time Attack, Drift
+
+#### 📊 8.4.6 Mejoras de UX en Eventos
+
+- **Vista calendario** (mes/semana) además de la lista actual
+- **Filtros** por estado, categoría, fecha, circuito
+- **Historial de eventos** pasados con resultados archivados
+- **Compartir evento** como imagen o link con preview (OG tags dinámicos)
+- **Contador regresivo** visible en eventos próximos
+- **Recordatorio** de evento (notificación push o email — futuro)
+
+---
+
+### 8.5 Recomendaciones Adicionales
+
+Funcionalidades complementarias que elevarían el sistema a una plataforma profesional de gestión de sim racing:
+
+#### 🔐 8.5.1 Control de Acceso por Roles
+
+Actualmente los admins están hardcodeados por email. Se recomienda:
+
+- **Roles definidos**: Super Admin, Admin, Moderador, Caster, Piloto
+- **Super Admin**: gestión total + gestión de otros admins
+- **Admin**: CRUD de campeonatos, eventos, sanciones
+- **Moderador**: solo gestionar sanciones y reclamaciones
+- **Caster**: solo puede marcar carreras como "en vivo" y subir enlaces de stream
+- **Piloto**: solo puede inscribirse, ver su perfil, enviar reclamaciones
+- **Gestión desde panel admin**: agregar/remover roles por email
+
+#### 🔔 8.5.2 Notificaciones y Webhooks
+
+- **Webhook de Discord**: enviar notificaciones automáticas al servidor de Discord del club:
+  - Nueva carrera programada
+  - Resultados publicados
+  - Clasificación actualizada
+  - Inscripción abierta/cerrada
+  - Sanciones emitidas
+- **Configurar URL de webhook** por campeonato (campo opcional)
+- **Formato**: embed de Discord con colores, thumbnail, y campos estructurados
+- Futuro: soporte para **WhatsApp Business API** o **Telegram Bot**
+
+#### 📱 8.5.3 Experiencia Móvil Optimizada
+
+- **UI responsive optimizada** para consultar clasificaciones y calendario desde el teléfono
+- **PWA (Progressive Web App)**: instalar como app en el teléfono sin app store
+- **Modo offline**: cache de los datos visitados para consultar sin conexión
+- **Notificaciones push** (vía Service Worker) para recordatorios de carrera
+
+#### 📤 8.5.4 Exportación e Interoperabilidad
+
+- **Exportar clasificación como imagen PNG** con diseño profesional (para compartir en redes)
+- **Exportar datos a CSV/Excel**: clasificaciones, resultados, sanciones, pilotos
+- **Exportar reglamento como PDF** auto-generado (similar al PDF del club analizado)
+- **API pública (read-only)**: endpoint JSON para que otros puedan consumir datos del campeonato (widgets, bots, etc.)
+
+#### 📝 8.5.5 Registro de Actividad (Audit Log)
+
+- **Log de acciones admin**: quién creó, editó, eliminó campeonatos/eventos/sanciones
+- **Historial de cambios** en clasificaciones (quién modificó los puntos y cuándo)
+- **Trazabilidad completa** de sanciones: quién la emitió, quién la resolvió, cuándo
+
+#### 🎨 8.5.6 Personalización Visual por Campeonato
+
+- **Color primario/acento** configurable por campeonato (para que cada liga tenga su identidad)
+- **Banner y logo** ya existentes — agregar **favicon personalizado** por campeonato
+- **Tema claro/oscuro** a nivel de sistema (preferencia del usuario)
 
 ---
 
@@ -645,11 +912,42 @@ championships/
     │   restPeriodWeeks: 2
     │ }
     │
-    ├── streaming: {                             ← NUEVO
-    │   defaultPlatform: 'youtube' | 'twitch',
-    │   channelUrl: string,
-    │   casterName: string
+    ├── streaming: {                             ← MEJORADO
+    │   defaultPlatform: 'youtube' | 'twitch' | 'kick' | 'facebook' | 'other',
+    │   channelUrl: string | null,               ← URL del canal (opcional)
+    │   casterName: string | null,               ← Nombre del caster principal
+    │   hostName: string | null                  ← NUEVO: host de la sala
     │ }
+    │
+    ├── registration: {                           ← NUEVO: inscripción pública
+    │   enabled: boolean,                         ← Toggle inscripción abierta (default: false)
+    │   requiresApproval: boolean,               ← true = admin aprueba, false = auto
+    │   deadline: ISO string | null,             ← Fecha límite (opcional)
+    │   maxDrivers: number | null,               ← Máximo global de pilotos
+    │   requiredFields: string[],                ← Campos requeridos: ['psnId', 'country']
+    │   acceptRegulation: boolean                ← Deben aceptar reglamento para inscribirse
+    │ }
+    │
+    ├── penaltyConfig: {                          ← NUEVO: configuración de sanciones
+    │   enabled: boolean,                         ← Toggle sistema sanciones (default: false)
+    │   claimsEnabled: boolean,                  ← Reclamaciones públicas habilitadas
+    │   warningsBeforeSanction: number | null,   ← Amonestaciones antes de sanción auto
+    │   warningPenalty: {                         ← Qué pasa al acumular amonestaciones
+    │       type: 'points' | 'time' | 'dsq',
+    │       value: number
+    │   } | null,
+    │   presets: [{                               ← Sanciones predefinidas editables
+    │       id: string,
+    │       name: string,
+    │       type: 'time' | 'points' | 'dsq' | 'ban' | 'warning',
+    │       defaultValue: number,
+    │       severity: 'light' | 'serious' | 'very_serious',
+    │       enabled: boolean,                    ← Desactivar si no aplica
+    │       isCustom: boolean                    ← true = creada por admin
+    │   }]
+    │ }
+    │
+    ├── clonedFrom: string | null,                ← NUEVO: ID del campeonato del que se clonó
     │
     ├── createdAt, updatedAt
     ├── createdBy
@@ -660,7 +958,10 @@ championships/
     │       ├── order: 1
     │       ├── maxDrivers: 15
     │       ├── drivers: string[]
-    │       ├── hostPSN: string                  ← NUEVO
+    │       ├── hostPSN: string                  ← Host de la sala GT7
+    │       ├── hostName: string | null          ← NUEVO: nombre del host
+    │       ├── casterName: string | null        ← NUEVO: caster asignado a esta división
+    │       ├── streamUrl: string | null         ← NUEVO: URL de stream por sala
     │       └── status: 'active' | 'locked'
     │
     ├── teams/                                   (existente, mejorado)
@@ -745,15 +1046,32 @@ championships/
     │   └── {sanctionId}/
     │       ├── driverName: string
     │       ├── trackId: string | null           ← En qué carrera
-    │       ├── type: 'time' | 'points' | 'dsq' | 'ban'
+    │       ├── type: 'time' | 'points' | 'dsq' | 'ban' | 'warning'
     │       ├── severity: 'light' | 'serious' | 'very_serious'
     │       ├── value: number                    ← +30s, -3pts, etc.
+    │       ├── presetId: string | null          ← NUEVO: referencia a preset usado
     │       ├── reason: string
     │       ├── description: string
+    │       ├── evidence: string[]               ← NUEVO: URLs de clips/capturas
     │       ├── status: 'active' | 'appealed' | 'resolved'
     │       ├── issuedBy: string
     │       ├── createdAt, updatedAt
     │       └── resolvedAt: Date | null
+    │
+    ├── registrations/                           ← NUEVO: subcolección de inscripciones
+    │   └── {registrationId}/
+    │       ├── driverName: string
+    │       ├── psnId: string
+    │       ├── country: string | null
+    │       ├── preferredTeam: string | null
+    │       ├── preferredDivision: string | null
+    │       ├── category: string | null
+    │       ├── acceptedRegulation: boolean
+    │       ├── status: 'pending' | 'approved' | 'rejected'
+    │       ├── reviewedBy: string | null
+    │       ├── reviewedAt: Date | null
+    │       ├── createdAt
+    │       └── rejectionReason: string | null
     │
     └── claims/                                  ← NUEVO: subcolección
         └── {claimId}/
@@ -793,6 +1111,60 @@ editions/                                        ← NUEVO: historial de edicion
     ├── champion: string
     ├── topThree: string[]
     └── season: string
+
+events/                                          ← MEJORADO: eventos únicos
+└── {eventId}/
+    ├── title: string
+    ├── description: string
+    ├── date: ISO string
+    ├── hour: string
+    ├── track: string                            ← Nombre del circuito
+    ├── trackConfig: {                           ← NUEVO: config completa del circuito
+    │   name, country, layoutImage,
+    │   laps, duration, raceType,
+    │   raceConfig: { bop, damage, ... },        ← Misma estructura que tracks de campeonato
+    │   tyres: { ... },
+    │   weather: { ... },
+    │   cars: { ... }
+    │ } | null
+    ├── registration: {                          ← NUEVO: inscripción pública en eventos
+    │   enabled: boolean,
+    │   requiresApproval: boolean,
+    │   deadline: ISO string | null,
+    │   maxParticipants: number | null
+    │ }
+    ├── streaming: {                             ← NUEVO
+    │   url: string | null,
+    │   casterName: string | null,
+    │   hostName: string | null,
+    │   platform: string | null
+    │ }
+    ├── format: 'race' | 'sprint+race' | 'endurance' | 'time-attack' | 'drift'
+    ├── category: 'casual' | 'competitive' | 'special' | 'endurance'
+    ├── prizes: string | null                    ← NUEVO: descripción de premios
+    ├── relatedChampionshipId: string | null      ← NUEVO: vincular a campeonato
+    ├── isRecurring: boolean                     ← NUEVO: evento recurrente
+    ├── recurrencePattern: 'weekly' | 'biweekly' | 'monthly' | null
+    ├── seriesId: string | null                  ← NUEVO: agrupar en serie de eventos
+    ├── rules: object                            ← Existente
+    ├── maxParticipants: number                  ← Existente
+    ├── participants: array                      ← Existente
+    ├── results: [{                              ← NUEVO: resultados del evento
+    │   driverName, position, points,
+    │   fastestLap, polePosition
+    │ }] | null
+    ├── status: 'upcoming' | 'live' | 'completed'
+    ├── gallery: string[]                        ← NUEVO: URLs de capturas post-evento
+    ├── createdAt, updatedAt
+    └── createdBy
+
+eventSeries/                                     ← NUEVO: series de eventos
+└── {seriesId}/
+    ├── name: string                             ← "Noches de Endurance"
+    ├── description: string
+    ├── events: string[]                         ← IDs de eventos
+    ├── scoring: { ... } | null                  ← Puntos acumulados (opcional)
+    └── createdAt
 ```
 
 ---
@@ -801,76 +1173,117 @@ editions/                                        ← NUEVO: historial de edicion
 
 ### Fase 1 — Limpieza y Unificación (1-2 semanas)
 
-| #   | Tarea                                                                                     | Esfuerzo |
-| --- | ----------------------------------------------------------------------------------------- | -------- |
-| 1.1 | Eliminar código legacy (`Dashboard.js`, `tracks.js`, colecciones globales)                | 2h       |
-| 1.2 | Extraer utilidades compartidas (`dateUtils`, `standingsCalculator`, `progressCalculator`) | 4h       |
-| 1.3 | Unificar formularios new/edit en un solo `ChampionshipForm.js`                            | 6h       |
-| 1.4 | Crear componente `MedalIcon` y reemplazar 5 duplicados                                    | 1h       |
-| 1.5 | Crear componente `StatusBadge` unificado                                                  | 1h       |
-| 1.6 | Extraer `StandingsTable` como componente reutilizable                                     | 3h       |
-| 1.7 | Corregir bug de inconsistencia de puntos (`track.points` vs `driver.points`)              | 2h       |
-| 1.8 | Paralelizar `loadChampionshipsTracks` con `Promise.all`                                   | 1h       |
-| 1.9 | Implementar `ErrorMessage` y `LoadingSkeleton` (de hgt_gt7)                               | 2h       |
+| #   | Tarea                                                                              | Esfuerzo |
+| --- | ---------------------------------------------------------------------------------- | -------- |
+| 1.1 | ~~Eliminar código legacy (`Dashboard.js`, `tracks.js`)~~                           | ✅ Hecho |
+| 1.2 | ~~Extraer utilidades compartidas (`dateUtils`, `championshipUtils`, `constants`)~~ | ✅ Hecho |
+| 1.3 | Unificar formularios new/edit en un solo `ChampionshipForm.js`                     | 6h       |
+| 1.4 | ~~Crear componentes de medalla y reemplazar 5 duplicados~~                         | ✅ Hecho |
+| 1.5 | Crear componente `StatusBadge` unificado                                           | 1h       |
+| 1.6 | Extraer `StandingsTable` como componente reutilizable                              | 3h       |
+| 1.7 | ~~Corregir bug de inconsistencia de puntos~~                                       | ✅ Hecho |
+| 1.8 | ~~Paralelizar `loadChampionshipsTracks` con `Promise.all`~~                        | ✅ Hecho |
+| 1.9 | Implementar `ErrorMessage` y `LoadingSkeleton` (de hgt_gt7)                        | 2h       |
 
-### Fase 2 — Standings Avanzado (1 semana)
+### Fase 2 — Inscripción, Streaming y Reutilización (1-2 semanas)
+
+| #   | Tarea                                                                          | Esfuerzo |
+| --- | ------------------------------------------------------------------------------ | -------- |
+| 2.1 | Toggle de inscripción pública en formulario de campeonato                      | 3h       |
+| 2.2 | Formulario público de inscripción (lado cliente) con campos configurables      | 6h       |
+| 2.3 | Panel admin de aprobación/rechazo de inscripciones (batch)                     | 4h       |
+| 2.4 | Campos Caster + Host + URL de stream a nivel de campeonato                     | 2h       |
+| 2.5 | Caster/Host/Stream por división (campeonatos multi-sala)                       | 3h       |
+| 2.6 | Selector "Basar en campeonato anterior" al crear campeonato (clonar config)    | 6h       |
+| 2.7 | Botón "Importar pilotos/equipos de campeonato anterior" con selección múltiple | 5h       |
+| 2.8 | Botón "Ver en vivo" + badge "EN VIVO" en vista pública                         | 2h       |
+
+### Fase 3 — Standings Avanzado (1 semana)
 
 | #   | Tarea                                                                    | Esfuerzo |
 | --- | ------------------------------------------------------------------------ | -------- |
-| 2.1 | Portar `standingsCalculator.js` de hgt_gt7 con desempate multinivel      | 4h       |
-| 2.2 | Agregar subcolección `results/` con posiciones, pole, vuelta rápida, DNF | 6h       |
-| 2.3 | Tabla de standings con puntos por carrera individual (columnas sticky)   | 4h       |
-| 2.4 | Estadísticas por piloto: wins, podiums, poles, fastest laps              | 3h       |
-| 2.5 | Comparador de pilotos (head-to-head)                                     | 4h       |
+| 3.1 | Portar `standingsCalculator.js` de hgt_gt7 con desempate multinivel      | 4h       |
+| 3.2 | Agregar subcolección `results/` con posiciones, pole, vuelta rápida, DNF | 6h       |
+| 3.3 | Tabla de standings con puntos por carrera individual (columnas sticky)   | 4h       |
+| 3.4 | Estadísticas por piloto: wins, podiums, poles, fastest laps              | 3h       |
+| 3.5 | Comparador de pilotos (head-to-head)                                     | 4h       |
 
-### Fase 3 — Reglamentación y Config de Circuitos (1-2 semanas)
+### Fase 4 — Sanciones Configurables (1-2 semanas)
+
+| #   | Tarea                                                                             | Esfuerzo |
+| --- | --------------------------------------------------------------------------------- | -------- |
+| 4.1 | Toggle de sanciones + modelo de datos con presets editables                       | 4h       |
+| 4.2 | UI admin: catálogo de sanciones predefinidas (editar valores, activar/desactivar) | 4h       |
+| 4.3 | UI admin: crear sanciones personalizadas (nombre, tipo, valor, severidad)         | 4h       |
+| 4.4 | Aplicar sanción a piloto por carrera (con evidencia opcional)                     | 4h       |
+| 4.5 | Impacto automático de sanciones en clasificación                                  | 4h       |
+| 4.6 | Sistema de amonestaciones acumulativas (configurable)                             | 3h       |
+| 4.7 | Formulario público de reclamaciones (sub-toggle)                                  | 5h       |
+| 4.8 | Panel admin de resolución de reclamaciones                                        | 5h       |
+| 4.9 | Historial y exportación de sanciones                                              | 3h       |
+
+### Fase 5 — Reglamentación y Config de Circuitos (1-2 semanas)
 
 | #   | Tarea                                                          | Esfuerzo |
 | --- | -------------------------------------------------------------- | -------- |
-| 3.1 | Ampliar modelo Track con `tyres`, `fuel`, `weather` detallados | 4h       |
-| 3.2 | Formulario de compuestos obligatorios por circuito             | 3h       |
-| 3.3 | Climatología avanzada (hora del día, multiplicador, slots)     | 3h       |
-| 3.4 | Sección de reglamento editable por campeonato                  | 4h       |
-| 3.5 | Formato Sprint + Carrera (dual session)                        | 6h       |
-| 3.6 | Control de uso de coches (tracking y alertas)                  | 4h       |
+| 5.1 | Ampliar modelo Track con `tyres`, `fuel`, `weather` detallados | 4h       |
+| 5.2 | Formulario de compuestos obligatorios por circuito             | 3h       |
+| 5.3 | Climatología avanzada (hora del día, multiplicador, slots)     | 3h       |
+| 5.4 | Sección de reglamento editable por campeonato                  | 4h       |
+| 5.5 | Formato Sprint + Carrera (dual session)                        | 6h       |
+| 5.6 | Control de uso de coches (tracking y alertas)                  | 4h       |
 
-### Fase 4 — Divisiones y Sanciones (2-3 semanas)
-
-| #   | Tarea                                            | Esfuerzo |
-| --- | ------------------------------------------------ | -------- |
-| 4.1 | Modelo de divisiones (subcolección)              | 4h       |
-| 4.2 | UI admin para crear/gestionar divisiones         | 8h       |
-| 4.3 | Clasificación por división (standings separados) | 6h       |
-| 4.4 | Sistema de ascensos/descensos entre ediciones    | 6h       |
-| 4.5 | Modelo de sanciones (subcolección)               | 3h       |
-| 4.6 | UI admin para gestionar sanciones                | 6h       |
-| 4.7 | Impacto automático de sanciones en clasificación | 4h       |
-| 4.8 | Formulario público de reclamaciones              | 6h       |
-| 4.9 | Panel de resolución de reclamaciones (admin)     | 6h       |
-
-### Fase 5 — Inscripción y Experiencia Pública (2 semanas)
+### Fase 6 — Divisiones y Ascensos (2-3 semanas)
 
 | #   | Tarea                                            | Esfuerzo |
 | --- | ------------------------------------------------ | -------- |
-| 5.1 | Perfil global de piloto                          | 6h       |
-| 5.2 | Formulario público de inscripción con aprobación | 6h       |
-| 5.3 | Briefing pre-carrera (vista informativa)         | 4h       |
-| 5.4 | Integración con streaming (link, embed)          | 3h       |
-| 5.5 | Sistema de ediciones/temporadas con historial    | 6h       |
-| 5.6 | Gráficos de evolución de puntos                  | 6h       |
+| 6.1 | Modelo de divisiones (subcolección)              | 4h       |
+| 6.2 | UI admin para crear/gestionar divisiones         | 8h       |
+| 6.3 | Clasificación por división (standings separados) | 6h       |
+| 6.4 | Sistema de ascensos/descensos entre ediciones    | 6h       |
+
+### Fase 7 — Eventos Mejorados (1-2 semanas)
+
+| #   | Tarea                                                                     | Esfuerzo |
+| --- | ------------------------------------------------------------------------- | -------- |
+| 7.1 | Inscripción pública en eventos (reutilizar módulo de campeonatos)         | 3h       |
+| 7.2 | Configuración detallada de reglas por evento (raceConfig, tyres, weather) | 4h       |
+| 7.3 | Caster/Host/Stream por evento                                             | 2h       |
+| 7.4 | Resultados y premiación de eventos                                        | 3h       |
+| 7.5 | Eventos recurrentes y plantillas                                          | 4h       |
+| 7.6 | Series de eventos con clasificación acumulada                             | 5h       |
+| 7.7 | Vista calendario + filtros + contador regresivo                           | 4h       |
+
+### Fase 8 — Experiencia Avanzada (2-3 semanas)
+
+| #   | Tarea                                                                 | Esfuerzo |
+| --- | --------------------------------------------------------------------- | -------- |
+| 8.1 | Perfiles globales de piloto con estadísticas históricas               | 6h       |
+| 8.2 | Insignias/logros automáticos                                          | 4h       |
+| 8.3 | Sistema de ediciones/temporadas con historial                         | 6h       |
+| 8.4 | Gráficos de evolución de puntos                                       | 6h       |
+| 8.5 | Exportar clasificación como imagen PNG                                | 4h       |
+| 8.6 | Briefing pre-carrera (vista informativa + compartir)                  | 4h       |
+| 8.7 | Control de acceso por roles (Super Admin, Admin, Mod, Caster, Piloto) | 8h       |
+| 8.8 | Webhook de Discord para notificaciones automáticas                    | 5h       |
+| 8.9 | PWA + modo offline básico                                             | 4h       |
 
 ---
 
 ## Resumen Final
 
-| Métrica                                       | Valor                           |
-| --------------------------------------------- | ------------------------------- |
-| **Funcionalidades actuales**                  | ~15 features funcionales        |
-| **Funcionalidades del club no soportadas**    | ~14 features faltantes          |
-| **Bugs detectados**                           | 4 (1 crítico)                   |
-| **Duplicaciones de código**                   | 6 patrones duplicados           |
-| **Líneas de código duplicadas** (new vs edit) | ~4,200 líneas                   |
-| **Esfuerzo total estimado**                   | ~8-10 semanas (1 desarrollador) |
-| **Archivos legacy por eliminar**              | 4+ archivos                     |
+| Métrica                                       | Valor                                                                                            |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **Funcionalidades actuales**                  | ~15 features funcionales                                                                         |
+| **Funcionalidades nuevas propuestas**         | ~35 features (todas opcionales)                                                                  |
+| **Bugs detectados**                           | 4 (1 crítico) — **todos corregidos**                                                             |
+| **Duplicaciones de código**                   | 6 patrones — **5 resueltos**                                                                     |
+| **Líneas de código duplicadas** (new vs edit) | ~4,200 líneas — pendiente unificar                                                               |
+| **Módulos opcionales propuestos**             | 8 (sanciones, inscripción, divisiones, streaming, sprint, compuestos, reglamento, reclamaciones) |
+| **Mejoras para eventos únicos**               | 6 subsecciones nuevas                                                                            |
+| **Recomendaciones adicionales**               | 6 (roles, Discord, PWA, export, audit, temas)                                                    |
+| **Fases del roadmap**                         | 8 fases                                                                                          |
+| **Esfuerzo total estimado**                   | ~12-16 semanas (1 desarrollador)                                                                 |
+| **Principio de diseño clave**                 | Todo es opcional por campeonato                                                                  |
 
-El sistema actual tiene una base sólida en `imsa_gt7` (modelos formales, servicio centralizado, equipos) con buenas ideas en `hgt_gt7` (standings calculator, replays, sponsors). La mayor oportunidad de mejora está en adoptar el modelo organizativo del club World Series League RR: **divisiones, sanciones, reglamentos por circuito y formato Sprint + Carrera**, que transformarían el sistema de un simple tracker de puntos a una plataforma completa de gestión de campeonatos de sim racing.
+El sistema actual tiene una base sólida en `imsa_gt7` tras las correcciones realizadas (bugs corregidos, utilidades centralizadas, código legacy deprecado). Las nuevas propuestas siguen el **principio de opcionalidad**: cada módulo se activa independientemente, permitiendo desde campeonatos casuales sin configuración avanzada hasta ligas competitivas con divisiones, sanciones configurables (predefinidas + personalizadas), inscripción pública, caster/host por sala, y reutilización de configuraciones previas. Las mejoras a eventos únicos los elevan de simples entradas de calendario a mini-campeonatos con inscripción, reglas detalladas, streaming y resultados. Las recomendaciones adicionales (roles, Discord webhooks, PWA, exportación) completarían la transformación a una plataforma profesional de gestión de sim racing.
