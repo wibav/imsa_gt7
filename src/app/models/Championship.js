@@ -2,6 +2,7 @@
  * Championship Model
  * Modelo de datos para el sistema de múltiples campeonatos
  */
+import { STATUS_SEMANTIC_COLORS, STATUS_LABELS } from '../utils/constants';
 
 export class Championship {
     constructor(data = {}) {
@@ -152,26 +153,14 @@ export class Championship {
      * Obtiene el color del badge según el estado
      */
     getStatusColor() {
-        const colors = {
-            draft: 'gray',
-            active: 'green',
-            completed: 'blue',
-            archived: 'yellow'
-        };
-        return colors[this.status] || 'gray';
+        return STATUS_SEMANTIC_COLORS[this.status] || 'gray';
     }
 
     /**
      * Obtiene el texto del estado traducido
      */
     getStatusText() {
-        const texts = {
-            draft: 'Borrador',
-            active: 'Activo',
-            completed: 'Completado',
-            archived: 'Archivado'
-        };
-        return texts[this.status] || 'Desconocido';
+        return STATUS_LABELS[this.status] || 'Desconocido';
     }
 }
 

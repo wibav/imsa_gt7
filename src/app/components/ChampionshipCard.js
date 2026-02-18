@@ -1,50 +1,12 @@
 "use client";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { calculateProgress, getNextRace } from "../utils/championshipUtils";
+import { formatDateShort } from "../utils/dateUtils";
+import { STATUS_COLORS, STATUS_LABELS } from "../utils/constants";
 
-/**
- * Calcula el progreso del campeonato
- * @param {Array} tracks - Array de pistas del campeonato
- * @param {Object} championship - Datos del campeonato (para fechas)
- * @returns {Object} { completed, total, percentage }
- */
-export const calculateProgress = (tracks, championship) => {
-    if (!tracks || tracks.length === 0) {
-        // Si no hay tracks, calcular por fechas si están disponibles
-        if (championship?.startDate && championship?.endDate) {
-            const now = new Date();
-            const start = new Date(championship.startDate);
-            const end = new Date(championship.endDate);
-
-            // Si aún no ha comenzado
-            if (now < start) return { completed: 0, total: 0, percentage: 0 };
-
-            // Si ya terminó o está completado
-            if (now > end || championship.status === 'completed') {
-                return { completed: 0, total: 0, percentage: 100 };
-            }
-
-            // Calcular progreso basado en el tiempo transcurrido
-            const total = end.getTime() - start.getTime();
-            const elapsed = now.getTime() - start.getTime();
-            const percentage = Math.round((elapsed / total) * 100);
-
-            return { completed: 0, total: 0, percentage: Math.min(100, Math.max(0, percentage)) };
-        }
-
-        return { completed: 0, total: 0, percentage: 0 };
-    }
-
-    // Una pista se considera completada si tiene puntos asignados
-    const completed = tracks.filter(track => {
-        return track.points && Object.keys(track.points).length > 0;
-    }).length;
-
-    const total = tracks.length;
-    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-    return { completed, total, percentage };
-};
+// Re-exportar calculateProgress para compatibilidad con código existente
+export { calculateProgress } from "../utils/championshipUtils";
 
 /**
  * ChampionshipCard - Card de campeonato con información y progreso
@@ -56,25 +18,7 @@ export const calculateProgress = (tracks, championship) => {
 export default function ChampionshipCard({ championship, tracks = [], onClick }) {
     const router = useRouter();
     const progress = calculateProgress(tracks, championship);
-
-    // Obtener próxima carrera
-    const getNextRace = () => {
-        if (!tracks || tracks.length === 0) return null;
-
-        const now = new Date();
-        now.setHours(0, 0, 0, 0); // Inicio del día de hoy
-
-        const upcomingRaces = tracks
-            .filter(t => {
-                const trackDate = new Date(t.date + 'T00:00:00');
-                return trackDate >= now && t.status !== 'completed';
-            })
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        return upcomingRaces[0] || null;
-    };
-
-    const nextRace = getNextRace();
+    const nextRace = getNextRace(tracks);
 
     const handleClick = () => {
         if (onClick) {
@@ -82,31 +26,6 @@ export default function ChampionshipCard({ championship, tracks = [], onClick })
         } else {
             router.push(`/championships?id=${championship.id}`);
         }
-    };
-
-    // Color del badge según estado
-    const statusColors = {
-        'active': 'bg-green-500',
-        'draft': 'bg-gray-500',
-        'completed': 'bg-blue-500',
-        'archived': 'bg-gray-600'
-    };
-
-    const statusLabels = {
-        'active': 'Activo',
-        'draft': 'Borrador',
-        'completed': 'Finalizado',
-        'archived': 'Archivado'
-    };
-
-    // Formatear fecha
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '';
-        const date = new Date(dateStr + 'T00:00:00');
-        return date.toLocaleDateString('es-ES', {
-            day: '2-digit',
-            month: 'short'
-        });
     };
 
     return (
@@ -126,8 +45,8 @@ export default function ChampionshipCard({ championship, tracks = [], onClick })
                     />
                     {/* Badge de estado */}
                     <div className="absolute top-3 right-3">
-                        <span className={`${statusColors[championship.status] || 'bg-gray-500'} text-white text-xs px-2 py-1 rounded-full font-bold`}>
-                            {statusLabels[championship.status] || championship.status}
+                        <span className={`${STATUS_COLORS[championship.status] || 'bg-gray-500'} text-white text-xs px-2 py-1 rounded-full font-bold`}>
+                            {STATUS_LABELS[championship.status] || championship.status}
                         </span>
                     </div>
                 </div>
@@ -213,7 +132,7 @@ export default function ChampionshipCard({ championship, tracks = [], onClick })
                             </div>
                             <div className="text-right ml-2">
                                 <div className="text-orange-200 text-sm font-semibold">
-                                    {formatDate(nextRace.date)}
+                                    {formatDateShort(nextRace.date)}
                                 </div>
                             </div>
                         </div>
