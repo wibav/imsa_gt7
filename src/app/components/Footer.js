@@ -79,7 +79,12 @@ export default function Footer() {
 
                 <div className="mt-10 flex flex-col md:flex-row items-center justify-between gap-4 border-t border-white/10 pt-6">
                     <p className="text-sm text-gray-400">© {year} GT7 Championships. Todos los derechos reservados.</p>
-                    <p className="text-xs text-gray-500">Desarrollado con Next.js y Tailwind CSS.</p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                        Desarrollado por
+                        <a href="https://trenkit.com" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300 font-semibold transition-colors">
+                            Trenkit
+                        </a>
+                    </p>
                 </div>
             </div>
         </footer>
