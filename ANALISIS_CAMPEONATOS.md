@@ -636,11 +636,13 @@ Sección editable de reglas generales:
 
 Tal como lo hace el club:
 
-- **Compuesto obligatorio para carrera**: CD, CM, CB (selección múltiple)
+- **Compuesto obligatorio para carrera**: CD, CM, CB (**selección múltiple** — ya implementado en eventos, pendiente replicar en campeonatos)
 - **Compuesto obligatorio para qualify**: selección única
 - **Compuesto obligatorio para Sprint**: selección independiente
 - **Lista de neumáticos GT7**: Competición Blando/Medio/Duro, Sport, Racing, Wet, Rally, Nieve
 - **Obligación de uso de X compuestos** (ej: "usar al menos 2 compuestos")
+
+> **📌 NOTA**: En eventos únicos ya se implementó la selección múltiple de neumáticos obligatorios (`mandatoryTyres: string[]` con UI de chips seleccionables). Al implementar compuestos en campeonatos, **reutilizar el mismo patrón de selección múltiple** tanto para carrera, classify como sprint. El campo en el formulario de circuitos de campeonato deberá ser `mandatoryTyres: string[]` (array) en lugar de un select simple.
 
 #### 🌦️ 8.2.3 Climatología Detallada
 

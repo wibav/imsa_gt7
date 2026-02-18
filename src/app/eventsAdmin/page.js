@@ -16,7 +16,7 @@ const DEFAULT_RULES = {
     duration: '', laps: '',
     bop: 'SI', adjustments: 'NO', engineSwap: 'NO',
     damage: 'Graves', penalties: 'SI', shortcutPenalty: 'NO', ghostCar: 'NO',
-    tyreWear: 5, fuelWear: 0, fuelRefillRate: 10, mandatoryTyre: ''
+    tyreWear: 5, fuelWear: 0, fuelRefillRate: 10, mandatoryTyres: []
 };
 
 const DEFAULT_STREAMING = { casterName: '', hostName: '', url: '', platform: '' };
@@ -438,13 +438,38 @@ function EventForm({ event, onSave, onCancel, saving }) {
                 )}
 
                 <div>
-                    <label className={labelCls}>Neumático obligatorio</label>
-                    <select className={inputCls} value={form.rules?.mandatoryTyre || ''} onChange={(e) => updateRules('mandatoryTyre', e.target.value)}>
-                        <option value="">Sin restricción</option>
-                        {TYRE_OPTIONS.map(t => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
-                        ))}
-                    </select>
+                    <label className={labelCls}>Neumáticos obligatorios</label>
+                    <p className="text-gray-500 text-xs mb-2">Selecciona los compuestos que los pilotos deben usar durante la carrera</p>
+                    <div className="flex flex-wrap gap-2">
+                        {TYRE_OPTIONS.map(t => {
+                            const selected = (form.rules?.mandatoryTyres || []).includes(t.value);
+                            return (
+                                <button
+                                    key={t.value}
+                                    type="button"
+                                    onClick={() => {
+                                        const current = form.rules?.mandatoryTyres || [];
+                                        const updated = selected
+                                            ? current.filter(v => v !== t.value)
+                                            : [...current, t.value];
+                                        updateRules('mandatoryTyres', updated);
+                                    }}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-200 ${selected
+                                            ? 'bg-orange-600 border-orange-500 text-white shadow-md'
+                                            : 'bg-white/5 border-white/20 text-gray-400 hover:border-orange-500/50 hover:text-orange-300'
+                                        }`}
+                                >
+                                    {selected && '✓ '}{t.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {(form.rules?.mandatoryTyres || []).length > 0 && (
+                        <div className="mt-2 flex items-center gap-2">
+                            <span className="text-gray-500 text-xs">{(form.rules?.mandatoryTyres || []).length} seleccionado(s)</span>
+                            <button type="button" onClick={() => updateRules('mandatoryTyres', [])} className="text-red-400 text-xs hover:text-red-300">Limpiar</button>
+                        </div>
+                    )}
                 </div>
             </CollapsibleSection>
 
@@ -1010,7 +1035,7 @@ export default function EventsAdminPage() {
                                                             {event.rules?.tyreWear > 0 && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">🔧 x{event.rules.tyreWear}</span>}
                                                             {event.rules?.fuelWear > 0 && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">⛽ x{event.rules.fuelWear}</span>}
                                                             {event.weather?.timeOfDay && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">🌦️ {event.weather.timeOfDay}</span>}
-                                                            {event.rules?.mandatoryTyre && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">🛞 {event.rules.mandatoryTyre}</span>}
+                                                            {(event.rules?.mandatoryTyres?.length > 0 || event.rules?.mandatoryTyre) && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">🛞 {event.rules.mandatoryTyres?.join(', ') || event.rules.mandatoryTyre}</span>}
                                                         </div>
                                                     )}
 

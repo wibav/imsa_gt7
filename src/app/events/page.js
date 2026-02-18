@@ -338,8 +338,8 @@ function EventDetailContent() {
                                     {event.rules.ghostCar !== undefined && (
                                         <RulePill label="Coche Fantasma" value={event.rules.ghostCar ? "Sí" : "No"} />
                                     )}
-                                    {event.rules.mandatoryTyre && (
-                                        <RulePill label="Neumático Oblig." value={event.rules.mandatoryTyre} />
+                                    {(event.rules.mandatoryTyres?.length > 0 || event.rules.mandatoryTyre) && (
+                                        <RulePill label="Neumáticos Oblig." value={event.rules.mandatoryTyres?.join(', ') || event.rules.mandatoryTyre} />
                                     )}
                                     {event.rules.startType && (
                                         <RulePill label="Salida" value={event.rules.startType === 'rolling' ? 'Lanzada' : 'Parrilla'} />

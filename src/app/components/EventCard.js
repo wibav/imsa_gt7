@@ -236,7 +236,7 @@ export default function EventCard({ event, onViewDetails, onRegister }) {
                             {event.weather?.timeOfDay && <div>🌤️ {event.weather.timeOfDay}{event.weather.timeMultiplier > 1 ? ` x${event.weather.timeMultiplier}` : ''}</div>}
                             {typeof event.rules.tyreWear === 'number' && event.rules.tyreWear > 0 && <div>🔧 Desgaste: x{event.rules.tyreWear}</div>}
                             {typeof event.rules.fuelWear === 'number' && event.rules.fuelWear > 0 && <div>⛽ Combustible: x{event.rules.fuelWear}</div>}
-                            {event.rules.mandatoryTyre && <div>🛞 Neumático: {event.rules.mandatoryTyre}</div>}
+                            {(event.rules.mandatoryTyres?.length > 0 || event.rules.mandatoryTyre) && <div>🛞 Neumáticos: {event.rules.mandatoryTyres?.join(', ') || event.rules.mandatoryTyre}</div>}
                         </div>
                     </div>
                 )}
