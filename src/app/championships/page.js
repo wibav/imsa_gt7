@@ -4,6 +4,17 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { FirebaseService } from "../services/firebaseService";
 import { useAuth } from "../context/AuthContext";
 import Image from "next/image";
+import {
+    formatDateFull,
+    calculateProgress,
+    getNextRace,
+    getStandings,
+    getDriverStandings,
+    getPositionBg,
+    getPositionDisplay,
+    getResultColors,
+    getPositionMedal
+} from "../utils";
 
 export default function ChampionshipDetailPage() {
     const searchParams = useSearchParams();
@@ -49,109 +60,6 @@ export default function ChampionshipDetailPage() {
         }
     };
 
-    // Calcular clasificación
-    const getStandings = () => {
-        if (championship?.settings?.isTeamChampionship) {
-            // Clasificación por equipos
-            return teams.map(team => {
-                // Alinear cálculo con la fuente real de resultados: points por pista
-                const totalPoints = (team.drivers || []).reduce((sum, driver) => {
-                    const driverName = driver.name;
-                    const pointsFromTracks = tracks.reduce((acc, track) => acc + (track.points?.[driverName] || 0), 0);
-                    return sum + pointsFromTracks;
-                }, 0);
-
-                return {
-                    name: team.name,
-                    color: team.color,
-                    points: totalPoints,
-                    drivers: team.drivers || []
-                };
-            }).sort((a, b) => b.points - a.points);
-        } else {
-            // Clasificación individual
-            // Intentar primero desde championship.drivers (campeonatos nuevos)
-            if (championship.drivers && championship.drivers.length > 0) {
-                return championship.drivers.map(driver => {
-                    const driverName = typeof driver === 'string' ? driver : driver.name;
-                    const driverCategory = typeof driver === 'string' ? '' : driver.category;
-
-                    // Calcular puntos desde las pistas
-                    const points = tracks.reduce((total, track) => {
-                        return total + (track.points?.[driverName] || 0);
-                    }, 0);
-
-                    return {
-                        name: driverName,
-                        category: driverCategory,
-                        points: points
-                    };
-                }).sort((a, b) => b.points - a.points);
-            }
-
-            // Fallback: pilotos desde equipos (campeonatos viejos migrados)
-            const allDrivers = teams.flatMap(team =>
-                team.drivers?.map(driver => ({
-                    name: driver.name,
-                    team: team.name,
-                    teamColor: team.color,
-                    category: driver.category,
-                    points: Object.values(driver.points || {}).reduce((s, p) => s + (p || 0), 0)
-                })) || []
-            );
-            return allDrivers.sort((a, b) => b.points - a.points);
-        }
-    };
-
-    // Obtener próxima carrera (incluyendo hoy si no está completada)
-    const getNextRace = () => {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0); // Inicio del día de hoy
-
-        const upcomingRaces = tracks
-            .filter(t => {
-                const trackDate = new Date(t.date);
-                return trackDate >= now && t.status !== 'completed';
-            })
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        return upcomingRaces[0] || null;
-    };
-
-    // Calcular progreso
-    const getProgress = () => {
-        if (!tracks || tracks.length === 0) {
-            return { completed: 0, total: 0, percentage: 0 };
-        }
-
-        // Una pista se considera completada si tiene puntos asignados
-        const completed = tracks.filter(track => {
-            return track.points && Object.keys(track.points).length > 0;
-        }).length;
-
-        const total = tracks.length;
-        const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-        return { completed, total, percentage };
-    };
-
-    // Formatear fecha (formato corto: DD/MM/YYYY)
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '';
-        try {
-            const date = new Date(dateStr);
-            if (isNaN(date.getTime())) return dateStr;
-            return date.toLocaleDateString('es-ES', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            });
-        } catch (error) {
-            console.error('Error formatting date:', error);
-            return dateStr;
-        }
-    };
-
     if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
@@ -180,9 +88,9 @@ export default function ChampionshipDetailPage() {
         );
     }
 
-    const standings = getStandings();
-    const nextRace = getNextRace();
-    const progress = getProgress();
+    const standings = getStandings(championship, teams, tracks);
+    const nextRace = getNextRace(tracks);
+    const progress = calculateProgress(tracks, championship);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
@@ -316,16 +224,11 @@ export default function ChampionshipDetailPage() {
                                                                 key={index}
                                                                 className={`
                                                                     border-b border-white/10 hover:bg-white/5 transition-colors
-                                                                    ${index === 0 ? 'bg-yellow-500/10' : ''}
-                                                                    ${index === 1 ? 'bg-gray-400/10' : ''}
-                                                                    ${index === 2 ? 'bg-orange-700/10' : ''}
+                                                                    ${getPositionBg(index)}
                                                                 `}
                                                             >
                                                                 <td className="px-6 py-4 font-bold">
-                                                                    {index === 0 && '🥇'}
-                                                                    {index === 1 && '🥈'}
-                                                                    {index === 2 && '🥉'}
-                                                                    {index > 2 && (index + 1)}
+                                                                    {getPositionDisplay(index)}
                                                                 </td>
                                                                 <td className="px-6 py-4">
                                                                     <div className="flex items-center gap-3">
@@ -367,84 +270,44 @@ export default function ChampionshipDetailPage() {
                                                         </tr>
                                                     </thead>
                                                     <tbody className="text-white">
-                                                        {(() => {
-                                                            let allDrivers = [];
-
-                                                            if (championship.settings?.isTeamChampionship || teams.length > 0) {
-                                                                // Campeonatos por equipos o campeonatos viejos con equipos
-                                                                allDrivers = teams.flatMap(team =>
-                                                                    (team.drivers || []).map(driver => ({
-                                                                        name: driver.name,
-                                                                        team: team.name,
-                                                                        teamColor: team.color,
-                                                                        category: driver.category,
-                                                                        points: Object.values(driver.points || {}).reduce((s, p) => s + (p || 0), 0)
-                                                                    }))
-                                                                );
-                                                            } else if (championship.drivers && championship.drivers.length > 0) {
-                                                                // Campeonatos individuales nuevos
-                                                                allDrivers = championship.drivers.map(driver => {
-                                                                    const driverName = typeof driver === 'string' ? driver : driver.name;
-                                                                    const driverCategory = typeof driver === 'string' ? '' : driver.category;
-
-                                                                    // Calcular puntos desde las pistas
-                                                                    const driverPoints = tracks.reduce((total, track) => {
-                                                                        return total + (track.points?.[driverName] || 0);
-                                                                    }, 0);
-
-                                                                    return {
-                                                                        name: driverName,
-                                                                        category: driverCategory,
-                                                                        points: driverPoints
-                                                                    };
-                                                                });
-                                                            }
-
-                                                            return allDrivers
-                                                                .sort((a, b) => b.points - a.points)
-                                                                .map((driver, index) => (
-                                                                    <tr
-                                                                        key={index}
-                                                                        className={`
+                                                        {getDriverStandings(championship, teams, tracks)
+                                                            .map((driver, index) => (
+                                                                <tr
+                                                                    key={index}
+                                                                    className={`
                                                                             border-b border-white/10 hover:bg-white/5 transition-colors
-                                                                            ${index === 0 ? 'bg-yellow-500/10' : ''}
-                                                                            ${index === 1 ? 'bg-gray-400/10' : ''}
-                                                                            ${index === 2 ? 'bg-orange-700/10' : ''}
+                                                                            ${getPositionBg(index)}
                                                                         `}
-                                                                    >
-                                                                        <td className="px-6 py-4 font-bold">
-                                                                            {index === 0 && '🥇'}
-                                                                            {index === 1 && '🥈'}
-                                                                            {index === 2 && '🥉'}
-                                                                            {index > 2 && (index + 1)}
-                                                                        </td>
+                                                                >
+                                                                    <td className="px-6 py-4 font-bold">
+                                                                        {getPositionDisplay(index)}
+                                                                    </td>
+                                                                    <td className="px-6 py-4">
+                                                                        <span className="font-semibold">{driver.name}</span>
+                                                                    </td>
+                                                                    {championship.settings?.isTeamChampionship && (
                                                                         <td className="px-6 py-4">
-                                                                            <span className="font-semibold">{driver.name}</span>
+                                                                            <div className="flex items-center gap-2">
+                                                                                {driver.teamColor && (
+                                                                                    <div
+                                                                                        className="w-3 h-3 rounded-full"
+                                                                                        style={{ backgroundColor: driver.teamColor }}
+                                                                                    />
+                                                                                )}
+                                                                                <span className="text-gray-300">{driver.team}</span>
+                                                                            </div>
                                                                         </td>
-                                                                        {championship.settings?.isTeamChampionship && (
-                                                                            <td className="px-6 py-4">
-                                                                                <div className="flex items-center gap-2">
-                                                                                    {driver.teamColor && (
-                                                                                        <div
-                                                                                            className="w-3 h-3 rounded-full"
-                                                                                            style={{ backgroundColor: driver.teamColor }}
-                                                                                        />
-                                                                                    )}
-                                                                                    <span className="text-gray-300">{driver.team}</span>
-                                                                                </div>
-                                                                            </td>
-                                                                        )}
-                                                                        <td className="px-6 py-4">
-                                                                            <span className="text-sm bg-blue-600/30 px-2 py-1 rounded">
-                                                                                {driver.category || '-'}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td className="px-6 py-4 text-right font-bold text-blue-400 text-lg">
-                                                                            {driver.points}
-                                                                        </td>
-                                                                    </tr>
-                                                                ));
-                                                        })()}
+                                                                    )}
+                                                                    <td className="px-6 py-4">
+                                                                        <span className="text-sm bg-blue-600/30 px-2 py-1 rounded">
+                                                                            {driver.category || '-'}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="px-6 py-4 text-right font-bold text-blue-400 text-lg">
+                                                                        {driver.points}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
                                                     </tbody>
                                                 </table>
                                             </div>
@@ -472,16 +335,11 @@ export default function ChampionshipDetailPage() {
                                                             key={index}
                                                             className={`
                                                                 border-b border-white/10 hover:bg-white/5 transition-colors
-                                                                ${index === 0 ? 'bg-yellow-500/10' : ''}
-                                                                ${index === 1 ? 'bg-gray-400/10' : ''}
-                                                                ${index === 2 ? 'bg-orange-700/10' : ''}
+                                                                ${getPositionBg(index)}
                                                             `}
                                                         >
                                                             <td className="px-6 py-4 font-bold">
-                                                                {index === 0 && '🥇'}
-                                                                {index === 1 && '🥈'}
-                                                                {index === 2 && '🥉'}
-                                                                {index > 2 && (index + 1)}
+                                                                {getPositionDisplay(index)}
                                                             </td>
                                                             <td className="px-6 py-4">
                                                                 <span className="font-semibold">{entry.name}</span>
@@ -540,7 +398,7 @@ export default function ChampionshipDetailPage() {
                                                             <h3 className="text-xl font-bold text-white">{track.name}</h3>
                                                         </div>
                                                         <div className="flex items-center gap-4 text-gray-300">
-                                                            <span>📅 {formatDate(track.date)}</span>
+                                                            <span>📅 {formatDateFull(track.date)}</span>
                                                             {track.country && <span>📍 {track.country}</span>}
                                                             {track.category && (
                                                                 <span className="bg-blue-600/30 px-2 py-1 rounded text-sm">
@@ -591,32 +449,26 @@ export default function ChampionshipDetailPage() {
                                                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                                                             {Object.entries(track.points)
                                                                 .sort(([, a], [, b]) => b - a)
-                                                                .map(([driverName, points], idx) => (
-                                                                    <div
-                                                                        key={driverName}
-                                                                        className={`flex justify-between items-center text-sm px-3 py-2 rounded-lg ${idx === 0 ? 'bg-yellow-500/20 border border-yellow-500/30' :
-                                                                            idx === 1 ? 'bg-gray-400/20 border border-gray-400/30' :
-                                                                                idx === 2 ? 'bg-orange-500/20 border border-orange-500/30' :
-                                                                                    'bg-white/5'
-                                                                            }`}
-                                                                    >
-                                                                        <span className="text-gray-300 truncate">
-                                                                            {idx < 3 && (
-                                                                                <span className="mr-1">
-                                                                                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
-                                                                                </span>
-                                                                            )}
-                                                                            {driverName}
-                                                                        </span>
-                                                                        <span className={`font-bold ml-2 ${idx === 0 ? 'text-yellow-400' :
-                                                                            idx === 1 ? 'text-gray-300' :
-                                                                                idx === 2 ? 'text-orange-400' :
-                                                                                    'text-blue-400'
-                                                                            }`}>
-                                                                            {points}
-                                                                        </span>
-                                                                    </div>
-                                                                ))
+                                                                .map(([driverName, points], idx) => {
+                                                                    const colors = getResultColors(idx);
+                                                                    const medal = getPositionMedal(idx);
+                                                                    return (
+                                                                        <div
+                                                                            key={driverName}
+                                                                            className={`flex justify-between items-center text-sm px-3 py-2 rounded-lg ${colors.bg}`}
+                                                                        >
+                                                                            <span className="text-gray-300 truncate">
+                                                                                {medal && (
+                                                                                    <span className="mr-1">{medal}</span>
+                                                                                )}
+                                                                                {driverName}
+                                                                            </span>
+                                                                            <span className={`font-bold ml-2 ${colors.text}`}>
+                                                                                {points}
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                })
                                                             }
                                                         </div>
                                                     </div>
@@ -672,9 +524,7 @@ export default function ChampionshipDetailPage() {
                                                 <div key={index} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                                                     <div className="flex items-center gap-3">
                                                         <span className="text-2xl">
-                                                            {index === 0 && '🥇'}
-                                                            {index === 1 && '🥈'}
-                                                            {index === 2 && '🥉'}
+                                                            {getPositionDisplay(index)}
                                                         </span>
                                                         <span className="text-white font-semibold">{entry.name}</span>
                                                     </div>
@@ -716,13 +566,13 @@ export default function ChampionshipDetailPage() {
                                             {championship.startDate && (
                                                 <div>
                                                     <div className="text-gray-400 text-sm mb-1">Fecha de Inicio</div>
-                                                    <div className="text-white font-semibold">{formatDate(championship.startDate)}</div>
+                                                    <div className="text-white font-semibold">{formatDateFull(championship.startDate)}</div>
                                                 </div>
                                             )}
                                             {championship.endDate && (
                                                 <div>
                                                     <div className="text-gray-400 text-sm mb-1">Fecha de Finalización</div>
-                                                    <div className="text-white font-semibold">{formatDate(championship.endDate)}</div>
+                                                    <div className="text-white font-semibold">{formatDateFull(championship.endDate)}</div>
                                                 </div>
                                             )}
                                         </div>
@@ -850,7 +700,7 @@ export default function ChampionshipDetailPage() {
                                             <div className="text-white font-bold text-xl">{nextRace.name}</div>
                                         </div>
                                         <div className="text-white/90 text-sm">
-                                            📅 {formatDate(nextRace.date)}
+                                            📅 {formatDateFull(nextRace.date)}
                                         </div>
                                         {nextRace.country && (
                                             <div className="text-white/90 text-sm">

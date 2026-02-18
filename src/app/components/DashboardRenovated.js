@@ -6,7 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import Navbar from './Navbar';
 import ChampionshipCard from './ChampionshipCard';
 import EventCard from './EventCard';
-import { BannerAd, RectangleAd } from './ads';
+import { isInCurrentWeek } from '../utils/dateUtils';
+import { BannerAd } from './ads';
 
 export default function DashboardRenovated() {
     const [events, setEvents] = useState([]);
@@ -39,36 +40,22 @@ export default function DashboardRenovated() {
         }
     };
 
+    // FIX: Usar Promise.all para cargar tracks en paralelo (antes era for...of secuencial = N+1 queries)
     const loadChampionshipsTracks = async () => {
         try {
-            const tracksData = {};
-
-            for (const championship of championships) {
-                const tracks = await FirebaseService.getTracksByChampionship(championship.id);
-                tracksData[championship.id] = tracks || [];
-            }
-
-            setChampionshipTracks(tracksData);
+            const entries = await Promise.all(
+                championships.map(async (championship) => {
+                    const tracks = await FirebaseService.getTracksByChampionship(championship.id);
+                    return [championship.id, tracks || []];
+                })
+            );
+            setChampionshipTracks(Object.fromEntries(entries));
         } catch (error) {
             console.error("Error loading championship tracks:", error);
         }
     };
 
-    // Determinar si una fecha está en la semana actual
-    const isInCurrentWeek = (isoDate) => {
-        if (!isoDate) return false;
-        const date = new Date(isoDate + "T00:00:00");
-        const now = new Date();
-        const startOfWeek = new Date(now);
-        const day = (now.getDay() + 6) % 7; // 0 = lunes
-        startOfWeek.setDate(now.getDate() - day);
-        startOfWeek.setHours(0, 0, 0, 0);
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 7);
-        return date >= startOfWeek && date < endOfWeek;
-    };
-
-    // Obtener eventos de la semana actual
+    // Obtener eventos de la semana actual (usa isInCurrentWeek de utils)
     const getWeeklyEvents = () => {
         if (!events || events.length === 0) return [];
         return events
@@ -76,8 +63,8 @@ export default function DashboardRenovated() {
             .sort((a, b) => new Date(a.date) - new Date(b.date));
     };
 
-    // Obtener todos los campeonatos
-    const getActiveChampionships = () => {
+    // Obtener todos los campeonatos para mostrar en el dashboard
+    const getAllChampionships = () => {
         if (!championships || championships.length === 0) return [];
         return championships; // Mostrar TODOS los campeonatos
     };
@@ -118,7 +105,7 @@ export default function DashboardRenovated() {
     }
 
     const weeklyEvents = getWeeklyEvents();
-    const activeChampionships = getActiveChampionships();
+    const activeChampionships = getAllChampionships();
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">

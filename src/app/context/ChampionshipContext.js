@@ -64,6 +64,7 @@ export function ChampionshipProvider({ children }) {
 
     /**
      * Cargar todos los campeonatos desde Firebase
+     * @returns {Array} Los campeonatos cargados
      */
     const loadChampionships = async () => {
         try {
@@ -71,9 +72,11 @@ export function ChampionshipProvider({ children }) {
             setError(null);
             const data = await FirebaseService.getChampionships();
             setChampionships(data);
+            return data; // Retornar datos para uso inmediato (evita race condition)
         } catch (err) {
             console.error('Error cargando campeonatos:', err);
             setError('Error al cargar los campeonatos');
+            return [];
         } finally {
             setLoading(false);
         }
@@ -122,16 +125,18 @@ export function ChampionshipProvider({ children }) {
 
     /**
      * Actualizar un campeonato
+     * FIX: Usa el resultado de loadChampionships() directamente
+     * en vez de leer el state 'championships' que aún no se ha propagado
      */
     const updateChampionship = async (championshipId, updates) => {
         try {
             const result = await FirebaseService.updateChampionship(championshipId, updates);
             if (result.success) {
-                await loadChampionships(); // Recargar lista
+                const updatedList = await loadChampionships(); // Retorna la lista actualizada
 
-                // Si el campeonato actualizado es el seleccionado, actualizarlo
+                // Usar la lista retornada directamente (no el state que aún no se actualizó)
                 if (selectedChampionship?.id === championshipId) {
-                    const updated = championships.find(c => c.id === championshipId);
+                    const updated = updatedList.find(c => c.id === championshipId);
                     if (updated) {
                         setSelectedChampionship(updated);
                     }
