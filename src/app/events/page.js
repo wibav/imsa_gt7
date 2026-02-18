@@ -155,19 +155,19 @@ function EventDetailContent() {
                 )}
 
                 {/* Status & Countdown overlay */}
-                <div className="absolute top-6 left-6 flex gap-3">
-                    <span className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-full ${statusConfig.color} text-white shadow-lg`}>
+                <div className="absolute top-3 left-3 sm:top-6 sm:left-6 flex flex-wrap gap-2 sm:gap-3">
+                    <span className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm font-bold rounded-full ${statusConfig.color} text-white shadow-lg`}>
                         {statusConfig.icon} {statusConfig.label}
                     </span>
                     {cat && (
-                        <span className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-full bg-white/20 backdrop-blur-sm text-white shadow-lg">
+                        <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm font-semibold rounded-full bg-white/20 backdrop-blur-sm text-white shadow-lg">
                             {cat.icon} {cat.label}
                         </span>
                     )}
                 </div>
 
                 {eventStatus === "live" && (
-                    <div className="absolute top-6 right-6">
+                    <div className="absolute top-3 right-3 sm:top-6 sm:right-6">
                         <span className="inline-flex items-center gap-2 bg-red-600 text-white text-sm px-4 py-2 rounded-full font-bold animate-pulse shadow-lg">
                             <span className="w-3 h-3 bg-white rounded-full animate-ping" />
                             EN VIVO
@@ -175,14 +175,14 @@ function EventDetailContent() {
                     </div>
                 )}
 
-                {/* Title overlay */}
-                <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
+                {/* Title overlay — only title, no description on mobile */}
+                <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 md:p-8">
                     <div className="max-w-5xl mx-auto">
-                        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white drop-shadow-lg mb-2">
+                        <h1 className="text-2xl sm:text-3xl md:text-5xl font-extrabold text-white drop-shadow-lg line-clamp-2">
                             {event.title}
                         </h1>
                         {event.description && (
-                            <p className="text-gray-200 text-sm sm:text-base max-w-3xl drop-shadow">{event.description}</p>
+                            <p className="hidden md:block text-gray-200 text-base max-w-3xl drop-shadow mt-2 line-clamp-3">{event.description}</p>
                         )}
                     </div>
                 </div>
@@ -190,6 +190,13 @@ function EventDetailContent() {
 
             {/* Main Content */}
             <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+
+                {/* Description — visible on mobile/tablet below banner */}
+                {event.description && (
+                    <div className="md:hidden bg-white/5 border border-white/10 rounded-xl p-5">
+                        <p className="text-gray-300 text-sm leading-relaxed">{event.description}</p>
+                    </div>
+                )}
 
                 {/* Countdown banner */}
                 {countdown && eventStatus === "upcoming" && (
