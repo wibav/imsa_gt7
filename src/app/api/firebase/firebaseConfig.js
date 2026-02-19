@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getFirestore, initializeFirestore } from "firebase/firestore";
+import { getFirestore, initializeFirestore, memoryLocalCache } from "firebase/firestore";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 
@@ -23,7 +23,8 @@ let db;
 if (typeof window !== "undefined") {
     db = initializeFirestore(app, {
         experimentalAutoDetectLongPolling: true,
-        useFetchStreams: false // desactiva fetch streaming que suele detonar bloqueos
+        useFetchStreams: false, // desactiva fetch streaming que suele detonar bloqueos
+        localCache: memoryLocalCache() // evita IndexedDB [object Event] unhandled rejections
     });
     // console.info("Firestore inicializado con auto-detección de long polling");
 } else {

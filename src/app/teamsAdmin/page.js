@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { FirebaseService } from "../services/firebaseService";
 import ProtectedRoute from "../components/ProtectedRoute";
 import AdminNavigation from "../components/AdminNavigation";
+import LoadingSkeleton from "../components/common/LoadingSkeleton";
 
 // Ejemplo de datos iniciales con nueva estructura de puntos por ID de pista
 const initialTeams = [
@@ -379,14 +380,7 @@ export default function TeamsAdminPage() {
     const selectedTrack = tracks.find(track => track.id === selectedTrackId);
 
     if (loading) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-orange-500"></div>
-                    <p className="text-white mt-4 text-xl">Cargando equipos...</p>
-                </div>
-            </div>
-        );
+        return <LoadingSkeleton variant="page" message="Cargando equipos..." />;
     }
 
     return (

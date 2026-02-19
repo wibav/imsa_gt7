@@ -22,6 +22,7 @@ import {
 } from "firebase/storage";
 import { app } from "../api/firebase/firebaseConfig";
 import { Championship, Team, Track, Event } from "../models/Championship";
+import { Penalty, Claim } from "../models/Penalty";
 
 const db = getFirestore(app);
 const storage = getStorage(app);
@@ -529,6 +530,137 @@ export class FirebaseService {
       return { success: true };
     } catch (error) {
       console.error("Error deleting event:", error);
+      throw error;
+    }
+  }
+
+  // ========================================
+  // PENALTIES METHODS (subcolección championships/{id}/penalties)
+  // ========================================
+
+  static async getPenaltiesByChampionship(championshipId) {
+    try {
+      const col = collection(db, "championships", championshipId, "penalties");
+      const q = query(col, orderBy("appliedAt", "desc"));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => Penalty.fromFirestore(doc.id, doc.data()));
+    } catch (error) {
+      console.error("Error fetching penalties:", error);
+      throw error;
+    }
+  }
+
+  static async createPenalty(championshipId, penaltyData) {
+    try {
+      const penalty = new Penalty({ ...penaltyData, championshipId });
+      const validation = penalty.validate();
+      if (!validation.isValid) throw new Error(validation.errors.join(', '));
+
+      const docRef = await addDoc(
+        collection(db, "championships", championshipId, "penalties"),
+        penalty.toFirestore()
+      );
+      return { success: true, id: docRef.id };
+    } catch (error) {
+      console.error("Error creating penalty:", error);
+      throw error;
+    }
+  }
+
+  static async updatePenalty(championshipId, penaltyId, updates) {
+    try {
+      const docRef = doc(db, "championships", championshipId, "penalties", penaltyId);
+      await updateDoc(docRef, { ...updates, updatedAt: new Date().toISOString() });
+      return { success: true };
+    } catch (error) {
+      console.error("Error updating penalty:", error);
+      throw error;
+    }
+  }
+
+  static async deletePenalty(championshipId, penaltyId) {
+    try {
+      await deleteDoc(doc(db, "championships", championshipId, "penalties", penaltyId));
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting penalty:", error);
+      throw error;
+    }
+  }
+
+  // ========================================
+  // CLAIMS METHODS (subcolección championships/{id}/claims)
+  // ========================================
+
+  static async getClaimsByChampionship(championshipId) {
+    try {
+      const col = collection(db, "championships", championshipId, "claims");
+      const q = query(col, orderBy("createdAt", "desc"));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => Claim.fromFirestore(doc.id, doc.data()));
+    } catch (error) {
+      console.error("Error fetching claims:", error);
+      throw error;
+    }
+  }
+
+  static async updateClaim(championshipId, claimId, updates) {
+    try {
+      const docRef = doc(db, "championships", championshipId, "claims", claimId);
+      await updateDoc(docRef, { ...updates, updatedAt: new Date().toISOString() });
+      return { success: true };
+    } catch (error) {
+      console.error("Error updating claim:", error);
+      throw error;
+    }
+  }
+
+  // ========================================
+  // DIVISIONS METHODS (subcolección championships/{id}/divisions)
+  // ========================================
+
+  static async getDivisionsByChampionship(championshipId) {
+    try {
+      const col = collection(db, "championships", championshipId, "divisions");
+      const q = query(col, orderBy("order", "asc"));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+      console.error("Error fetching divisions:", error);
+      throw error;
+    }
+  }
+
+  static async createDivision(championshipId, divisionData) {
+    try {
+      const docRef = await addDoc(
+        collection(db, "championships", championshipId, "divisions"),
+        { ...divisionData, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+      );
+      return { success: true, id: docRef.id };
+    } catch (error) {
+      console.error("Error creating division:", error);
+      throw error;
+    }
+  }
+
+  static async updateDivision(championshipId, divisionId, updates) {
+    try {
+      const docRef = doc(db, "championships", championshipId, "divisions", divisionId);
+      await updateDoc(docRef, { ...updates, updatedAt: new Date().toISOString() });
+      return { success: true };
+    } catch (error) {
+      console.error("Error updating division:", error);
+      throw error;
+    }
+  }
+
+  static async deleteDivision(championshipId, divisionId) {
+    try {
+      await deleteDoc(doc(db, "championships", championshipId, "divisions", divisionId));
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting division:", error);
       throw error;
     }
   }
