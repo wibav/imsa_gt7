@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import ErrorMessage from './common/ErrorMessage';
 
 export default function Login() {
     const [email, setEmail] = useState('');
@@ -63,12 +64,7 @@ export default function Login() {
 
                 {/* Error Message */}
                 {error && (
-                    <div className="bg-red-500/20 border border-red-500 text-red-200 px-4 py-3 rounded-lg mb-6">
-                        <div className="flex items-center gap-2">
-                            <span>⚠️</span>
-                            <span>{error}</span>
-                        </div>
-                    </div>
+                    <ErrorMessage errors={error} className="mb-6" />
                 )}
 
                 {/* Login Form */}

@@ -271,3 +271,82 @@ export const WEATHER_TIME_OPTIONS = [
     'Puesta del Sol',
     'Medianoche'
 ];
+
+/**
+ * Opciones de hora de inicio para circuitos
+ */
+export const START_TIME_OPTIONS = [
+    { value: '', label: 'Predeterminada' },
+    { value: '06:00', label: '06:00 - Amanecer' },
+    { value: '09:00', label: '09:00 - Mañana' },
+    { value: '12:00', label: '12:00 - Mediodía' },
+    { value: '15:00', label: '15:00 - Tarde' },
+    { value: '18:00', label: '18:00 - Atardecer' },
+    { value: '21:00', label: '21:00 - Noche' },
+    { value: '00:00', label: '00:00 - Medianoche' }
+];
+
+/**
+ * Opciones de multiplicador de tiempo
+ */
+export const TIME_MULTIPLIER_OPTIONS = [
+    { value: 1, label: 'x1 (Tiempo real)' },
+    { value: 2, label: 'x2' },
+    { value: 5, label: 'x5' },
+    { value: 10, label: 'x10' },
+    { value: 20, label: 'x20' },
+    { value: 30, label: 'x30' },
+    { value: 60, label: 'x60' }
+];
+
+/**
+ * Opciones de condición climática para slots dinámicos
+ */
+export const WEATHER_CONDITION_OPTIONS = [
+    { value: 'clear', label: '☀️ Despejado' },
+    { value: 'cloudy', label: '☁️ Nublado' },
+    { value: 'light_rain', label: '🌦️ Lluvia ligera' },
+    { value: 'rain', label: '🌧️ Lluvia' },
+    { value: 'heavy_rain', label: '⛈️ Lluvia fuerte' },
+    { value: 'storm', label: '🌩️ Tormenta' }
+];
+
+/**
+ * Opciones de transición climática
+ */
+export const WEATHER_TRANSITION_OPTIONS = [
+    { value: 'gradual', label: 'Gradual' },
+    { value: 'sudden', label: 'Repentina' },
+    { value: 'static', label: 'Estática' }
+];
+
+/**
+ * Puntos por defecto para carreras Sprint
+ */
+export const DEFAULT_SPRINT_POINTS = {
+    1: 10, 2: 8, 3: 6, 4: 5, 5: 4, 6: 3, 7: 2, 8: 1
+};
+
+/**
+ * Configuración por defecto de divisiones
+ */
+export const DEFAULT_DIVISIONS_CONFIG = {
+    enabled: false,
+    promotionCount: 5,
+    relegationCount: 5,
+    maxDriversPerDivision: 15
+};
+
+/**
+ * Colores por defecto para divisiones
+ */
+export const DEFAULT_DIVISION_COLORS = [
+    '#FFD700', // Oro - División 1
+    '#C0C0C0', // Plata - División 2
+    '#CD7F32', // Bronce - División 3
+    '#3B82F6', // Azul - División 4
+    '#10B981', // Verde - División 5
+    '#8B5CF6', // Púrpura - División 6
+    '#F59E0B', // Ámbar - División 7
+    '#EF4444', // Rojo - División 8
+];

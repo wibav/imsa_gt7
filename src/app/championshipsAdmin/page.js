@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useChampionship } from '../context/ChampionshipContext';
 import { FirebaseService } from '../services/firebaseService';
 import TracksManager from '../components/TracksManager';
+import LoadingSkeleton from '../components/common/LoadingSkeleton';
+import PenaltiesTab from '../components/championship/PenaltiesTab';
+import DivisionsTab from '../components/championship/DivisionsTab';
+import { DEFAULT_SPRINT_POINTS } from '../utils/constants';
 
 export default function ChampionshipDetail() {
     const router = useRouter();
@@ -22,6 +26,8 @@ export default function ChampionshipDetail() {
     const [activeTab, setActiveTab] = useState('info');
     const [loading, setLoading] = useState(true);
     const [editMode, setEditMode] = useState(false);
+    const [penalties, setPenalties] = useState([]);
+    const [divisions, setDivisions] = useState([]);
     const [championshipsTeams, setChampionshipsTeams] = useState({}); // Equipos por campeonato
 
     // Redirigir si no está autenticado
@@ -53,63 +59,50 @@ export default function ChampionshipDetail() {
         }
     };
 
-    const loadChampionshipData = useCallback(async () => {
+    const loadChampionshipData = async () => {
         if (!championshipId) return;
 
+        setLoading(true);
+        setChampionship(null);
+        setTeams([]);
+        setTracks([]);
+        setEvents([]);
+
         try {
-            setLoading(true);
-            // Reset state
-            setChampionship(null);
-            setTeams([]);
-            setTracks([]);
-            setEvents([]);
-
-            // Cargar campeonato completo desde Firebase (no solo del contexto)
-            const champData = await FirebaseService.getChampionship(championshipId);
-
-            if (champData) {
-                setChampionship(champData);
-            }
-
-            // Cargar equipos, pistas y eventos
-            const [teamsData, tracksData, eventsData] = await Promise.all([
-                FirebaseService.getTeamsByChampionship(championshipId),
-                FirebaseService.getTracksByChampionship(championshipId),
-                FirebaseService.getEventsByChampionship(championshipId)
+            // Cargar todo en paralelo
+            const [champData, teamsData, tracksData, eventsData, penaltiesData, divisionsData] = await Promise.all([
+                FirebaseService.getChampionship(championshipId),
+                FirebaseService.getTeamsByChampionship(championshipId).catch(() => []),
+                FirebaseService.getTracksByChampionship(championshipId).catch(() => []),
+                FirebaseService.getEventsByChampionship(championshipId).catch(() => []),
+                FirebaseService.getPenaltiesByChampionship(championshipId).catch(() => []),
+                FirebaseService.getDivisionsByChampionship(championshipId).catch(() => [])
             ]);
 
-            setTeams(teamsData);
-            setTracks(tracksData);
-            setEvents(eventsData);
+            setChampionship(champData);
+            setTeams(teamsData || []);
+            setTracks(tracksData || []);
+            setEvents(eventsData || []);
+            setPenalties(penaltiesData || []);
+            setDivisions(divisionsData || []);
         } catch (error) {
-            console.error('Error cargando datos:', error);
+            console.error('Error cargando datos del campeonato:', error);
         } finally {
             setLoading(false);
         }
-    }, [championshipId]);
+    };
 
     // Cargar datos del campeonato
     useEffect(() => {
         if (championshipId) {
-            // Resetear estado cuando cambia el ID
-            setLoading(true);
-            setChampionship(null);
-            setTeams([]);
-            setTracks([]);
-            setEvents([]);
             loadChampionshipData();
         } else {
-            // Si no hay championshipId, no estamos cargando un detalle específico
             setLoading(false);
         }
-    }, [championshipId, loadChampionshipData]);
+    }, [championshipId]);
 
     if (authLoading || (championshipId && loading)) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
-                <div className="text-white text-xl">Cargando...</div>
-            </div>
-        );
+        return <LoadingSkeleton variant="page" message="Cargando..." />;
     }
 
     if (!currentUser) {
@@ -142,9 +135,7 @@ export default function ChampionshipDetail() {
                     </div>
 
                     {championshipsLoading ? (
-                        <div className="text-center py-12 text-white text-xl">
-                            Cargando campeonatos...
-                        </div>
+                        <LoadingSkeleton variant="spinner" message="Cargando campeonatos..." />
                     ) : championships.length === 0 ? (
                         <div className="text-center py-12 text-gray-400">
                             No hay campeonatos creados. Crea uno nuevo para comenzar.
@@ -257,7 +248,39 @@ export default function ChampionshipDetail() {
     tabs.push({ id: 'drivers', label: '🏎️ Pilotos', icon: '🏎️', count: driversCount });
 
     // Siempre mostrar pistas
-    tabs.push({ id: 'tracks', label: '� Pistas', icon: '�', count: tracks.length });
+    tabs.push({ id: 'tracks', label: '🗺 Pistas', icon: '🗺', count: tracks.length });
+
+    // Mostrar inscripciones si están habilitadas
+    if (championship.registration?.enabled) {
+        const pendingCount = (championship.registrations || []).filter(r => r.status === 'pending').length;
+        tabs.push({
+            id: 'registrations',
+            label: '📝 Inscripciones',
+            icon: '📝',
+            count: (championship.registrations || []).length,
+            badge: pendingCount > 0 ? pendingCount : undefined
+        });
+    }
+
+    // Mostrar sanciones si están habilitadas
+    if (championship.penaltiesConfig?.enabled) {
+        tabs.push({
+            id: 'penalties',
+            label: '⚠️ Sanciones',
+            icon: '⚠️',
+            count: penalties.filter(p => p.status === 'applied').length
+        });
+    }
+
+    // Mostrar divisiones si están habilitadas
+    if (championship.divisionsConfig?.enabled) {
+        tabs.push({
+            id: 'divisions',
+            label: '🏆 Divisiones',
+            icon: '🏆',
+            count: divisions.length
+        });
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 p-4 md:p-8">
@@ -301,7 +324,7 @@ export default function ChampionshipDetail() {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex-1 min-w-[120px] px-4 py-4 text-center transition-all border-b-2 ${activeTab === tab.id
+                                className={`flex-1 min-w-[120px] px-4 py-4 text-center transition-all border-b-2 relative ${activeTab === tab.id
                                     ? 'border-orange-500 text-white bg-white/10'
                                     : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
                                     }`}
@@ -315,6 +338,12 @@ export default function ChampionshipDetail() {
                                         </span>
                                     )}
                                 </div>
+                                {/* Badge de pendientes */}
+                                {tab.badge > 0 && (
+                                    <span className="absolute top-2 right-2 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+                                        {tab.badge}
+                                    </span>
+                                )}
                             </button>
                         ))}
                     </div>
@@ -361,27 +390,44 @@ export default function ChampionshipDetail() {
                             onUpdate={loadChampionshipData}
                         />
                     )}
+
+                    {activeTab === 'registrations' && (
+                        <RegistrationsTab
+                            championshipId={championshipId}
+                            championship={championship}
+                            onUpdate={loadChampionshipData}
+                        />
+                    )}
+
+                    {activeTab === 'penalties' && (
+                        <PenaltiesTab
+                            championshipId={championshipId}
+                            championship={championship}
+                            teams={teams}
+                            tracks={tracks}
+                            onUpdate={loadChampionshipData}
+                        />
+                    )}
+
+                    {activeTab === 'divisions' && (
+                        <DivisionsTab
+                            championshipId={championshipId}
+                            championship={championship}
+                            divisions={divisions}
+                            teams={teams}
+                            tracks={tracks}
+                            penalties={penalties}
+                            onUpdate={loadChampionshipData}
+                        />
+                    )}
                 </div>
             </div>
         </div>
     );
 }
 
-// Badge de estado
-function StatusBadge({ status }) {
-    const badges = {
-        active: { text: 'Activo', color: 'bg-green-500/20 text-green-300 border-green-500/30' },
-        draft: { text: 'Borrador', color: 'bg-gray-500/20 text-gray-300 border-gray-500/30' },
-        completed: { text: 'Completado', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
-        archived: { text: 'Archivado', color: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' }
-    };
-    const badge = badges[status] || badges.draft;
-    return (
-        <span className={`px-3 py-1 rounded-lg border text-sm font-medium ${badge.color}`}>
-            {badge.text}
-        </span>
-    );
-}
+// Badge de estado (importado de components/common/StatusBadge)
+import StatusBadge from '../components/common/StatusBadge';
 
 // Tab de Información
 function InfoTab({ championship, editMode, onUpdate }) {
@@ -821,6 +867,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
     const [showPositionsModal, setShowPositionsModal] = useState(false);
     const [selectedTrack, setSelectedTrack] = useState(null);
     const [positions, setPositions] = useState({});
+    const [sprintPositions, setSprintPositions] = useState({});
     const [qualyTop3, setQualyTop3] = useState({ first: '', second: '', third: '' });
     const [fastestLapDriver, setFastestLapDriver] = useState('');
     const [savingResults, setSavingResults] = useState(false);
@@ -850,10 +897,13 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
 
         // Inicializar posiciones vacías
         const currentPositions = {};
+        const currentSprintPositions = {};
         allDriverNames.forEach(driver => {
             currentPositions[driver] = '';
+            currentSprintPositions[driver] = '';
         });
         setPositions(currentPositions);
+        setSprintPositions(currentSprintPositions);
 
         // Resetear qualy y vuelta rápida
         setQualyTop3({ first: '', second: '', third: '' });
@@ -893,6 +943,20 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
             // 4. Combinar todos los puntos
             const totalPoints = { ...racePoints };
 
+            // Sumar puntos de sprint si es formato sprint+carrera
+            const sprintPtsMap = {};
+            if (selectedTrack.raceType === 'sprint_carrera') {
+                Object.entries(sprintPositions).forEach(([driver, position]) => {
+                    if (position && position !== '') {
+                        const pos = parseInt(position);
+                        sprintPtsMap[driver] = DEFAULT_SPRINT_POINTS[pos] || 0;
+                    }
+                });
+                Object.entries(sprintPtsMap).forEach(([driver, pts]) => {
+                    totalPoints[driver] = (totalPoints[driver] || 0) + pts;
+                });
+            }
+
             // Sumar puntos de qualy
             Object.entries(qualyPoints).forEach(([driver, pts]) => {
                 totalPoints[driver] = (totalPoints[driver] || 0) + pts;
@@ -911,6 +975,12 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                     racePoints: racePoints
                 }
             };
+
+            // Agregar sprint si es formato dual
+            if (selectedTrack.raceType === 'sprint_carrera') {
+                trackUpdate.sprintPoints = sprintPtsMap;
+                trackUpdate.results.sprintPositions = sprintPositions;
+            }
 
             // Agregar qualy si está habilitado
             if (championship?.settings?.pointsSystem?.qualifying?.enabled) {
@@ -935,6 +1005,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
             setShowPositionsModal(false);
             setSelectedTrack(null);
             setPositions({});
+            setSprintPositions({});
             setQualyTop3({ first: '', second: '', third: '' });
             setFastestLapDriver('');
             await onUpdate();
@@ -1031,6 +1102,41 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                 ))}
                             </div>
                         </div>
+
+                        {/* Sección Sprint (condicional: solo para sprint_carrera) */}
+                        {selectedTrack.raceType === 'sprint_carrera' && (
+                            <div className="mb-8 pt-6 border-t border-white/20">
+                                <h4 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
+                                    ⚡ Posiciones del Sprint
+                                </h4>
+                                <p className="text-sm text-gray-400 mb-2">
+                                    Ingresa la posición del sprint ({selectedTrack.sprintLaps || 5} vueltas). Puntos: P1={DEFAULT_SPRINT_POINTS[1]}, P2={DEFAULT_SPRINT_POINTS[2]}, P3={DEFAULT_SPRINT_POINTS[3]}...
+                                </p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {allDriverNames.map(driver => (
+                                        <div key={driver} className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-white font-medium text-sm">{driver}</span>
+                                                {sprintPositions[driver] && (
+                                                    <span className="text-sm text-purple-400 font-bold">
+                                                        = {DEFAULT_SPRINT_POINTS[parseInt(sprintPositions[driver])] || 0} pts
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="99"
+                                                value={sprintPositions[driver] || ''}
+                                                onChange={(e) => setSprintPositions({ ...sprintPositions, [driver]: e.target.value })}
+                                                placeholder="Pos sprint (1, 2, 3...)"
+                                                className="w-full px-3 py-2 bg-white/10 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 text-sm"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Sección 2: Qualifying (condicional) */}
                         {championship?.settings?.pointsSystem?.qualifying?.enabled === true ? (
@@ -1395,6 +1501,207 @@ function StatCard({ icon, label, value }) {
             <div className="text-4xl mb-2">{icon}</div>
             <div className="text-3xl font-bold text-white mb-1">{value}</div>
             <div className="text-sm text-gray-400">{label}</div>
+        </div>
+    );
+}
+
+// ============================================================
+// Tab de Inscripciones (Fase 2)
+// ============================================================
+function RegistrationsTab({ championshipId, championship, onUpdate }) {
+    const [filter, setFilter] = useState('all');
+    const [saving, setSaving] = useState(false);
+    const [selectedIds, setSelectedIds] = useState([]);
+
+    const registrations = championship.registrations || [];
+    const filtered = filter === 'all' ? registrations : registrations.filter(r => r.status === filter);
+
+    const counts = {
+        all: registrations.length,
+        pending: registrations.filter(r => r.status === 'pending').length,
+        approved: registrations.filter(r => r.status === 'approved').length,
+        rejected: registrations.filter(r => r.status === 'rejected').length
+    };
+
+    const toggleSelect = (id) => {
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const selectAll = () => {
+        if (selectedIds.length === filtered.length) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(filtered.map(r => r.id));
+        }
+    };
+
+    const handleBatchAction = async (status) => {
+        if (selectedIds.length === 0) return;
+        setSaving(true);
+        try {
+            const updates = selectedIds.map(id => ({ id, status }));
+            await FirebaseService.updateRegistrations(championshipId, updates);
+            setSelectedIds([]);
+            onUpdate();
+        } catch (error) {
+            console.error('Error updating registrations:', error);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSingleAction = async (id, status) => {
+        setSaving(true);
+        try {
+            await FirebaseService.updateRegistrations(championshipId, [{ id, status }]);
+            onUpdate();
+        } catch (error) {
+            console.error('Error updating registration:', error);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const statusStyles = {
+        pending: { bg: 'bg-yellow-500/20', border: 'border-yellow-400/50', text: 'text-yellow-200', label: '⏳ Pendiente' },
+        approved: { bg: 'bg-green-500/20', border: 'border-green-400/50', text: 'text-green-200', label: '✅ Aprobado' },
+        rejected: { bg: 'bg-red-500/20', border: 'border-red-400/50', text: 'text-red-200', label: '❌ Rechazado' }
+    };
+
+    return (
+        <div className="space-y-6">
+            {/* Resumen */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                    { key: 'all', label: 'Total', icon: '📋', color: 'bg-blue-500/20 border-blue-400/50' },
+                    { key: 'pending', label: 'Pendientes', icon: '⏳', color: 'bg-yellow-500/20 border-yellow-400/50' },
+                    { key: 'approved', label: 'Aprobados', icon: '✅', color: 'bg-green-500/20 border-green-400/50' },
+                    { key: 'rejected', label: 'Rechazados', icon: '❌', color: 'bg-red-500/20 border-red-400/50' }
+                ].map(item => (
+                    <button
+                        key={item.key}
+                        onClick={() => setFilter(item.key)}
+                        className={`p-4 rounded-lg border text-center transition-all ${item.color} ${filter === item.key ? 'ring-2 ring-orange-500 scale-105' : 'hover:scale-105'}`}
+                    >
+                        <div className="text-2xl mb-1">{item.icon}</div>
+                        <div className="text-2xl font-bold text-white">{counts[item.key]}</div>
+                        <div className="text-xs text-gray-300">{item.label}</div>
+                    </button>
+                ))}
+            </div>
+
+            {/* Acciones en batch */}
+            {selectedIds.length > 0 && (
+                <div className="flex items-center gap-3 p-4 bg-white/10 border border-white/30 rounded-lg">
+                    <span className="text-white font-medium">{selectedIds.length} seleccionado(s)</span>
+                    <div className="flex gap-2 ml-auto">
+                        <button
+                            onClick={() => handleBatchAction('approved')}
+                            disabled={saving}
+                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all disabled:opacity-50"
+                        >
+                            ✅ Aprobar
+                        </button>
+                        <button
+                            onClick={() => handleBatchAction('rejected')}
+                            disabled={saving}
+                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-all disabled:opacity-50"
+                        >
+                            ❌ Rechazar
+                        </button>
+                        <button
+                            onClick={() => setSelectedIds([])}
+                            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium transition-all"
+                        >
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Lista de inscripciones */}
+            {filtered.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                    <div className="text-5xl mb-3">📝</div>
+                    <p className="text-lg">No hay inscripciones {filter !== 'all' ? `con estado "${filter}"` : ''}</p>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {/* Select all */}
+                    <div className="flex items-center gap-3 px-4 py-2">
+                        <input
+                            type="checkbox"
+                            checked={selectedIds.length === filtered.length && filtered.length > 0}
+                            onChange={selectAll}
+                            className="w-4 h-4 accent-orange-500"
+                        />
+                        <span className="text-sm text-gray-400">Seleccionar todos</span>
+                    </div>
+
+                    {filtered.map(reg => {
+                        const style = statusStyles[reg.status] || statusStyles.pending;
+                        return (
+                            <div key={reg.id} className={`${style.bg} border ${style.border} rounded-lg p-4`}>
+                                <div className="flex items-center gap-4">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedIds.includes(reg.id)}
+                                        onChange={() => toggleSelect(reg.id)}
+                                        className="w-4 h-4 accent-orange-500"
+                                    />
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-3 mb-1">
+                                            <span className="text-white font-bold text-lg">{reg.name}</span>
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
+                                                {style.label}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-4 text-sm text-gray-300">
+                                            {reg.psnId && <span>🎮 {reg.psnId}</span>}
+                                            {reg.country && <span>🌍 {reg.country}</span>}
+                                            {reg.experience && <span>⭐ {reg.experience}</span>}
+                                            {reg.preferredCar && <span>🚗 {reg.preferredCar}</span>}
+                                            <span>📅 {new Date(reg.createdAt).toLocaleDateString('es-ES')}</span>
+                                            {reg.reviewedAt && <span>✏️ Revisado: {new Date(reg.reviewedAt).toLocaleDateString('es-ES')}</span>}
+                                        </div>
+                                    </div>
+                                    {/* Acciones individuales */}
+                                    {reg.status === 'pending' && (
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => handleSingleAction(reg.id, 'approved')}
+                                                disabled={saving}
+                                                className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-all disabled:opacity-50"
+                                            >
+                                                ✅
+                                            </button>
+                                            <button
+                                                onClick={() => handleSingleAction(reg.id, 'rejected')}
+                                                disabled={saving}
+                                                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-all disabled:opacity-50"
+                                            >
+                                                ❌
+                                            </button>
+                                        </div>
+                                    )}
+                                    {reg.status !== 'pending' && (
+                                        <button
+                                            onClick={() => handleSingleAction(reg.id, 'pending')}
+                                            disabled={saving}
+                                            className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-lg transition-all disabled:opacity-50"
+                                            title="Devolver a pendiente"
+                                        >
+                                            ↩️
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }

@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import { FirebaseService } from "../services/firebaseService";
 import { GT7_TRACKS } from "../utils/constants";
 import Image from "next/image";
+import LoadingSkeleton from "../components/common/LoadingSkeleton";
 
 /**
  * Normaliza un nombre de pista para comparación (quita acentos, minúsculas, etc.)
@@ -229,14 +230,7 @@ export default function TracksAdminPage() {
     const tracksWithoutImage = tracks.length - tracksWithImage;
 
     if (loading) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="text-6xl mb-4 animate-bounce">🏁</div>
-                    <div className="text-white text-xl font-bold">Cargando pistas...</div>
-                </div>
-            </div>
-        );
+        return <LoadingSkeleton variant="page" message="Cargando pistas..." />;
     }
 
     return (
@@ -275,8 +269,8 @@ export default function TracksAdminPage() {
                             key={key}
                             onClick={() => setImageFilter(key)}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${imageFilter === key
-                                    ? `bg-${color}-600 text-white`
-                                    : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                                ? `bg-${color}-600 text-white`
+                                : 'bg-white/10 text-gray-300 hover:bg-white/20'
                                 }`}
                         >
                             {label}
@@ -372,8 +366,8 @@ export default function TracksAdminPage() {
                                         <button
                                             onClick={() => openEditModal(track)}
                                             className={`flex-1 px-3 py-2 text-white text-sm font-medium rounded-lg transition-all ${!track.layoutImage
-                                                    ? 'bg-orange-600 hover:bg-orange-700'
-                                                    : 'bg-blue-600 hover:bg-blue-700'
+                                                ? 'bg-orange-600 hover:bg-orange-700'
+                                                : 'bg-blue-600 hover:bg-blue-700'
                                                 }`}
                                         >
                                             {!track.layoutImage ? '📷 Asignar imagen' : '✏️ Editar'}

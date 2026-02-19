@@ -1,7 +1,7 @@
 # Análisis del Sistema de Campeonatos — IMSA GT7 + HGT GT7
 
 > **Fecha:** 18 de febrero de 2026  
-> **Última actualización:** 18 de febrero de 2026  
+> **Última actualización:** 19 de febrero de 2026  
 > **Proyectos analizados:** `imsa_gt7`, `hgt_gt7`  
 > **Referencia externa:** PDF "WORLD SERIES LEAGUE RR 10°MA EDICIÓN" (reglamento de club)
 
@@ -117,31 +117,31 @@ Firestore
 
 ### 2.4 Funcionalidades Actuales (imsa_gt7)
 
-| Funcionalidad                  | Estado       | Detalle                                         |
-| ------------------------------ | ------------ | ----------------------------------------------- |
-| CRUD de campeonatos            | ✅ Completo  | Crear, editar, eliminar, cambiar estado         |
-| Campeonatos por equipos        | ✅ Completo  | Equipos con pilotos, colores, logos             |
-| Campeonatos individuales       | ✅ Completo  | Pilotos directos en el campeonato               |
-| Configuración de circuitos     | ✅ Completo  | 70+ pistas reales de GT7, reglas por circuito   |
-| Sistema de puntos configurable | ✅ Parcial   | Puntos por carrera + qualifying + vuelta rápida |
-| Resultados por carrera         | ✅ Básico    | Puntos asignados manualmente por piloto         |
-| Clasificación/standings        | ✅ Básico    | Solo suma de puntos, sin desempate              |
-| Calendario de carreras         | ✅ Completo  | Lista de rondas con fecha, circuito, estado     |
-| Dashboard público              | ✅ Completo  | Eventos semanales + campeonatos + historial     |
-| Eventos especiales             | ✅ Completo  | CRUD independiente de campeonatos               |
-| Subida de imágenes             | ✅ Completo  | Firebase Storage                                |
-| Creador de vinilos SVG         | ✅ Completo  | Conversión PNG → SVG con Potrace                |
-| Login admin                    | ✅ Básico    | Email hardcodeado como admin                    |
-| SEO/OG                         | ✅ Completo  | Meta tags dinámicos                             |
-| AdSense                        | ✅ Integrado | 3 formatos de anuncios                          |
-| Divisiones/salas               | ❌ No existe | —                                               |
-| Sanciones                      | ❌ No existe | —                                               |
-| Reglamento por campeonato      | ❌ No existe | —                                               |
-| Ascensos/descensos             | ❌ No existe | —                                               |
-| Compuestos obligatorios        | ❌ No existe | Solo `allowedCars`, no neumáticos               |
-| Inscripción de pilotos         | ❌ No existe | TODO pendiente                                  |
-| Noticias/blog                  | ❌ No existe | —                                               |
-| Replays                        | ❌ No existe | —                                               |
+| Funcionalidad                  | Estado       | Detalle                                                                                                   |
+| ------------------------------ | ------------ | --------------------------------------------------------------------------------------------------------- |
+| CRUD de campeonatos            | ✅ Completo  | Crear, editar, eliminar, cambiar estado                                                                   |
+| Campeonatos por equipos        | ✅ Completo  | Equipos con pilotos, colores, logos                                                                       |
+| Campeonatos individuales       | ✅ Completo  | Pilotos directos en el campeonato                                                                         |
+| Configuración de circuitos     | ✅ Completo  | 70+ pistas reales de GT7, reglas por circuito                                                             |
+| Sistema de puntos configurable | ✅ Parcial   | Puntos por carrera + qualifying + vuelta rápida                                                           |
+| Resultados por carrera         | ✅ Básico    | Puntos asignados manualmente por piloto                                                                   |
+| Clasificación/standings        | ✅ Básico    | Solo suma de puntos, sin desempate                                                                        |
+| Calendario de carreras         | ✅ Completo  | Lista de rondas con fecha, circuito, estado                                                               |
+| Dashboard público              | ✅ Completo  | Eventos semanales + campeonatos + historial                                                               |
+| Eventos especiales             | ✅ Completo  | CRUD completo con secciones colapsables, streaming, inscripción, clima, reglas, participantes, resultados |
+| Subida de imágenes             | ✅ Completo  | Firebase Storage                                                                                          |
+| Creador de vinilos SVG         | ✅ Completo  | Conversión PNG → SVG con Potrace                                                                          |
+| Login admin                    | ✅ Básico    | Email hardcodeado como admin                                                                              |
+| SEO/OG                         | ✅ Completo  | Meta tags dinámicos                                                                                       |
+| AdSense                        | ✅ Integrado | 3 formatos de anuncios                                                                                    |
+| Divisiones/salas               | ❌ No existe | —                                                                                                         |
+| Sanciones                      | ❌ No existe | —                                                                                                         |
+| Reglamento por campeonato      | ❌ No existe | —                                                                                                         |
+| Ascensos/descensos             | ❌ No existe | —                                                                                                         |
+| Compuestos obligatorios        | ❌ No existe | Solo `allowedCars`, no neumáticos                                                                         |
+| Inscripción de pilotos         | ❌ No existe | TODO pendiente                                                                                            |
+| Noticias/blog                  | ❌ No existe | —                                                                                                         |
+| Replays                        | ❌ No existe | —                                                                                                         |
 
 ### 2.5 Páginas del Sistema
 
@@ -359,24 +359,24 @@ Cada circuito define:
 
 ### 6.2 Código Duplicado
 
-| Función                                 | Ocurrencias                                 | Archivos                                                            |
-| --------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------- |
-| `getNextRace()`                         | 2                                           | `championships/page.js`, `ChampionshipCard.js`                      |
-| `getProgress()` / `calculateProgress()` | 2 (con diferencias)                         | `championships/page.js`, `ChampionshipCard.js`                      |
-| `formatDate()`                          | 3+ variantes                                | `championships/page.js`, `ChampionshipCard.js`, otros componentes   |
-| Status colors/labels                    | 2                                           | Modelo `Championship`, `ChampionshipCard.js`                        |
-| Patrón de medallas (🥇🥈🥉)             | 5 repeticiones                              | `championships/page.js`                                             |
-| Formularios new/edit campeonato         | 2 archivos casi idénticos (2110 líneas c/u) | `championshipsAdmin/new/page.js`, `championshipsAdmin/edit/page.js` |
+| Función                                 | Ocurrencias                                     | Archivos                                                                    |
+| --------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------- |
+| `getNextRace()`                         | 2                                               | `championships/page.js`, `ChampionshipCard.js`                              |
+| `getProgress()` / `calculateProgress()` | 2 (con diferencias)                             | `championships/page.js`, `ChampionshipCard.js`                              |
+| `formatDate()`                          | 3+ variantes                                    | `championships/page.js`, `ChampionshipCard.js`, otros componentes           |
+| Status colors/labels                    | 2                                               | Modelo `Championship`, `ChampionshipCard.js`                                |
+| Patrón de medallas (🥇🥈🥉)             | 5 repeticiones                                  | `championships/page.js`                                                     |
+| ~~Formularios new/edit campeonato~~     | ~~2 archivos casi idénticos (2110 líneas c/u)~~ | ✅ Unificado en `components/championship/ChampionshipForm.js` (~850 líneas) |
 
 ### 6.3 Deuda Técnica
 
-| Problema                                 | Detalle                                           |
-| ---------------------------------------- | ------------------------------------------------- |
-| `Dashboard.js` legacy (978 líneas)       | Ya no se usa pero sigue en el proyecto            |
-| Collections legacy (`teams/`, `tracks/`) | Siguen existiendo en Firestore + API Routes       |
-| Formularios duplicados (new vs edit)     | El 95% del código es idéntico entre ambas páginas |
-| Admins hardcodeados                      | 3 emails hardcodeados en `AuthContext.js`         |
-| `tracks.js` con 15 pistas legacy         | Datos estáticos que ya no se usan                 |
+| Problema                                 | Detalle                                                         |
+| ---------------------------------------- | --------------------------------------------------------------- |
+| `Dashboard.js` legacy (978 líneas)       | Ya no se usa pero sigue en el proyecto                          |
+| Collections legacy (`teams/`, `tracks/`) | Siguen existiendo en Firestore + API Routes                     |
+| ~~Formularios duplicados (new vs edit)~~ | ✅ Unificado — `ChampionshipForm.js` (~850 líneas, -79% código) |
+| Admins hardcodeados                      | 3 emails hardcodeados en `AuthContext.js`                       |
+| `tracks.js` con 15 pistas legacy         | Datos estáticos que ya no se usan                               |
 
 ---
 
@@ -400,23 +400,23 @@ src/components/
 ├── championship/
 │   ├── ChampionshipCard.js          → Card unificada con progreso
 │   ├── ChampionshipDetail.js        → Vista de detalle (extraer de page.js)
-│   ├── StandingsTable.js            → Tabla de clasificación reutilizable
+│   ├── ChampionshipForm.js          → ✅ UN SOLO formulario (new + edit unificados)
+│   ├── StandingsTable.js            → ✅ Tabla de clasificación reutilizable (equipos/individual/pilotos)
 │   ├── CalendarList.js              → Lista de carreras del calendario
 │   ├── RaceResultsDisplay.js        → Resultados inline por carrera
 │   ├── PointsSystemDisplay.js       → Visualización del sistema de puntos
 │   └── StatsCards.js                → Cards de estadísticas
 ├── forms/
-│   ├── ChampionshipForm.js          → UN SOLO formulario (new + edit unificados)
 │   ├── TrackConfigForm.js           → Configuración de circuito
 │   ├── PointsSystemForm.js          → Editor de sistema de puntos
 │   ├── TeamForm.js                  → Formulario de equipo
 │   └── DriverChipInput.js           → Input de pilotos chip-based (de hgt_gt7)
 ├── common/
-│   ├── StatusBadge.js               → Badge de estado reutilizable
+│   ├── StatusBadge.js               → ✅ Badge de estado reutilizable (6 estados, 3 tamaños, pulso)
+│   ├── LoadingSkeleton.js           → ✅ Skeleton de carga (7 variantes)
+│   ├── ErrorMessage.js              → ✅ Mensajes de error (3 variantes)
 │   ├── MedalIcon.js                 → Componente de medalla (reemplazar 5 duplicados)
-│   ├── ProgressBar.js               → Barra de progreso genérica
-│   ├── LoadingSkeleton.js           → Skeleton de carga (de hgt_gt7)
-│   └── ErrorMessage.js              → Componente de error (de hgt_gt7)
+│   └── ProgressBar.js               → Barra de progreso genérica
 ├── events/
 │   ├── EventCard.js                 → Card de evento existente
 │   └── EventForm.js                 → Formulario de evento
@@ -754,56 +754,63 @@ Importar la lista de pilotos o equipos de un campeonato anterior:
 
 Los eventos únicos (independientes de campeonatos) también pueden beneficiarse de varias mejoras:
 
-#### 🎯 8.4.1 Inscripción Pública en Eventos
+#### 🎯 8.4.1 Inscripción Pública en Eventos ✅ IMPLEMENTADO (parcial)
 
-> **Reutilizar el mismo módulo de inscripción de campeonatos (8.1.5).**
+> **Implementado con estructura propia en el CRUD de eventos.**
 
-- **Toggle "Inscripción abierta"** por evento
-- **Formulario simplificado**: nombre + PSN ID + país (configurables por evento)
-- **Límite de participantes** con lista de espera automática
-- **Fecha límite de inscripción** (opcional)
-- **Modo "primero en llegar"** (automático) o **con aprobación**
-- **Lista de inscritos** visible públicamente en la página del evento
+- ✅ **Toggle "Inscripción abierta"** por evento (registration.enabled)
+- ✅ **Modo automático o con aprobación** (registration.requiresApproval)
+- ✅ **Fecha límite de inscripción** (registration.deadline)
+- ✅ **Límite de participantes** (maxParticipants, 1-64)
+- ✅ **Participantes con nombre + PSN ID** gestionados desde el admin
+- ⬚ **Pendiente**: formulario público de inscripción desde el lado cliente (actualmente solo el admin agrega participantes)
+- ⬚ **Pendiente**: lista de espera automática
 
-#### 🎮 8.4.2 Configuración de Reglas por Evento
+#### 🎮 8.4.2 Configuración de Reglas por Evento ✅ IMPLEMENTADO
 
-Aplicar el mismo sistema de reglas detalladas de los circuitos de campeonato a los eventos:
+Implementada la misma estructura de reglas detalladas de los circuitos de campeonato:
 
-- **Circuito**: selección del catálogo de 70+ pistas
-- **Reglas de carrera**: BOP, daños, desgaste neumáticos/combustible, penalizaciones, fantasma
-- **Compuestos** obligatorios (opcional)
-- **Climatología**: hora del día, multiplicador, slots climáticos
-- **Coches permitidos/obligatorios**
-- **Formato**: carrera única, sprint + carrera, resistencia, time attack
+- ✅ **Circuito**: búsqueda en catálogo de 70+ pistas GT7 con modal de búsqueda
+- ✅ **Reglas de carrera**: BOP, ajustes, engine swap, daños (No/Leves/Graves), penalizaciones, atajos, fantasma
+- ✅ **Compuestos obligatorios**: selección múltiple de neumáticos (chips seleccionables)
+- ✅ **Climatología**: hora del día, multiplicador de tiempo, slots climáticos
+- ✅ **Coches permitidos**: toggle + lista de coches específicos
+- ✅ **Formato**: carrera única, sprint + carrera, resistencia, time attack, drift
+- ✅ **Combustible**: desgaste + velocidad de recarga
+- ✅ **Duración/Vueltas**: configurables por evento
 
-#### 📺 8.4.3 Streaming y Caster en Eventos
+#### 📺 8.4.3 Streaming y Caster en Eventos ✅ IMPLEMENTADO
 
-- **Caster y Host** asignados por evento (mismos campos que en campeonatos)
-- **URL de stream** (opcional)
-- **Badge "EN VIVO"** cuando el evento está en estado `live`
+- ✅ **Caster y Host** asignados por evento (mismos campos que en campeonatos)
+- ✅ **URL de stream** (opcional) con selector de plataforma (YouTube, Twitch, Kick, Facebook Gaming)
+- ✅ **Badge "EN VIVO"** cuando el evento está en estado `live`
+- ⚠️ **Mejora pendiente: múltiples casters** — actualmente solo 1 caster por evento (`streaming.casterName: string`). Cambiar a `casters: string[]` (array) para soportar eventos con más de un narrador
 
-#### 🏆 8.4.4 Resultados y Premiación
+#### 🏆 8.4.4 Resultados y Premiación ✅ IMPLEMENTADO (parcial)
 
-- **Registro de resultados** del evento (posiciones, puntos si aplica)
-- **Premios/descripción** de premios (texto libre, ej: "Vinilo exclusivo para el ganador")
-- **Galería post-evento**: capturas, clips, podium
-- **Evento vinculado a campeonato** (opcional): evento especial que es parte de un campeonato (ej: ronda extra)
+- ✅ **Registro de resultados** del evento (posición + nombre del piloto, solo en eventos completados)
+- ✅ **Premios/descripción** de premios (campo de texto libre)
+- ⬚ **Pendiente**: galería post-evento (capturas, clips, podium)
+- ⬚ **Pendiente**: evento vinculado a campeonato (ronda extra)
 
 #### 📅 8.4.5 Eventos Recurrentes y Series
 
-- **Eventos recurrentes**: definir un evento semanal/quincenal/mensual que se auto-replica
-- **Plantillas de evento**: guardar configuraciones de evento para reutilizar (igual que campeonatos, ver 8.2.5)
-- **Series de eventos**: agrupar eventos bajo un mismo "paraguas" (ej: "Noches de Endurance") con clasificación acumulada
-- **Categorías de evento**: Casual, Competitivo, Especial, Endurance, Time Attack, Drift
+- ✅ **Categorías de evento**: Casual, Competitivo, Especial, Endurance, Time Attack, Drift (implementado con `EVENT_CATEGORIES`)
+- ✅ **Duplicar evento**: botón para clonar un evento existente como plantilla rápida
+- ⬚ **Pendiente**: eventos recurrentes (auto-replicación semanal/quincenal/mensual)
+- ⬚ **Pendiente**: series de eventos con clasificación acumulada
+- ⬚ **Pendiente**: plantillas de evento guardables
 
-#### 📊 8.4.6 Mejoras de UX en Eventos
+#### 📊 8.4.6 Mejoras de UX en Eventos ✅ IMPLEMENTADO (parcial)
 
-- **Vista calendario** (mes/semana) además de la lista actual
-- **Filtros** por estado, categoría, fecha, circuito
-- **Historial de eventos** pasados con resultados archivados
-- **Compartir evento** como imagen o link con preview (OG tags dinámicos)
-- **Contador regresivo** visible en eventos próximos
-- **Recordatorio** de evento (notificación push o email — futuro)
+- ✅ **Filtros** por estado (upcoming/live/completed) en el admin con dashboard de estadísticas
+- ✅ **Contador regresivo** visible en EventCard para eventos próximos
+- ✅ **Badge EN VIVO** animado con pulso cuando el evento está en estado live
+- ✅ **Búsqueda** de eventos por título en el admin
+- ⬚ **Pendiente**: vista calendario (mes/semana)
+- ⬚ **Pendiente**: historial de eventos pasados con resultados archivados
+- ⬚ **Pendiente**: compartir evento como imagen
+- ⬚ **Pendiente**: recordatorio de evento (notificación push o email)
 
 ---
 
@@ -1135,9 +1142,9 @@ events/                                          ← MEJORADO: eventos únicos
     │   deadline: ISO string | null,
     │   maxParticipants: number | null
     │ }
-    ├── streaming: {                             ← NUEVO
+    ├── streaming: {                             ← IMPLEMENTADO
     │   url: string | null,
-    │   casterName: string | null,
+    │   casterName: string | null,               ← Futuro: cambiar a casters: string[] para soportar múltiples narradores
     │   hostName: string | null,
     │   platform: string | null
     │ }
@@ -1179,82 +1186,138 @@ eventSeries/                                     ← NUEVO: series de eventos
 | --- | ---------------------------------------------------------------------------------- | -------- |
 | 1.1 | ~~Eliminar código legacy (`Dashboard.js`, `tracks.js`)~~                           | ✅ Hecho |
 | 1.2 | ~~Extraer utilidades compartidas (`dateUtils`, `championshipUtils`, `constants`)~~ | ✅ Hecho |
-| 1.3 | Unificar formularios new/edit en un solo `ChampionshipForm.js`                     | 6h       |
+| 1.3 | ~~Unificar formularios new/edit en un solo `ChampionshipForm.js`~~                 | ✅ Hecho |
 | 1.4 | ~~Crear componentes de medalla y reemplazar 5 duplicados~~                         | ✅ Hecho |
-| 1.5 | Crear componente `StatusBadge` unificado                                           | 1h       |
-| 1.6 | Extraer `StandingsTable` como componente reutilizable                              | 3h       |
+| 1.5 | ~~Crear componente `StatusBadge` unificado~~                                       | ✅ Hecho |
+| 1.6 | ~~Extraer `StandingsTable` como componente reutilizable~~                          | ✅ Hecho |
 | 1.7 | ~~Corregir bug de inconsistencia de puntos~~                                       | ✅ Hecho |
 | 1.8 | ~~Paralelizar `loadChampionshipsTracks` con `Promise.all`~~                        | ✅ Hecho |
-| 1.9 | Implementar `ErrorMessage` y `LoadingSkeleton` (de hgt_gt7)                        | 2h       |
+| 1.9 | ~~Implementar `ErrorMessage` y `LoadingSkeleton`~~                                 | ✅ Hecho |
 
 ### Fase 2 — Inscripción, Streaming y Reutilización (1-2 semanas)
 
-| #   | Tarea                                                                          | Esfuerzo |
-| --- | ------------------------------------------------------------------------------ | -------- |
-| 2.1 | Toggle de inscripción pública en formulario de campeonato                      | 3h       |
-| 2.2 | Formulario público de inscripción (lado cliente) con campos configurables      | 6h       |
-| 2.3 | Panel admin de aprobación/rechazo de inscripciones (batch)                     | 4h       |
-| 2.4 | Campos Caster + Host + URL de stream a nivel de campeonato                     | 2h       |
-| 2.5 | Caster/Host/Stream por división (campeonatos multi-sala)                       | 3h       |
-| 2.6 | Selector "Basar en campeonato anterior" al crear campeonato (clonar config)    | 6h       |
-| 2.7 | Botón "Importar pilotos/equipos de campeonato anterior" con selección múltiple | 5h       |
-| 2.8 | Botón "Ver en vivo" + badge "EN VIVO" en vista pública                         | 2h       |
+| #   | Tarea                                                                           | Esfuerzo |
+| --- | ------------------------------------------------------------------------------- | -------- |
+| 2.1 | ~~Toggle de inscripción pública en formulario de campeonato~~                   | ✅ Hecho |
+| 2.2 | ~~Formulario público de inscripción (lado cliente) con campos configurables~~   | ✅ Hecho |
+| 2.3 | ~~Panel admin de aprobación/rechazo de inscripciones (batch)~~                  | ✅ Hecho |
+| 2.4 | ~~Campos Caster + Host + URL de stream a nivel de campeonato~~                  | ✅ Hecho |
+| 2.5 | ~~Caster/Host/Stream por división (campeonatos multi-sala)~~                    | ✅ Hecho |
+| 2.6 | ~~Selector "Basar en campeonato anterior" al crear campeonato (clonar config)~~ | ✅ Hecho |
+| 2.7 | ~~Botón "Importar pilotos/equipos de campeonato anterior" con merge~~           | ✅ Hecho |
+| 2.8 | ~~Botón "Ver en vivo" + badge "EN VIVO" en vista pública~~                      | ✅ Hecho |
 
 ### Fase 3 — Standings Avanzado (1 semana)
 
-| #   | Tarea                                                                    | Esfuerzo |
-| --- | ------------------------------------------------------------------------ | -------- |
-| 3.1 | Portar `standingsCalculator.js` de hgt_gt7 con desempate multinivel      | 4h       |
-| 3.2 | Agregar subcolección `results/` con posiciones, pole, vuelta rápida, DNF | 6h       |
-| 3.3 | Tabla de standings con puntos por carrera individual (columnas sticky)   | 4h       |
-| 3.4 | Estadísticas por piloto: wins, podiums, poles, fastest laps              | 3h       |
-| 3.5 | Comparador de pilotos (head-to-head)                                     | 4h       |
+| #   | Tarea                                                                      | Esfuerzo |
+| --- | -------------------------------------------------------------------------- | -------- |
+| 3.1 | ~~Portar `standingsCalculator.js` de hgt_gt7 con desempate multinivel~~    | ✅ Hecho |
+| 3.2 | ~~Reutilizar `track.results` inline (no subcolección) para stats~~         | ✅ Hecho |
+| 3.3 | ~~Tabla de standings con puntos por carrera individual (columnas sticky)~~ | ✅ Hecho |
+| 3.4 | ~~Estadísticas por piloto: wins, podiums, poles, fastest laps~~            | ✅ Hecho |
+| 3.5 | ~~Comparador de pilotos (head-to-head)~~                                   | ✅ Hecho |
 
-### Fase 4 — Sanciones Configurables (1-2 semanas)
+**Archivos creados/modificados en Fase 3:**
 
-| #   | Tarea                                                                             | Esfuerzo |
-| --- | --------------------------------------------------------------------------------- | -------- |
-| 4.1 | Toggle de sanciones + modelo de datos con presets editables                       | 4h       |
-| 4.2 | UI admin: catálogo de sanciones predefinidas (editar valores, activar/desactivar) | 4h       |
-| 4.3 | UI admin: crear sanciones personalizadas (nombre, tipo, valor, severidad)         | 4h       |
-| 4.4 | Aplicar sanción a piloto por carrera (con evidencia opcional)                     | 4h       |
-| 4.5 | Impacto automático de sanciones en clasificación                                  | 4h       |
-| 4.6 | Sistema de amonestaciones acumulativas (configurable)                             | 3h       |
-| 4.7 | Formulario público de reclamaciones (sub-toggle)                                  | 5h       |
-| 4.8 | Panel admin de resolución de reclamaciones                                        | 5h       |
-| 4.9 | Historial y exportación de sanciones                                              | 3h       |
+- `src/app/utils/standingsCalculator.js` — Motor avanzado con desempate multinivel (puntos→victorias→podiums→mejor posición), estadísticas y comparador. 3 funciones exportadas: `calculateAdvancedStandings()`, `getDriverStats()`, `compareDrivers()`
+- `src/app/components/championship/DriverStatsPanel.js` — Panel de estadísticas detalladas: récords, rankings por victorias/podiums/poles/VR, tabla completa de stats
+- `src/app/components/championship/DriverComparator.js` — Comparador head-to-head: selectores, cara a cara, barras de comparación, puntos por carrera
+- `src/app/components/championship/StandingsTable.js` — Expandido: columnas por carrera (R1,R2...), columnas de stats (Vic/Pod), sticky columns, scroll horizontal, tooltips
+- `src/app/championships/page.js` — Integrado: tab Clasificación con tabla avanzada, tab Estadísticas con DriverStatsPanel, nuevo tab ⚔️ Comparar
+- `src/app/utils/index.js` — Barrel export actualizado con 3 nuevas funciones
+- **Decisión arquitectónica**: Los datos de resultados detallados YA existen en `track.results` (racePositions, qualifying, fastestLap), por lo que NO se necesitó crear una subcolección separada — el motor simplemente extrae estadísticas de los datos inline existentes.
 
-### Fase 5 — Reglamentación y Config de Circuitos (1-2 semanas)
+### Fase 4 — Sanciones Configurables (1-2 semanas) ✅ COMPLETADA
 
-| #   | Tarea                                                          | Esfuerzo |
-| --- | -------------------------------------------------------------- | -------- |
-| 5.1 | Ampliar modelo Track con `tyres`, `fuel`, `weather` detallados | 4h       |
-| 5.2 | Formulario de compuestos obligatorios por circuito             | 3h       |
-| 5.3 | Climatología avanzada (hora del día, multiplicador, slots)     | 3h       |
-| 5.4 | Sección de reglamento editable por campeonato                  | 4h       |
-| 5.5 | Formato Sprint + Carrera (dual session)                        | 6h       |
-| 5.6 | Control de uso de coches (tracking y alertas)                  | 4h       |
+| #   | Tarea                                                                             | Esfuerzo | Estado   |
+| --- | --------------------------------------------------------------------------------- | -------- | -------- |
+| 4.1 | Toggle de sanciones + modelo de datos con presets editables                       | 4h       | ✅ Hecho |
+| 4.2 | UI admin: catálogo de sanciones predefinidas (editar valores, activar/desactivar) | 4h       | ✅ Hecho |
+| 4.3 | UI admin: crear sanciones personalizadas (nombre, tipo, valor, severidad)         | 4h       | ✅ Hecho |
+| 4.4 | Aplicar sanción a piloto por carrera (con evidencia opcional)                     | 4h       | ✅ Hecho |
+| 4.5 | Impacto automático de sanciones en clasificación                                  | 4h       | ✅ Hecho |
+| 4.6 | Sistema de amonestaciones acumulativas (configurable)                             | 3h       | ✅ Hecho |
+| 4.7 | Formulario público de reclamaciones (sub-toggle)                                  | 5h       | ✅ Hecho |
+| 4.8 | Panel admin de resolución de reclamaciones                                        | 5h       | ✅ Hecho |
+| 4.9 | Historial y exportación de sanciones                                              | 3h       | ✅ Hecho |
+
+**Archivos creados/modificados en Fase 4:**
+
+- `src/app/models/Penalty.js` — Modelo Penalty, Claim, 12 PENALTY_PRESETS, configs
+- `src/app/components/championship/PenaltiesTab.js` — Tab admin completo (catálogo, aplicar, historial, resolver claims)
+- `src/app/components/championship/ClaimForm.js` — Formulario público de reclamaciones
+- `src/app/models/Championship.js` — Campo penaltiesConfig
+- `src/app/services/firebaseService.js` — 7 métodos CRUD (penalties + claims)
+- `src/app/utils/standingsCalculator.js` — Integración de sanciones y warnings acumulativos
+- `src/app/components/championship/StandingsTable.js` — Indicador visual de penalizaciones
+- `src/app/components/championship/ChampionshipForm.js` — Sección de config sanciones en Step 4
+- `src/app/championshipsAdmin/page.js` — Tab ⚠️ Sanciones integrado
+- `src/app/championships/page.js` — Tab público + botón reclamaciones + penalties en standings
+
+### Fase 5 — Reglamentación y Config de Circuitos ✅ COMPLETADA
+
+| #   | Tarea                                                          | Esfuerzo | Estado   |
+| --- | -------------------------------------------------------------- | -------- | -------- |
+| 5.1 | Ampliar modelo Track con `tyres`, `fuel`, `weather` detallados | 4h       | ✅ Hecho |
+| 5.2 | Formulario de compuestos obligatorios por circuito             | 3h       | ✅ Hecho |
+| 5.3 | Climatología avanzada (hora del día, multiplicador, slots)     | 3h       | ✅ Hecho |
+| 5.4 | Sección de reglamento editable por campeonato                  | 4h       | ✅ Hecho |
+| 5.5 | Formato Sprint + Carrera (dual session)                        | 6h       | ✅ Hecho |
+| 5.6 | Control de uso de coches (tracking y alertas)                  | 4h       | ✅ Hecho |
+
+**Archivos modificados/creados:**
+
+- `src/app/models/Championship.js` — Track model con rules tipados, sprint, weatherSlots, carUsage, mandatoryPitStops; Championship con regulations + carUsageTracking
+- `src/app/utils/constants.js` — WEATHER_CONDITION_OPTIONS, WEATHER_TRANSITION_OPTIONS, START_TIME_OPTIONS, TIME_MULTIPLIER_OPTIONS, DEFAULT_SPRINT_POINTS
+- `src/app/components/championship/ChampionshipForm.js` — Modal de circuito con sprint+carrera, clima avanzado con slots dinámicos, pit stops obligatorios, notas; Step 4 con reglamentación y tracking de autos
+- `src/app/utils/standingsCalculator.js` — Soporte sprint points (track.sprintPoints sumado al total)
+- `src/app/championshipsAdmin/page.js` — Modal de resultados con sección Sprint, cálculo de puntos sprint
+- `src/app/championships/page.js` — Calendar con badges de reglas y notas; Info tab con reglamentación y tracking de autos
 
 ### Fase 6 — Divisiones y Ascensos (2-3 semanas)
 
-| #   | Tarea                                            | Esfuerzo |
-| --- | ------------------------------------------------ | -------- |
-| 6.1 | Modelo de divisiones (subcolección)              | 4h       |
-| 6.2 | UI admin para crear/gestionar divisiones         | 8h       |
-| 6.3 | Clasificación por división (standings separados) | 6h       |
-| 6.4 | Sistema de ascensos/descensos entre ediciones    | 6h       |
+| #   | Tarea                                                | Esfuerzo |
+| --- | ---------------------------------------------------- | -------- |
+| 6.1 | ~~Modelo de divisiones (subcolección)~~              | ✅ Hecho |
+| 6.2 | ~~UI admin para crear/gestionar divisiones~~         | ✅ Hecho |
+| 6.3 | ~~Clasificación por división (standings separados)~~ | ✅ Hecho |
+| 6.4 | ~~Sistema de ascensos/descensos entre ediciones~~    | ✅ Hecho |
 
-### Fase 7 — Eventos Mejorados (1-2 semanas)
+**Archivos modificados/creados en Fase 6:**
 
-| #   | Tarea                                                                     | Esfuerzo |
-| --- | ------------------------------------------------------------------------- | -------- |
-| 7.1 | Inscripción pública en eventos (reutilizar módulo de campeonatos)         | 3h       |
-| 7.2 | Configuración detallada de reglas por evento (raceConfig, tyres, weather) | 4h       |
-| 7.3 | Caster/Host/Stream por evento                                             | 2h       |
-| 7.4 | Resultados y premiación de eventos                                        | 3h       |
-| 7.5 | Eventos recurrentes y plantillas                                          | 4h       |
-| 7.6 | Series de eventos con clasificación acumulada                             | 5h       |
-| 7.7 | Vista calendario + filtros + contador regresivo                           | 4h       |
+- `src/app/models/Championship.js` — Clase `Division` (subcolección `divisions/`), `divisionsConfig` en Championship (enabled, promotionCount, relegationCount, maxDriversPerDivision)
+- `src/app/utils/constants.js` — `DEFAULT_DIVISION_COLORS`, `DEFAULT_DIVISIONS_CONFIG`
+- `src/app/services/firebaseService.js` — CRUD de divisiones (getDivisionsByChampionship, createDivision, updateDivision, deleteDivision)
+- `src/app/utils/standingsCalculator.js` — Filtro `options.divisionDrivers` para calcular standings por división
+- `src/app/components/championship/DivisionsTab.js` — **NUEVO**: Tab admin con CRUD de divisiones, asignación de pilotos, auto-asignación, promoción/relegación con vista previa
+- `src/app/components/championship/ChampionshipForm.js` — Toggle y configuración de divisiones en Step 4
+- `src/app/championshipsAdmin/page.js` — Integración tab Divisiones con estado, carga de datos y renderizado
+- `src/app/championships/page.js` — Selector de división en standings públicos, filtrado dinámico
+- `src/app/components/championship/StandingsTable.js` — Props `promotionZone`/`relegationZone` con indicadores visuales (▲/▼, bordes verde/rojo)
+
+### Fase 7 — Eventos Mejorados (1-2 semanas) ✅ COMPLETADA
+
+| #   | Tarea                                                                     | Esfuerzo | Estado   |
+| --- | ------------------------------------------------------------------------- | -------- | -------- |
+| 7.1 | Inscripción pública en eventos (toggle habilitación + modo aprobación)    | 3h       | ✅ Hecho |
+| 7.2 | Configuración detallada de reglas por evento (raceConfig, tyres, weather) | 4h       | ✅ Hecho |
+| 7.3 | Caster/Host/Stream por evento                                             | 2h       | ✅ Hecho |
+| 7.4 | Resultados y premiación de eventos                                        | 3h       | ✅ Hecho |
+| 7.5 | Categorías y formatos de evento                                           | 2h       | ✅ Hecho |
+| 7.6 | Participantes con PSN ID + gestión visual                                 | 3h       | ✅ Hecho |
+| 7.7 | Dashboard con contador regresivo + badges de estado + EN VIVO             | 3h       | ✅ Hecho |
+
+**Archivos modificados/creados en Fase 7:**
+
+- `src/app/eventsAdmin/page.js` — Reescritura completa (~1100 líneas): formulario con 9 secciones colapsables (CollapsibleSection), búsqueda de pistas del catálogo GT7, configuración de reglas (BOP, daños, desgaste, combustible), neumáticos obligatorios multi-select, climatología avanzada (hora del día, multiplicador, slots), coches permitidos, streaming con caster/host/URL/plataforma, inscripción pública con toggle y modo aprobación, participantes con nombre + PSN ID, resultados para eventos completados, duplicar evento, estadísticas del dashboard
+- `src/app/components/EventCard.js` — Card pública mejorada: badge de estado dinámico (upcoming/live/completed), countdown al evento, badge EN VIVO animado, badge de evento especial, badges de categoría/formato, info de streaming (caster/host), indicadores de participantes e inscripción, premios, botón "Ver en vivo"
+- `src/app/events/page.js` — Página de detalle público del evento con toda la info expandida
+- `src/app/components/DashboardRenovated.js` — Integración de EventCard con navegación a detalle vía `/events?id=`
+- `src/app/services/firebaseService.js` — Métodos `getEvent()`, `saveEvent()`, `deleteEvent()`
+- `src/app/utils/constants.js` — Constantes: `EVENT_STATUSES`, `EVENT_CATEGORIES`, `EVENT_FORMATS`, `STREAMING_PLATFORMS`, `TYRE_OPTIONS`, `DAMAGE_OPTIONS`, `WEATHER_TIME_OPTIONS`, `WEATHER_CONDITION_OPTIONS`
+- `src/app/models/Championship.js` — Event model actualizado
+
+**Nota sobre Casters:** Actualmente un evento soporta 1 caster (`streaming.casterName: string`). Se contempla como mejora futura permitir **múltiples casters** por evento (`casters: string[]`), ya que un evento único con múltiples salas o una transmisión conjunta puede requerir más de un narrador.
 
 ### Fase 8 — Experiencia Avanzada (2-3 semanas)
 
@@ -1276,16 +1339,16 @@ eventSeries/                                     ← NUEVO: series de eventos
 
 | Métrica                                       | Valor                                                                                            |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| **Funcionalidades actuales**                  | ~15 features funcionales                                                                         |
+| **Funcionalidades actuales**                  | ~22 features funcionales                                                                         |
 | **Funcionalidades nuevas propuestas**         | ~35 features (todas opcionales)                                                                  |
 | **Bugs detectados**                           | 4 (1 crítico) — **todos corregidos**                                                             |
-| **Duplicaciones de código**                   | 6 patrones — **5 resueltos**                                                                     |
-| **Líneas de código duplicadas** (new vs edit) | ~4,200 líneas — pendiente unificar                                                               |
+| **Duplicaciones de código**                   | 6 patrones — **6 resueltos (todos)**                                                             |
+| **Líneas de código duplicadas** (new vs edit) | ✅ Unificado: ~4,200 → ~850 líneas (`ChampionshipForm.js`) — reducción del 79%                   |
 | **Módulos opcionales propuestos**             | 8 (sanciones, inscripción, divisiones, streaming, sprint, compuestos, reglamento, reclamaciones) |
 | **Mejoras para eventos únicos**               | 6 subsecciones nuevas                                                                            |
 | **Recomendaciones adicionales**               | 6 (roles, Discord, PWA, export, audit, temas)                                                    |
-| **Fases del roadmap**                         | 8 fases                                                                                          |
+| **Fases del roadmap**                         | 8 fases (7 completadas, 1 pendiente)                                                             |
 | **Esfuerzo total estimado**                   | ~12-16 semanas (1 desarrollador)                                                                 |
 | **Principio de diseño clave**                 | Todo es opcional por campeonato                                                                  |
 
-El sistema actual tiene una base sólida en `imsa_gt7` tras las correcciones realizadas (bugs corregidos, utilidades centralizadas, código legacy deprecado). Las nuevas propuestas siguen el **principio de opcionalidad**: cada módulo se activa independientemente, permitiendo desde campeonatos casuales sin configuración avanzada hasta ligas competitivas con divisiones, sanciones configurables (predefinidas + personalizadas), inscripción pública, caster/host por sala, y reutilización de configuraciones previas. Las mejoras a eventos únicos los elevan de simples entradas de calendario a mini-campeonatos con inscripción, reglas detalladas, streaming y resultados. Las recomendaciones adicionales (roles, Discord webhooks, PWA, exportación) completarían la transformación a una plataforma profesional de gestión de sim racing.
+El sistema actual tiene una base sólida en `imsa_gt7` tras las correcciones realizadas (bugs corregidos, utilidades centralizadas, código legacy deprecado). Las **Fases 1-7 están completadas**, cubriendo: limpieza y unificación de código, inscripción y streaming, standings avanzados con estadísticas y comparador, sistema de sanciones configurables, reglamentación y configuración de circuitos, divisiones con ascensos/descensos, y **eventos mejorados** con CRUD completo (secciones colapsables, reglas detalladas, neumáticos obligatorios multi-select, climatología, streaming con caster/host, inscripción pública, participantes con PSN ID, resultados, categorías/formatos, duplicar evento, contador regresivo y badge EN VIVO). Las nuevas propuestas siguen el **principio de opcionalidad**: cada módulo se activa independientemente. La **Fase 8** (Experiencia Avanzada) queda pendiente con perfiles globales de piloto, insignias/logros, ediciones/temporadas, gráficos de evolución, exportación como imagen, briefing pre-carrera, control de acceso por roles, webhooks de Discord y PWA.

@@ -8,6 +8,7 @@ import ChampionshipCard from './ChampionshipCard';
 import EventCard from './EventCard';
 import { isInCurrentWeek } from '../utils/dateUtils';
 import { BannerAd } from './ads';
+import LoadingSkeleton from './common/LoadingSkeleton';
 
 export default function DashboardRenovated() {
     const [events, setEvents] = useState([]);
@@ -63,10 +64,10 @@ export default function DashboardRenovated() {
             .sort((a, b) => new Date(a.date) - new Date(b.date));
     };
 
-    // Obtener todos los campeonatos para mostrar en el dashboard
+    // Obtener campeonatos visibles (excluir borradores)
     const getAllChampionships = () => {
         if (!championships || championships.length === 0) return [];
-        return championships; // Mostrar TODOS los campeonatos
+        return championships.filter(c => c.status !== 'draft');
     };
 
     // Obtener eventos pasados (no de la semana actual)
@@ -88,14 +89,7 @@ export default function DashboardRenovated() {
     };
 
     if (loading || championshipsLoading) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="text-6xl mb-4 animate-bounce">🏁</div>
-                    <div className="text-white text-xl font-bold">Cargando Dashboard...</div>
-                </div>
-            </div>
-        );
+        return <LoadingSkeleton variant="page" message="Cargando Dashboard..." />;
     }
 
     const weeklyEvents = getWeeklyEvents();

@@ -13,8 +13,18 @@ import {
     getPositionBg,
     getPositionDisplay,
     getResultColors,
-    getPositionMedal
+    getPositionMedal,
+    calculateAdvancedStandings,
+    getDriverStats
 } from "../utils";
+import StandingsTable from "../components/championship/StandingsTable";
+import DriverStatsPanel from "../components/championship/DriverStatsPanel";
+import DriverComparator from "../components/championship/DriverComparator";
+import LoadingSkeleton from "../components/common/LoadingSkeleton";
+import RegistrationForm from "../components/championship/RegistrationForm";
+import ClaimForm from '../components/championship/ClaimForm';
+import { STREAMING_PLATFORMS } from '../utils/constants';
+import { SEVERITY_CONFIG } from '../models/Penalty';
 
 export default function ChampionshipDetailPage() {
     const searchParams = useSearchParams();
@@ -26,7 +36,12 @@ export default function ChampionshipDetailPage() {
     const [teams, setTeams] = useState([]);
     const [tracks, setTracks] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('standings'); // standings, calendar, stats, info
+    const [activeTab, setActiveTab] = useState('standings'); // standings, calendar, stats, compare, info, penalties
+    const [showRegistration, setShowRegistration] = useState(false);
+    const [showClaimForm, setShowClaimForm] = useState(false);
+    const [penalties, setPenalties] = useState([]);
+    const [divisions, setDivisions] = useState([]);
+    const [selectedDivision, setSelectedDivision] = useState('all');
 
     useEffect(() => {
         if (championshipId) {
@@ -44,15 +59,19 @@ export default function ChampionshipDetailPage() {
         setTracks([]);
 
         try {
-            const [champData, teamsData, tracksData] = await Promise.all([
+            const [champData, teamsData, tracksData, penaltiesData, divisionsData] = await Promise.all([
                 FirebaseService.getChampionship(championshipId),
-                FirebaseService.getTeamsByChampionship(championshipId),
-                FirebaseService.getTracksByChampionship(championshipId)
+                FirebaseService.getTeamsByChampionship(championshipId).catch(() => []),
+                FirebaseService.getTracksByChampionship(championshipId).catch(() => []),
+                FirebaseService.getPenaltiesByChampionship(championshipId).catch(() => []),
+                FirebaseService.getDivisionsByChampionship(championshipId).catch(() => [])
             ]);
 
             setChampionship(champData);
             setTeams(teamsData || []);
             setTracks(tracksData || []);
+            setPenalties(penaltiesData || []);
+            setDivisions(divisionsData || []);
         } catch (error) {
             console.error("Error loading championship data:", error);
         } finally {
@@ -61,14 +80,7 @@ export default function ChampionshipDetailPage() {
     };
 
     if (loading) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="text-6xl mb-4 animate-bounce">🏁</div>
-                    <div className="text-white text-xl font-bold">Cargando Campeonato...</div>
-                </div>
-            </div>
-        );
+        return <LoadingSkeleton variant="page" message="Cargando Campeonato..." />;
     }
 
     if (!championship) {
@@ -91,6 +103,29 @@ export default function ChampionshipDetailPage() {
     const standings = getStandings(championship, teams, tracks);
     const nextRace = getNextRace(tracks);
     const progress = calculateProgress(tracks, championship);
+
+    // ── Standings Avanzado ──
+    const activeDivision = divisions.find(d => d.id === selectedDivision);
+    const divisionOptions = selectedDivision !== 'all' && activeDivision
+        ? { divisionDrivers: activeDivision.drivers || [] }
+        : {};
+    const { driverStandings: advancedDriverStandings, teamStandings: advancedTeamStandings, raceColumns } =
+        calculateAdvancedStandings(championship, teams, tracks, penalties, divisionOptions);
+    const driverStats = getDriverStats(advancedDriverStandings);
+
+    // Configuración de zonas de ascenso/descenso
+    const promotionZone = championship?.divisionsConfig?.enabled && selectedDivision !== 'all'
+        ? championship.divisionsConfig.promotionCount || 0
+        : 0;
+    const relegationZone = championship?.divisionsConfig?.enabled && selectedDivision !== 'all'
+        ? championship.divisionsConfig.relegationCount || 0
+        : 0;
+
+    // Streaming: detectar si hay una carrera "en vivo" (status 'in-progress')
+    const liveTrack = tracks.find(t => t.status === 'in-progress');
+    const hasStreaming = championship.streaming?.url;
+    const isLive = liveTrack && hasStreaming;
+    const streamPlatform = STREAMING_PLATFORMS.find(p => p.value === championship.streaming?.platform);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
@@ -146,6 +181,12 @@ export default function ChampionshipDetailPage() {
                                     <span className="text-gray-300">
                                         🏁 {progress.completed}/{progress.total} carreras
                                     </span>
+                                    {isLive && (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-600 text-white text-sm font-bold rounded-full animate-pulse">
+                                            <span className="w-2 h-2 bg-white rounded-full"></span>
+                                            EN VIVO
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
@@ -156,6 +197,21 @@ export default function ChampionshipDetailPage() {
                                 >
                                     ⚙️ Admin
                                 </button>
+                            )}
+
+                            {/* Botón Ver en Vivo */}
+                            {hasStreaming && (
+                                <a
+                                    href={championship.streaming.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${isLive
+                                        ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
+                                        : 'bg-white/10 hover:bg-white/20 border border-white/30 text-white'
+                                        }`}
+                                >
+                                    {streamPlatform?.icon || '📺'} {isLive ? 'Ver en Vivo' : 'Ver Stream'}
+                                </a>
                             )}
                         </div>
                     </div>
@@ -170,7 +226,9 @@ export default function ChampionshipDetailPage() {
                             { id: 'standings', label: '📊 Clasificación', icon: '📊' },
                             { id: 'calendar', label: '📅 Calendario', icon: '📅' },
                             { id: 'stats', label: '📈 Estadísticas', icon: '📈' },
-                            { id: 'info', label: 'ℹ️ Información', icon: 'ℹ️' }
+                            { id: 'compare', label: '⚔️ Comparar', icon: '⚔️' },
+                            { id: 'info', label: 'ℹ️ Información', icon: 'ℹ️' },
+                            ...(championship.penaltiesConfig?.enabled ? [{ id: 'penalties', label: '⚠️ Sanciones', icon: '⚠️' }] : [])
                         ].map(tab => (
                             <button
                                 key={tab.id}
@@ -202,173 +260,82 @@ export default function ChampionshipDetailPage() {
                                     📊 Clasificación Actual
                                 </h2>
 
+                                {/* Selector de División */}
+                                {championship?.divisionsConfig?.enabled && divisions.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mb-6">
+                                        <button
+                                            onClick={() => setSelectedDivision('all')}
+                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedDivision === 'all'
+                                                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30'
+                                                : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                                                }`}
+                                        >
+                                            🏁 General
+                                        </button>
+                                        {divisions.map(div => (
+                                            <button
+                                                key={div.id}
+                                                onClick={() => setSelectedDivision(div.id)}
+                                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${selectedDivision === div.id
+                                                    ? 'text-white shadow-lg'
+                                                    : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                                                    }`}
+                                                style={selectedDivision === div.id ? {
+                                                    backgroundColor: div.color || '#f97316',
+                                                    boxShadow: `0 10px 15px -3px ${div.color || '#f97316'}40`
+                                                } : {}}
+                                            >
+                                                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: div.color || '#f97316' }} />
+                                                {div.name}
+                                                <span className="text-xs opacity-75">({(div.drivers || []).length})</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
                                 {/* Clasificación de Equipos */}
                                 {championship.settings?.isTeamChampionship && (
-                                    <div>
-                                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                                            🏆 Clasificación por Equipos
-                                        </h3>
-                                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden border border-orange-500/30 mb-6">
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full">
-                                                    <thead className="bg-gradient-to-r from-orange-600 to-red-600 text-white">
-                                                        <tr>
-                                                            <th className="px-6 py-4 text-left">Pos</th>
-                                                            <th className="px-6 py-4 text-left">Equipo</th>
-                                                            <th className="px-6 py-4 text-right">Puntos</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="text-white">
-                                                        {standings.map((entry, index) => (
-                                                            <tr
-                                                                key={index}
-                                                                className={`
-                                                                    border-b border-white/10 hover:bg-white/5 transition-colors
-                                                                    ${getPositionBg(index)}
-                                                                `}
-                                                            >
-                                                                <td className="px-6 py-4 font-bold">
-                                                                    {getPositionDisplay(index)}
-                                                                </td>
-                                                                <td className="px-6 py-4">
-                                                                    <div className="flex items-center gap-3">
-                                                                        {entry.color && (
-                                                                            <div
-                                                                                className="w-4 h-4 rounded-full border-2 border-white"
-                                                                                style={{ backgroundColor: entry.color }}
-                                                                            />
-                                                                        )}
-                                                                        <span className="font-semibold">{entry.name}</span>
-                                                                    </div>
-                                                                </td>
-                                                                <td className="px-6 py-4 text-right font-bold text-orange-400 text-lg">
-                                                                    {entry.points}
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
+                                    <div className="space-y-6">
+                                        <StandingsTable
+                                            standings={advancedTeamStandings}
+                                            type="teams"
+                                            title="Clasificación por Equipos"
+                                            accentColor="orange"
+                                            showRaceColumns={raceColumns.length > 0}
+                                            showStatsColumns={raceColumns.length > 0}
+                                            raceColumns={raceColumns}
+                                        />
 
-                                        {/* Clasificación Individual de Pilotos */}
-                                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                                            👤 Clasificación Individual de Pilotos
-                                        </h3>
-                                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden border border-blue-500/30">
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full">
-                                                    <thead className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-                                                        <tr>
-                                                            <th className="px-6 py-4 text-left">Pos</th>
-                                                            <th className="px-6 py-4 text-left">Piloto</th>
-                                                            {championship.settings?.isTeamChampionship && (
-                                                                <th className="px-6 py-4 text-left">Equipo</th>
-                                                            )}
-                                                            <th className="px-6 py-4 text-left">Categoría</th>
-                                                            <th className="px-6 py-4 text-right">Puntos</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="text-white">
-                                                        {getDriverStandings(championship, teams, tracks)
-                                                            .map((driver, index) => (
-                                                                <tr
-                                                                    key={index}
-                                                                    className={`
-                                                                            border-b border-white/10 hover:bg-white/5 transition-colors
-                                                                            ${getPositionBg(index)}
-                                                                        `}
-                                                                >
-                                                                    <td className="px-6 py-4 font-bold">
-                                                                        {getPositionDisplay(index)}
-                                                                    </td>
-                                                                    <td className="px-6 py-4">
-                                                                        <span className="font-semibold">{driver.name}</span>
-                                                                    </td>
-                                                                    {championship.settings?.isTeamChampionship && (
-                                                                        <td className="px-6 py-4">
-                                                                            <div className="flex items-center gap-2">
-                                                                                {driver.teamColor && (
-                                                                                    <div
-                                                                                        className="w-3 h-3 rounded-full"
-                                                                                        style={{ backgroundColor: driver.teamColor }}
-                                                                                    />
-                                                                                )}
-                                                                                <span className="text-gray-300">{driver.team}</span>
-                                                                            </div>
-                                                                        </td>
-                                                                    )}
-                                                                    <td className="px-6 py-4">
-                                                                        <span className="text-sm bg-blue-600/30 px-2 py-1 rounded">
-                                                                            {driver.category || '-'}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td className="px-6 py-4 text-right font-bold text-blue-400 text-lg">
-                                                                        {driver.points}
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
+                                        <StandingsTable
+                                            standings={advancedDriverStandings}
+                                            type="drivers"
+                                            title="Clasificación Individual de Pilotos"
+                                            accentColor="blue"
+                                            showTeamColumn={true}
+                                            showCategoryColumn={true}
+                                            showRaceColumns={raceColumns.length > 0}
+                                            showStatsColumns={raceColumns.length > 0}
+                                            raceColumns={raceColumns}
+                                            promotionZone={promotionZone}
+                                            relegationZone={relegationZone}
+                                        />
                                     </div>
                                 )}
 
                                 {/* Clasificación Individual (cuando NO es por equipos) */}
                                 {!championship.settings?.isTeamChampionship && (
-                                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden border border-orange-500/30">
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full">
-                                                <thead className="bg-gradient-to-r from-orange-600 to-red-600 text-white">
-                                                    <tr>
-                                                        <th className="px-6 py-4 text-left">Pos</th>
-                                                        <th className="px-6 py-4 text-left">Piloto</th>
-                                                        <th className="px-6 py-4 text-left">Equipo</th>
-                                                        <th className="px-6 py-4 text-left">Categoría</th>
-                                                        <th className="px-6 py-4 text-right">Puntos</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="text-white">
-                                                    {standings.map((entry, index) => (
-                                                        <tr
-                                                            key={index}
-                                                            className={`
-                                                                border-b border-white/10 hover:bg-white/5 transition-colors
-                                                                ${getPositionBg(index)}
-                                                            `}
-                                                        >
-                                                            <td className="px-6 py-4 font-bold">
-                                                                {getPositionDisplay(index)}
-                                                            </td>
-                                                            <td className="px-6 py-4">
-                                                                <span className="font-semibold">{entry.name}</span>
-                                                            </td>
-                                                            <td className="px-6 py-4">
-                                                                <div className="flex items-center gap-2">
-                                                                    {entry.teamColor && (
-                                                                        <div
-                                                                            className="w-3 h-3 rounded-full"
-                                                                            style={{ backgroundColor: entry.teamColor }}
-                                                                        />
-                                                                    )}
-                                                                    <span className="text-gray-300">{entry.team}</span>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-6 py-4">
-                                                                <span className="text-sm bg-blue-600/30 px-2 py-1 rounded">
-                                                                    {entry.category || '-'}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-6 py-4 text-right font-bold text-orange-400 text-lg">
-                                                                {entry.points}
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
+                                    <StandingsTable
+                                        standings={advancedDriverStandings}
+                                        type="individual"
+                                        accentColor="orange"
+                                        showTeamColumn={true}
+                                        showCategoryColumn={true}
+                                        showRaceColumns={raceColumns.length > 0}
+                                        showStatsColumns={raceColumns.length > 0}
+                                        raceColumns={raceColumns}
+                                        promotionZone={promotionZone}
+                                        relegationZone={relegationZone}
+                                    />
                                 )}
                             </div>
                         )}
@@ -429,6 +396,64 @@ export default function ChampionshipDetailPage() {
                                                                 ? track.allowedCars.join(', ')
                                                                 : 'Lista pendiente'}
                                                         </span>
+                                                    </div>
+                                                )}
+
+                                                {/* Reglas del circuito */}
+                                                {track.rules && (
+                                                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                                                        {track.raceType === 'sprint_carrera' && (
+                                                            <span className="bg-purple-500/20 border border-purple-500/30 text-purple-300 px-2 py-1 rounded">
+                                                                ⚡ Sprint + Carrera
+                                                            </span>
+                                                        )}
+                                                        {track.raceType === 'resistencia' && (
+                                                            <span className="bg-blue-500/20 border border-blue-500/30 text-blue-300 px-2 py-1 rounded">
+                                                                ⏱️ Resistencia ({track.duration} min)
+                                                            </span>
+                                                        )}
+                                                        {track.raceType === 'carrera' && (
+                                                            <span className="bg-green-500/20 border border-green-500/30 text-green-300 px-2 py-1 rounded">
+                                                                🏁 {track.laps} vueltas
+                                                            </span>
+                                                        )}
+                                                        {track.rules.weather && track.rules.weather !== 'clear' && (
+                                                            <span className="bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 px-2 py-1 rounded">
+                                                                🌧️ {track.rules.weather === 'rain' ? 'Lluvia' : track.rules.weather === 'variable' ? 'Variable' : track.rules.weather}
+                                                            </span>
+                                                        )}
+                                                        {track.rules.startTime && (
+                                                            <span className="bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-2 py-1 rounded">
+                                                                ⏰ {track.rules.startTime}
+                                                            </span>
+                                                        )}
+                                                        {(track.rules.timeMultiplier ?? 1) > 1 && (
+                                                            <span className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 px-2 py-1 rounded">
+                                                                ⏩ x{track.rules.timeMultiplier}
+                                                            </span>
+                                                        )}
+                                                        {(track.rules.mandatoryPitStops ?? 0) > 0 && (
+                                                            <span className="bg-red-500/20 border border-red-500/30 text-red-300 px-2 py-1 rounded">
+                                                                🛣️ {track.rules.mandatoryPitStops} pit stop{track.rules.mandatoryPitStops > 1 ? 's' : ''} obligatorio{track.rules.mandatoryPitStops > 1 ? 's' : ''}
+                                                            </span>
+                                                        )}
+                                                        {track.rules.mandatoryTyre?.length > 0 && (
+                                                            <span className="bg-amber-500/20 border border-amber-500/30 text-amber-300 px-2 py-1 rounded">
+                                                                🛞 Compuestos: {track.rules.mandatoryTyre.join(', ')}
+                                                            </span>
+                                                        )}
+                                                        {track.rules.bop === 'yes' && (
+                                                            <span className="bg-teal-500/20 border border-teal-500/30 text-teal-300 px-2 py-1 rounded">
+                                                                ⚖️ BoP
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {/* Notas del circuito */}
+                                                {track.rules?.notes && (
+                                                    <div className="mt-3 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                                                        <p className="text-blue-200 text-sm whitespace-pre-line">{track.rules.notes}</p>
                                                     </div>
                                                 )}
                                                 {track.layoutImage && (
@@ -516,22 +541,82 @@ export default function ChampionshipDetailPage() {
                                     )}
                                 </div>
 
-                                {standings.length > 0 && (
-                                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
-                                        <h3 className="text-xl font-bold text-white mb-4">🏆 Top 3</h3>
-                                        <div className="space-y-3">
-                                            {standings.slice(0, 3).map((entry, index) => (
-                                                <div key={index} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-2xl">
-                                                            {getPositionDisplay(index)}
-                                                        </span>
-                                                        <span className="text-white font-semibold">{entry.name}</span>
+                                {/* Panel de estadísticas detalladas */}
+                                <DriverStatsPanel
+                                    driverStandings={advancedDriverStandings}
+                                    stats={driverStats}
+                                />
+                            </div>
+                        )}
+
+                        {/* TAB: Comparar */}
+                        {activeTab === 'compare' && (
+                            <div>
+                                <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
+                                    ⚔️ Comparador de Pilotos
+                                </h2>
+                                <DriverComparator
+                                    driverStandings={advancedDriverStandings}
+                                    raceColumns={raceColumns}
+                                />
+                            </div>
+                        )}
+
+                        {/* TAB: Sanciones (público) */}
+                        {activeTab === 'penalties' && championship.penaltiesConfig?.enabled && (
+                            <div>
+                                <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
+                                    ⚠️ Sanciones del Campeonato
+                                </h2>
+                                {penalties.filter(p => p.status === 'applied').length === 0 ? (
+                                    <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
+                                        <div className="text-4xl mb-3">✅</div>
+                                        <p className="text-gray-400">Sin sanciones registradas</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {penalties.filter(p => p.status === 'applied').map(penalty => {
+                                            const severityConfig = SEVERITY_CONFIG[penalty.severity] || SEVERITY_CONFIG.minor;
+                                            return (
+                                                <div key={penalty.id}
+                                                    className={`bg-white/5 border rounded-xl p-4 ${severityConfig.border}`}>
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                                <span className="text-white font-bold">{penalty.driverName}</span>
+                                                                <span className={`text-xs px-2 py-0.5 rounded ${severityConfig.bg} ${severityConfig.color}`}>
+                                                                    {severityConfig.label}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-white text-sm">{penalty.name}</div>
+                                                            {penalty.description && <div className="text-gray-400 text-xs mt-1">{penalty.description}</div>}
+                                                            <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                                                                {penalty.trackName && <span>🏁 R{penalty.round} - {penalty.trackName}</span>}
+                                                                <span>📅 {new Date(penalty.appliedAt).toLocaleDateString('es-ES')}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right flex-shrink-0">
+                                                            {penalty.points > 0 && <span className="text-red-400 font-bold text-sm">-{penalty.points} pts</span>}
+                                                            {penalty.warningPoints > 0 && <div className="text-yellow-400 text-xs">+{penalty.warningPoints} ⚠️</div>}
+                                                        </div>
                                                     </div>
-                                                    <span className="text-orange-400 font-bold text-lg">{entry.points} pts</span>
                                                 </div>
-                                            ))}
-                                        </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* Botón enviar reclamación */}
+                                {championship.penaltiesConfig?.allowClaims && (
+                                    <div className="mt-6 bg-gradient-to-br from-orange-600/20 to-red-600/20 border border-orange-400/30 rounded-xl p-6 text-center">
+                                        <h3 className="text-white font-bold text-lg mb-2">📩 ¿Viste una infracción?</h3>
+                                        <p className="text-gray-300 text-sm mb-4">Reporta el incidente para que los directores de carrera lo revisen</p>
+                                        <button
+                                            onClick={() => setShowClaimForm(true)}
+                                            className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-6 py-3 rounded-lg font-bold transition-all"
+                                        >
+                                            📩 Reportar Incidente
+                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -680,6 +765,32 @@ export default function ChampionshipDetailPage() {
                                             )}
                                         </div>
                                     )}
+
+                                    {/* Reglamentación */}
+                                    {championship.regulations && (
+                                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
+                                            <h3 className="text-xl font-bold text-white mb-4">📜 Reglamentación</h3>
+                                            <div className="bg-white/5 rounded-lg p-4">
+                                                <p className="text-gray-200 whitespace-pre-line text-sm leading-relaxed">{championship.regulations}</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Tracking de Autos */}
+                                    {championship.carUsageTracking?.enabled && (
+                                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
+                                            <h3 className="text-xl font-bold text-white mb-4">🚗 Uso de Autos</h3>
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                                    <span className="text-gray-300">Máximo usos por auto</span>
+                                                    <span className="text-white font-semibold">{championship.carUsageTracking.maxUsesPerCar} carreras</span>
+                                                </div>
+                                                <p className="text-gray-400 text-xs">
+                                                    Cada piloto puede usar el mismo auto un máximo de {championship.carUsageTracking.maxUsesPerCar} veces durante el campeonato.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -740,6 +851,63 @@ export default function ChampionshipDetailPage() {
                                 </div>
                             </div>
 
+                            {/* Inscripción */}
+                            {championship.registration?.enabled && championship.status === 'active' && (
+                                <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-400/30 rounded-xl p-6">
+                                    <h3 className="text-white font-bold text-lg mb-2 flex items-center gap-2">
+                                        📝 Inscríbete
+                                    </h3>
+                                    <p className="text-gray-300 text-sm mb-4">
+                                        ¡Las inscripciones están abiertas! Únete al campeonato.
+                                    </p>
+                                    {championship.registration?.maxParticipants > 0 && (
+                                        <div className="text-sm text-gray-300 mb-3">
+                                            👥 {(championship.registrations || []).filter(r => r.status === 'approved').length}/{championship.registration.maxParticipants} cupos ocupados
+                                        </div>
+                                    )}
+                                    {championship.registration?.deadline && (
+                                        <div className="text-sm text-orange-300 mb-3">
+                                            📅 Hasta el {new Date(championship.registration.deadline).toLocaleDateString('es-ES')}
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={() => setShowRegistration(true)}
+                                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-4 py-3 rounded-lg font-bold transition-all text-center"
+                                    >
+                                        🏁 Inscribirme
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Streaming info */}
+                            {hasStreaming && championship.streaming?.casterName && (
+                                <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-4">
+                                    <h3 className="text-white font-bold mb-3">📺 Transmisión</h3>
+                                    <div className="space-y-2 text-sm">
+                                        {championship.streaming.casterName && (
+                                            <div className="flex justify-between text-gray-300">
+                                                <span>🎙️ Caster:</span>
+                                                <span className="text-white font-medium">{championship.streaming.casterName}</span>
+                                            </div>
+                                        )}
+                                        {championship.streaming.hostName && (
+                                            <div className="flex justify-between text-gray-300">
+                                                <span>🏠 Host:</span>
+                                                <span className="text-white font-medium">{championship.streaming.hostName}</span>
+                                            </div>
+                                        )}
+                                        <a
+                                            href={championship.streaming.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block w-full text-center mt-3 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/30 text-white rounded-lg transition-all font-medium"
+                                        >
+                                            {streamPlatform?.icon || '📺'} Ver en {streamPlatform?.label || 'Stream'}
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Botón volver */}
                             <button
                                 onClick={() => router.push('/')}
@@ -751,6 +919,27 @@ export default function ChampionshipDetailPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Modal de Inscripción */}
+            {showRegistration && (
+                <RegistrationForm
+                    championship={championship}
+                    onClose={() => setShowRegistration(false)}
+                    onSuccess={() => loadChampionshipData()}
+                />
+            )}
+
+            {/* Modal de Reclamación */}
+            {showClaimForm && (
+                <ClaimForm
+                    championshipId={championshipId}
+                    championship={championship}
+                    teams={teams}
+                    tracks={tracks}
+                    onClose={() => setShowClaimForm(false)}
+                    onSubmitted={() => loadChampionshipData()}
+                />
+            )}
         </div>
     );
 }

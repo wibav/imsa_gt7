@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { calculateProgress, getNextRace } from "../utils/championshipUtils";
 import { formatDateShort } from "../utils/dateUtils";
 import { STATUS_COLORS, STATUS_LABELS } from "../utils/constants";
+import StatusBadge from "./common/StatusBadge";
 
 // Re-exportar calculateProgress para compatibilidad con código existente
 export { calculateProgress } from "../utils/championshipUtils";
@@ -45,9 +46,7 @@ export default function ChampionshipCard({ championship, tracks = [], onClick })
                     />
                     {/* Badge de estado */}
                     <div className="absolute top-3 right-3">
-                        <span className={`${STATUS_COLORS[championship.status] || 'bg-gray-500'} text-white text-xs px-2 py-1 rounded-full font-bold`}>
-                            {STATUS_LABELS[championship.status] || championship.status}
-                        </span>
+                        <StatusBadge status={championship.status} size="sm" />
                     </div>
                 </div>
             )}
