@@ -724,7 +724,7 @@ Importar la lista de pilotos o equipos de un campeonato anterior:
 - **Compartir briefing** como imagen para Discord/WhatsApp
 - **Notificación** a pilotos (email o push) — futuro
 
-####  8.3.4 Perfiles Globales de Piloto
+#### 8.3.4 Perfiles Globales de Piloto
 
 - **Perfil persistente** entre campeonatos: nombre, PSN ID, avatar, país
 - **Estadísticas históricas** acumuladas: total de carreras, victorias, podiums, poles, vueltas rápidas, DNFs
@@ -1268,18 +1268,18 @@ eventSeries/                                     ← NUEVO: series de eventos
 
 ## Resumen Final
 
-| Métrica                                       | Valor                                                                                            |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| **Funcionalidades actuales**                  | ~22 features funcionales                                                                         |
-| **Funcionalidades nuevas propuestas**         | ~35 features (todas opcionales)                                                                  |
-| **Bugs detectados**                           | 4 (1 crítico) — **todos corregidos**                                                             |
-| **Duplicaciones de código**                   | 6 patrones — **6 resueltos (todos)**                                                             |
-| **Líneas de código duplicadas** (new vs edit) | ✅ Unificado: ~4,200 → ~850 líneas (`ChampionshipForm.js`) — reducción del 79%                   |
-| **Módulos opcionales propuestos**             | 8 (sanciones, inscripción, divisiones, streaming, sprint, compuestos, reglamento, reclamaciones) |
-| **Mejoras para eventos únicos**               | 6 subsecciones nuevas                                                                            |
+| Métrica                                       | Valor                                                                                                 |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **Funcionalidades actuales**                  | ~22 features funcionales                                                                              |
+| **Funcionalidades nuevas propuestas**         | ~35 features (todas opcionales)                                                                       |
+| **Bugs detectados**                           | 4 (1 crítico) — **todos corregidos**                                                                  |
+| **Duplicaciones de código**                   | 6 patrones — **6 resueltos (todos)**                                                                  |
+| **Líneas de código duplicadas** (new vs edit) | ✅ Unificado: ~4,200 → ~850 líneas (`ChampionshipForm.js`) — reducción del 79%                        |
+| **Módulos opcionales propuestos**             | 8 (sanciones, inscripción, divisiones, streaming, sprint, compuestos, reglamento, reclamaciones)      |
+| **Mejoras para eventos únicos**               | 6 subsecciones nuevas                                                                                 |
 | **Recomendaciones adicionales**               | Descartadas (roles, Discord, PWA, audit, temas) — solo se implementan: perfiles, export PNG, briefing |
-| **Fases del roadmap**                         | 8 fases — **todas completadas** ✅                                                                  |
-| **Esfuerzo total estimado**                   | ~12-16 semanas (1 desarrollador)                                                                 |
-| **Principio de diseño clave**                 | Todo es opcional por campeonato                                                                  |
+| **Fases del roadmap**                         | 8 fases — **todas completadas** ✅                                                                    |
+| **Esfuerzo total estimado**                   | ~12-16 semanas (1 desarrollador)                                                                      |
+| **Principio de diseño clave**                 | Todo es opcional por campeonato                                                                       |
 
 El sistema actual tiene una base sólida en `imsa_gt7` tras las correcciones realizadas (bugs corregidos, utilidades centralizadas, código legacy deprecado). Las **Fases 1-7 están completadas**, cubriendo: limpieza y unificación de código, inscripción y streaming, standings avanzados con estadísticas y comparador, sistema de sanciones configurables, reglamentación y configuración de circuitos, divisiones con ascensos/descensos, y **eventos mejorados** con CRUD completo (secciones colapsables, reglas detalladas, neumáticos obligatorios multi-select, climatología, streaming con caster/host, inscripción pública, participantes con PSN ID, resultados, categorías/formatos, duplicar evento, contador regresivo y badge EN VIVO). Las nuevas propuestas siguen el **principio de opcionalidad**: cada módulo se activa independientemente. La **Fase 8** (Experiencia Avanzada) está **completada** con página de perfiles globales de piloto (`/pilots`), exportación de clasificación como imagen PNG, y briefing pre-carrera exportable. **Todas las 8 fases del roadmap están completadas.**

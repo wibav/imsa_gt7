@@ -17,7 +17,7 @@ export default function ChampionshipDetail() {
     const championshipId = searchParams.get("id");
 
     const { currentUser, loading: authLoading } = useAuth();
-    const { championships, updateChampionship, loading: championshipsLoading } = useChampionship();
+    const { championships, updateChampionship, deleteChampionship, loading: championshipsLoading } = useChampionship();
 
     const [championship, setChampionship] = useState(null);
     const [teams, setTeams] = useState([]);
@@ -216,6 +216,23 @@ export default function ChampionshipDetail() {
                                             >
                                                 ✏️
                                             </button>
+                                            {champ.status === 'draft' && (
+                                                <button
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        if (window.confirm(`¿Eliminar el campeonato "${champ.name}"? Esta acción no se puede deshacer.`)) {
+                                                            try {
+                                                                await deleteChampionship(champ.id);
+                                                            } catch (err) {
+                                                                alert('Error al eliminar: ' + err.message);
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all text-sm font-medium"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -498,16 +515,22 @@ function InfoTab({ championship, editMode, onUpdate }) {
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Estado</label>
-                        <select
-                            value={formData.status}
-                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white"
-                        >
-                            <option value="draft" className="bg-slate-800">Borrador</option>
-                            <option value="active" className="bg-slate-800">Activo</option>
-                            <option value="completed" className="bg-slate-800">Completado</option>
-                            <option value="archived" className="bg-slate-800">Archivado</option>
-                        </select>
+                        {championship.status === 'completed' ? (
+                            <div className="w-full px-4 py-2 bg-white/5 border border-white/20 rounded-lg text-gray-400 cursor-not-allowed flex items-center gap-2">
+                                🔒 Finalizado <span className="text-xs">(no editable)</span>
+                            </div>
+                        ) : (
+                            <select
+                                value={formData.status}
+                                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white"
+                            >
+                                <option value="draft" className="bg-slate-800">Borrador</option>
+                                <option value="active" className="bg-slate-800">Activo</option>
+                                <option value="completed" className="bg-slate-800">Completado</option>
+                                <option value="archived" className="bg-slate-800">Archivado</option>
+                            </select>
+                        )}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Fecha Inicio</label>
