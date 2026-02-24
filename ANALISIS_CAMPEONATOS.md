@@ -19,9 +19,8 @@
 8. [Ideas de Mejora para el Sistema de Campeonatos](#8-ideas-de-mejora-para-el-sistema-de-campeonatos)
    - 8.1 [Prioridad ALTA — Funcionalidades Core](#81-prioridad-alta--funcionalidades-core) (Divisiones, Sanciones, Sprint, Standings, Inscripción, Streaming)
    - 8.2 [Prioridad MEDIA — Reglamentación](#82-prioridad-media--reglamentación) (Reglamento, Compuestos, Clima, Coches, Reutilización)
-   - 8.3 [Prioridad BAJA — Mejoras de UX](#83-prioridad-baja--mejoras-de-ux) (Briefing, Ediciones, Gráficos, Perfiles)
+   - 8.3 [Prioridad BAJA — Mejoras de UX](#83-prioridad-baja--mejoras-de-ux) (Briefing, Perfiles)
    - 8.4 [Mejoras para Eventos Únicos](#84-mejoras-para-eventos-únicos)
-   - 8.5 [Recomendaciones Adicionales](#85-recomendaciones-adicionales)
 9. [Modelo de Datos Propuesto (Unificado)](#9-modelo-de-datos-propuesto-unificado)
 10. [Roadmap Priorizado](#10-roadmap-priorizado)
 
@@ -725,28 +724,12 @@ Importar la lista de pilotos o equipos de un campeonato anterior:
 - **Compartir briefing** como imagen para Discord/WhatsApp
 - **Notificación** a pilotos (email o push) — futuro
 
-#### 🔄 8.3.2 Temporadas/Ediciones
-
-- Concepto de **"edición"** (1ᵃ, 2ᵃ, ..., 10ᵐᵃ)
-- **Historial de ediciones** pasadas con acceso a clasificaciones archivadas
-- **Estadísticas acumuladas** entre ediciones (wins totales, campeonatos ganados)
-- **Campeones por edición** (galería de campeones)
-
-#### 📈 8.3.3 Gráficos y Visualización
-
-- **Gráfica de evolución de puntos** (line chart por carrera)
-- **Comparador de pilotos** (radar chart: wins, podiums, poles, fastest laps, consistency)
-- **Top performers por circuito**
-- **Mapa de circuitos** con pines interactivos
-- **Exportar clasificación como imagen** (para compartir en redes/Discord)
-
-#### 👤 8.3.4 Perfiles Globales de Piloto
+####  8.3.4 Perfiles Globales de Piloto
 
 - **Perfil persistente** entre campeonatos: nombre, PSN ID, avatar, país
 - **Estadísticas históricas** acumuladas: total de carreras, victorias, podiums, poles, vueltas rápidas, DNFs
 - **Historial de campeonatos** en los que participó con resultados finales
 - **Historial de sanciones** acumulado (si aplica)
-- **Insignias/logros** automáticos (primera victoria, 10 podiums, campeón, etc.)
 
 ---
 
@@ -811,62 +794,6 @@ Implementada la misma estructura de reglas detalladas de los circuitos de campeo
 - ⬚ **Pendiente**: historial de eventos pasados con resultados archivados
 - ⬚ **Pendiente**: compartir evento como imagen
 - ⬚ **Pendiente**: recordatorio de evento (notificación push o email)
-
----
-
-### 8.5 Recomendaciones Adicionales
-
-Funcionalidades complementarias que elevarían el sistema a una plataforma profesional de gestión de sim racing:
-
-#### 🔐 8.5.1 Control de Acceso por Roles
-
-Actualmente los admins están hardcodeados por email. Se recomienda:
-
-- **Roles definidos**: Super Admin, Admin, Moderador, Caster, Piloto
-- **Super Admin**: gestión total + gestión de otros admins
-- **Admin**: CRUD de campeonatos, eventos, sanciones
-- **Moderador**: solo gestionar sanciones y reclamaciones
-- **Caster**: solo puede marcar carreras como "en vivo" y subir enlaces de stream
-- **Piloto**: solo puede inscribirse, ver su perfil, enviar reclamaciones
-- **Gestión desde panel admin**: agregar/remover roles por email
-
-#### 🔔 8.5.2 Notificaciones y Webhooks
-
-- **Webhook de Discord**: enviar notificaciones automáticas al servidor de Discord del club:
-  - Nueva carrera programada
-  - Resultados publicados
-  - Clasificación actualizada
-  - Inscripción abierta/cerrada
-  - Sanciones emitidas
-- **Configurar URL de webhook** por campeonato (campo opcional)
-- **Formato**: embed de Discord con colores, thumbnail, y campos estructurados
-- Futuro: soporte para **WhatsApp Business API** o **Telegram Bot**
-
-#### 📱 8.5.3 Experiencia Móvil Optimizada
-
-- **UI responsive optimizada** para consultar clasificaciones y calendario desde el teléfono
-- **PWA (Progressive Web App)**: instalar como app en el teléfono sin app store
-- **Modo offline**: cache de los datos visitados para consultar sin conexión
-- **Notificaciones push** (vía Service Worker) para recordatorios de carrera
-
-#### 📤 8.5.4 Exportación e Interoperabilidad
-
-- **Exportar clasificación como imagen PNG** con diseño profesional (para compartir en redes)
-- **Exportar datos a CSV/Excel**: clasificaciones, resultados, sanciones, pilotos
-- **Exportar reglamento como PDF** auto-generado (similar al PDF del club analizado)
-- **API pública (read-only)**: endpoint JSON para que otros puedan consumir datos del campeonato (widgets, bots, etc.)
-
-#### 📝 8.5.5 Registro de Actividad (Audit Log)
-
-- **Log de acciones admin**: quién creó, editó, eliminó campeonatos/eventos/sanciones
-- **Historial de cambios** en clasificaciones (quién modificó los puntos y cuándo)
-- **Trazabilidad completa** de sanciones: quién la emitió, quién la resolvió, cuándo
-
-#### 🎨 8.5.6 Personalización Visual por Campeonato
-
-- **Color primario/acento** configurable por campeonato (para que cada liga tenga su identidad)
-- **Banner y logo** ya existentes — agregar **favicon personalizado** por campeonato
-- **Tema claro/oscuro** a nivel de sistema (preferencia del usuario)
 
 ---
 
@@ -1319,19 +1246,23 @@ eventSeries/                                     ← NUEVO: series de eventos
 
 **Nota sobre Casters:** Actualmente un evento soporta 1 caster (`streaming.casterName: string`). Se contempla como mejora futura permitir **múltiples casters** por evento (`casters: string[]`), ya que un evento único con múltiples salas o una transmisión conjunta puede requerir más de un narrador.
 
-### Fase 8 — Experiencia Avanzada (2-3 semanas)
+### Fase 8 — Experiencia Avanzada (~1 semana) ✅ COMPLETADA
 
-| #   | Tarea                                                                 | Esfuerzo |
-| --- | --------------------------------------------------------------------- | -------- |
-| 8.1 | Perfiles globales de piloto con estadísticas históricas               | 6h       |
-| 8.2 | Insignias/logros automáticos                                          | 4h       |
-| 8.3 | Sistema de ediciones/temporadas con historial                         | 6h       |
-| 8.4 | Gráficos de evolución de puntos                                       | 6h       |
-| 8.5 | Exportar clasificación como imagen PNG                                | 4h       |
-| 8.6 | Briefing pre-carrera (vista informativa + compartir)                  | 4h       |
-| 8.7 | Control de acceso por roles (Super Admin, Admin, Mod, Caster, Piloto) | 8h       |
-| 8.8 | Webhook de Discord para notificaciones automáticas                    | 5h       |
-| 8.9 | PWA + modo offline básico                                             | 4h       |
+| #   | Tarea                                                   | Esfuerzo | Estado |
+| --- | ------------------------------------------------------- | -------- | ------ |
+| 8.1 | Perfiles globales de piloto con estadísticas históricas | 6h       | ✅     |
+| 8.2 | Exportar clasificación como imagen PNG                  | 4h       | ✅     |
+| 8.3 | Briefing pre-carrera (vista informativa + compartir)    | 4h       | ✅     |
+
+**Archivos creados/modificados en Fase 8:**
+
+- `src/app/pilots/page.js` — Página pública de perfiles globales de piloto: listado con tabla completa, podium top 3, vista detalle por piloto con stats históricas acumuladas de todos los campeonatos, historial de campeonatos con posición final
+- `src/app/components/championship/ExportableStandings.js` — Componente para exportar clasificación como imagen PNG: modal de preview, descarga directa y copiar al clipboard, diseño optimizado para redes sociales con tabla de equipos (si aplica) y pilotos
+- `src/app/components/championship/RaceBriefing.js` — Briefing pre-carrera exportable: resumen visual de la próxima carrera (circuito, fecha, countdown, formato, climatología, desgaste, neumáticos obligatorios, coches permitidos, penalizaciones, streaming), exportable como PNG
+- `src/app/championships/page.js` — Integrados botones "Exportar como Imagen" y "Briefing Pre-Carrera" en el tab de clasificación
+- `src/app/components/Navbar.js` — Agregado enlace "🏎️ Pilotos" en la navegación principal
+- `src/app/utils/index.js` — Agregados re-exports de `calculateAdvancedStandings`, `getDriverStats`, `compareDrivers` desde standingsCalculator
+- `package.json` — Agregada dependencia `html-to-image` para exportar como imagen
 
 ---
 
@@ -1346,9 +1277,9 @@ eventSeries/                                     ← NUEVO: series de eventos
 | **Líneas de código duplicadas** (new vs edit) | ✅ Unificado: ~4,200 → ~850 líneas (`ChampionshipForm.js`) — reducción del 79%                   |
 | **Módulos opcionales propuestos**             | 8 (sanciones, inscripción, divisiones, streaming, sprint, compuestos, reglamento, reclamaciones) |
 | **Mejoras para eventos únicos**               | 6 subsecciones nuevas                                                                            |
-| **Recomendaciones adicionales**               | 6 (roles, Discord, PWA, export, audit, temas)                                                    |
-| **Fases del roadmap**                         | 8 fases (7 completadas, 1 pendiente)                                                             |
+| **Recomendaciones adicionales**               | Descartadas (roles, Discord, PWA, audit, temas) — solo se implementan: perfiles, export PNG, briefing |
+| **Fases del roadmap**                         | 8 fases — **todas completadas** ✅                                                                  |
 | **Esfuerzo total estimado**                   | ~12-16 semanas (1 desarrollador)                                                                 |
 | **Principio de diseño clave**                 | Todo es opcional por campeonato                                                                  |
 
-El sistema actual tiene una base sólida en `imsa_gt7` tras las correcciones realizadas (bugs corregidos, utilidades centralizadas, código legacy deprecado). Las **Fases 1-7 están completadas**, cubriendo: limpieza y unificación de código, inscripción y streaming, standings avanzados con estadísticas y comparador, sistema de sanciones configurables, reglamentación y configuración de circuitos, divisiones con ascensos/descensos, y **eventos mejorados** con CRUD completo (secciones colapsables, reglas detalladas, neumáticos obligatorios multi-select, climatología, streaming con caster/host, inscripción pública, participantes con PSN ID, resultados, categorías/formatos, duplicar evento, contador regresivo y badge EN VIVO). Las nuevas propuestas siguen el **principio de opcionalidad**: cada módulo se activa independientemente. La **Fase 8** (Experiencia Avanzada) queda pendiente con perfiles globales de piloto, insignias/logros, ediciones/temporadas, gráficos de evolución, exportación como imagen, briefing pre-carrera, control de acceso por roles, webhooks de Discord y PWA.
+El sistema actual tiene una base sólida en `imsa_gt7` tras las correcciones realizadas (bugs corregidos, utilidades centralizadas, código legacy deprecado). Las **Fases 1-7 están completadas**, cubriendo: limpieza y unificación de código, inscripción y streaming, standings avanzados con estadísticas y comparador, sistema de sanciones configurables, reglamentación y configuración de circuitos, divisiones con ascensos/descensos, y **eventos mejorados** con CRUD completo (secciones colapsables, reglas detalladas, neumáticos obligatorios multi-select, climatología, streaming con caster/host, inscripción pública, participantes con PSN ID, resultados, categorías/formatos, duplicar evento, contador regresivo y badge EN VIVO). Las nuevas propuestas siguen el **principio de opcionalidad**: cada módulo se activa independientemente. La **Fase 8** (Experiencia Avanzada) está **completada** con página de perfiles globales de piloto (`/pilots`), exportación de clasificación como imagen PNG, y briefing pre-carrera exportable. **Todas las 8 fases del roadmap están completadas.**
