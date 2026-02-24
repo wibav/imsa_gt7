@@ -23,6 +23,8 @@ import DriverComparator from "../components/championship/DriverComparator";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
 import RegistrationForm from "../components/championship/RegistrationForm";
 import ClaimForm from '../components/championship/ClaimForm';
+import ExportableStandings from '../components/championship/ExportableStandings';
+import RaceBriefing from '../components/championship/RaceBriefing';
 import { STREAMING_PLATFORMS } from '../utils/constants';
 import { SEVERITY_CONFIG } from '../models/Penalty';
 
@@ -256,9 +258,25 @@ export default function ChampionshipDetailPage() {
                         {/* TAB: Clasificación */}
                         {activeTab === 'standings' && (
                             <div className="space-y-6">
-                                <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
-                                    📊 Clasificación Actual
-                                </h2>
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                                    <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+                                        📊 Clasificación Actual
+                                    </h2>
+                                    <div className="flex flex-wrap gap-2">
+                                        <ExportableStandings
+                                            standings={advancedDriverStandings}
+                                            teamStandings={advancedTeamStandings}
+                                            championship={championship}
+                                            progress={progress}
+                                            raceColumns={raceColumns}
+                                        />
+                                        <RaceBriefing
+                                            nextRace={nextRace}
+                                            championship={championship}
+                                            progress={progress}
+                                        />
+                                    </div>
+                                </div>
 
                                 {/* Selector de División */}
                                 {championship?.divisionsConfig?.enabled && divisions.length > 0 && (
