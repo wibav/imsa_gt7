@@ -2,7 +2,7 @@
 export function generateMetadata({
     title,
     description,
-    images = ["/og-image.jpg"],
+    images = ["/logo_gt7.png"],
     url,
     type = "website",
     keywords = [],
