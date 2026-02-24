@@ -17,8 +17,8 @@ const metaBlock = `  <title>Dashboard - GT7 Championships</title>
   <meta property="og:site_name" content="GT7 Championships">
   <meta property="og:title" content="IMSA - GT7 Championships">
   <meta property="og:description" content="Consulta en tiempo real las estadísticas, clasificaciones y resultados del campeonato GT7 Championships.">
-    <meta property="og:image" content="https://imsa.trenkit.com/og-image.png">
-    <meta property="og:image:secure_url" content="https://imsa.trenkit.com/og-image.png">
+        <meta property="og:image" content="https://imsa.trenkit.com/logo_gt7.png">
+        <meta property="og:image:secure_url" content="https://imsa.trenkit.com/logo_gt7.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="GT7 Championships - IMSA">
@@ -26,7 +26,7 @@ const metaBlock = `  <title>Dashboard - GT7 Championships</title>
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="GT7 Championships">
   <meta name="twitter:description" content="IMSA GT7 Championships">
-    <meta name="twitter:image" content="https://imsa.trenkit.com/og-image.png">`;
+        <meta name="twitter:image" content="https://imsa.trenkit.com/logo_gt7.png">`;
 
 function inject(filePath) {
     let html = fs.readFileSync(filePath, 'utf8');

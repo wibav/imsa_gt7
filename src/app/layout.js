@@ -19,7 +19,7 @@ export const metadata = {
     siteName: "GT7 ESP Racing Club",
     images: [
       {
-        url: "/og-image.png",
+        url: "/logo_gt7.png",
         width: 1200,
         height: 630,
         alt: "GT7 Championships - Dashboard del Campeonato",
@@ -32,7 +32,7 @@ export const metadata = {
     card: "summary_large_image",
     title: "GT7 ESP Racing Club",
     description: "Dashboard de resultados del campeonato GT7 ESP Racing Club",
-    images: ["/og-image.png"],
+    images: ["/logo_gt7.png"],
     creator: "@GT7ESPRacing",
   },
   icons: {

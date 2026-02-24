@@ -4,7 +4,7 @@ export default function Head() {
         "Consulta en tiempo real las estadísticas, clasificaciones y resultados del campeonato GT7 Championships. Dashboard interactivo con datos actualizados.";
     const siteName = "GT7 Championships";
     const url = "https://imsa.trenkit.com/";
-    const image = "https://imsa.trenkit.com/og-image.png"; // PNG 1200x630 para previews
+    const image = "https://imsa.trenkit.com/logo_gt7.png"; // PNG para previews
 
     const fbAppId = process.env.NEXT_PUBLIC_FB_APP_ID;
 
