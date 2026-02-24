@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import Script from 'next/script';
 
 export function AdSense({
@@ -10,19 +10,42 @@ export function AdSense({
   style = {},
   className = '',
 }) {
+  const adRef = useRef(null);
+  const pushed = useRef(false);
+
   useEffect(() => {
-    try {
-      if (typeof window !== 'undefined' && window.adsbygoogle) {
-        window.adsbygoogle.push({});
+    if (pushed.current) return;
+
+    const tryPush = () => {
+      try {
+        if (typeof window !== 'undefined' && window.adsbygoogle && adRef.current) {
+          window.adsbygoogle.push({});
+          pushed.current = true;
+        }
+      } catch (err) {
+        // Silenciar errores de AdSense (ad blockers, slots inválidos, etc.)
       }
-    } catch (err) {
-      console.error('AdSense error:', err);
+    };
+
+    // Esperar a que el script esté disponible
+    if (window.adsbygoogle) {
+      tryPush();
+    } else {
+      const interval = setInterval(() => {
+        if (window.adsbygoogle) {
+          tryPush();
+          clearInterval(interval);
+        }
+      }, 300);
+      // Limpiar si el componente se desmonta
+      return () => clearInterval(interval);
     }
-  }, []);
+  }, [adSlot]);
 
   return (
     <div className={`ad-container ${className}`} style={style}>
       <ins
+        ref={adRef}
         className="adsbygoogle"
         style={{ display: 'block' }}
         data-ad-client="ca-pub-3229768467294527"
