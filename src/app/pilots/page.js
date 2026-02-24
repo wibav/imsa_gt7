@@ -231,13 +231,12 @@ export default function PilotsPage() {
                                             {champ.season && (
                                                 <span className="text-orange-400 text-sm">📅 {champ.season}</span>
                                             )}
-                                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                                                champ.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                                                champ.status === 'active' ? 'bg-blue-500/20 text-blue-400' :
-                                                'bg-gray-500/20 text-gray-400'
-                                            }`}>
+                                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${champ.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                                                    champ.status === 'active' ? 'bg-blue-500/20 text-blue-400' :
+                                                        'bg-gray-500/20 text-gray-400'
+                                                }`}>
                                                 {champ.status === 'completed' ? '✓ Finalizado' :
-                                                 champ.status === 'active' ? '● Activo' : champ.status}
+                                                    champ.status === 'active' ? '● Activo' : champ.status}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-4 text-sm text-gray-400 flex-wrap">
