@@ -14,12 +14,11 @@ import { FirebaseService } from '../../services/firebaseService';
  */
 export default function RegistrationForm({ championship, onClose, onSuccess }) {
     const registration = championship.registration || {};
-    const fields = registration.fields || ['name', 'psnId'];
+    const fields = registration.fields || ['gt7Id', 'psnId'];
 
     const [formData, setFormData] = useState({
-        name: '',
+        gt7Id: '',
         psnId: '',
-        country: '',
         experience: '',
         preferredCar: '',
         acceptedRules: false
@@ -41,12 +40,8 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
         setError('');
 
         // Validaciones
-        if (!formData.name.trim()) {
-            setError('El nombre es obligatorio');
-            return;
-        }
-        if (!formData.psnId.trim()) {
-            setError('El PSN ID es obligatorio');
+        if (!formData.gt7Id.trim()) {
+            setError('El GT7 ID es obligatorio');
             return;
         }
         if (registration.acceptRules && !formData.acceptedRules) {
@@ -132,9 +127,8 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
     }
 
     const fieldConfig = {
-        name: { label: 'Nombre / Gamertag', type: 'text', placeholder: 'Tu nombre o gamertag', required: true },
-        psnId: { label: 'PSN ID', type: 'text', placeholder: 'Tu PlayStation Network ID', required: true },
-        country: { label: 'País', type: 'text', placeholder: 'Tu país de residencia' },
+        gt7Id: { label: 'GT7 ID', type: 'text', placeholder: 'Tu GT7 ID', required: true },
+        psnId: { label: 'PSN ID (opcional)', type: 'text', placeholder: 'Tu PlayStation Network ID' },
         experience: {
             label: 'Experiencia', type: 'select', options: [
                 { value: '', label: 'Selecciona...' },

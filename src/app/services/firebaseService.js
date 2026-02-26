@@ -157,6 +157,48 @@ export class FirebaseService {
     }
   }
 
+  // Agregar un participante a un evento
+  static async addEventParticipant(eventId, participantData) {
+    try {
+      const eventRef = doc(db, "events", String(eventId));
+      const eventSnap = await getDoc(eventRef);
+
+      if (!eventSnap.exists()) {
+        throw new Error("Evento no encontrado");
+      }
+
+      const eventData = eventSnap.data();
+      const currentParticipants = eventData.participants || [];
+
+      // Verificar si el participante ya existe (por GT7 ID)
+      const exists = currentParticipants.some(p => p.gt7Id === participantData.gt7Id);
+      if (exists) {
+        throw new Error("Este GT7 ID ya está registrado en el evento");
+      }
+
+      // Verificar límite de participantes
+      if (eventData.maxParticipants && currentParticipants.length >= eventData.maxParticipants) {
+        throw new Error("El evento ya está lleno");
+      }
+
+      // Agregar el nuevo participante
+      const newParticipant = {
+        ...participantData,
+        registeredAt: new Date().toISOString()
+      };
+
+      await updateDoc(eventRef, {
+        participants: [...currentParticipants, newParticipant],
+        updatedAt: new Date().toISOString()
+      });
+
+      return { success: true, participant: newParticipant };
+    } catch (error) {
+      console.error("Error adding participant:", error);
+      throw error;
+    }
+  }
+
   // ========================================
   // CHAMPIONSHIPS METHODS
   // ========================================
