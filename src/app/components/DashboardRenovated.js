@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import Navbar from './Navbar';
 import ChampionshipCard from './ChampionshipCard';
 import EventCard from './EventCard';
+import RegistrationModal from './RegistrationModal';
 import { isInCurrentWeek } from '../utils/dateUtils';
 import { BannerAd } from './ads';
 import LoadingSkeleton from './common/LoadingSkeleton';
@@ -14,6 +15,10 @@ export default function DashboardRenovated() {
     const [events, setEvents] = useState([]);
     const [championshipTracks, setChampionshipTracks] = useState({});
     const [loading, setLoading] = useState(true);
+    const [selectedEvent, setSelectedEvent] = useState(null);
+    const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
+    const [isRegistering, setIsRegistering] = useState(false);
+    const [registrationMessage, setRegistrationMessage] = useState("");
     const { championships, loading: championshipsLoading } = useChampionship();
     const { currentUser, isAdmin } = useAuth();
 
@@ -84,8 +89,36 @@ export default function DashboardRenovated() {
     };
 
     const handleRegisterToEvent = (event) => {
-        // TODO: Implementar lógica de registro
-        console.log("Registrarse al evento:", event);
+        setSelectedEvent(event);
+        setIsRegistrationModalOpen(true);
+    };
+
+    const handleRegistration = async (participantData) => {
+        if (!selectedEvent) return;
+        setIsRegistering(true);
+        try {
+            await FirebaseService.addEventParticipant(selectedEvent.id, participantData);
+            setRegistrationMessage("✅ ¡Inscripción exitosa! Bienvenido al evento.");
+
+            // Recargar eventos para actualizar la lista de participantes
+            await fetchData();
+
+            // Cerrar modal después de 2 segundos
+            setTimeout(() => {
+                setIsRegistrationModalOpen(false);
+                setSelectedEvent(null);
+                setRegistrationMessage("");
+            }, 2000);
+        } catch (error) {
+            const errorMessage = error.message || "Error al inscribirse. Intenta de nuevo.";
+            setRegistrationMessage(`❌ ${errorMessage}`);
+
+            setTimeout(() => {
+                setRegistrationMessage("");
+            }, 5000);
+        } finally {
+            setIsRegistering(false);
+        }
     };
 
     if (loading || championshipsLoading) {
@@ -225,6 +258,31 @@ export default function DashboardRenovated() {
                     )}
                 </div>
             </div>
+
+            {/* Registration notification */}
+            {registrationMessage && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4">
+                    <div className={`p-4 rounded-lg text-center font-semibold shadow-2xl ${registrationMessage.startsWith("✅")
+                            ? "bg-green-600/90 border border-green-400/50 text-white"
+                            : "bg-red-600/90 border border-red-400/50 text-white"
+                        }`}>
+                        {registrationMessage}
+                    </div>
+                </div>
+            )}
+
+            {/* Registration Modal */}
+            <RegistrationModal
+                event={selectedEvent}
+                isOpen={isRegistrationModalOpen}
+                onClose={() => {
+                    setIsRegistrationModalOpen(false);
+                    setSelectedEvent(null);
+                    setRegistrationMessage("");
+                }}
+                onSubmit={handleRegistration}
+                isLoading={isRegistering}
+            />
         </div>
     );
 }

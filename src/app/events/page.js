@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { FirebaseService } from "../services/firebaseService";
 import Navbar from "../components/Navbar";
+import RegistrationModal from "../components/RegistrationModal";
 import {
     EVENT_STATUSES,
     EVENT_CATEGORIES,
@@ -22,6 +23,9 @@ function EventDetailContent() {
     const [event, setEvent] = useState(null);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
+    const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
+    const [isRegistering, setIsRegistering] = useState(false);
+    const [registrationMessage, setRegistrationMessage] = useState("");
 
     useEffect(() => {
         if (eventId) {
@@ -46,6 +50,34 @@ function EventDetailContent() {
             setNotFound(true);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleRegistration = async (participantData) => {
+        setIsRegistering(true);
+        try {
+            await FirebaseService.addEventParticipant(eventId, participantData);
+            setRegistrationMessage("✅ ¡Inscripción exitosa! Bienvenido al evento.");
+
+            // Recargar el evento para mostrar el nuevo participante
+            await loadEvent();
+
+            // Cerrar modal después de 2 segundos
+            setTimeout(() => {
+                setIsRegistrationModalOpen(false);
+                setRegistrationMessage("");
+            }, 2000);
+        } catch (error) {
+            const errorMessage = error.message || "Error al inscribirse. Intenta de nuevo.";
+            setRegistrationMessage(`❌ ${errorMessage}`);
+            console.error("Error during registration:", error);
+
+            // Limpiar mensaje después de 5 segundos
+            setTimeout(() => {
+                setRegistrationMessage("");
+            }, 5000);
+        } finally {
+            setIsRegistering(false);
         }
     };
 
@@ -537,10 +569,7 @@ function EventDetailContent() {
                     </button>
                     {eventStatus === "upcoming" && event.registration?.enabled && !isFull && (
                         <button
-                            onClick={() => {
-                                // TODO: Implementar inscripción pública
-                                alert("Funcionalidad de inscripción próximamente.");
-                            }}
+                            onClick={() => setIsRegistrationModalOpen(true)}
                             className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-lg font-bold hover:from-green-700 hover:to-green-800 transition-all shadow-lg"
                         >
                             ✍️ Inscribirse al Evento
@@ -557,7 +586,26 @@ function EventDetailContent() {
                         </a>
                     )}
                 </div>
+
+                {/* Notification Message */}
+                {registrationMessage && (
+                    <div className={`mt-6 p-4 rounded-lg text-center font-semibold text-white ${registrationMessage.startsWith("✅")
+                            ? "bg-green-600/20 border border-green-500/30 text-green-300"
+                            : "bg-red-600/20 border border-red-500/30 text-red-300"
+                        }`}>
+                        {registrationMessage}
+                    </div>
+                )}
             </div>
+
+            {/* Registration Modal */}
+            <RegistrationModal
+                event={event}
+                isOpen={isRegistrationModalOpen}
+                onClose={() => setIsRegistrationModalOpen(false)}
+                onSubmit={handleRegistration}
+                isLoading={isRegistering}
+            />
         </div>
     );
 }
