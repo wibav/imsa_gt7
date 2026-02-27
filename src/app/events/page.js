@@ -464,7 +464,7 @@ function EventDetailContent() {
                                 <thead>
                                     <tr className="border-b border-white/10 text-gray-400">
                                         <th className="text-left py-2 px-3">#</th>
-                                        <th className="text-left py-2 px-3">Nombre</th>
+                                        <th className="text-left py-2 px-3">GT7 ID</th>
                                         <th className="text-left py-2 px-3">PSN ID</th>
                                         {event.participants.some(p => p.country) && (
                                             <th className="text-left py-2 px-3">País</th>
@@ -475,7 +475,7 @@ function EventDetailContent() {
                                     {event.participants.map((p, idx) => (
                                         <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                                             <td className="py-2.5 px-3 text-gray-500 font-mono">{idx + 1}</td>
-                                            <td className="py-2.5 px-3 text-white font-semibold">{p.name || p.driverName || "-"}</td>
+                                            <td className="py-2.5 px-3 text-white font-semibold">{p.gt7Id || p.name || "-"}</td>
                                             <td className="py-2.5 px-3 text-gray-300">{p.psnId || "-"}</td>
                                             {event.participants.some(p => p.country) && (
                                                 <td className="py-2.5 px-3 text-gray-300">{p.country || "-"}</td>
@@ -590,8 +590,8 @@ function EventDetailContent() {
                 {/* Notification Message */}
                 {registrationMessage && (
                     <div className={`mt-6 p-4 rounded-lg text-center font-semibold text-white ${registrationMessage.startsWith("✅")
-                            ? "bg-green-600/20 border border-green-500/30 text-green-300"
-                            : "bg-red-600/20 border border-red-500/30 text-red-300"
+                        ? "bg-green-600/20 border border-green-500/30 text-green-300"
+                        : "bg-red-600/20 border border-red-500/30 text-red-300"
                         }`}>
                         {registrationMessage}
                     </div>
