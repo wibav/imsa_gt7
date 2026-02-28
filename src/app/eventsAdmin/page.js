@@ -626,7 +626,7 @@ function EventForm({ event, onSave, onCancel, saving }) {
                             {/* Header */}
                             <div className="flex gap-2 items-center px-2 py-1.5 text-xs text-gray-500 font-semibold uppercase border-b border-white/10 mb-1">
                                 <span className="w-6 text-center">#</span>
-                                <span className="flex-1">GT7 ID</span>
+                                <span className="w-36">GT7 ID</span>
                                 <span className="w-36">PSN ID</span>
                                 <span className="w-8"></span>
                             </div>
@@ -634,8 +634,8 @@ function EventForm({ event, onSave, onCancel, saving }) {
                                 {form.participants.map((p, idx) => (
                                     <div key={p.id || idx} className="flex gap-2 items-center px-2 py-1 hover:bg-white/5 rounded">
                                         <span className="text-gray-500 text-xs w-6 text-center">{idx + 1}</span>
-                                        <input type="text" className="flex-1 bg-white/10 border border-white/20 rounded p-2 text-white text-sm focus:border-orange-500 outline-none" value={p.gt7Id || p.name || ''} onChange={(e) => updateParticipant(idx, 'gt7Id', e.target.value)} placeholder="GT7 ID" />
-                                        <input type="text" className="w-36 bg-white/10 border border-white/20 rounded p-2 text-white text-sm focus:border-orange-500 outline-none" value={p.psnId || ''} onChange={(e) => updateParticipant(idx, 'psnId', e.target.value)} placeholder="PSN ID" />
+                                        <input type="text" className="w-50 bg-white/10 border border-white/20 rounded p-2 text-white text-sm focus:border-orange-500 outline-none" value={p.gt7Id || p.name || ''} onChange={(e) => updateParticipant(idx, 'gt7Id', e.target.value)} placeholder="GT7 ID" />
+                                        <input type="text" className="w-50 bg-white/10 border border-white/20 rounded p-2 text-white text-sm focus:border-orange-500 outline-none" value={p.psnId || ''} onChange={(e) => updateParticipant(idx, 'psnId', e.target.value)} placeholder="PSN ID" />
                                         <button type="button" onClick={() => removeParticipant(idx)} className="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white w-8 h-8 rounded flex items-center justify-center transition-colors flex-shrink-0">×</button>
                                     </div>
                                 ))}
