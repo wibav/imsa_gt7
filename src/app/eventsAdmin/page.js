@@ -626,8 +626,8 @@ function EventForm({ event, onSave, onCancel, saving }) {
                             {/* Header */}
                             <div className="flex gap-2 items-center px-2 py-1.5 text-xs text-gray-500 font-semibold uppercase border-b border-white/10 mb-1">
                                 <span className="w-6 text-center">#</span>
-                                <span className="w-36">GT7 ID</span>
-                                <span className="w-36">PSN ID</span>
+                                <span className="w-50">GT7 ID</span>
+                                <span className="w-50">PSN ID</span>
                                 <span className="w-8"></span>
                             </div>
                             <div className="space-y-1 max-h-64 overflow-y-auto">
