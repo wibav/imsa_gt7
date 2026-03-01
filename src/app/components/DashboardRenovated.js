@@ -62,10 +62,15 @@ export default function DashboardRenovated() {
     };
 
     // Obtener eventos de la semana actual (usa isInCurrentWeek de utils)
+    // Se filtran los que ya pasaron o están finalizados ("completed")
     const getWeeklyEvents = () => {
         if (!events || events.length === 0) return [];
         return events
-            .filter(ev => isInCurrentWeek(ev.date))
+            .filter(ev => {
+                const eventDate = new Date(ev.date + 'T23:59:59'); // final del día
+                const now = new Date();
+                return isInCurrentWeek(ev.date) && ev.status !== 'completed' && eventDate >= now;
+            })
             .sort((a, b) => new Date(a.date) - new Date(b.date));
     };
 
@@ -75,11 +80,16 @@ export default function DashboardRenovated() {
         return championships.filter(c => c.status !== 'draft');
     };
 
-    // Obtener eventos pasados (no de la semana actual)
+    // Obtener eventos pasados
     const getPastEvents = () => {
         if (!events || events.length === 0) return [];
         return events
-            .filter(ev => !isInCurrentWeek(ev.date) && new Date(ev.date) < new Date())
+            .filter(ev => {
+                const isCompleted = ev.status === 'completed';
+                const eventDate = new Date(ev.date + 'T23:59:59');
+                const isPast = eventDate < new Date();
+                return isCompleted || isPast;
+            })
             .sort((a, b) => new Date(b.date) - new Date(a.date))
             .slice(0, 6); // Mostrar últimos 6 eventos pasados
     };
@@ -263,8 +273,8 @@ export default function DashboardRenovated() {
             {registrationMessage && (
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4">
                     <div className={`p-4 rounded-lg text-center font-semibold shadow-2xl ${registrationMessage.startsWith("✅")
-                            ? "bg-green-600/90 border border-green-400/50 text-white"
-                            : "bg-red-600/90 border border-red-400/50 text-white"
+                        ? "bg-green-600/90 border border-green-400/50 text-white"
+                        : "bg-red-600/90 border border-red-400/50 text-white"
                         }`}>
                         {registrationMessage}
                     </div>
