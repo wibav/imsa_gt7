@@ -5,6 +5,8 @@ import Image from "next/image";
 import { FirebaseService } from "../services/firebaseService";
 import Navbar from "../components/Navbar";
 import RegistrationModal from "../components/RegistrationModal";
+import DynamicOGTags from "../components/DynamicOGTags";
+import ExportableEventResults from "../components/ExportableEventResults";
 import {
     EVENT_STATUSES,
     EVENT_CATEGORIES,
@@ -13,6 +15,7 @@ import {
     TYRE_OPTIONS,
     DAMAGE_OPTIONS,
     WEATHER_TIME_OPTIONS,
+    EVENT_TYPES,
 } from "../utils";
 
 function EventDetailContent() {
@@ -26,6 +29,7 @@ function EventDetailContent() {
     const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
     const [isRegistering, setIsRegistering] = useState(false);
     const [registrationMessage, setRegistrationMessage] = useState("");
+    const [activeRound, setActiveRound] = useState(0);
 
     useEffect(() => {
         if (eventId) {
@@ -154,6 +158,8 @@ function EventDetailContent() {
     const statusConfig = EVENT_STATUSES[eventStatus] || EVENT_STATUSES.upcoming;
     const cat = EVENT_CATEGORIES.find((c) => c.value === event.category);
     const fmt = EVENT_FORMATS?.find((f) => f.value === event.format);
+    const evType = EVENT_TYPES?.find((t) => t.value === event.eventType);
+    const isMultiRound = event.eventType && event.eventType !== 'standard' && event.rounds?.length > 0;
     const hasStreaming = event.streaming?.url;
     const participantCount = event.participants?.length || 0;
     const maxP = event.maxParticipants || 0;
@@ -165,6 +171,12 @@ function EventDetailContent() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
             <Navbar />
+            <DynamicOGTags
+                title={event.title}
+                description={event.description || `${event.track ? event.track + ' — ' : ''}${formatDate(event.date)}`}
+                image={event.banner || 'https://imsa.trenkit.com/logo_gt7.png'}
+                url={`https://imsa.trenkit.com/events?id=${eventId}`}
+            />
 
             {/* Hero Banner */}
             <div className="relative">
@@ -194,6 +206,11 @@ function EventDetailContent() {
                     {cat && (
                         <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm font-semibold rounded-full bg-white/20 backdrop-blur-sm text-white shadow-lg">
                             {cat.icon} {cat.label}
+                        </span>
+                    )}
+                    {evType && event.eventType !== 'standard' && (
+                        <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm font-semibold rounded-full bg-orange-500/30 backdrop-blur-sm text-orange-200 shadow-lg">
+                            {evType.icon} {evType.label}
                         </span>
                     )}
                 </div>
@@ -285,9 +302,13 @@ function EventDetailContent() {
                                         icon="📝"
                                         label="Inscripción"
                                         value={
-                                            event.registration.requiresApproval
-                                                ? "Abierta (con aprobación)"
-                                                : "Abierta (automática)"
+                                            eventStatus === "completed" || eventStatus === "live" || isFull
+                                                ? isFull ? "Cerrada (cupo lleno)" : "Cerrada"
+                                                : event.registration.deadline && new Date(event.registration.deadline) < new Date()
+                                                    ? "Cerrada (plazo vencido)"
+                                                    : event.registration.requiresApproval
+                                                        ? "Abierta (con aprobación)"
+                                                        : "Abierta (automática)"
                                         }
                                     />
                                 )}
@@ -488,8 +509,8 @@ function EventDetailContent() {
                     </div>
                 )}
 
-                {/* Results */}
-                {hasResults && eventStatus === "completed" && (
+                {/* Results (standard events) */}
+                {hasResults && eventStatus === "completed" && !isMultiRound && (
                     <div className="bg-gradient-to-br from-yellow-600/10 to-orange-600/10 border border-yellow-500/30 rounded-xl p-6">
                         <h2 className="text-lg font-bold text-yellow-300 mb-4 flex items-center gap-2">
                             🏆 Resultados
@@ -533,6 +554,112 @@ function EventDetailContent() {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* Multi-Round Results */}
+                {isMultiRound && (
+                    <div className="space-y-6">
+                        <div className="bg-gradient-to-br from-orange-600/10 to-red-600/10 border border-orange-500/30 rounded-xl p-6">
+                            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                🏟️ Rondas del Evento
+                                {evType && <span className="text-sm font-normal text-orange-300">({evType.label})</span>}
+                            </h2>
+
+                            {/* Round tabs */}
+                            <div className="flex gap-2 mb-6">
+                                {event.rounds.map((round, rIdx) => (
+                                    <button
+                                        key={rIdx}
+                                        onClick={() => setActiveRound(rIdx)}
+                                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeRound === rIdx
+                                            ? 'bg-orange-500 text-white shadow-lg'
+                                            : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                                            }`}
+                                    >
+                                        <span className="mr-1.5">{rIdx === 0 ? '1️⃣' : '2️⃣'}</span>
+                                        {round.name}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Active round rooms */}
+                            {event.rounds[activeRound] && (
+                                <div className={`grid gap-6 ${event.rounds[activeRound].rooms?.length > 1 ? 'md:grid-cols-2' : ''}`}>
+                                    {event.rounds[activeRound].rooms?.map((room, rmIdx) => (
+                                        <div key={rmIdx} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                                            {/* Room header */}
+                                            <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 px-4 py-3 border-b border-white/10">
+                                                <h3 className="text-white font-bold flex items-center gap-2">
+                                                    🏟️ {room.name}
+                                                    {room.caster && <span className="text-xs bg-white/10 text-gray-300 px-2 py-0.5 rounded-full">🎙️ {room.caster}</span>}
+                                                    {room.host && <span className="text-xs bg-white/10 text-gray-300 px-2 py-0.5 rounded-full">🎮 {room.host}</span>}
+                                                </h3>
+                                                {room.streamUrl && (
+                                                    <a href={room.streamUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-red-400 hover:text-red-300 mt-1 inline-flex items-center gap-1">
+                                                        📺 Ver Stream
+                                                    </a>
+                                                )}
+                                            </div>
+
+                                            {/* Room results */}
+                                            {room.results?.length > 0 ? (
+                                                <div className="p-4">
+                                                    <table className="w-full text-sm">
+                                                        <thead>
+                                                            <tr className="border-b border-white/10 text-gray-400">
+                                                                <th className="text-left py-2 px-2 w-10">Pos</th>
+                                                                <th className="text-left py-2 px-2">Piloto</th>
+                                                                {room.results.some(r => r.psnId) && <th className="text-left py-2 px-2">PSN</th>}
+                                                                <th className="text-center py-2 px-2 w-20">Extras</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {room.results.map((r, idx) => (
+                                                                <tr
+                                                                    key={idx}
+                                                                    className={`border-b border-white/5 transition-colors ${idx === 0 ? "bg-yellow-500/10" : idx === 1 ? "bg-gray-400/10" : idx === 2 ? "bg-orange-500/10" : "hover:bg-white/5"}`}
+                                                                >
+                                                                    <td className="py-2.5 px-2 font-bold text-white">
+                                                                        {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `${idx + 1}°`}
+                                                                    </td>
+                                                                    <td className="py-2.5 px-2 text-white font-semibold">{r.driverName || "-"}</td>
+                                                                    {room.results.some(r => r.psnId) && (
+                                                                        <td className="py-2.5 px-2 text-gray-400 text-xs">{r.psnId || "-"}</td>
+                                                                    )}
+                                                                    <td className="py-2.5 px-2 text-center">
+                                                                        <div className="flex items-center justify-center gap-1.5">
+                                                                            {r.fastestLap && <span title="Vuelta Rápida" className="text-purple-400">⚡</span>}
+                                                                            {r.polePosition && <span title="Pole Position" className="text-yellow-400">🅿️</span>}
+                                                                            {r.dnf && <span title="DNF" className="text-red-400 text-xs font-bold">DNF</span>}
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            ) : room.participants?.length > 0 ? (
+                                                <div className="p-4">
+                                                    <p className="text-gray-500 text-xs mb-2 uppercase font-semibold">Participantes ({room.participants.length})</p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {room.participants.map((p, pIdx) => (
+                                                            <span key={pIdx} className="text-xs bg-white/5 text-gray-300 px-2.5 py-1 rounded-full">
+                                                                {p.gt7Id || p.name || `Piloto ${pIdx + 1}`}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="p-4 text-center text-gray-500 text-sm">
+                                                    Sin datos aún
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -586,6 +713,13 @@ function EventDetailContent() {
                         </a>
                     )}
                 </div>
+
+                {/* Export Results as Image (completed events) */}
+                {eventStatus === "completed" && (
+                    <div className="flex justify-center pt-2">
+                        <ExportableEventResults event={event} />
+                    </div>
+                )}
 
                 {/* Notification Message */}
                 {registrationMessage && (

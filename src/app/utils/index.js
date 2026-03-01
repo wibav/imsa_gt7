@@ -14,6 +14,8 @@ export {
     RESULT_COLORS,
     getResultColors,
     GT7_TRACKS,
+    EVENT_TYPES,
+    getDefaultRounds,
     EVENT_STATUSES,
     EVENT_CATEGORIES,
     EVENT_FORMATS,

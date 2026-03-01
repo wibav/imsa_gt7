@@ -17,8 +17,9 @@ export default function Navbar() {
     };
 
     const navItems = [
-        { label: '�️ Pilotos', href: '/pilots' },
-        { label: '�🎨 Creador de vinilos', href: '/tools', gradient: true }
+        { label: '🏎️ Pilotos', href: '/pilots' },
+        { label: '📜 Reglamento', href: '/reglamento' },
+        { label: '🎨 Creador de vinilos', href: '/tools', gradient: true }
     ];
 
     return (
