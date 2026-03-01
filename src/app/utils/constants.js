@@ -189,6 +189,46 @@ export const GT7_TRACKS = [
 // ================================
 
 /**
+ * Tipos de evento (estructura de rondas)
+ */
+export const EVENT_TYPES = [
+    { value: 'standard', label: 'Estándar', icon: '🏁', description: 'Una sola sala, una sola ronda' },
+    { value: 'eliminatoria', label: 'Eliminatoria', icon: '🔥', description: 'R1: 2 salas → R2: 1 sala (mejores clasificados)' },
+    { value: 'doble_eliminatoria', label: 'Doble Eliminatoria', icon: '⚔️', description: 'R1: 2 salas → R2: 2 salas (top + bottom)' }
+];
+
+/**
+ * Genera la estructura de rondas por defecto según el tipo de evento
+ * @param {'standard'|'eliminatoria'|'doble_eliminatoria'} eventType
+ * @param {number} playersPerRoom - jugadores por sala (default: 15)
+ * @returns {Array} Estructura de rondas vacía
+ */
+export const getDefaultRounds = (eventType, playersPerRoom = 15) => {
+    const createRoom = (name) => ({
+        name,
+        caster: '',
+        host: '',
+        streamUrl: '',
+        participants: [],
+        results: []
+    });
+
+    if (eventType === 'eliminatoria') {
+        return [
+            { name: 'Ronda 1 – Clasificatoria', rooms: [createRoom('Sala A'), createRoom('Sala B')] },
+            { name: 'Ronda 2 – Final', rooms: [createRoom('Final')] }
+        ];
+    }
+    if (eventType === 'doble_eliminatoria') {
+        return [
+            { name: 'Ronda 1 – Clasificatoria', rooms: [createRoom('Sala A'), createRoom('Sala B')] },
+            { name: 'Ronda 2 – Finales', rooms: [createRoom('Final A (Top)'), createRoom('Final B (Bottom)')] }
+        ];
+    }
+    return [];
+};
+
+/**
  * Configuración de estados para eventos únicos
  */
 export const EVENT_STATUSES = {

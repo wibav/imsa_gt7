@@ -1,9 +1,9 @@
 # Análisis del Sistema de Campeonatos — IMSA GT7 + HGT GT7
 
 > **Fecha:** 18 de febrero de 2026  
-> **Última actualización:** 19 de febrero de 2026  
+> **Última actualización:** 1 de marzo de 2026  
 > **Proyectos analizados:** `imsa_gt7`, `hgt_gt7`  
-> **Referencia externa:** PDF "WORLD SERIES LEAGUE RR 10°MA EDICIÓN" (reglamento de club)
+> **Referencia externa:** PDF "WORLD SERIES LEAGUE RR 10°MA EDICIÓN" (reglamento de club), PDF "Normativa DAS 2.3"
 
 ---
 
@@ -23,6 +23,7 @@
    - 8.4 [Mejoras para Eventos Únicos](#84-mejoras-para-eventos-únicos)
 9. [Modelo de Datos Propuesto (Unificado)](#9-modelo-de-datos-propuesto-unificado)
 10. [Roadmap Priorizado](#10-roadmap-priorizado)
+11. [Reglamento Unificado Público](#11-reglamento-unificado-público)
 
 ---
 
@@ -123,39 +124,45 @@ Firestore
 | Campeonatos individuales       | ✅ Completo  | Pilotos directos en el campeonato                                                                         |
 | Configuración de circuitos     | ✅ Completo  | 70+ pistas reales de GT7, reglas por circuito                                                             |
 | Sistema de puntos configurable | ✅ Parcial   | Puntos por carrera + qualifying + vuelta rápida                                                           |
-| Resultados por carrera         | ✅ Básico    | Puntos asignados manualmente por piloto                                                                   |
-| Clasificación/standings        | ✅ Básico    | Solo suma de puntos, sin desempate                                                                        |
+| Resultados por carrera         | ✅ Completo  | Puntos asignados por piloto + posiciones de evento desde participantes (drag/reorder)                     |
+| Clasificación/standings        | ✅ Completo  | Motor avanzado con desempate multinivel, estadísticas, comparador head-to-head                            |
 | Calendario de carreras         | ✅ Completo  | Lista de rondas con fecha, circuito, estado                                                               |
-| Dashboard público              | ✅ Completo  | Eventos semanales + campeonatos + historial                                                               |
+| Dashboard público              | ✅ Completo  | Eventos semanales (filtrados por vigentes) + campeonatos + eventos pasados                                |
 | Eventos especiales             | ✅ Completo  | CRUD completo con secciones colapsables, streaming, inscripción, clima, reglas, participantes, resultados |
 | Subida de imágenes             | ✅ Completo  | Firebase Storage                                                                                          |
 | Creador de vinilos SVG         | ✅ Completo  | Conversión PNG → SVG con Potrace                                                                          |
 | Login admin                    | ✅ Básico    | Email hardcodeado como admin                                                                              |
 | SEO/OG                         | ✅ Completo  | Meta tags dinámicos                                                                                       |
 | AdSense                        | ✅ Integrado | 3 formatos de anuncios                                                                                    |
-| Divisiones/salas               | ❌ No existe | —                                                                                                         |
-| Sanciones                      | ❌ No existe | —                                                                                                         |
-| Reglamento por campeonato      | ❌ No existe | —                                                                                                         |
-| Ascensos/descensos             | ❌ No existe | —                                                                                                         |
-| Compuestos obligatorios        | ❌ No existe | Solo `allowedCars`, no neumáticos                                                                         |
-| Inscripción de pilotos         | ❌ No existe | TODO pendiente                                                                                            |
+| Sanciones                      | ✅ Completo  | Sistema configurable con presets editables, amonestaciones acumulativas, reclamaciones públicas           |
+| Reglamento por campeonato      | ✅ Completo  | Reglamento editable por campeonato + página pública unificada `/reglamento`                               |
+| Ascensos/descensos             | ✅ Completo  | Divisiones con promoción/relegación entre ediciones                                                       |
+| Compuestos obligatorios        | ✅ Completo  | Selección múltiple de neumáticos obligatorios en eventos y campeonatos                                    |
+| Inscripción de pilotos         | ✅ Completo  | Toggle inscripción pública con aprobación opcional, fecha límite, en eventos y campeonatos                |
+| Perfiles de piloto             | ✅ Completo  | Página `/pilots` con stats históricas acumuladas de todos los campeonatos                                 |
+| Exportar clasificación PNG     | ✅ Completo  | Exportar standings como imagen para redes sociales                                                        |
+| Briefing pre-carrera           | ✅ Completo  | Vista informativa de la próxima carrera, exportable como imagen PNG                                       |
+| Divisiones/salas               | ✅ Completo  | Subcolección Firestore con CRUD, asignación de pilotos, standings por división                            |
 | Noticias/blog                  | ❌ No existe | —                                                                                                         |
 | Replays                        | ❌ No existe | —                                                                                                         |
 
 ### 2.5 Páginas del Sistema
 
-| Ruta                            | Función                                                                       |
-| ------------------------------- | ----------------------------------------------------------------------------- |
-| `/`                             | Dashboard público: eventos de la semana, campeonatos activos, eventos pasados |
-| `/championships?id=X`           | Detalle público: clasificación, calendario, estadísticas, información         |
-| `/championshipsAdmin`           | Panel admin: lista de campeonatos, gestión de equipos/pilotos/pistas          |
-| `/championshipsAdmin/new`       | Formulario de creación (multi-paso)                                           |
-| `/championshipsAdmin/edit?id=X` | Formulario de edición                                                         |
-| `/eventsAdmin`                  | Gestión de eventos únicos                                                     |
-| `/tracksAdmin`                  | Catálogo global de pistas                                                     |
-| `/teamsAdmin`                   | Gestión de equipos (legacy)                                                   |
-| `/tools`                        | Creador de vinilos                                                            |
-| `/login`                        | Autenticación                                                                 |
+| Ruta                            | Función                                                                          |
+| ------------------------------- | -------------------------------------------------------------------------------- |
+| `/`                             | Dashboard público: eventos de la semana, campeonatos activos, eventos pasados    |
+| `/championships?id=X`           | Detalle público: clasificación, calendario, estadísticas, información            |
+| `/championshipsAdmin`           | Panel admin: lista de campeonatos, gestión de equipos/pilotos/pistas             |
+| `/championshipsAdmin/new`       | Formulario de creación (multi-paso)                                              |
+| `/championshipsAdmin/edit?id=X` | Formulario de edición                                                            |
+| `/eventsAdmin`                  | Gestión de eventos únicos                                                        |
+| `/tracksAdmin`                  | Catálogo global de pistas                                                        |
+| `/teamsAdmin`                   | Gestión de equipos (legacy)                                                      |
+| `/tools`                        | Creador de vinilos                                                               |
+| `/events?id=X`                  | Detalle público de evento único: banner, info, reglas, participantes, resultados |
+| `/pilots`                       | Perfiles globales de pilotos con estadísticas históricas acumuladas              |
+| `/reglamento`                   | Reglamento unificado público: normas de conducta, sanciones, sala, reclamaciones |
+| `/login`                        | Autenticación                                                                    |
 
 ---
 
@@ -1283,3 +1290,48 @@ eventSeries/                                     ← NUEVO: series de eventos
 | **Principio de diseño clave**                 | Todo es opcional por campeonato                                                                       |
 
 El sistema actual tiene una base sólida en `imsa_gt7` tras las correcciones realizadas (bugs corregidos, utilidades centralizadas, código legacy deprecado). Las **Fases 1-7 están completadas**, cubriendo: limpieza y unificación de código, inscripción y streaming, standings avanzados con estadísticas y comparador, sistema de sanciones configurables, reglamentación y configuración de circuitos, divisiones con ascensos/descensos, y **eventos mejorados** con CRUD completo (secciones colapsables, reglas detalladas, neumáticos obligatorios multi-select, climatología, streaming con caster/host, inscripción pública, participantes con PSN ID, resultados, categorías/formatos, duplicar evento, contador regresivo y badge EN VIVO). Las nuevas propuestas siguen el **principio de opcionalidad**: cada módulo se activa independientemente. La **Fase 8** (Experiencia Avanzada) está **completada** con página de perfiles globales de piloto (`/pilots`), exportación de clasificación como imagen PNG, y briefing pre-carrera exportable. **Todas las 8 fases del roadmap están completadas.**
+
+---
+
+## 11. Reglamento Unificado Público
+
+> **Fecha de implementación:** 1 de marzo de 2026  
+> **Ruta:** `/reglamento`  
+> **Basado en:** PDF "WORLD SERIES LEAGUE RR 10°MA EDICIÓN", PDF "Normativa DAS 2.3", reglas comunes de sim racing competitivo
+
+### 11.1 Motivación
+
+Los pilotos necesitan un punto de referencia claro y accesible antes de participar en campeonatos o eventos. Las reclamaciones y quejas suelen ocurrir cuando las reglas no están disponibles o son ambiguas. Una página pública de reglamento unificado:
+
+- Reduce reclamaciones innecesarias
+- Establece expectativas claras antes de inscribirse
+- Sirve como referencia para la resolución de disputas
+- Se puede referenciar desde el formulario de inscripción (checkbox "Acepto el reglamento")
+
+### 11.2 Estructura del Reglamento
+
+El reglamento público (`/reglamento`) se divide en las siguientes secciones:
+
+| Sección                       | Contenido                                                              |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| **1. Conducta General**       | Deportividad, respeto entre pilotos, comunicación                      |
+| **2. Configuración de Sala**  | Cómo se configura la sala GT7, quién es host, tiempos de apertura      |
+| **3. Clasificación**          | Normas de qualify, respeto en pista, banderas azules                   |
+| **4. Carrera**                | Salidas, adelantamientos, pit stops, banderas azules, límites de pista |
+| **5. Incidentes y Contactos** | Qué se considera incidente, niveles de gravedad, procedimiento         |
+| **6. Sanciones**              | Tabla de sanciones con tipos y valores, amonestaciones acumulativas    |
+| **7. Reclamaciones**          | Cómo presentar una reclamación, evidencia requerida, plazos            |
+| **8. Desconexiones y Lag**    | Qué pasa si un piloto se desconecta, criterios de reinicio             |
+| **9. Reglas Específicas**     | BOP, neumáticos obligatorios, coches elegibles, logos                  |
+
+### 11.3 Referencia a Reglamentos Externos
+
+El contenido del reglamento unificado incorpora las mejores prácticas extraídas de:
+
+- **World Series League RR (10ᵐᵃ Edición)**: Sistema de divisiones, sanciones por compuestos, uso obligatorio de coches, banderas azules, formulario de reclamaciones, penalizaciones por no presentarse
+- **Normativa DAS 2.3**: Reglas de conducta, niveles de severidad de incidentes, procedimientos de reclamación, gestión de lag y desconexiones
+
+### 11.4 Archivos Creados
+
+- `src/app/reglamento/page.js` — Página pública del reglamento unificado
+- `src/app/components/Navbar.js` — Enlace "📜 Reglamento" en navegación

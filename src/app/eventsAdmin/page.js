@@ -5,7 +5,8 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import Image from "next/image";
 import {
     GT7_TRACKS, EVENT_STATUSES, EVENT_CATEGORIES, EVENT_FORMATS,
-    STREAMING_PLATFORMS, TYRE_OPTIONS, DAMAGE_OPTIONS, WEATHER_TIME_OPTIONS
+    STREAMING_PLATFORMS, TYRE_OPTIONS, DAMAGE_OPTIONS, WEATHER_TIME_OPTIONS,
+    EVENT_TYPES, getDefaultRounds
 } from "../utils";
 
 // ============================
@@ -29,6 +30,8 @@ const createNewEvent = (nextId) => ({
     date: new Date().toISOString().split('T')[0],
     hour: '22:30', track: '',
     status: 'upcoming', category: 'competitive', format: 'race',
+    eventType: 'standard',
+    rounds: [],
     rules: { ...DEFAULT_RULES },
     streaming: { ...DEFAULT_STREAMING },
     registration: { ...DEFAULT_REGISTRATION },
@@ -148,7 +151,8 @@ function EventForm({ event, onSave, onCancel, saving }) {
         rules: { ...DEFAULT_RULES, ...(event?.rules || {}) },
         streaming: { ...DEFAULT_STREAMING, ...(event?.streaming || {}) },
         registration: { ...DEFAULT_REGISTRATION, ...(event?.registration || {}) },
-        weather: { ...DEFAULT_WEATHER, ...(event?.weather || {}) }
+        weather: { ...DEFAULT_WEATHER, ...(event?.weather || {}) },
+        rounds: event?.rounds || []
     }));
     const [newCar, setNewCar] = useState('');
     const isEditing = Boolean(event?.title);
@@ -158,6 +162,172 @@ function EventForm({ event, onSave, onCancel, saving }) {
     const updateStreaming = (key, value) => setForm(prev => ({ ...prev, streaming: { ...prev.streaming, [key]: value } }));
     const updateRegistration = (key, value) => setForm(prev => ({ ...prev, registration: { ...prev.registration, [key]: value } }));
     const updateWeather = (key, value) => setForm(prev => ({ ...prev, weather: { ...prev.weather, [key]: value } }));
+
+    // Rounds helpers
+    const updateRoundRoom = (roundIdx, roomIdx, key, value) => {
+        setForm(prev => {
+            const rounds = JSON.parse(JSON.stringify(prev.rounds || []));
+            if (rounds[roundIdx]?.rooms?.[roomIdx]) {
+                rounds[roundIdx].rooms[roomIdx][key] = value;
+            }
+            return { ...prev, rounds };
+        });
+    };
+    const updateRoomResult = (roundIdx, roomIdx, resIdx, key, value) => {
+        setForm(prev => {
+            const rounds = JSON.parse(JSON.stringify(prev.rounds || []));
+            if (rounds[roundIdx]?.rooms?.[roomIdx]?.results?.[resIdx]) {
+                rounds[roundIdx].rooms[roomIdx].results[resIdx][key] = value;
+            }
+            return { ...prev, rounds };
+        });
+    };
+    const addRoomResult = (roundIdx, roomIdx) => {
+        setForm(prev => {
+            const rounds = JSON.parse(JSON.stringify(prev.rounds || []));
+            const room = rounds[roundIdx]?.rooms?.[roomIdx];
+            if (room) {
+                if (!room.results) room.results = [];
+                room.results.push({ driverName: '', position: room.results.length + 1, psnId: '' });
+            }
+            return { ...prev, rounds };
+        });
+    };
+    const removeRoomResult = (roundIdx, roomIdx, resIdx) => {
+        setForm(prev => {
+            const rounds = JSON.parse(JSON.stringify(prev.rounds || []));
+            const room = rounds[roundIdx]?.rooms?.[roomIdx];
+            if (room?.results) {
+                room.results.splice(resIdx, 1);
+                room.results.forEach((r, i) => r.position = i + 1);
+            }
+            return { ...prev, rounds };
+        });
+    };
+    const addRoomParticipant = (roundIdx, roomIdx) => {
+        setForm(prev => {
+            const rounds = JSON.parse(JSON.stringify(prev.rounds || []));
+            const room = rounds[roundIdx]?.rooms?.[roomIdx];
+            if (room) {
+                if (!room.participants) room.participants = [];
+                room.participants.push({ id: crypto.randomUUID(), gt7Id: '', psnId: '' });
+            }
+            return { ...prev, rounds };
+        });
+    };
+    const removeRoomParticipant = (roundIdx, roomIdx, pIdx) => {
+        setForm(prev => {
+            const rounds = JSON.parse(JSON.stringify(prev.rounds || []));
+            const room = rounds[roundIdx]?.rooms?.[roomIdx];
+            if (room?.participants) {
+                room.participants.splice(pIdx, 1);
+            }
+            return { ...prev, rounds };
+        });
+    };
+    const updateRoomParticipant = (roundIdx, roomIdx, pIdx, key, value) => {
+        setForm(prev => {
+            const rounds = JSON.parse(JSON.stringify(prev.rounds || []));
+            if (rounds[roundIdx]?.rooms?.[roomIdx]?.participants?.[pIdx]) {
+                rounds[roundIdx].rooms[roomIdx].participants[pIdx][key] = value;
+            }
+            return { ...prev, rounds };
+        });
+    };
+    const generateRoomResultsFromParticipants = (roundIdx, roomIdx) => {
+        setForm(prev => {
+            const rounds = JSON.parse(JSON.stringify(prev.rounds || []));
+            const room = rounds[roundIdx]?.rooms?.[roomIdx];
+            if (room?.participants?.length > 0) {
+                room.results = room.participants.map((p, i) => ({
+                    driverName: p.gt7Id || p.name || '',
+                    psnId: p.psnId || '',
+                    position: i + 1,
+                    fastestLap: false,
+                    polePosition: false,
+                    dnf: false
+                }));
+            }
+            return { ...prev, rounds };
+        });
+    };
+    const moveRoomResult = (roundIdx, roomIdx, idx, direction) => {
+        setForm(prev => {
+            const rounds = JSON.parse(JSON.stringify(prev.rounds || []));
+            const results = rounds[roundIdx]?.rooms?.[roomIdx]?.results;
+            if (!results) return prev;
+            const newIdx = idx + direction;
+            if (newIdx < 0 || newIdx >= results.length) return prev;
+            [results[idx], results[newIdx]] = [results[newIdx], results[idx]];
+            results.forEach((r, i) => r.position = i + 1);
+            return { ...prev, rounds };
+        });
+    };
+
+    // Promote R1 results → R2
+    const promoteToRound2 = () => {
+        setForm(prev => {
+            const rounds = JSON.parse(JSON.stringify(prev.rounds || []));
+            if (rounds.length < 2) return prev;
+            const r1 = rounds[0];
+            // Collect all R1 results into a single sorted list
+            const allResults = [];
+            r1.rooms.forEach((room, roomIdx) => {
+                (room.results || []).forEach((r, posIdx) => {
+                    allResults.push({
+                        ...r,
+                        originalRoom: roomIdx,
+                        originalPosition: posIdx + 1
+                    });
+                });
+            });
+            // Sort by position (ascending) — interleave from rooms
+            allResults.sort((a, b) => a.position - b.position || a.originalRoom - b.originalRoom);
+
+            const playersPerRoom = prev.maxParticipants ? Math.ceil(prev.maxParticipants / 2) : 15;
+
+            if (prev.eventType === 'eliminatoria') {
+                // Top N go to single final room
+                const topN = allResults.slice(0, playersPerRoom);
+                rounds[1].rooms[0].participants = topN.map(r => ({
+                    id: crypto.randomUUID(),
+                    gt7Id: r.driverName || '',
+                    psnId: r.psnId || ''
+                }));
+                rounds[1].rooms[0].results = [];
+            } else if (prev.eventType === 'doble_eliminatoria') {
+                // Top N → Final A, remaining → Final B
+                const topN = allResults.slice(0, playersPerRoom);
+                const bottomN = allResults.slice(playersPerRoom);
+                rounds[1].rooms[0].participants = topN.map(r => ({
+                    id: crypto.randomUUID(),
+                    gt7Id: r.driverName || '',
+                    psnId: r.psnId || ''
+                }));
+                rounds[1].rooms[0].results = [];
+                if (rounds[1].rooms[1]) {
+                    rounds[1].rooms[1].participants = bottomN.map(r => ({
+                        id: crypto.randomUUID(),
+                        gt7Id: r.driverName || '',
+                        psnId: r.psnId || ''
+                    }));
+                    rounds[1].rooms[1].results = [];
+                }
+            }
+            return { ...prev, rounds };
+        });
+    };
+
+    // Handle eventType change
+    const handleEventTypeChange = (newType) => {
+        updateField('eventType', newType);
+        if (newType === 'standard') {
+            updateField('rounds', []);
+        } else {
+            const rounds = getDefaultRounds(newType, form.maxParticipants ? Math.ceil(form.maxParticipants / 2) : 15);
+            updateField('rounds', rounds);
+        }
+    };
 
     // Banner upload
     const handleBannerFile = async (file) => {
@@ -311,6 +481,27 @@ function EventForm({ event, onSave, onCancel, saving }) {
                                 <option key={fmt.value} value={fmt.value}>{fmt.label}</option>
                             ))}
                         </select>
+                    </div>
+                </div>
+
+                {/* Event Type selector */}
+                <div>
+                    <label className={labelCls}>Tipo de Evento</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {EVENT_TYPES.map(type => (
+                            <button
+                                key={type.value}
+                                type="button"
+                                onClick={() => handleEventTypeChange(type.value)}
+                                className={`p-3 rounded-lg border-2 text-left transition-all ${form.eventType === type.value
+                                    ? 'border-orange-500 bg-orange-500/10'
+                                    : 'border-white/20 bg-white/5 hover:border-white/40'
+                                    }`}
+                            >
+                                <div className="text-lg mb-0.5">{type.icon} <span className="text-white font-bold text-sm">{type.label}</span></div>
+                                <p className="text-gray-400 text-xs">{type.description}</p>
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -645,8 +836,139 @@ function EventForm({ event, onSave, onCancel, saving }) {
                 </div>
             </CollapsibleSection>
 
-            {/* ========== SECTION 11: RESULTS (completed events) ========== */}
-            {form.status === 'completed' && (
+            {/* ========== SECTION 11: ROUNDS & ROOMS (multi-round events) ========== */}
+            {form.eventType && form.eventType !== 'standard' && form.rounds?.length > 0 && (
+                <CollapsibleSection title="Rondas y Salas" icon="🏟️" defaultOpen={true} badge={`${form.rounds.length} rondas`}>
+                    <div className="space-y-6">
+                        {/* Promote button between rounds */}
+                        {form.rounds.length >= 2 && form.rounds[0].rooms?.some(r => r.results?.length > 0) && (
+                            <div className="bg-gradient-to-r from-yellow-600/20 to-orange-600/20 border border-yellow-500/30 rounded-lg p-4">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                    <div>
+                                        <p className="text-yellow-300 font-bold text-sm">⬆️ Promoción automática</p>
+                                        <p className="text-gray-400 text-xs mt-1">
+                                            {form.eventType === 'eliminatoria'
+                                                ? 'Los mejores de cada sala R1 pasan a la Final'
+                                                : 'Top clasificados → Final A, resto → Final B'}
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={promoteToRound2}
+                                        className="px-4 py-2 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white font-bold rounded-lg text-sm transition-all flex-shrink-0"
+                                    >
+                                        🚀 Promover a Ronda 2
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {form.rounds.map((round, rIdx) => (
+                            <div key={rIdx} className="border border-white/20 rounded-lg overflow-hidden">
+                                <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 px-4 py-3 border-b border-white/10">
+                                    <h4 className="text-white font-bold flex items-center gap-2">
+                                        <span className="bg-orange-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">{rIdx + 1}</span>
+                                        {round.name}
+                                    </h4>
+                                </div>
+                                <div className="p-4 space-y-4">
+                                    {round.rooms?.map((room, rmIdx) => (
+                                        <div key={rmIdx} className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <h5 className="text-white font-semibold text-sm flex items-center gap-2">
+                                                    🏟️ {room.name}
+                                                    <span className="text-xs bg-white/10 text-gray-400 px-2 py-0.5 rounded-full">
+                                                        {room.participants?.length || 0} pilotos
+                                                    </span>
+                                                </h5>
+                                            </div>
+
+                                            {/* Room Caster & Host */}
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                                <div>
+                                                    <label className={labelCls}>🎙️ Caster</label>
+                                                    <input type="text" className={`${inputCls} text-sm`} value={room.caster || ''} onChange={(e) => updateRoundRoom(rIdx, rmIdx, 'caster', e.target.value)} placeholder="Nombre del caster" />
+                                                </div>
+                                                <div>
+                                                    <label className={labelCls}>🎮 Host</label>
+                                                    <input type="text" className={`${inputCls} text-sm`} value={room.host || ''} onChange={(e) => updateRoundRoom(rIdx, rmIdx, 'host', e.target.value)} placeholder="PSN ID del host" />
+                                                </div>
+                                                <div>
+                                                    <label className={labelCls}>📺 Stream URL</label>
+                                                    <input type="url" className={`${inputCls} text-sm`} value={room.streamUrl || ''} onChange={(e) => updateRoundRoom(rIdx, rmIdx, 'streamUrl', e.target.value)} placeholder="https://..." />
+                                                </div>
+                                            </div>
+
+                                            {/* Room Participants */}
+                                            <div>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-gray-400 text-xs font-semibold uppercase">Participantes</span>
+                                                    <button type="button" onClick={() => addRoomParticipant(rIdx, rmIdx)} className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold transition-colors">
+                                                        + Piloto
+                                                    </button>
+                                                </div>
+                                                {(room.participants || []).length > 0 && (
+                                                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                                                        {room.participants.map((p, pIdx) => (
+                                                            <div key={p.id || pIdx} className="flex gap-2 items-center">
+                                                                <span className="text-gray-500 text-xs w-5 text-center">{pIdx + 1}</span>
+                                                                <input type="text" className="flex-1 bg-white/10 border border-white/20 rounded p-1.5 text-white text-xs focus:border-orange-500 outline-none" value={p.gt7Id || ''} onChange={(e) => updateRoomParticipant(rIdx, rmIdx, pIdx, 'gt7Id', e.target.value)} placeholder="GT7 ID" />
+                                                                <input type="text" className="flex-1 bg-white/10 border border-white/20 rounded p-1.5 text-white text-xs focus:border-orange-500 outline-none" value={p.psnId || ''} onChange={(e) => updateRoomParticipant(rIdx, rmIdx, pIdx, 'psnId', e.target.value)} placeholder="PSN ID" />
+                                                                <button type="button" onClick={() => removeRoomParticipant(rIdx, rmIdx, pIdx)} className="text-red-400 hover:text-red-300 text-xs font-bold">×</button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Room Results */}
+                                            <div>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-gray-400 text-xs font-semibold uppercase">Resultados</span>
+                                                    <div className="flex gap-2">
+                                                        {(room.participants || []).length > 0 && (
+                                                            <button type="button" onClick={() => generateRoomResultsFromParticipants(rIdx, rmIdx)} className="text-xs px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded font-semibold transition-colors">
+                                                                📥 Cargar Pilotos
+                                                            </button>
+                                                        )}
+                                                        <button type="button" onClick={() => addRoomResult(rIdx, rmIdx)} className="text-xs px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition-colors">
+                                                            + Resultado
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {(room.results || []).length > 0 && (
+                                                    <div className="space-y-1 max-h-64 overflow-y-auto">
+                                                        {room.results.map((r, resIdx) => (
+                                                            <div key={resIdx} className="flex gap-1.5 items-center">
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <button type="button" onClick={() => moveRoomResult(rIdx, rmIdx, resIdx, -1)} disabled={resIdx === 0} className="text-gray-500 hover:text-white disabled:opacity-20 text-[10px] leading-none">▲</button>
+                                                                    <button type="button" onClick={() => moveRoomResult(rIdx, rmIdx, resIdx, 1)} disabled={resIdx === room.results.length - 1} className="text-gray-500 hover:text-white disabled:opacity-20 text-[10px] leading-none">▼</button>
+                                                                </div>
+                                                                <span className={`text-xs w-6 text-center font-bold ${resIdx === 0 ? 'text-yellow-400' : resIdx === 1 ? 'text-gray-300' : resIdx === 2 ? 'text-orange-400' : 'text-gray-500'}`}>
+                                                                    {resIdx === 0 ? '🥇' : resIdx === 1 ? '🥈' : resIdx === 2 ? '🥉' : `#${resIdx + 1}`}
+                                                                </span>
+                                                                <input type="text" className="flex-1 bg-white/10 border border-white/20 rounded p-1.5 text-white text-xs focus:border-orange-500 outline-none" value={r.driverName || ''} onChange={(e) => updateRoomResult(rIdx, rmIdx, resIdx, 'driverName', e.target.value)} placeholder="Piloto" />
+                                                                <input type="text" className="w-24 bg-white/10 border border-white/20 rounded p-1.5 text-white text-xs focus:border-orange-500 outline-none" value={r.psnId || ''} onChange={(e) => updateRoomResult(rIdx, rmIdx, resIdx, 'psnId', e.target.value)} placeholder="PSN" />
+                                                                <button type="button" title="Vuelta rápida" onClick={() => updateRoomResult(rIdx, rmIdx, resIdx, 'fastestLap', !r.fastestLap)} className={`text-xs px-1 rounded ${r.fastestLap ? 'bg-purple-500/30 text-purple-300' : 'text-gray-600 hover:text-purple-400'}`}>⚡</button>
+                                                                <button type="button" title="Pole Position" onClick={() => updateRoomResult(rIdx, rmIdx, resIdx, 'polePosition', !r.polePosition)} className={`text-xs px-1 rounded ${r.polePosition ? 'bg-yellow-500/30 text-yellow-300' : 'text-gray-600 hover:text-yellow-400'}`}>🅿️</button>
+                                                                <button type="button" title="DNF" onClick={() => updateRoomResult(rIdx, rmIdx, resIdx, 'dnf', !r.dnf)} className={`text-xs px-1 rounded ${r.dnf ? 'bg-red-500/30 text-red-300' : 'text-gray-600 hover:text-red-400'}`}>✖</button>
+                                                                <button type="button" onClick={() => removeRoomResult(rIdx, rmIdx, resIdx)} className="text-red-400 hover:text-red-300 text-xs font-bold ml-1">×</button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </CollapsibleSection>
+            )}
+
+            {/* ========== SECTION 12: RESULTS (completed events — standard type) ========== */}
+            {form.status === 'completed' && (form.eventType || 'standard') === 'standard' && (
                 <CollapsibleSection title="Resultados del Evento" icon="🏁" defaultOpen={true} badge={form.results?.length ? `${form.results.length} posiciones` : null}>
                     <div className="space-y-3">
                         <div className="flex justify-between items-center">
@@ -947,6 +1269,7 @@ export default function EventsAdminPage() {
                                         const hasRegistration = event.registration?.enabled;
                                         const participantCount = event.participants?.length || 0;
                                         const maxP = event.maxParticipants || 16;
+                                        const evType = EVENT_TYPES.find(t => t.value === event.eventType);
 
                                         return (
                                             <div
@@ -988,6 +1311,9 @@ export default function EventsAdminPage() {
                                                             {cat && <CategoryBadge category={event.category} />}
                                                             {fmt && event.format !== 'race' && (
                                                                 <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded font-medium">{fmt.label}</span>
+                                                            )}
+                                                            {evType && event.eventType !== 'standard' && (
+                                                                <span className="text-xs bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded font-medium">{evType.icon} {evType.label}</span>
                                                             )}
                                                             {hasRegistration && (
                                                                 <span className="text-xs bg-green-500/20 text-green-300 px-2 py-0.5 rounded font-medium">📝 Inscripción</span>
