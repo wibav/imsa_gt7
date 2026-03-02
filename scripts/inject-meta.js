@@ -1,84 +1,135 @@
 /*
- Inyecta meta tags OG/Twitter directamente en out/index.html.
+ Inyecta meta tags OG/Twitter directamente en los HTML estáticos generados.
  Esto asegura que scrapers (Facebook/WhatsApp/Telegram/Twitter/X) vean las etiquetas sin ejecutar JS.
+ Cubre la home y todas las secciones con metadata específica.
 */
 const fs = require('fs');
 const path = require('path');
 
 const OUT_DIR = path.join(__dirname, '..', 'out');
-const FILES = [path.join(OUT_DIR, 'index.html')];
+const BASE_URL = 'https://imsa.trenkit.com';
 
-const metaBlock = `  <title>Dashboard - GT7 Championships</title>
-  <meta name="description" content="Consulta en tiempo real las estadísticas, clasificaciones y resultados del campeonato GT7 Championships. Dashboard interactivo con datos actualizados.">
-  <link rel="canonical" href="https://imsa.trenkit.com/">
+// ── Páginas y su metadata OG ─────────────────────────────────
+const PAGES = [
+    {
+        file: 'index.html',
+        title: 'Dashboard - GT7 ESP Racing Club',
+        description: 'Consulta en tiempo real las estadísticas, clasificaciones y resultados del campeonato GT7 ESP Racing Club. Dashboard interactivo con datos actualizados.',
+        url: `${BASE_URL}/`,
+        image: `${BASE_URL}/og-image.png`,
+        imageAlt: 'GT7 ESP Racing Club - IMSA',
+    },
+    {
+        file: 'championships/index.html',
+        title: 'Campeonatos | GT7 ESP Racing Club',
+        description: 'Clasificaciones, resultados y estadísticas de todos los campeonatos del GT7 ESP Racing Club.',
+        url: `${BASE_URL}/championships/`,
+        image: `${BASE_URL}/og-championships.png`,
+        imageAlt: 'Campeonatos - GT7 ESP Racing Club',
+    },
+    {
+        file: 'pilots/index.html',
+        title: 'Área de Pilotos | GT7 ESP Racing Club',
+        description: 'Perfiles, estadísticas y rendimiento de los pilotos del GT7 ESP Racing Club.',
+        url: `${BASE_URL}/pilots/`,
+        image: `${BASE_URL}/og-pilots.png`,
+        imageAlt: 'Área de Pilotos - GT7 ESP Racing Club',
+    },
+    {
+        file: 'reglamento/index.html',
+        title: 'Reglamento Oficial | GT7 ESP Racing Club',
+        description: 'Normativa oficial: conducta en pista, sanciones por puntos, reclamaciones y reglas de carrera del GT7 ESP Racing Club.',
+        url: `${BASE_URL}/reglamento/`,
+        image: `${BASE_URL}/og-reglamento.png`,
+        imageAlt: 'Reglamento - GT7 ESP Racing Club',
+    },
+    {
+        file: 'tools/index.html',
+        title: 'Creador de Vinilos | GT7 ESP Racing Club',
+        description: 'Convierte imágenes a vinilos SVG optimizados para Gran Turismo 7. Herramienta gratuita del GT7 ESP Racing Club.',
+        url: `${BASE_URL}/tools/`,
+        image: `${BASE_URL}/og-tools.png`,
+        imageAlt: 'Creador de Vinilos - GT7 ESP Racing Club',
+    },
+    {
+        file: 'events/index.html',
+        title: 'Eventos | GT7 ESP Racing Club',
+        description: 'Calendario de eventos, carreras especiales e inscripciones del GT7 ESP Racing Club.',
+        url: `${BASE_URL}/events/`,
+        image: `${BASE_URL}/og-image.png`,
+        imageAlt: 'Eventos - GT7 ESP Racing Club',
+    },
+];
+
+// ── Construir bloque de meta tags ────────────────────────────
+function buildMetaBlock(page) {
+    return `  <title>${page.title}</title>
+  <meta name="description" content="${page.description}">
+  <link rel="canonical" href="${page.url}">
   <!-- Open Graph -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://imsa.trenkit.com/">
-  <meta property="og:site_name" content="GT7 Championships">
-  <meta property="og:title" content="IMSA - GT7 Championships">
-  <meta property="og:description" content="Consulta en tiempo real las estadísticas, clasificaciones y resultados del campeonato GT7 Championships.">
-        <meta property="og:image" content="https://imsa.trenkit.com/logo_gt7.png">
-        <meta property="og:image:secure_url" content="https://imsa.trenkit.com/logo_gt7.png">
+  <meta property="og:url" content="${page.url}">
+  <meta property="og:site_name" content="GT7 ESP Racing Club">
+  <meta property="og:title" content="${page.title}">
+  <meta property="og:description" content="${page.description}">
+  <meta property="og:image" content="${page.image}">
+  <meta property="og:image:secure_url" content="${page.image}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="GT7 Championships - IMSA">
+  <meta property="og:image:alt" content="${page.imageAlt}">
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="GT7 Championships">
-  <meta name="twitter:description" content="IMSA GT7 Championships">
-        <meta name="twitter:image" content="https://imsa.trenkit.com/logo_gt7.png">`;
+  <meta name="twitter:title" content="${page.title}">
+  <meta name="twitter:description" content="${page.description}">
+  <meta name="twitter:image" content="${page.image}">`;
+}
 
-function inject(filePath) {
+// ── Inyectar en un archivo HTML ───────────────────────────────
+function inject(filePath, page) {
     let html = fs.readFileSync(filePath, 'utf8');
 
     const fbAppId = process.env.NEXT_PUBLIC_FB_APP_ID || process.env.FB_APP_ID;
+    const metaBlock = buildMetaBlock(page);
 
-    // Evitar doble inserción si ya existen og:title o twitter:card en el HTML
-    if (/property=\"og:title\"|name=\"twitter:card\"/i.test(html)) {
-        // Si ya están presentes como meta reales (no sólo dentro de scripts), no volver a insertar
-        const headContent = html.split(/<head[^>]*>/i)[1]?.split(/<\/head>/i)[0] || '';
-        if (/(<meta[^>]+property=\"og:title\")|(<meta[^>]+name=\"twitter:card\")/i.test(headContent)) {
-            console.log(`[inject-meta] Meta tags ya presentes en head: ${path.basename(filePath)}. Sin cambios.`);
-            return;
-        }
-    }
+    // Extraer contenido del <head>
+    const headMatch = html.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+    const headContent = headMatch ? headMatch[1] : '';
 
-    const headOpenIndex = html.search(/<head[^>]*>/i);
-    const headCloseIndex = html.search(/<\/head>/i);
-    const headContent = headOpenIndex >= 0 && headCloseIndex > headOpenIndex
-        ? html.slice(headOpenIndex, headCloseIndex)
-        : '';
+    // Verificar si ya tiene OG tags reales (no en scripts)
+    const hasOG = /(<meta[^>]+property="og:title")/i.test(headContent);
+    const hasTwitter = /(<meta[^>]+name="twitter:card")/i.test(headContent);
 
     let changed = false;
 
-    // Insertar bloque base si no existen metatags reales de OG/Twitter
-    if (!/(<meta[^>]+property=\"og:title\")/i.test(headContent) || !/(<meta[^>]+name=\"twitter:card\")/i.test(headContent)) {
-        html = html.replace(/<head[^>]*>/i, (match) => `${match}\n${metaBlock}\n`);
+    if (!hasOG || !hasTwitter) {
+        html = html.replace(/<head([^>]*)>/i, (match) => `${match}\n${metaBlock}\n`);
         changed = true;
-        console.log(`[inject-meta] Bloque OG/Twitter insertado en: ${path.basename(filePath)}`);
+        console.log(`[inject-meta] OG/Twitter insertado: ${page.file}`);
+    } else {
+        console.log(`[inject-meta] OG tags ya presentes: ${page.file}`);
     }
 
-    // Asegurar fb:app_id si hay APP ID definida por entorno
-    if (fbAppId) {
-        const hasFbAppId = headContent && /property=\"fb:app_id\"/i.test(headContent);
-        if (!hasFbAppId) {
-            html = html.replace(/<\/head>/i, `  <meta property=\"fb:app_id\" content=\"${fbAppId}\">\n</head>`);
-            changed = true;
-            console.log(`[inject-meta] fb:app_id añadido en: ${path.basename(filePath)}`);
-        }
+    // fb:app_id
+    if (fbAppId && !/property="fb:app_id"/i.test(headContent)) {
+        html = html.replace(/<\/head>/i, `  <meta property="fb:app_id" content="${fbAppId}">\n</head>`);
+        changed = true;
+        console.log(`[inject-meta] fb:app_id añadido: ${page.file}`);
     }
 
     if (changed) {
         fs.writeFileSync(filePath, html, 'utf8');
-    } else {
-        console.log(`[inject-meta] Head ya contiene metatags necesarias: ${path.basename(filePath)}. Sin cambios.`);
     }
 }
 
-for (const file of FILES) {
-    if (fs.existsSync(file)) {
-        inject(file);
+// ── Ejecutar ─────────────────────────────────────────────────
+let processed = 0;
+for (const page of PAGES) {
+    const filePath = path.join(OUT_DIR, page.file);
+    if (fs.existsSync(filePath)) {
+        inject(filePath, page);
+        processed++;
     } else {
-        console.warn(`[inject-meta] Archivo no encontrado: ${file}`);
+        console.warn(`[inject-meta] No encontrado: ${page.file}`);
     }
 }
+console.log(`[inject-meta] ${processed}/${PAGES.length} páginas procesadas.`);
