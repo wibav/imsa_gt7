@@ -73,22 +73,6 @@ const SECTIONS = [
                 ]
             },
             {
-                subtitle: "Parámetros generales de sala",
-                type: "table",
-                headers: ["Parámetro", "Valor por defecto"],
-                rows: [
-                    ["Equilibrio de rendimiento (BoP)", "ACTIVADO"],
-                    ["Configuración / Setup del coche", "PROHIBIDA"],
-                    ["Cambio de motor", "PROHIBIDO"],
-                    ["Fantasma durante la carrera", "DESACTIVADO"],
-                    ["Penalización por atajo", "FUERTE"],
-                    ["Penalización por cruzar línea de boxes", "ACTIVADA"],
-                    ["Penalización por choque con muro", "Según ficha del evento"],
-                    ["Corregir trayecto al chocar", "Según ficha del evento"],
-                    ["Neumáticos, combustible, daños, clima", "Según ficha de cada circuito"]
-                ]
-            },
-            {
                 subtitle: "Bugs y reinicios",
                 items: [
                     "Si un piloto se queda bugeado en la salida, debe avisar inmediatamente por chat. Solo el anfitrión tiene potestad de reiniciar la carrera.",
