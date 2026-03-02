@@ -18,7 +18,7 @@ const SECTIONS = [
             {
                 subtitle: "Principios fundamentales",
                 items: [
-                    "Todos los pilotos deben mantener un comportamiento deportivo y respetuoso en todo momento, tanto en pista como en los canales de comunicación (Discord, chat de PlayStation, stream, etc.).",
+                    "Todos los pilotos deben mantener un comportamiento deportivo y respetuoso en todo momento, tanto en pista como en los canales de comunicación (Whatsapp, chat de PlayStation, stream, etc.).",
                     "Está terminantemente prohibido insultar, amenazar o faltar al respeto a cualquier piloto, organizador, comisario, caster o miembro de la comunidad.",
                     "Se espera fair play: si causas un incidente involuntario que perjudica a otro piloto, se valora positivamente esperar y devolver la posición cuando sea seguro hacerlo. Devolver la posición puede reducir la sanción a la mitad.",
                     "El uso de exploits, bugs, glitches o cualquier ventaja no legítima del juego resultará en descalificación inmediata de la carrera y posible expulsión del campeonato.",
@@ -37,7 +37,7 @@ const SECTIONS = [
             {
                 subtitle: "Comunicación oficial",
                 items: [
-                    "Toda comunicación oficial se realiza por los canales designados por la organización (Discord del campeonato).",
+                    "Toda comunicación oficial se realiza por los canales designados por la organización (Comunidad de Whatsapp (Comisarios)).",
                     "Las quejas, reclamaciones o disputas NUNCA deben resolverse en chat público, redes sociales o durante la retransmisión. Existe un procedimiento formal de reclamaciones (ver sección correspondiente).",
                     "Las decisiones de los comisarios y la organización son definitivas una vez publicadas. No se admiten apelaciones salvo nuevas pruebas contundentes.",
                     "Está prohibido hablar por micrófono o escribir por chat durante la clasificación y la carrera, salvo el anfitrión de sala para cuestiones de organización. Infracción: -3 puntos."
@@ -57,7 +57,7 @@ const SECTIONS = [
                 subtitle: "El anfitrión (Host)",
                 items: [
                     "El Host es el responsable de crear y configurar la sala según los parámetros establecidos para cada carrera.",
-                    "El anfitrión de cada carrera será comunicado con antelación por el grupo de Discord de la competición.",
+                    "El anfitrión de cada carrera será comunicado con antelación por la Comunidad de Whatsapp.",
                     "Debe crear la sala con un mínimo de 15-20 minutos de antelación para calentamiento y verificación de conexiones.",
                     "El Host es responsable de guardar la repetición, tomar captura de los resultados y enviar el informe de carrera a la organización.",
                     "También deberá reportar a los comisarios cualquier acción ilegal, antideportiva o de dudosa legalidad que observe durante la carrera."
@@ -343,7 +343,7 @@ const SECTIONS = [
                 subtitle: "Cómo presentar una reclamación",
                 items: [
                     "Las reclamaciones SOLO se aceptan a través del formulario oficial dentro de la plataforma web del campeonato.",
-                    "NO se aceptan reclamaciones por chat de Discord, WhatsApp, comentarios de stream o cualquier otro medio informal. Reclamar fuera del formulario: -5 puntos.",
+                    "NO se aceptan reclamaciones por la comunidad de WhatsApp, comentarios de stream o cualquier otro medio informal. Reclamar fuera del formulario: -5 puntos.",
                     "El plazo para presentar una reclamación es de 48 horas después de finalizada la carrera."
                 ]
             },
