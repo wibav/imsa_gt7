@@ -53,6 +53,14 @@ const SECTIONS = [
         gradient: ['#1a0a0a', '#2d1515'],
         accent: '#ef4444',
     },
+    {
+        filename: 'og-events.png',
+        title: 'Eventos',
+        subtitle: 'Calendario, carreras especiales e inscripciones',
+        icon: '📅',
+        gradient: ['#0a1420', '#14283c'],
+        accent: '#fb923c',
+    },
 ];
 
 // ── Genera SVG 1200×630 con branding ─────────────────────────

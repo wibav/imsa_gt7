@@ -56,7 +56,7 @@ const PAGES = [
         title: 'Eventos | GT7 ESP Racing Club',
         description: 'Calendario de eventos, carreras especiales e inscripciones del GT7 ESP Racing Club.',
         url: `${BASE_URL}/events/`,
-        image: `${BASE_URL}/og-image.png`,
+        image: `${BASE_URL}/og-events.png`,
         imageAlt: 'Eventos - GT7 ESP Racing Club',
     },
 ];
