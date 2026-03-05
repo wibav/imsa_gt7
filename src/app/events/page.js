@@ -694,6 +694,12 @@ function EventDetailContent() {
                     >
                         ← Volver al Dashboard
                     </button>
+                    <button
+                        onClick={loadEvent}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-all"
+                    >
+                        🔃 Refrescar Evento
+                    </button>
                     {eventStatus === "upcoming" && event.registration?.enabled && !isFull && (
                         <button
                             onClick={() => setIsRegistrationModalOpen(true)}
