@@ -10,13 +10,13 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
   metadataBase: new URL('https://imsa.trenkit.com'),
-  title: "IMSA GT7 Racing Club ESP",
-  description: "Dashboard de resultados del campeonato IMSA GT7 Racing Club ESP.",
+  title: "GT7 Championship",
+  description: "Dashboard de resultados del campeonato GT7 Championship.",
   openGraph: {
-    title: "GT7 ESP Racing Club",
-    description: "Dashboard de resultados del campeonato GT7 ESP Racing Club",
+    title: "GT7 Championship",
+    description: "Dashboard de resultados del campeonato GT7 Championship",
     url: "https://imsa.trenkit.com",
-    siteName: "GT7 ESP Racing Club",
+    siteName: "GT7 Championship",
     images: [
       {
         url: "/logo_gt7.png",
@@ -30,8 +30,8 @@ export const metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "GT7 ESP Racing Club",
-    description: "Dashboard de resultados del campeonato GT7 ESP Racing Club",
+    title: "GT7 Championship",
+    description: "Dashboard de resultados del campeonato GT7 Championship",
     images: ["/logo_gt7.png"],
     creator: "@GT7ESPRacing",
   },
