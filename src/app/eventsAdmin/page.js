@@ -432,27 +432,27 @@ function EventForm({ event, onSave, onCancel, saving }) {
     const labelCls = "block text-gray-300 font-semibold mb-1 text-sm";
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-2 md:space-y-4">
             {/* Form Header (sticky) */}
-            <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sticky top-0 z-10">
-                <div className="flex items-center gap-3">
-                    <button onClick={onCancel} className="text-gray-400 hover:text-white transition-colors text-lg">←</button>
-                    <h2 className="text-xl font-bold text-white">
-                        {isEditing ? `✏️ Editar: ${form.title || 'Sin título'}` : '➕ Nuevo Evento'}
+            <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-3 md:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 md:gap-3 sticky top-0 z-10">
+                <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                    <button onClick={onCancel} className="text-gray-400 hover:text-white transition-colors text-lg flex-shrink-0">←</button>
+                    <h2 className="text-sm md:text-xl font-bold text-white truncate">
+                        {isEditing ? `✏️ ${(form.title || 'Sin título').substring(0, 20)}${(form.title || 'Sin título').length > 20 ? '...' : ''}` : '➕ Nuevo Evento'}
                     </h2>
                 </div>
                 <button
                     onClick={handleSubmit}
                     disabled={saving}
-                    className="px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 text-white font-bold rounded-lg transition-all flex items-center gap-2"
+                    className="px-3 md:px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 text-white font-bold rounded-lg transition-all flex items-center gap-1 md:gap-2 text-xs md:text-base flex-shrink-0"
                 >
-                    {saving ? '⏳ Guardando...' : '💾 Guardar Evento'}
+                    {saving ? '⏳' : '💾'} <span className="hidden md:inline">{saving ? 'Guardando...' : 'Guardar'}</span>
                 </button>
             </div>
 
             {/* ========== SECTION 1: BASIC INFO ========== */}
-            <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-6 space-y-4">
-                <h3 className="text-white font-bold text-lg flex items-center gap-2">📋 Información General</h3>
+            <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-3 md:p-6 space-y-3 md:space-y-4">
+                <h3 className="text-white font-bold text-base md:text-lg flex items-center gap-2">📋 Información General</h3>
 
                 <div>
                     <label className={labelCls}>Título *</label>
@@ -464,7 +464,7 @@ function EventForm({ event, onSave, onCancel, saving }) {
                     <textarea className={inputCls} rows={3} value={form.description || ''} onChange={(e) => updateField('description', e.target.value)} placeholder="Descripción del evento..." />
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                     <div>
                         <label className={labelCls}>Fecha *</label>
                         <input type="date" className={inputCls} value={form.date || ''} onChange={(e) => updateField('date', e.target.value)} />
@@ -487,7 +487,7 @@ function EventForm({ event, onSave, onCancel, saving }) {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                     <div>
                         <label className={labelCls}>Categoría</label>
                         <select className={inputCls} value={form.category || 'competitive'} onChange={(e) => updateField('category', e.target.value)}>
@@ -538,7 +538,7 @@ function EventForm({ event, onSave, onCancel, saving }) {
                     </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                     <div>
                         <label className={labelCls}>Vueltas</label>
                         <input type="number" min={1} className={inputCls} value={form.rules?.laps || ''} onChange={(e) => updateRules('laps', e.target.value)} placeholder="Ej: 15" />
@@ -754,7 +754,7 @@ function EventForm({ event, onSave, onCancel, saving }) {
 
             {/* ========== SECTION 7: STREAMING ========== */}
             <CollapsibleSection title="Streaming y Caster" icon="📺" badge={form.streaming?.casterName || form.streaming?.url ? 'Configurado' : null}>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                     <div>
                         <label className={labelCls}>Caster (narrador)</label>
                         <input type="text" className={inputCls} value={form.streaming?.casterName || ''} onChange={(e) => updateStreaming('casterName', e.target.value)} placeholder="Nombre del caster" />
@@ -764,7 +764,7 @@ function EventForm({ event, onSave, onCancel, saving }) {
                         <input type="text" className={inputCls} value={form.streaming?.hostName || ''} onChange={(e) => updateStreaming('hostName', e.target.value)} placeholder="PSN ID del host" />
                     </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
                     <div className="md:col-span-2">
                         <label className={labelCls}>URL del stream</label>
                         <input type="url" className={inputCls} value={form.streaming?.url || ''} onChange={(e) => updateStreaming('url', e.target.value)} placeholder="https://youtube.com/live/..." />
@@ -906,18 +906,18 @@ function EventForm({ event, onSave, onCancel, saving }) {
                                             </div>
 
                                             {/* Room Caster & Host */}
-                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
                                                 <div>
                                                     <label className={labelCls}>🎙️ Caster</label>
-                                                    <input type="text" className={`${inputCls} text-sm`} value={room.caster || ''} onChange={(e) => updateRoundRoom(rIdx, rmIdx, 'caster', e.target.value)} placeholder="Nombre del caster" />
+                                                    <input type="text" className={`${inputCls} text-xs md:text-sm`} value={room.caster || ''} onChange={(e) => updateRoundRoom(rIdx, rmIdx, 'caster', e.target.value)} placeholder="Nombre del caster" />
                                                 </div>
                                                 <div>
                                                     <label className={labelCls}>🎮 Host</label>
-                                                    <input type="text" className={`${inputCls} text-sm`} value={room.host || ''} onChange={(e) => updateRoundRoom(rIdx, rmIdx, 'host', e.target.value)} placeholder="PSN ID del host" />
+                                                    <input type="text" className={`${inputCls} text-xs md:text-sm`} value={room.host || ''} onChange={(e) => updateRoundRoom(rIdx, rmIdx, 'host', e.target.value)} placeholder="PSN ID del host" />
                                                 </div>
                                                 <div>
                                                     <label className={labelCls}>📺 Stream URL</label>
-                                                    <input type="url" className={`${inputCls} text-sm`} value={room.streamUrl || ''} onChange={(e) => updateRoundRoom(rIdx, rmIdx, 'streamUrl', e.target.value)} placeholder="https://..." />
+                                                    <input type="url" className={`${inputCls} text-xs md:text-sm`} value={room.streamUrl || ''} onChange={(e) => updateRoundRoom(rIdx, rmIdx, 'streamUrl', e.target.value)} placeholder="https://..." />
                                                 </div>
                                             </div>
 
@@ -1070,16 +1070,16 @@ function EventForm({ event, onSave, onCancel, saving }) {
             )}
 
             {/* Bottom action bar */}
-            <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-4 flex items-center justify-between">
-                <button onClick={onCancel} className="px-6 py-2 bg-white/10 hover:bg-white/20 text-gray-300 font-semibold rounded-lg transition-colors">
+            <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-3 md:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 md:gap-3">
+                <button onClick={onCancel} className="px-4 md:px-6 py-2 bg-white/10 hover:bg-white/20 text-gray-300 font-semibold rounded-lg transition-colors text-sm md:text-base">
                     ← Cancelar
                 </button>
                 <button
                     onClick={handleSubmit}
                     disabled={saving}
-                    className="px-8 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 text-white font-bold rounded-lg transition-all flex items-center gap-2 shadow-lg hover:shadow-xl"
+                    className="px-4 md:px-8 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl text-sm md:text-base"
                 >
-                    {saving ? '⏳ Guardando...' : '💾 Guardar Evento'}
+                    {saving ? '⏳' : '💾'} <span className="hidden sm:inline">{saving ? 'Guardando...' : 'Guardar Evento'}</span><span className="sm:hidden">{saving ? 'Guardando' : 'Guardar'}</span>
                 </button>
             </div>
         </div>
@@ -1262,17 +1262,17 @@ export default function EventsAdminPage() {
                             </div>
 
                             {/* ===== STATS ===== */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 mb-6">
                                 {[
                                     { label: 'Total', value: stats.total, gradient: 'from-blue-600 to-blue-800', icon: '📊' },
                                     { label: 'Próximos', value: stats.upcoming, gradient: 'from-cyan-600 to-cyan-800', icon: '📅' },
                                     { label: 'En Vivo', value: stats.live, gradient: 'from-green-600 to-green-800', icon: '🔴' },
                                     { label: 'Finalizados', value: stats.completed, gradient: 'from-gray-600 to-gray-800', icon: '✅' }
                                 ].map(s => (
-                                    <div key={s.label} className={`bg-gradient-to-br ${s.gradient} rounded-lg p-4 text-center shadow-lg`}>
+                                    <div key={s.label} className={`bg-gradient-to-br ${s.gradient} rounded-lg p-3 md:p-4 text-center shadow-lg`}>
                                         <div className="text-2xl mb-1">{s.icon}</div>
-                                        <div className="text-3xl font-bold text-white">{s.value}</div>
-                                        <div className="text-white/70 text-sm">{s.label}</div>
+                                        <div className="text-2xl md:text-3xl font-bold text-white">{s.value}</div>
+                                        <div className="text-white/70 text-xs md:text-sm">{s.label}</div>
                                     </div>
                                 ))}
                             </div>
@@ -1325,7 +1325,7 @@ export default function EventsAdminPage() {
                                     )}
                                 </div>
                             ) : (
-                                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                                <div className="grid gap-3 md:gap-6 md:grid-cols-2 xl:grid-cols-3">
                                     {filteredEvents.map(event => {
                                         const status = event.status || computeStatus(event);
                                         const countdown = getCountdown(event.date, event.hour);
