@@ -604,52 +604,63 @@ function EventDetailContent() {
                                             </div>
 
                                             {/* Room results */}
-                                            {room.results?.length > 0 ? (
+                                            {room.results?.length > 0 || room.participants?.length > 0 ? (
                                                 <div className="p-4">
-                                                    <table className="w-full text-sm">
-                                                        <thead>
-                                                            <tr className="border-b border-white/10 text-gray-400">
-                                                                <th className="text-left py-2 px-2 w-10">Pos</th>
-                                                                <th className="text-left py-2 px-2">Piloto</th>
-                                                                {room.results.some(r => r.psnId) && <th className="text-left py-2 px-2">PSN</th>}
-                                                                <th className="text-center py-2 px-2 w-20">Extras</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {room.results.map((r, idx) => (
-                                                                <tr
-                                                                    key={idx}
-                                                                    className={`border-b border-white/5 transition-colors ${idx === 0 ? "bg-yellow-500/10" : idx === 1 ? "bg-gray-400/10" : idx === 2 ? "bg-orange-500/10" : "hover:bg-white/5"}`}
-                                                                >
-                                                                    <td className="py-2.5 px-2 font-bold text-white">
-                                                                        {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `${idx + 1}°`}
-                                                                    </td>
-                                                                    <td className="py-2.5 px-2 text-white font-semibold">{r.driverName || "-"}</td>
-                                                                    {room.results.some(r => r.psnId) && (
-                                                                        <td className="py-2.5 px-2 text-gray-400 text-xs">{r.psnId || "-"}</td>
-                                                                    )}
-                                                                    <td className="py-2.5 px-2 text-center">
-                                                                        <div className="flex items-center justify-center gap-1.5">
-                                                                            {r.fastestLap && <span title="Vuelta Rápida" className="text-purple-400">⚡</span>}
-                                                                            {r.polePosition && <span title="Pole Position" className="text-yellow-400">🅿️</span>}
-                                                                            {r.dnf && <span title="DNF" className="text-red-400 text-xs font-bold">DNF</span>}
-                                                                        </div>
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            ) : room.participants?.length > 0 ? (
-                                                <div className="p-4">
-                                                    <p className="text-gray-500 text-xs mb-2 uppercase font-semibold">Participantes ({room.participants.length})</p>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {room.participants.map((p, pIdx) => (
-                                                            <span key={pIdx} className="text-xs bg-white/5 text-gray-300 px-2.5 py-1 rounded-full">
-                                                                {p.gt7Id || p.name || `Piloto ${pIdx + 1}`}
-                                                            </span>
-                                                        ))}
-                                                    </div>
+                                                    {/* Resultados */}
+                                                    {room.results?.length > 0 && (
+                                                        <>
+                                                            <table className="w-full text-sm">
+                                                                <thead>
+                                                                    <tr className="border-b border-white/10 text-gray-400">
+                                                                        <th className="text-left py-2 px-2 w-10">Pos</th>
+                                                                        <th className="text-left py-2 px-2">Piloto</th>
+                                                                        {room.results.some(r => r.psnId) && <th className="text-left py-2 px-2">PSN</th>}
+                                                                        <th className="text-center py-2 px-2 w-20">Extras</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {room.results.map((r, idx) => (
+                                                                        <tr
+                                                                            key={idx}
+                                                                            className={`border-b border-white/5 transition-colors ${idx === 0 ? "bg-yellow-500/10" : idx === 1 ? "bg-gray-400/10" : idx === 2 ? "bg-orange-500/10" : "hover:bg-white/5"}`}
+                                                                        >
+                                                                            <td className="py-2.5 px-2 font-bold text-white">
+                                                                                {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `${idx + 1}°`}
+                                                                            </td>
+                                                                            <td className="py-2.5 px-2 text-white font-semibold">{r.driverName || "-"}</td>
+                                                                            {room.results.some(r => r.psnId) && (
+                                                                                <td className="py-2.5 px-2 text-gray-400 text-xs">{r.psnId || "-"}</td>
+                                                                            )}
+                                                                            <td className="py-2.5 px-2 text-center">
+                                                                                <div className="flex items-center justify-center gap-1.5">
+                                                                                    {r.fastestLap && <span title="Vuelta Rápida" className="text-purple-400">⚡</span>}
+                                                                                    {r.polePosition && <span title="Pole Position" className="text-yellow-400">🅿️</span>}
+                                                                                    {r.dnf && <span title="DNF" className="text-red-400 text-xs font-bold">DNF</span>}
+                                                                                </div>
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        </>
+                                                    )}
+
+                                                    {/* Participantes sin resultado */}
+                                                    {room.participants?.length > 0 && (
+                                                        <>
+                                                            {room.results?.length > 0 && <hr className="border-white/10 my-4" />}
+                                                            <p className="text-gray-500 text-xs mb-2 uppercase font-semibold">
+                                                                {room.results?.length > 0 ? "Participantes Pendientes" : "Participantes"} ({room.participants.length})
+                                                            </p>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {room.participants.map((p, pIdx) => (
+                                                                    <span key={pIdx} className="text-xs bg-white/5 text-gray-300 px-2.5 py-1 rounded-full">
+                                                                        {p.gt7Id || p.name || `Piloto ${pIdx + 1}`}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <div className="p-4 text-center text-gray-500 text-sm">
