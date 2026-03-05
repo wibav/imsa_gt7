@@ -266,7 +266,7 @@ export default function ExportableEventResults({ event }) {
                                             imsa.trenkit.com
                                         </div>
                                         <div style={{ fontSize: '11px', color: '#6b7280' }}>
-                                            GT7 ESP Racing Club
+                                            GT7 Championship
                                         </div>
                                     </div>
                                 </div>

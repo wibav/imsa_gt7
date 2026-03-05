@@ -6,7 +6,7 @@ export function generateMetadata({
     url,
     type = "website",
     keywords = [],
-    author = "GT7 Championships",
+    author = "GT7 Championship",
     publishedTime,
     modifiedTime
 }) {
@@ -15,7 +15,7 @@ export function generateMetadata({
 
     // Keywords base para SEO
     const baseKeywords = [
-        "IMSA GT7", "Gran Turismo 7", "racing club", "carreras", "España",
+        "GT7 Championship", "Gran Turismo 7", "racing club", "carreras", "España",
         "campeonato", "simulación", "motorsport", "PlayStation", "GT7 España",
         "carreras online", "competición", "pilotos", "clasificación"
     ];
@@ -23,12 +23,12 @@ export function generateMetadata({
     const allKeywords = [...baseKeywords, ...keywords].join(", ");
 
     return {
-        title: title ? `${title} | IMSA GT7 Racing Club ESP` : "IMSA GT7 Racing Club ESP",
-        description: description || "Dashboard de resultados del campeonato IMSA GT7 Racing Club ESP. Consulta estadísticas, clasificaciones y resultados de carreras en tiempo real.",
+        title: title ? `${title} | GT7 Championship` : "GT7 Championship",
+        description: description || "Dashboard de resultados del campeonato GT7 Championship. Consulta estadísticas, clasificaciones y resultados de carreras en tiempo real.",
         keywords: allKeywords,
         authors: [{ name: author }],
         creator: author,
-        publisher: "IMSA GT7 Racing Club ESP",
+        publisher: "GT7 Championship",
 
         // Configuración de robots mejorada
         robots: {
@@ -55,15 +55,15 @@ export function generateMetadata({
         },
 
         openGraph: {
-            title: title || "IMSA GT7 Racing Club ESP",
-            description: description || "Dashboard de resultados del campeonato IMSA GT7 Racing Club ESP",
+            title: title || "GT7 Championship",
+            description: description || "Dashboard de resultados del campeonato GT7 Championship",
             url: fullUrl,
-            siteName: "IMSA GT7 Racing Club ESP",
+            siteName: "GT7 Championship",
             images: images.map(img => ({
                 url: img.startsWith('/') ? img : `/${img}`,
                 width: 1200,
                 height: 630,
-                alt: title || "IMSA GT7 Racing Club ESP",
+                alt: title || "GT7 Championship",
             })),
             locale: "es_ES",
             type,
@@ -73,8 +73,8 @@ export function generateMetadata({
 
         twitter: {
             card: "summary_large_image",
-            title: title || "IMSA GT7 Racing Club ESP",
-            description: description || "Dashboard de resultados del campeonato IMSA GT7 Racing Club ESP",
+            title: title || "GT7 Championship",
+            description: description || "Dashboard de resultados del campeonato GT7 Championship",
             images: images,
         },
     };

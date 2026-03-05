@@ -40,7 +40,7 @@ export default function DynamicOGTags({ title, description, image, url, type = "
         };
 
         // Update page title
-        document.title = `${title} | GT7 ESP Racing Club`;
+        document.title = `${title} | GT7 Championship`;
 
         // Open Graph
         setMetaTag("og:title", title);

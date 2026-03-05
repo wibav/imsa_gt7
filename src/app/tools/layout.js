@@ -1,19 +1,19 @@
 export const metadata = {
-    title: "Creador de Vinilos | GT7 ESP Racing Club",
+    title: "Creador de Vinilos | GT7 Championship",
     description:
         "Herramienta para crear y optimizar vinilos personalizados para Gran Turismo 7. Convierte imágenes a formato SVG vectorial listo para importar.",
     openGraph: {
-        title: "Creador de Vinilos | GT7 ESP Racing Club",
+        title: "Creador de Vinilos | GT7 Championship",
         description:
-            "Convierte imágenes a vinilos SVG optimizados para Gran Turismo 7. Herramienta gratuita del GT7 ESP Racing Club.",
+            "Convierte imágenes a vinilos SVG optimizados para Gran Turismo 7. Herramienta gratuita del GT7 Championship.",
         url: "https://imsa.trenkit.com/tools/",
-        siteName: "GT7 ESP Racing Club",
+        siteName: "GT7 Championship",
         images: [
             {
                 url: "/og-tools.png",
                 width: 1200,
                 height: 630,
-                alt: "Creador de Vinilos - GT7 ESP Racing Club",
+                alt: "Creador de Vinilos - GT7 Championship",
             },
         ],
         locale: "es_ES",
@@ -21,7 +21,7 @@ export const metadata = {
     },
     twitter: {
         card: "summary_large_image",
-        title: "Creador de Vinilos | GT7 ESP Racing Club",
+        title: "Creador de Vinilos | GT7 Championship",
         description:
             "Convierte imágenes a vinilos SVG para Gran Turismo 7.",
         images: ["/og-tools.png"],
