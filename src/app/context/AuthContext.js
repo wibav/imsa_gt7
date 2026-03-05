@@ -40,9 +40,12 @@ export function AuthProvider({ children }) {
     const isAdmin = () => {
         // Lista de emails autorizados como admin
         const adminEmails = [
-            'serranogt7@gmail.com',
+            'eric.jce@gmail.com',
             'wolcutor@gmail.com',
-            'yecherm@hotmail.com'
+            'yecherm@hotmail.com',
+            'storricosan@gmail.com',
+            'ojervoley@hotmail.com',
+            'griffi@mail.com'
         ];
 
         return currentUser && adminEmails.includes(currentUser.email);
