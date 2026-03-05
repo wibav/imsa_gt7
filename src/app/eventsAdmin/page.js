@@ -939,25 +939,44 @@ function EventForm({ event, onSave, onCancel, saving }) {
                                                                 }}
                                                             >
                                                                 <option value="">+ Seleccionar Piloto</option>
-                                                                {form.participants.map(p => {
-                                                                    // Si no es la primera ronda, solo mostrar pilotos de la ronda anterior
-                                                                    const shouldShow = rIdx === 0 || form.rounds?.[rIdx - 1]?.rooms?.some(rm =>
-                                                                        rm.participants?.some(rp => rp.gt7Id === p.gt7Id)
-                                                                    );
-                                                                    if (!shouldShow) return null;
-
-                                                                    // Verificar si el piloto está en cualquier sala del evento (todas las rondas)
-                                                                    const isInAnyRoom = form.rounds?.some((r) =>
-                                                                        r.rooms?.some((rm) =>
-                                                                            rm.participants?.some(rp => rp.gt7Id === p.gt7Id)
-                                                                        )
-                                                                    );
-                                                                    return (
-                                                                        <option key={p.gt7Id || p.id} value={p.gt7Id} disabled={isInAnyRoom}>
-                                                                            {isInAnyRoom ? '✓ Asignado' : `${p.gt7Id} - ${p.psnId || 'Sin PSN'}`}
-                                                                        </option>
-                                                                    );
-                                                                })}
+                                                                {rIdx > 0 && (
+                                                                    <>
+                                                                        {/* Pilotos disponibles de la ronda anterior */}
+                                                                        <optgroup label="📋 De la Ronda Anterior">
+                                                                            {form.rounds?.[rIdx - 1]?.rooms?.flatMap(rm => rm.participants || []).map(prevP => {
+                                                                                const participantData = form.participants?.find(fp => fp.gt7Id === prevP.gt7Id);
+                                                                                if (!participantData) return null;
+                                                                                const isInAnyRoom = form.rounds?.some((r) =>
+                                                                                    r.rooms?.some((rm) =>
+                                                                                        rm.participants?.some(rp => rp.gt7Id === participantData.gt7Id)
+                                                                                    )
+                                                                                );
+                                                                                return (
+                                                                                    <option key={participantData.gt7Id} value={participantData.gt7Id} disabled={isInAnyRoom}>
+                                                                                        {isInAnyRoom ? `✓ ${participantData.gt7Id} (Asignado)` : `${participantData.gt7Id} - ${participantData.psnId || 'Sin PSN'}`}
+                                                                                    </option>
+                                                                                );
+                                                                            })}
+                                                                        </optgroup>
+                                                                    </>
+                                                                )}
+                                                                {rIdx === 0 && (
+                                                                    <>
+                                                                        {/* Ronda 1: mostrar todos los participantes */}
+                                                                        {form.participants.map(p => {
+                                                                            const isInAnyRoom = form.rounds?.some((r) =>
+                                                                                r.rooms?.some((rm) =>
+                                                                                    rm.participants?.some(rp => rp.gt7Id === p.gt7Id)
+                                                                                )
+                                                                            );
+                                                                            return (
+                                                                                <option key={p.gt7Id || p.id} value={p.gt7Id} disabled={isInAnyRoom}>
+                                                                                    {isInAnyRoom ? `✓ ${p.gt7Id} (Asignado)` : `${p.gt7Id} - ${p.psnId || 'Sin PSN'}`}
+                                                                                </option>
+                                                                            );
+                                                                        })}
+                                                                    </>
+                                                                )}
                                                             </select>
                                                         )}
                                                         <button type="button" onClick={() => addRoomParticipant(rIdx, rmIdx)} className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold transition-colors">
