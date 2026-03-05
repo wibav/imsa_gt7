@@ -1250,11 +1250,11 @@ export default function ToolsPage() {
                 <div className="text-center mb-12">
                     <h1 className="text-5xl font-bold mb-4">
                         <span className="bg-gradient-to-r from-orange-500 to-red-500 text-transparent bg-clip-text">
-                            Herramientas IMSA GT7
+                            Herramientas GT7 Championships
                         </span>
                     </h1>
                     <p className="text-xl text-gray-300">
-                        Herramientas útiles para el equipo IMSA GT7 Racing Club ESP
+                        Herramientas útiles para el equipo GT7 Championships
                     </p>
                 </div>
 

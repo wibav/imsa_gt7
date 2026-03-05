@@ -1,5 +1,5 @@
 """
-Genera imágenes OG 1200×630 para cada sección del sitio GT7 ESP Racing Club.
+Genera imágenes OG 1200×630 para cada sección del sitio GT7 Championships.
 Usa el logo como elemento central sobre un fondo con gradiente y texto descriptivo.
 """
 from PIL import Image, ImageDraw, ImageFont
@@ -161,8 +161,7 @@ def generate_og_image(section):
     draw.rectangle([90, 335, 260, 338], fill=(*accent,))
 
     # Brand footer
-    draw.text((90, 490), "IMSA", fill=(255, 255, 255, 128), font=brand_font)
-    draw.text((140, 490), "GT7 ESP Racing Club", fill=(255, 255, 255, 90), font=brand_font)
+    draw.text((140, 490), "GT7 Championships", fill=(255, 255, 255, 90), font=brand_font)
 
     # URL
     draw.text((90, 520), "imsa.trenkit.com", fill=(*accent,), font=url_font)

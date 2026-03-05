@@ -29,7 +29,7 @@ export default function AdminNavigation({ currentPage }) {
                             <span className="text-4xl">⚙️</span>
                             Panel de Administración
                         </h1>
-                        <p className="text-orange-100 text-lg mt-1">IMSA GT7 Racing Club ESP</p>
+                        <p className="text-orange-100 text-lg mt-1">GT7 Championships</p>
                     </div>
 
                     {/* Usuario Info */}
@@ -59,8 +59,8 @@ export default function AdminNavigation({ currentPage }) {
                     <button
                         onClick={() => navigateTo('/teamsAdmin')}
                         className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 flex items-center gap-2 ${currentPage === 'teams'
-                                ? 'bg-white text-orange-600 shadow-lg'
-                                : 'bg-white/20 text-white hover:bg-white/30'
+                            ? 'bg-white text-orange-600 shadow-lg'
+                            : 'bg-white/20 text-white hover:bg-white/30'
                             }`}
                     >
                         🏎️ Admin Equipos
@@ -70,8 +70,8 @@ export default function AdminNavigation({ currentPage }) {
                     <button
                         onClick={() => navigateTo('/tracksAdmin')}
                         className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 flex items-center gap-2 ${currentPage === 'tracks'
-                                ? 'bg-white text-orange-600 shadow-lg'
-                                : 'bg-white/20 text-white hover:bg-white/30'
+                            ? 'bg-white text-orange-600 shadow-lg'
+                            : 'bg-white/20 text-white hover:bg-white/30'
                             }`}
                     >
                         🏁 Admin Pistas
@@ -81,8 +81,8 @@ export default function AdminNavigation({ currentPage }) {
                     <button
                         onClick={() => navigateTo('/eventsAdmin')}
                         className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 flex items-center gap-2 ${currentPage === 'events'
-                                ? 'bg-white text-orange-600 shadow-lg'
-                                : 'bg-white/20 text-white hover:bg-white/30'
+                            ? 'bg-white text-orange-600 shadow-lg'
+                            : 'bg-white/20 text-white hover:bg-white/30'
                             }`}
                     >
                         🎉 Admin Eventos

@@ -13,51 +13,51 @@ const BASE_URL = 'https://imsa.trenkit.com';
 const PAGES = [
     {
         file: 'index.html',
-        title: 'Dashboard - GT7 ESP Racing Club',
-        description: 'Consulta en tiempo real las estadísticas, clasificaciones y resultados del campeonato GT7 ESP Racing Club. Dashboard interactivo con datos actualizados.',
+        title: 'Dashboard - GT7 Championships',
+        description: 'Consulta en tiempo real las estadísticas, clasificaciones y resultados del campeonato GT7 Championships. Dashboard interactivo con datos actualizados.',
         url: `${BASE_URL}/`,
         image: `${BASE_URL}/og-image.png`,
-        imageAlt: 'GT7 ESP Racing Club - IMSA',
+        imageAlt: 'GT7 Championships',
     },
     {
         file: 'championships/index.html',
-        title: 'Campeonatos | GT7 ESP Racing Club',
-        description: 'Clasificaciones, resultados y estadísticas de todos los campeonatos del GT7 ESP Racing Club.',
+        title: 'Campeonatos | GT7 Championships',
+        description: 'Clasificaciones, resultados y estadísticas de todos los campeonatos del GT7 Championships.',
         url: `${BASE_URL}/championships/`,
         image: `${BASE_URL}/og-championships.png`,
-        imageAlt: 'Campeonatos - GT7 ESP Racing Club',
+        imageAlt: 'Campeonatos - GT7 Championships',
     },
     {
         file: 'pilots/index.html',
-        title: 'Área de Pilotos | GT7 ESP Racing Club',
-        description: 'Perfiles, estadísticas y rendimiento de los pilotos del GT7 ESP Racing Club.',
+        title: 'Área de Pilotos | GT7 Championships',
+        description: 'Perfiles, estadísticas y rendimiento de los pilotos del GT7 Championships.',
         url: `${BASE_URL}/pilots/`,
         image: `${BASE_URL}/og-pilots.png`,
-        imageAlt: 'Área de Pilotos - GT7 ESP Racing Club',
+        imageAlt: 'Área de Pilotos - GT7 Championships',
     },
     {
         file: 'reglamento/index.html',
-        title: 'Reglamento Oficial | GT7 ESP Racing Club',
-        description: 'Normativa oficial: conducta en pista, sanciones por puntos, reclamaciones y reglas de carrera del GT7 ESP Racing Club.',
+        title: 'Reglamento Oficial | GT7 Championships',
+        description: 'Normativa oficial: conducta en pista, sanciones por puntos, reclamaciones y reglas de carrera del GT7 Championships.',
         url: `${BASE_URL}/reglamento/`,
         image: `${BASE_URL}/og-reglamento.png`,
-        imageAlt: 'Reglamento - GT7 ESP Racing Club',
+        imageAlt: 'Reglamento - GT7 Championships',
     },
     {
         file: 'tools/index.html',
-        title: 'Creador de Vinilos | GT7 ESP Racing Club',
-        description: 'Convierte imágenes a vinilos SVG optimizados para Gran Turismo 7. Herramienta gratuita del GT7 ESP Racing Club.',
+        title: 'Creador de Vinilos | GT7 Championships',
+        description: 'Convierte imágenes a vinilos SVG optimizados para Gran Turismo 7. Herramienta gratuita del GT7 Championships.',
         url: `${BASE_URL}/tools/`,
         image: `${BASE_URL}/og-tools.png`,
-        imageAlt: 'Creador de Vinilos - GT7 ESP Racing Club',
+        imageAlt: 'Creador de Vinilos - GT7 Championships',
     },
     {
         file: 'events/index.html',
-        title: 'Eventos | GT7 ESP Racing Club',
-        description: 'Calendario de eventos, carreras especiales e inscripciones del GT7 ESP Racing Club.',
+        title: 'Eventos | GT7 Championships',
+        description: 'Calendario de eventos, carreras especiales e inscripciones del GT7 Championships.',
         url: `${BASE_URL}/events/`,
         image: `${BASE_URL}/og-events.png`,
-        imageAlt: 'Eventos - GT7 ESP Racing Club',
+        imageAlt: 'Eventos - GT7 Championships',
     },
 ];
 
@@ -69,7 +69,7 @@ function buildMetaBlock(page) {
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="${page.url}">
-  <meta property="og:site_name" content="GT7 ESP Racing Club">
+  <meta property="og:site_name" content="GT7 Championships">
   <meta property="og:title" content="${page.title}">
   <meta property="og:description" content="${page.description}">
   <meta property="og:image" content="${page.image}">

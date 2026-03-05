@@ -1,4 +1,4 @@
-# IMSA GT7 - Next.js Racing Championship Platform
+# GT7 Championships - Next.js Racing Championship Platform
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 

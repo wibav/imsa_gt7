@@ -55,7 +55,7 @@ export default function Login() {
                 <div className="text-center mb-8">
                     <div className="text-6xl mb-4">🏁</div>
                     <h1 className="text-3xl font-bold text-white mb-2">
-                        IMSA GT7 Admin
+                        GT7 Championships Admin
                     </h1>
                     <p className="text-gray-300">
                         Acceso al panel de administración

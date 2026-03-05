@@ -1,5 +1,5 @@
 /**
- * Motor de clasificación avanzado para campeonatos IMSA GT7.
+ * Motor de clasificación avanzado para campeonatos GT7.
  * 
  * Características:
  * - Desempate multinivel: puntos → victorias → podiums → mejor posición

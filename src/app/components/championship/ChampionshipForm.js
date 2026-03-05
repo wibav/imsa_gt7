@@ -1015,13 +1015,13 @@ export default function ChampionshipForm({ isEditing = false }) {
                                         <label className="block text-sm font-medium text-gray-300 mb-2">Nombre del Campeonato *</label>
                                         <input type="text" name="name" value={formData.name} onChange={handleInputChange} required
                                             className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                            placeholder="IMSA GT7 2025" />
+                                            placeholder="GT7 2026 Championship" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-300 mb-2">Nombre Corto * (máx. 10 caracteres)</label>
                                         <input type="text" name="shortName" value={formData.shortName} onChange={handleInputChange} required maxLength={10}
                                             className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                            placeholder="IMSA25" />
+                                            placeholder="GT7 2026" />
                                     </div>
                                 </div>
 
