@@ -30,6 +30,7 @@ function EventDetailContent() {
     const [isRegistering, setIsRegistering] = useState(false);
     const [registrationMessage, setRegistrationMessage] = useState("");
     const [activeRound, setActiveRound] = useState(0);
+    const [roomTabs, setRoomTabs] = useState({}); // Track active tab per room
 
     useEffect(() => {
         if (eventId) {
@@ -181,7 +182,7 @@ function EventDetailContent() {
             {/* Hero Banner */}
             <div className="relative">
                 {event.banner ? (
-                    <div className="relative w-full h-64 sm:h-80 md:h-96 bg-black/50">
+                    <div className="relative w-full h-64 sm:h-80 md:h-96 lg:h-[450px] bg-black/50">
                         <Image
                             src={event.banner}
                             alt={event.title}
@@ -189,10 +190,10 @@ function EventDetailContent() {
                             className="object-cover"
                             sizes="100vw"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
                     </div>
                 ) : (
-                    <div className="w-full h-64 sm:h-80 bg-gradient-to-br from-orange-600 to-red-700 flex items-center justify-center">
+                    <div className="w-full h-64 sm:h-80 md:h-96 lg:h-[450px] bg-gradient-to-br from-orange-600 to-red-700 flex items-center justify-center">
                         <span className="text-[120px]">🏁</span>
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent" />
                     </div>
@@ -224,15 +225,12 @@ function EventDetailContent() {
                     </div>
                 )}
 
-                {/* Title overlay — only title, no description on mobile */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 md:p-8">
+                {/* Title overlay — solo título */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900 via-slate-900/70 to-transparent p-4 sm:p-6 md:p-8">
                     <div className="max-w-5xl mx-auto">
-                        <h1 className="text-2xl sm:text-3xl md:text-5xl font-extrabold text-white drop-shadow-lg line-clamp-2">
+                        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-white drop-shadow-lg line-clamp-2">
                             {event.title}
                         </h1>
-                        {event.description && (
-                            <p className="hidden md:block text-gray-200 text-base max-w-3xl drop-shadow mt-2 line-clamp-3">{event.description}</p>
-                        )}
                     </div>
                 </div>
             </div>
@@ -240,10 +238,10 @@ function EventDetailContent() {
             {/* Main Content */}
             <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
 
-                {/* Description — visible on mobile/tablet below banner */}
+                {/* Description — siempre debajo del banner */}
                 {event.description && (
-                    <div className="md:hidden bg-white/5 border border-white/10 rounded-xl p-5">
-                        <p className="text-gray-300 text-sm leading-relaxed">{event.description}</p>
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+                        <p className="text-gray-300 text-sm sm:text-base leading-relaxed">{event.description}</p>
                     </div>
                 )}
 
@@ -606,61 +604,73 @@ function EventDetailContent() {
                                             {/* Room results */}
                                             {room.results?.length > 0 || room.participants?.length > 0 ? (
                                                 <div className="p-4">
-                                                    {/* Resultados */}
+                                                    {/* Tabs - only show if there are results */}
                                                     {room.results?.length > 0 && (
-                                                        <>
-                                                            <table className="w-full text-sm">
-                                                                <thead>
-                                                                    <tr className="border-b border-white/10 text-gray-400">
-                                                                        <th className="text-left py-2 px-2 w-10">Pos</th>
-                                                                        <th className="text-left py-2 px-2">Piloto</th>
-                                                                        {room.results.some(r => r.psnId) && <th className="text-left py-2 px-2">PSN</th>}
-                                                                        <th className="text-center py-2 px-2 w-20">Extras</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    {room.results.map((r, idx) => (
-                                                                        <tr
-                                                                            key={idx}
-                                                                            className={`border-b border-white/5 transition-colors ${idx === 0 ? "bg-yellow-500/10" : idx === 1 ? "bg-gray-400/10" : idx === 2 ? "bg-orange-500/10" : "hover:bg-white/5"}`}
-                                                                        >
-                                                                            <td className="py-2.5 px-2 font-bold text-white">
-                                                                                {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `${idx + 1}°`}
-                                                                            </td>
-                                                                            <td className="py-2.5 px-2 text-white font-semibold">{r.driverName || "-"}</td>
-                                                                            {room.results.some(r => r.psnId) && (
-                                                                                <td className="py-2.5 px-2 text-gray-400 text-xs">{r.psnId || "-"}</td>
-                                                                            )}
-                                                                            <td className="py-2.5 px-2 text-center">
-                                                                                <div className="flex items-center justify-center gap-1.5">
-                                                                                    {r.fastestLap && <span title="Vuelta Rápida" className="text-purple-400">⚡</span>}
-                                                                                    {r.polePosition && <span title="Pole Position" className="text-yellow-400">🅿️</span>}
-                                                                                    {r.dnf && <span title="DNF" className="text-red-400 text-xs font-bold">DNF</span>}
-                                                                                </div>
-                                                                            </td>
-                                                                        </tr>
-                                                                    ))}
-                                                                </tbody>
-                                                            </table>
-                                                        </>
+                                                        <div className="flex gap-2 mb-4 border-b border-white/10 pb-2">
+                                                            <button
+                                                                onClick={() => setRoomTabs({ ...roomTabs, [`${activeRound}-${rmIdx}`]: 'participants' })}
+                                                                className={`px-3 py-2 text-sm font-semibold transition-colors ${roomTabs[`${activeRound}-${rmIdx}`] !== 'results' ? 'text-orange-400 border-b-2 border-orange-400' : 'text-gray-400 hover:text-gray-300'}`}
+                                                            >
+                                                                👥 Participantes ({room.participants?.length || 0})
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setRoomTabs({ ...roomTabs, [`${activeRound}-${rmIdx}`]: 'results' })}
+                                                                className={`px-3 py-2 text-sm font-semibold transition-colors ${roomTabs[`${activeRound}-${rmIdx}`] === 'results' ? 'text-orange-400 border-b-2 border-orange-400' : 'text-gray-400 hover:text-gray-300'}`}
+                                                            >
+                                                                🏆 Resultados ({room.results?.length || 0})
+                                                            </button>
+                                                        </div>
                                                     )}
 
-                                                    {/* Participantes sin resultado */}
-                                                    {room.participants?.length > 0 && (
-                                                        <>
-                                                            {room.results?.length > 0 && <hr className="border-white/10 my-4" />}
-                                                            <p className="text-gray-500 text-xs mb-2 uppercase font-semibold">
-                                                                {room.results?.length > 0 ? "Participantes Pendientes" : "Participantes"} ({room.participants.length})
-                                                            </p>
-                                                            <div className="flex flex-wrap gap-2">
-                                                                {room.participants.map((p, pIdx) => (
-                                                                    <span key={pIdx} className="text-xs bg-white/5 text-gray-300 px-2.5 py-1 rounded-full">
-                                                                        {p.gt7Id || p.name || `Piloto ${pIdx + 1}`}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        </>
+                                                    {/* Participantes Tab (visible si no estamos en pestaña resultados) */}
+                                                    {roomTabs[`${activeRound}-${rmIdx}`] !== 'results' && room.participants?.length > 0 && (
+                                                        <ul className="space-y-2.5">
+                                                            {room.participants.map((p, pIdx) => (
+                                                                <li key={pIdx} className="flex items-start gap-3">
+                                                                    <span className="text-orange-400 text-lg leading-none pt-0.5">•</span>
+                                                                    <span className="text-white font-medium">{p.gt7Id || p.name || `Piloto ${pIdx + 1}`}</span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
                                                     )}
+
+                                                    {/* Resultados Tab */}
+                                                    {room.results?.length > 0 && roomTabs[`${activeRound}-${rmIdx}`] === 'results' && (
+                                                        <table className="w-full text-sm">
+                                                            <thead>
+                                                                <tr className="border-b border-white/10 text-gray-400">
+                                                                    <th className="text-left py-2 px-2 w-10">Pos</th>
+                                                                    <th className="text-left py-2 px-2">Piloto</th>
+                                                                    {room.results.some(r => r.psnId) && <th className="text-left py-2 px-2">PSN</th>}
+                                                                    <th className="text-center py-2 px-2 w-20">Extras</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {room.results.map((r, idx) => (
+                                                                    <tr
+                                                                        key={idx}
+                                                                        className={`border-b border-white/5 transition-colors ${idx === 0 ? "bg-yellow-500/10" : idx === 1 ? "bg-gray-400/10" : idx === 2 ? "bg-orange-500/10" : "hover:bg-white/5"}`}
+                                                                    >
+                                                                        <td className="py-2.5 px-2 font-bold text-white">
+                                                                            {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `${idx + 1}°`}
+                                                                        </td>
+                                                                        <td className="py-2.5 px-2 text-white font-semibold">{r.driverName || "-"}</td>
+                                                                        {room.results.some(r => r.psnId) && (
+                                                                            <td className="py-2.5 px-2 text-gray-400 text-xs">{r.psnId || "-"}</td>
+                                                                        )}
+                                                                        <td className="py-2.5 px-2 text-center">
+                                                                            <div className="flex items-center justify-center gap-1.5">
+                                                                                {r.fastestLap && <span title="Vuelta Rápida" className="text-purple-400">⚡</span>}
+                                                                                {r.polePosition && <span title="Pole Position" className="text-yellow-400">🅿️</span>}
+                                                                                {r.dnf && <span title="DNF" className="text-red-400 text-xs font-bold">DNF</span>}
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    )}
+
                                                 </div>
                                             ) : (
                                                 <div className="p-4 text-center text-gray-500 text-sm">
