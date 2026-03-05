@@ -15,7 +15,7 @@ const logoSrc = path.join(PUBLIC_DIR, 'logo_gt7.png');
 const SECTIONS = [
     {
         filename: 'og-image.png',
-        title: 'GT7 ESP Racing Club',
+        title: 'GT7 Championships',
         subtitle: 'Dashboard de campeonatos y resultados',
         icon: '🏆',
         gradient: ['#0f172a', '#1e293b'],

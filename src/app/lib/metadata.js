@@ -79,27 +79,3 @@ export function generateMetadata({
         },
     };
 }
-
-// Ejemplos de uso:
-/*
-// En una página de piloto:
-export const metadata = generateMetadata({
-  title: "Perfil de Piloto - Juan Pérez",
-  description: "Estadísticas y resultados de Juan Pérez en el campeonato IMSA GT7",
-  url: "/pilots/juan-perez"
-});
-
-// En una página de carrera:
-export const metadata = generateMetadata({
-  title: "Carrera Silverstone - Resultados",
-  description: "Resultados y clasificación de la carrera en Silverstone del campeonato IMSA GT7",
-  url: "/races/silverstone-2025"
-});
-
-// En una página de clasificación general:
-export const metadata = generateMetadata({
-  title: "Clasificación General",
-  description: "Tabla de posiciones y puntuación del campeonato IMSA GT7 Racing Club ESP",
-  url: "/standings"
-});
-*/

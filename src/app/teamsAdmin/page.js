@@ -389,14 +389,6 @@ export default function TeamsAdminPage() {
                 <div className="max-w-7xl mx-auto">
                     {/* Header */}
                     <AdminNavigation currentPage="teams" />
-                    {/* <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-t-lg p-6 border-b-4 border-blue-500">
-                        <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                            <span className="text-4xl">🏎️</span>
-                            Administrar Equipos IMSA GT7
-                        </h1>
-                        <p className="text-orange-100 mt-2">Gestiona los equipos, pilotos y puntos del campeonato</p>
-                    </div> */}
-
                     {/* Content */}
                     <div className="bg-white/10 backdrop-blur-sm rounded-b-lg p-6">
                         {/* Instructions */}
