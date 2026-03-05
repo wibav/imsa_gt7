@@ -204,6 +204,28 @@ function EventForm({ event, onSave, onCancel, saving }) {
             return { ...prev, rounds };
         });
     };
+    const addParticipantToRoom = (roundIdx, roomIdx, gt7Id) => {
+        setForm(prev => {
+            const selected = prev.participants?.find(p => p.gt7Id === gt7Id);
+            if (!selected) return prev;
+
+            const rounds = JSON.parse(JSON.stringify(prev.rounds || []));
+            const room = rounds[roundIdx]?.rooms?.[roomIdx];
+            if (room) {
+                if (!room.participants) room.participants = [];
+                // Verificar si ya existe
+                const exists = room.participants.some(p => p.gt7Id === selected.gt7Id);
+                if (!exists) {
+                    room.participants.push({
+                        id: selected.id || crypto.randomUUID(),
+                        gt7Id: selected.gt7Id,
+                        psnId: selected.psnId || ''
+                    });
+                }
+            }
+            return { ...prev, rounds };
+        });
+    };
     const addRoomParticipant = (roundIdx, roomIdx) => {
         setForm(prev => {
             const rounds = JSON.parse(JSON.stringify(prev.rounds || []));
@@ -903,20 +925,64 @@ function EventForm({ event, onSave, onCancel, saving }) {
                                             <div>
                                                 <div className="flex items-center justify-between mb-2">
                                                     <span className="text-gray-400 text-xs font-semibold uppercase">Participantes</span>
-                                                    <button type="button" onClick={() => addRoomParticipant(rIdx, rmIdx)} className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold transition-colors">
-                                                        + Piloto
-                                                    </button>
+                                                    <div className="flex gap-2">
+                                                        {(form.participants || []).length > 0 && (
+                                                            <select
+                                                                key={`select-${rIdx}-${rmIdx}-${room.participants?.length || 0}`}
+                                                                className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold transition-colors outline-none border border-blue-500 cursor-pointer"
+                                                                value=""
+                                                                onChange={(e) => {
+                                                                    const selectedGt7Id = e.target.value;
+                                                                    if (selectedGt7Id) {
+                                                                        addParticipantToRoom(rIdx, rmIdx, selectedGt7Id);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <option value="">+ Seleccionar Piloto</option>
+                                                                {form.participants.map(p => {
+                                                                    // Verificar si el piloto está en cualquier sala del evento (todas las rondas)
+                                                                    const isInAnyRoom = form.rounds?.some((r) =>
+                                                                        r.rooms?.some((rm) =>
+                                                                            rm.participants?.some(rp => rp.gt7Id === p.gt7Id)
+                                                                        )
+                                                                    );
+                                                                    return (
+                                                                        <option key={p.gt7Id || p.id} value={p.gt7Id} disabled={isInAnyRoom}>
+                                                                            {isInAnyRoom ? '✓ Asignado' : `${p.gt7Id} - ${p.psnId || 'Sin PSN'}`}
+                                                                        </option>
+                                                                    );
+                                                                })}
+                                                            </select>
+                                                        )}
+                                                        <button type="button" onClick={() => addRoomParticipant(rIdx, rmIdx)} className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold transition-colors">
+                                                            + Manual
+                                                        </button>
+                                                    </div>
                                                 </div>
                                                 {(room.participants || []).length > 0 && (
                                                     <div className="space-y-1 max-h-48 overflow-y-auto">
-                                                        {room.participants.map((p, pIdx) => (
-                                                            <div key={p.id || pIdx} className="flex gap-2 items-center">
-                                                                <span className="text-gray-500 text-xs w-5 text-center">{pIdx + 1}</span>
-                                                                <input type="text" className="flex-1 bg-white/10 border border-white/20 rounded p-1.5 text-white text-xs focus:border-orange-500 outline-none" value={p.gt7Id || ''} onChange={(e) => updateRoomParticipant(rIdx, rmIdx, pIdx, 'gt7Id', e.target.value)} placeholder="GT7 ID" />
-                                                                <input type="text" className="flex-1 bg-white/10 border border-white/20 rounded p-1.5 text-white text-xs focus:border-orange-500 outline-none" value={p.psnId || ''} onChange={(e) => updateRoomParticipant(rIdx, rmIdx, pIdx, 'psnId', e.target.value)} placeholder="PSN ID" />
-                                                                <button type="button" onClick={() => removeRoomParticipant(rIdx, rmIdx, pIdx)} className="text-red-400 hover:text-red-300 text-xs font-bold">×</button>
-                                                            </div>
-                                                        ))}
+                                                        {room.participants.map((p, pIdx) => {
+                                                            const originalParticipant = form.participants?.find(pp => pp.gt7Id === p.gt7Id);
+                                                            return (
+                                                                <div key={p.gt7Id || pIdx} className="flex gap-2 items-center">
+                                                                    <span className="text-gray-500 text-xs w-5 text-center">{pIdx + 1}</span>
+                                                                    <div className="flex-1 bg-white/5 border border-white/10 rounded p-1.5 text-white text-xs">
+                                                                        {originalParticipant ? (
+                                                                            <div>
+                                                                                <div className="font-semibold">{originalParticipant.gt7Id}</div>
+                                                                                {originalParticipant.psnId && <div className="text-gray-400 text-[10px]">PSN: {originalParticipant.psnId}</div>}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <>
+                                                                                <input type="text" className="w-full bg-white/10 border border-white/20 rounded p-1 text-white text-xs focus:border-orange-500 outline-none mb-1" value={p.gt7Id || ''} onChange={(e) => updateRoomParticipant(rIdx, rmIdx, pIdx, 'gt7Id', e.target.value)} placeholder="GT7 ID" />
+                                                                                <input type="text" className="w-full bg-white/10 border border-white/20 rounded p-1 text-white text-xs focus:border-orange-500 outline-none" value={p.psnId || ''} onChange={(e) => updateRoomParticipant(rIdx, rmIdx, pIdx, 'psnId', e.target.value)} placeholder="PSN ID" />
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                    <button type="button" onClick={() => removeRoomParticipant(rIdx, rmIdx, pIdx)} className="text-red-400 hover:text-red-300 text-xs font-bold">×</button>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 )}
                                             </div>
