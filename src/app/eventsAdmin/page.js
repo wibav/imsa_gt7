@@ -940,6 +940,12 @@ function EventForm({ event, onSave, onCancel, saving }) {
                                                             >
                                                                 <option value="">+ Seleccionar Piloto</option>
                                                                 {form.participants.map(p => {
+                                                                    // Si no es la primera ronda, solo mostrar pilotos de la ronda anterior
+                                                                    const shouldShow = rIdx === 0 || form.rounds?.[rIdx - 1]?.rooms?.some(rm =>
+                                                                        rm.participants?.some(rp => rp.gt7Id === p.gt7Id)
+                                                                    );
+                                                                    if (!shouldShow) return null;
+
                                                                     // Verificar si el piloto está en cualquier sala del evento (todas las rondas)
                                                                     const isInAnyRoom = form.rounds?.some((r) =>
                                                                         r.rooms?.some((rm) =>
