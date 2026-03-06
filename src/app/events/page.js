@@ -61,23 +61,25 @@ function EventDetailContent() {
     const handleRegistration = async (participantData) => {
         setIsRegistering(true);
         try {
-            await FirebaseService.addEventParticipant(eventId, participantData);
-            setRegistrationMessage("✅ ¡Inscripción exitosa! Bienvenido al evento.");
+            const result = await FirebaseService.addEventParticipant(eventId, participantData);
 
-            // Recargar el evento para mostrar el nuevo participante
+            if (result.waitlisted) {
+                setRegistrationMessage(`⏳ Cupo lleno. Quedaste en lista de reservas en la posición #${result.position}. Te avisaremos si se libera un lugar.`);
+            } else {
+                setRegistrationMessage("✅ ¡Inscripción exitosa! Bienvenido al evento.");
+            }
+
             await loadEvent();
 
-            // Cerrar modal después de 2 segundos
             setTimeout(() => {
                 setIsRegistrationModalOpen(false);
                 setRegistrationMessage("");
-            }, 2000);
+            }, 4000);
         } catch (error) {
             const errorMessage = error.message || "Error al inscribirse. Intenta de nuevo.";
             setRegistrationMessage(`❌ ${errorMessage}`);
             console.error("Error during registration:", error);
 
-            // Limpiar mensaje después de 5 segundos
             setTimeout(() => {
                 setRegistrationMessage("");
             }, 5000);
@@ -109,6 +111,19 @@ function EventDetailContent() {
         if (hours > 0) return `${hours} horas, ${mins} minutos`;
         return `${mins} minutos`;
     }, [event, eventStatus]);
+
+    const isDeadlinePassed = useMemo(() => {
+        if (!event?.registration?.deadline) return false;
+        const deadline = event.registration.deadline;
+        const eventDate = event.date;
+        if (deadline === eventDate && event.hour) {
+            const [h, m] = event.hour.split(':').map(Number);
+            const closeTime = new Date(`${eventDate}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
+            closeTime.setTime(closeTime.getTime() - 60 * 60 * 1000);
+            return new Date() >= closeTime;
+        }
+        return new Date(`${deadline}T23:59:59`) < new Date();
+    }, [event]);
 
     const formatDate = (dateStr) => {
         if (!dateStr) return "";
@@ -164,6 +179,7 @@ function EventDetailContent() {
     const hasStreaming = event.streaming?.url;
     const participantCount = event.participants?.length || 0;
     const maxP = event.maxParticipants || 0;
+    const waitlistCount = event.waitlist?.length || 0;
     const isFull = maxP > 0 && participantCount >= maxP;
     const hasRules = event.rules && Object.keys(event.rules).length > 0;
     const hasWeather = event.weather && (event.weather.timeOfDay || event.weather.weatherSlots);
@@ -287,12 +303,12 @@ function EventDetailContent() {
                                 <InfoRow icon="📅" label="Fecha" value={formatDate(event.date)} />
                                 {event.hour && <InfoRow icon="🕐" label="Hora" value={event.hour} />}
                                 {event.track && <InfoRow icon="🏁" label="Circuito" value={event.track} />}
-                                {fmt && <InfoRow icon="🎮" label="Formato" value={`${fmt.icon} ${fmt.label}`} />}
+                                {fmt && <InfoRow icon="🎮" label="Formato" value={fmt.icon ? `${fmt.icon} ${fmt.label}` : fmt.label} />}
                                 {maxP > 0 && (
                                     <InfoRow
                                         icon="👥"
                                         label="Participantes"
-                                        value={`${participantCount} / ${maxP}${isFull ? " (LLENO)" : ""}`}
+                                        value={`${participantCount} / ${maxP}${isFull ? " (LLENO)" : ""}${waitlistCount > 0 ? ` · ${waitlistCount} en reserva` : ""}`}
                                     />
                                 )}
                                 {event.registration?.enabled && (
@@ -300,13 +316,14 @@ function EventDetailContent() {
                                         icon="📝"
                                         label="Inscripción"
                                         value={
-                                            eventStatus === "completed" || eventStatus === "live" || isFull
-                                                ? isFull ? "Cerrada (cupo lleno)" : "Cerrada"
-                                                : event.registration.deadline && new Date(event.registration.deadline) < new Date()
+                                            eventStatus === "completed" || eventStatus === "live" || !event.registration?.enabled
+                                                ? "Cerrada"
+                                                : isDeadlinePassed
                                                     ? "Cerrada (plazo vencido)"
-                                                    : event.registration.requiresApproval
-                                                        ? "Abierta (con aprobación)"
-                                                        : "Abierta (automática)"
+                                                    : isFull ? "Abierta (en reserva)"
+                                                        : event.registration.requiresApproval
+                                                            ? "Abierta (con aprobación)"
+                                                            : "Abierta (automática)"
                                         }
                                     />
                                 )}
@@ -376,7 +393,7 @@ function EventDetailContent() {
                                     {event.rules.laps && <RulePill label="Vueltas" value={event.rules.laps} />}
                                     {event.rules.duration && <RulePill label="Duración" value={event.rules.duration} />}
                                     {event.rules.bop !== undefined && (
-                                        <RulePill label="BOP" value={event.rules.bop ? "Sí" : "No"} />
+                                        <RulePill label="BOP" value={event.rules.bop === 'SI' || event.rules.bop === true ? "Sí" : "No"} />
                                     )}
                                     {event.rules.damage && (
                                         <RulePill
@@ -391,16 +408,28 @@ function EventDetailContent() {
                                         <RulePill label="Desg. Combustible" value={event.rules.fuelWear > 0 ? `x${event.rules.fuelWear}` : "Sin"} />
                                     )}
                                     {event.rules.penalties !== undefined && (
-                                        <RulePill label="Penalizaciones" value={event.rules.penalties ? "Sí" : "No"} />
+                                        <RulePill label="Penalizaciones" value={event.rules.penalties === 'SI' || event.rules.penalties === true ? "Sí" : "No"} />
                                     )}
                                     {event.rules.ghostCar !== undefined && (
-                                        <RulePill label="Coche Fantasma" value={event.rules.ghostCar ? "Sí" : "No"} />
+                                        <RulePill label="Coche Fantasma" value={event.rules.ghostCar === 'SI' || event.rules.ghostCar === true ? "Sí" : "No"} />
                                     )}
                                     {(event.rules.mandatoryTyres?.length > 0 || event.rules.mandatoryTyre) && (
                                         <RulePill label="Neumáticos Oblig." value={event.rules.mandatoryTyres?.join(', ') || event.rules.mandatoryTyre} />
                                     )}
                                     {event.rules.startType && (
                                         <RulePill label="Salida" value={event.rules.startType === 'rolling' ? 'Lanzada' : 'Parrilla'} />
+                                    )}
+                                    {event.rules.adjustments !== undefined && (
+                                        <RulePill label="Ajustes" value={event.rules.adjustments === 'SI' || event.rules.adjustments === true ? "Sí" : "No"} />
+                                    )}
+                                    {event.rules.engineSwap !== undefined && (
+                                        <RulePill label="Engine Swap" value={event.rules.engineSwap === 'SI' || event.rules.engineSwap === true ? "Sí" : "No"} />
+                                    )}
+                                    {event.rules.shortcutPenalty !== undefined && (
+                                        <RulePill label="Pen. Atajo" value={event.rules.shortcutPenalty === 'SI' || event.rules.shortcutPenalty === true ? "Sí" : "No"} />
+                                    )}
+                                    {typeof event.rules.fuelRefillRate === "number" && event.rules.fuelRefillRate > 0 && (
+                                        <RulePill label="Recarga Comb." value={`x${event.rules.fuelRefillRate}`} />
                                     )}
                                 </div>
                             </div>
@@ -721,13 +750,26 @@ function EventDetailContent() {
                     >
                         🔃 Refrescar Evento
                     </button>
-                    {eventStatus === "upcoming" && event.registration?.enabled && !isFull && (
+                    {eventStatus === "upcoming" && event.registration?.enabled && !isDeadlinePassed && !isFull && (
                         <button
                             onClick={() => setIsRegistrationModalOpen(true)}
                             className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-lg font-bold hover:from-green-700 hover:to-green-800 transition-all shadow-lg"
                         >
                             ✍️ Inscribirse al Evento
                         </button>
+                    )}
+                    {eventStatus === "upcoming" && event.registration?.enabled && !isDeadlinePassed && isFull && (
+                        <button
+                            onClick={() => setIsRegistrationModalOpen(true)}
+                            className="bg-gradient-to-r from-yellow-600 to-orange-600 text-white px-6 py-3 rounded-lg font-bold hover:from-yellow-700 hover:to-orange-700 transition-all shadow-lg"
+                        >
+                            ⏳ Ir a Lista de Reservas{waitlistCount > 0 ? ` (${waitlistCount})` : ""}
+                        </button>
+                    )}
+                    {eventStatus === "upcoming" && event.registration?.enabled && isDeadlinePassed && (
+                        <div className="bg-gray-700/50 border border-gray-600/50 text-gray-400 px-6 py-3 rounded-lg font-semibold text-sm">
+                            🔒 Inscripciones cerradas
+                        </div>
                     )}
                     {hasStreaming && (
                         <a

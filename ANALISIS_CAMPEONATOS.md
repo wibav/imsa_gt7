@@ -1,7 +1,7 @@
 # Análisis del Sistema de Campeonatos — IMSA GT7 + HGT GT7
 
 > **Fecha:** 18 de febrero de 2026  
-> **Última actualización:** 1 de marzo de 2026  
+> **Última actualización:** 6 de marzo de 2026  
 > **Proyectos analizados:** `imsa_gt7`, `hgt_gt7`  
 > **Referencia externa:** PDF "WORLD SERIES LEAGUE RR 10°MA EDICIÓN" (reglamento de club), PDF "Normativa DAS 2.3"
 
@@ -107,44 +107,50 @@ Firestore
 
 #### Event (subcolección)
 
-| Campo                             | Tipo                          |
-| --------------------------------- | ----------------------------- |
-| `title`, `description`            | string                        |
-| `date`, `hour`, `track`           | string                        |
-| `rules`                           | object                        |
-| `maxParticipants`, `participants` | number, array                 |
-| `status`                          | `upcoming │ live │ completed` |
+| Campo                             | Tipo                                                           |
+| --------------------------------- | -------------------------------------------------------------- |
+| `title`, `description`            | string                                                         |
+| `date`, `hour`, `track`           | string                                                         |
+| `rules`                           | object                                                         |
+| `maxParticipants`, `participants` | number, array                                                  |
+| `waitlist`                        | array — `[{id, gt7Id, psnId, waitlistPosition, registeredAt}]` |
+| `status`                          | `upcoming │ live │ completed`                                  |
+| `eventType`                       | `standard │ eliminatoria │ doble_eliminatoria`                 |
+| `rounds`                          | array — ver estructura abajo                                   |
 
 ### 2.4 Funcionalidades Actuales (imsa_gt7)
 
-| Funcionalidad                  | Estado       | Detalle                                                                                                   |
-| ------------------------------ | ------------ | --------------------------------------------------------------------------------------------------------- |
-| CRUD de campeonatos            | ✅ Completo  | Crear, editar, eliminar, cambiar estado                                                                   |
-| Campeonatos por equipos        | ✅ Completo  | Equipos con pilotos, colores, logos                                                                       |
-| Campeonatos individuales       | ✅ Completo  | Pilotos directos en el campeonato                                                                         |
-| Configuración de circuitos     | ✅ Completo  | 70+ pistas reales de GT7, reglas por circuito                                                             |
-| Sistema de puntos configurable | ✅ Parcial   | Puntos por carrera + qualifying + vuelta rápida                                                           |
-| Resultados por carrera         | ✅ Completo  | Puntos asignados por piloto + posiciones de evento desde participantes (drag/reorder)                     |
-| Clasificación/standings        | ✅ Completo  | Motor avanzado con desempate multinivel, estadísticas, comparador head-to-head                            |
-| Calendario de carreras         | ✅ Completo  | Lista de rondas con fecha, circuito, estado                                                               |
-| Dashboard público              | ✅ Completo  | Eventos semanales (filtrados por vigentes) + campeonatos + eventos pasados                                |
-| Eventos especiales             | ✅ Completo  | CRUD completo con secciones colapsables, streaming, inscripción, clima, reglas, participantes, resultados |
-| Subida de imágenes             | ✅ Completo  | Firebase Storage                                                                                          |
-| Creador de vinilos SVG         | ✅ Completo  | Conversión PNG → SVG con Potrace                                                                          |
-| Login admin                    | ✅ Básico    | Email hardcodeado como admin                                                                              |
-| SEO/OG                         | ✅ Completo  | Meta tags dinámicos                                                                                       |
-| AdSense                        | ✅ Integrado | 3 formatos de anuncios                                                                                    |
-| Sanciones                      | ✅ Completo  | Sistema configurable con presets editables, amonestaciones acumulativas, reclamaciones públicas           |
-| Reglamento por campeonato      | ✅ Completo  | Reglamento editable por campeonato + página pública unificada `/reglamento`                               |
-| Ascensos/descensos             | ✅ Completo  | Divisiones con promoción/relegación entre ediciones                                                       |
-| Compuestos obligatorios        | ✅ Completo  | Selección múltiple de neumáticos obligatorios en eventos y campeonatos                                    |
-| Inscripción de pilotos         | ✅ Completo  | Toggle inscripción pública con aprobación opcional, fecha límite, en eventos y campeonatos                |
-| Perfiles de piloto             | ✅ Completo  | Página `/pilots` con stats históricas acumuladas de todos los campeonatos                                 |
-| Exportar clasificación PNG     | ✅ Completo  | Exportar standings como imagen para redes sociales                                                        |
-| Briefing pre-carrera           | ✅ Completo  | Vista informativa de la próxima carrera, exportable como imagen PNG                                       |
-| Divisiones/salas               | ✅ Completo  | Subcolección Firestore con CRUD, asignación de pilotos, standings por división                            |
-| Noticias/blog                  | ❌ No existe | —                                                                                                         |
-| Replays                        | ❌ No existe | —                                                                                                         |
+| Funcionalidad                  | Estado       | Detalle                                                                                                        |
+| ------------------------------ | ------------ | -------------------------------------------------------------------------------------------------------------- |
+| CRUD de campeonatos            | ✅ Completo  | Crear, editar, eliminar, cambiar estado                                                                        |
+| Campeonatos por equipos        | ✅ Completo  | Equipos con pilotos, colores, logos                                                                            |
+| Campeonatos individuales       | ✅ Completo  | Pilotos directos en el campeonato                                                                              |
+| Configuración de circuitos     | ✅ Completo  | 70+ pistas reales de GT7, reglas por circuito                                                                  |
+| Sistema de puntos configurable | ✅ Parcial   | Puntos por carrera + qualifying + vuelta rápida                                                                |
+| Resultados por carrera         | ✅ Completo  | Puntos asignados por piloto + posiciones de evento desde participantes (drag/reorder)                          |
+| Clasificación/standings        | ✅ Completo  | Motor avanzado con desempate multinivel, estadísticas, comparador head-to-head                                 |
+| Calendario de carreras         | ✅ Completo  | Lista de rondas con fecha, circuito, estado                                                                    |
+| Dashboard público              | ✅ Completo  | Eventos semanales (filtrados por vigentes) + campeonatos + eventos pasados                                     |
+| Eventos especiales             | ✅ Completo  | CRUD completo con secciones colapsables, streaming, inscripción, clima, reglas, participantes, resultados      |
+| Subida de imágenes             | ✅ Completo  | Firebase Storage                                                                                               |
+| Creador de vinilos SVG         | ✅ Completo  | Conversión PNG → SVG con Potrace                                                                               |
+| Login admin                    | ✅ Básico    | Email hardcodeado como admin                                                                                   |
+| SEO/OG                         | ✅ Completo  | Meta tags dinámicos                                                                                            |
+| AdSense                        | ✅ Integrado | 3 formatos de anuncios                                                                                         |
+| Sanciones                      | ✅ Completo  | Sistema configurable con presets editables, amonestaciones acumulativas, reclamaciones públicas                |
+| Reglamento por campeonato      | ✅ Completo  | Reglamento editable por campeonato + página pública unificada `/reglamento`                                    |
+| Ascensos/descensos             | ✅ Completo  | Divisiones con promoción/relegación entre ediciones                                                            |
+| Compuestos obligatorios        | ✅ Completo  | Selección múltiple de neumáticos obligatorios en eventos y campeonatos                                         |
+| Inscripción de pilotos         | ✅ Completo  | Toggle inscripción pública con aprobación opcional, fecha límite, en eventos y campeonatos                     |
+| Perfiles de piloto             | ✅ Completo  | Página `/pilots` con stats históricas acumuladas de todos los campeonatos                                      |
+| Exportar clasificación PNG     | ✅ Completo  | Exportar standings como imagen para redes sociales                                                             |
+| Briefing pre-carrera           | ✅ Completo  | Vista informativa de la próxima carrera, exportable como imagen PNG                                            |
+| Divisiones/salas               | ✅ Completo  | Subcolección Firestore con CRUD, asignación de pilotos, standings por división                                 |
+| Eventos multi-ronda            | ✅ Completo  | Tipos: estándar, eliminatoria, doble eliminatoria; rondas con múltiples salas y promoción automática           |
+| Lista de reservas (waitlist)   | ✅ Completo  | Cupo global + por sala; auto-enrutamiento al cupo lleno, admin mueve a inscriptos, público se anota en reserva |
+| Inscripción pública en eventos | ✅ Completo  | Formulario público, aprobación opcional, fecha límite, waitlist con posición numerada                          |
+| Noticias/blog                  | ❌ No existe | —                                                                                                              |
+| Replays                        | ❌ No existe | —                                                                                                              |
 
 ### 2.5 Páginas del Sistema
 
@@ -744,7 +750,7 @@ Importar la lista de pilotos o equipos de un campeonato anterior:
 
 Los eventos únicos (independientes de campeonatos) también pueden beneficiarse de varias mejoras:
 
-#### 🎯 8.4.1 Inscripción Pública en Eventos ✅ IMPLEMENTADO (parcial)
+#### 🎯 8.4.1 Inscripción Pública en Eventos ✅ IMPLEMENTADO COMPLETO
 
 > **Implementado con estructura propia en el CRUD de eventos.**
 
@@ -752,9 +758,14 @@ Los eventos únicos (independientes de campeonatos) también pueden beneficiarse
 - ✅ **Modo automático o con aprobación** (registration.requiresApproval)
 - ✅ **Fecha límite de inscripción** (registration.deadline)
 - ✅ **Límite de participantes** (maxParticipants, 1-64)
-- ✅ **Participantes con nombre + PSN ID** gestionados desde el admin
-- ⬚ **Pendiente**: formulario público de inscripción desde el lado cliente (actualmente solo el admin agrega participantes)
-- ⬚ **Pendiente**: lista de espera automática
+- ✅ **Participantes con GT7 ID + PSN ID** gestionados desde el admin
+- ✅ **Formulario público de inscripción** desde el lado cliente (modal con campos GT7 ID + PSN ID)
+- ✅ **Lista de reservas automática** (`waitlist[]`): cuando el cupo está lleno, nuevos registros se enrutan automáticamente a la lista de espera con posición numerada
+- ✅ **Admin puede mover pilotos** de reservas a inscriptos (botón "→ Inscribir" en panel admin)
+- ✅ **Verificación de duplicados** en ambas listas (inscriptos y reservas) antes de agregar
+- ✅ **Botón公 diferenciado**: verde "✍️ Inscribirse" cuando hay cupo; amarillo "⏳ Ir a Lista de Reservas (N)" cuando está lleno
+- ✅ **Mensaje de confirmación** indica posición en lista de reservas cuando aplica
+- ✅ **Contador de reservas** visible en el estado de inscripción: `X/Y · Z en reserva`
 
 #### 🎮 8.4.2 Configuración de Reglas por Evento ✅ IMPLEMENTADO
 
@@ -797,10 +808,71 @@ Implementada la misma estructura de reglas detalladas de los circuitos de campeo
 - ✅ **Contador regresivo** visible en EventCard para eventos próximos
 - ✅ **Badge EN VIVO** animado con pulso cuando el evento está en estado live
 - ✅ **Búsqueda** de eventos por título en el admin
+- ✅ **Botón "🔃 Refrescar Evento"** en la página de detalle público para recargar datos manualmente
+- ✅ **Banner sin superposición**: título en overlay, descripción como card separada debajo
+- ✅ **Corrección BOP/Penalizaciones/Coche Fantasma**: comparación `=== 'SI' || === true` (los toggles admin guardan strings `'SI'`/`'NO'`)
+- ✅ **Iconos en EVENT_FORMATS**: todos los formatos (race, sprint+race, endurance, time-attack, drift) tienen campo `icon`
+- ✅ **Sistema de tabs por sala**: cada sala en el detalle público tiene tabs Participantes / Resultados (tabs solo visibles si hay resultados)
+- ✅ **Lista de participantes en bullet list**: `• PilotName` en lugar de badges tipo chip
 - ⬚ **Pendiente**: vista calendario (mes/semana)
 - ⬚ **Pendiente**: historial de eventos pasados con resultados archivados
 - ⬚ **Pendiente**: compartir evento como imagen
 - ⬚ **Pendiente**: recordatorio de evento (notificación push o email)
+
+#### 🏟️ 8.4.7 Eventos Multi-Ronda ✅ IMPLEMENTADO
+
+Soporte para eventos con múltiples rondas y salas paralelas (clasificatorias + final):
+
+**Tipos de evento** (`eventType`):
+
+- `standard` — Evento simple sin rondas
+- `eliminatoria` — Ronda 1 clasificatoria (Sala A + Sala B) → Ronda 2 Final único
+- `doble_eliminatoria` — Ronda 1 clasificatoria → Ronda 2 (Final A + Final B)
+
+**Estructura de sala** (`rounds[].rooms[]`):
+
+```javascript
+{
+  name: string,            // 'Sala A', 'Final'
+  caster: string,          // Caster asignado a esta sala
+  host: string,            // Host PSN de esta sala
+  streamUrl: string,       // URL del stream de esta sala
+  maxParticipants: number, // 0 = ilimitado; caster ocupa 1 plaza cuando asignado
+  participants: [{         // Pilotos asignados
+    id, gt7Id, psnId
+  }],
+  results: [{              // Resultados de carrera
+    driverName, psnId, position,
+    fastestLap, polePosition, dnf
+  }]
+}
+```
+
+**Capacidad por sala (caster como ocupante)**:
+
+- Campo `maxParticipants` por sala (0 = sin límite)
+- Cuando hay caster asignado, ocupa 1 plaza (capacidad efectiva = max - 1 para pilotos)
+- Badge en header de sala: verde `X/max plazas`, rojo cuando llena
+- El sistema bloquea la asignación si la sala está llena
+
+**Selector de pilotos por ronda**:
+
+- **Ronda 1**: Muestra todos los participantes inscritos del evento
+- **Ronda 2+**: Usa `<optgroup>` mostrando **solo los pilotos de la ronda anterior** (filtro inteligente)
+- Pilotos ya asignados aparecen como `✓ GT7ID (Asignado)` y están deshabilitados
+
+**Promoción automática** (botón "🚀 Promover a Ronda 2"):
+
+- Recoge todos los resultados de Ronda 1 y los ordena por posición
+- `eliminatoria`: los mejores N van a la Final única
+- `doble_eliminatoria`: top N → Final A, resto → Final B
+- N = `Math.ceil(maxParticipants / 2)` del evento
+
+**Resultados por sala**:
+
+- Botón "📥 Cargar Pilotos": genera automáticamente la lista de resultados desde los participantes asignados
+- Reordenar resultados con flechas ▲/▼
+- Flags por resultado: ⚡ Vuelta Rápida, 🅿️ Pole Position, ✖ DNF
 
 ---
 
@@ -1062,42 +1134,54 @@ events/                                          ← MEJORADO: eventos únicos
     ├── date: ISO string
     ├── hour: string
     ├── track: string                            ← Nombre del circuito
-    ├── trackConfig: {                           ← NUEVO: config completa del circuito
+    ├── eventType: 'standard' | 'eliminatoria' | 'doble_eliminatoria'  ← NUEVO
+    ├── rounds: [{                               ← NUEVO: solo si eventType != 'standard'
+    │   name: string,                           ← 'Ronda 1 – Clasificatoria'
+    │   rooms: [{
+    │       name: string,                        ← 'Sala A', 'Final'
+    │       caster: string,
+    │       host: string,
+    │       streamUrl: string,
+    │       maxParticipants: number,             ← 0 = ilimitado; caster ocupa 1 plaza
+    │       participants: [{id, gt7Id, psnId}],
+    │       results: [{driverName, psnId, position, fastestLap, polePosition, dnf}]
+    │   }]
+    │ }]                                         ← estructura de rondas anidada
+    ├── trackConfig: {                           ← config completa del circuito
     │   name, country, layoutImage,
     │   laps, duration, raceType,
-    │   raceConfig: { bop, damage, ... },        ← Misma estructura que tracks de campeonato
+    │   raceConfig: { bop, damage, ... },
     │   tyres: { ... },
     │   weather: { ... },
     │   cars: { ... }
     │ } | null
-    ├── registration: {                          ← NUEVO: inscripción pública en eventos
+    ├── registration: {
     │   enabled: boolean,
     │   requiresApproval: boolean,
     │   deadline: ISO string | null,
     │   maxParticipants: number | null
     │ }
-    ├── streaming: {                             ← IMPLEMENTADO
+    ├── streaming: {
     │   url: string | null,
-    │   casterName: string | null,               ← Futuro: cambiar a casters: string[] para soportar múltiples narradores
+    │   casterName: string | null,
     │   hostName: string | null,
     │   platform: string | null
     │ }
     ├── format: 'race' | 'sprint+race' | 'endurance' | 'time-attack' | 'drift'
     ├── category: 'casual' | 'competitive' | 'special' | 'endurance'
-    ├── prizes: string | null                    ← NUEVO: descripción de premios
-    ├── relatedChampionshipId: string | null      ← NUEVO: vincular a campeonato
-    ├── isRecurring: boolean                     ← NUEVO: evento recurrente
-    ├── recurrencePattern: 'weekly' | 'biweekly' | 'monthly' | null
-    ├── seriesId: string | null                  ← NUEVO: agrupar en serie de eventos
-    ├── rules: object                            ← Existente
-    ├── maxParticipants: number                  ← Existente
-    ├── participants: array                      ← Existente
-    ├── results: [{                              ← NUEVO: resultados del evento
-    │   driverName, position, points,
-    │   fastestLap, polePosition
-    │ }] | null
+    ├── prizes: string | null
+    ├── maxParticipants: number
+    ├── participants: [{id, gt7Id, psnId, registeredAt}]  ← Lista principal
+    ├── waitlist: [{                             ← NUEVO: lista de reservas
+    │   id, gt7Id, psnId,
+    │   waitlistPosition: number,               ← Posición en la cola (1, 2, 3...)
+    │   registeredAt: ISO string
+    │ }]
+    ├── results: [{driverName, position, points, fastestLap, polePosition}] | null
     ├── status: 'upcoming' | 'live' | 'completed'
-    ├── gallery: string[]                        ← NUEVO: URLs de capturas post-evento
+    ├── gallery: string[]                        ← URLs de capturas post-evento
+    ├── createdAt, updatedAt
+    └── createdBy
     ├── createdAt, updatedAt
     └── createdBy
 
@@ -1271,25 +1355,103 @@ eventSeries/                                     ← NUEVO: series de eventos
 - `src/app/utils/index.js` — Agregados re-exports de `calculateAdvancedStandings`, `getDriverStats`, `compareDrivers` desde standingsCalculator
 - `package.json` — Agregada dependencia `html-to-image` para exportar como imagen
 
+### Fase 9 — Gestión Avanzada de Eventos (6 de marzo 2026) ✅ COMPLETADA
+
+Mejoras posteriores al roadmap original, enfocadas en la página de detalle de eventos y capacidad de salas:
+
+| #    | Tarea                                                                                | Estado   |
+| ---- | ------------------------------------------------------------------------------------ | -------- |
+| 9.1  | Eventos multi-ronda (eliminatoria / doble eliminatoria)                              | ✅ Hecho |
+| 9.2  | Capacidad máxima por sala con caster como ocupante                                   | ✅ Hecho |
+| 9.3  | Lista de reservas en admin (waitlist[]) + mover a inscriptos                         | ✅ Hecho |
+| 9.4  | Lista de reservas pública: auto-enrutamiento al inscribirse con cupo lleno           | ✅ Hecho |
+| 9.5  | Selector inteligente de pilotos por ronda (optgroup, Ronda 2 filtra Ronda 1)         | ✅ Hecho |
+| 9.6  | Promoción automática R1→R2 según tipo de evento                                      | ✅ Hecho |
+| 9.7  | Sistema de tabs por sala en detalle público (Participantes / Resultados)             | ✅ Hecho |
+| 9.8  | Corrección display BOP/Penalizaciones/Coche Fantasma (comparación strings 'SI'/'NO') | ✅ Hecho |
+| 9.9  | Iconos en EVENT_FORMATS (constants.js)                                               | ✅ Hecho |
+| 9.10 | Botón "🔃 Refrescar Evento" en detalle público                                       | ✅ Hecho |
+| 9.11 | Banner sin superposición de descripción                                              | ✅ Hecho |
+| 9.12 | Responsive: AdminLayout hamburger drawer + grids responsive en admin                 | ✅ Hecho |
+
+**Archivos modificados/creados en Fase 9:**
+
+- `src/app/eventsAdmin/page.js` — Añadidos:
+  - **`eventType`**: selector `standard / eliminatoria / doble_eliminatoria`
+  - **`rounds[]` con `rooms[]`**: estructura multi-sala con caster, host, streamUrl, maxParticipants
+  - **`room.maxParticipants`** (0 = ∞): campo en UI; caster cuenta como 1 plaza en validación
+  - **`waitlist[]`**: array a nivel de evento; cuando cupo lleno, nuevos pilotos van aquí automáticamente
+  - Sección "⏳ Lista de Reservas" con botón "→ Inscribir" por piloto
+  - Botón ➕ cambia a "⏳ Añadir a Reservas" cuando el cupo está lleno
+  - Badge del header de sala muestra `X/max plazas` (rojo cuando llena)
+  - Badge de la sección Participantes muestra `N/max · ⏳K en reserva`
+  - Selector de piloto por sala: `<optgroup>` diferencia ronda anterior vs. todos
+  - `addParticipantToRoom`: bloquea con alert si sala llena (caster incluido)
+  - Botón "🚀 Promover a Ronda 2": mueve resultados R1 → participantes R2
+  - `generateRoomResultsFromParticipants`: genera resultados desde participantes ("📥 Cargar Pilotos")
+  - `moveRoomResult`: reordenar resultados con ▲/▼
+  - Flags por resultado: ⚡ Vuelta Rápida, 🅿️ Pole Position, ✖ DNF
+
+- `src/app/events/page.js` — Actualizaciones:
+  - **Sistema de tabs por sala**: `roomTabs` state keyed `${activeRound}-${rmIdx}`
+  - Tabs Participantes/Resultados visibles solo si la sala tiene resultados
+  - Lista de participantes en bullet list (`• PilotName`)
+  - `waitlistCount` calculado desde `event.waitlist?.length`
+  - Contador de participantes: `X / max · Z en reserva`
+  - Estado inscripción: `"Abierta (en reserva)"` cuando llena pero abierta
+  - Botón público diferenciado: verde cuando hay cupo, amarillo/naranja cuando lleno
+  - Mensaje de confirmación incluye posición en la lista de reservas
+  - Descripción movida fuera del overlay del banner (card separada)
+  - Botón "🔃 Refrescar Evento"
+  - Corrección: BOP/Penalizaciones/Coche Fantasma comparan `=== 'SI' || === true`
+  - Protección: `fmt?.icon ? \`${fmt.icon} ${fmt.label}\` : fmt.label`
+
+- `src/app/services/firebaseService.js` — `addEventParticipant` mejorado:
+  - Verifica duplicados en `participants` Y `waitlist` antes de agregar
+  - Si `isFull`: agrega a `waitlist[]` con `waitlistPosition` y retorna `{ waitlisted: true, position: N }`
+  - Si hay cupo: agrega a `participants[]` y retorna `{ waitlisted: false }`
+  - El modal de inscripción público muestra el mensaje adecuado según `result.waitlisted`
+
+- `src/app/utils/constants.js` — `EVENT_FORMATS` ahora incluye campo `icon` en todas las entradas; `getDefaultRounds()` añade `maxParticipants: 0` al modelo de sala
+
+**Patrones técnicos clave de esta fase:**
+
+```javascript
+// Capacidad de sala considerando caster
+const getRoomFull = (room) => {
+  if (!room.maxParticipants) return false; // 0 = ilimitado
+  const casterSlots = room.caster ? 1 : 0;
+  return (room.participants?.length || 0) + casterSlots >= room.maxParticipants;
+};
+
+// Guardar strings 'SI'/'NO' en admin; comparar correctamente en display
+const isBopActive = event.rules.bop === "SI" || event.rules.bop === true;
+
+// waitlist con posición
+await updateDoc(eventRef, {
+  waitlist: [...currentWaitlist, { ...newParticipant, waitlistPosition }],
+});
+```
+
 ---
 
 ## Resumen Final
 
 | Métrica                                       | Valor                                                                                                 |
 | --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| **Funcionalidades actuales**                  | ~22 features funcionales                                                                              |
+| **Funcionalidades actuales**                  | ~25 features funcionales                                                                              |
 | **Funcionalidades nuevas propuestas**         | ~35 features (todas opcionales)                                                                       |
 | **Bugs detectados**                           | 4 (1 crítico) — **todos corregidos**                                                                  |
 | **Duplicaciones de código**                   | 6 patrones — **6 resueltos (todos)**                                                                  |
 | **Líneas de código duplicadas** (new vs edit) | ✅ Unificado: ~4,200 → ~850 líneas (`ChampionshipForm.js`) — reducción del 79%                        |
 | **Módulos opcionales propuestos**             | 8 (sanciones, inscripción, divisiones, streaming, sprint, compuestos, reglamento, reclamaciones)      |
-| **Mejoras para eventos únicos**               | 6 subsecciones nuevas                                                                                 |
+| **Mejoras para eventos únicos**               | 7 subsecciones (incluye multi-ronda con salas, waitlist y UX del detalle)                             |
 | **Recomendaciones adicionales**               | Descartadas (roles, Discord, PWA, audit, temas) — solo se implementan: perfiles, export PNG, briefing |
-| **Fases del roadmap**                         | 8 fases — **todas completadas** ✅                                                                    |
+| **Fases del roadmap**                         | 9 fases — **todas completadas** ✅                                                                    |
 | **Esfuerzo total estimado**                   | ~12-16 semanas (1 desarrollador)                                                                      |
 | **Principio de diseño clave**                 | Todo es opcional por campeonato                                                                       |
 
-El sistema actual tiene una base sólida en `imsa_gt7` tras las correcciones realizadas (bugs corregidos, utilidades centralizadas, código legacy deprecado). Las **Fases 1-7 están completadas**, cubriendo: limpieza y unificación de código, inscripción y streaming, standings avanzados con estadísticas y comparador, sistema de sanciones configurables, reglamentación y configuración de circuitos, divisiones con ascensos/descensos, y **eventos mejorados** con CRUD completo (secciones colapsables, reglas detalladas, neumáticos obligatorios multi-select, climatología, streaming con caster/host, inscripción pública, participantes con PSN ID, resultados, categorías/formatos, duplicar evento, contador regresivo y badge EN VIVO). Las nuevas propuestas siguen el **principio de opcionalidad**: cada módulo se activa independientemente. La **Fase 8** (Experiencia Avanzada) está **completada** con página de perfiles globales de piloto (`/pilots`), exportación de clasificación como imagen PNG, y briefing pre-carrera exportable. **Todas las 8 fases del roadmap están completadas.**
+El sistema actual tiene una base sólida en `imsa_gt7` tras las correcciones realizadas (bugs corregidos, utilidades centralizadas, código legacy deprecado). Las **Fases 1-8 están completadas**, cubriendo: limpieza y unificación de código, inscripción y streaming, standings avanzados con estadísticas y comparador, sistema de sanciones configurables, reglamentación y configuración de circuitos, divisiones con ascensos/descensos, eventos mejorados con CRUD completo, y experiencia avanzada (perfiles, export PNG, briefing). La **Fase 9** (6 de marzo 2026) añadió: eventos multi-ronda (eliminatoria/doble eliminatoria) con salas paralelas, promoción automática R1→R2, capacidad máxima por sala con caster como ocupante, lista de reservas pública y de admin (`waitlist[]`), selector inteligente de pilotos por ronda, sistema de tabs por sala en el detalle público, y correcciones de display. Las nuevas propuestas siguen el **principio de opcionalidad**: cada módulo se activa independientemente. **Todas las 9 fases del roadmap están completadas.**
 
 ---
 

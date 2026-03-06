@@ -38,7 +38,7 @@ const createNewEvent = (nextId) => ({
     weather: { ...DEFAULT_WEATHER },
     specificCars: false, allowedCars: [],
     prizes: '', maxParticipants: 16,
-    participants: [], results: [],
+    participants: [], waitlist: [], results: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
 });
@@ -152,7 +152,8 @@ function EventForm({ event, onSave, onCancel, saving }) {
         streaming: { ...DEFAULT_STREAMING, ...(event?.streaming || {}) },
         registration: { ...DEFAULT_REGISTRATION, ...(event?.registration || {}) },
         weather: { ...DEFAULT_WEATHER, ...(event?.weather || {}) },
-        rounds: event?.rounds || []
+        rounds: event?.rounds || [],
+        waitlist: event?.waitlist || []
     }));
     const [newCar, setNewCar] = useState('');
     const isEditing = Boolean(event?.title);
@@ -213,6 +214,15 @@ function EventForm({ event, onSave, onCancel, saving }) {
             const room = rounds[roundIdx]?.rooms?.[roomIdx];
             if (room) {
                 if (!room.participants) room.participants = [];
+                // Verificar capacidad (caster cuenta como 1 plaza)
+                if (room.maxParticipants > 0) {
+                    const casterSlots = room.caster ? 1 : 0;
+                    const usedSlots = room.participants.length + casterSlots;
+                    if (usedSlots >= room.maxParticipants) {
+                        alert(`La sala "${room.name}" está llena (${room.maxParticipants} plazas, caster incluido).`);
+                        return prev;
+                    }
+                }
                 // Verificar si ya existe
                 const exists = room.participants.some(p => p.gt7Id === selected.gt7Id);
                 if (!exists) {
@@ -372,7 +382,7 @@ function EventForm({ event, onSave, onCancel, saving }) {
         const cars = [...(form.allowedCars || [])];
         if (!cars.includes(newCar.trim())) {
             cars.push(newCar.trim());
-            updateField('allowedCars', cars);
+            setForm(prev => ({ ...prev, allowedCars: cars, specificCars: true }));
         }
         setNewCar('');
     };
@@ -386,10 +396,13 @@ function EventForm({ event, onSave, onCancel, saving }) {
     const addParticipant = () => {
         const list = [...(form.participants || [])];
         if (form.maxParticipants && list.length >= form.maxParticipants) {
-            alert(`Máximo ${form.maxParticipants} participantes`);
+            // Cupo lleno: añadir a lista de reservas automáticamente
+            const wl = [...(form.waitlist || [])];
+            wl.push({ id: crypto.randomUUID(), gt7Id: '', psnId: '' });
+            updateField('waitlist', wl);
             return;
         }
-        list.push({ id: crypto.randomUUID(), name: '', psnId: '' });
+        list.push({ id: crypto.randomUUID(), gt7Id: '', psnId: '' });
         updateField('participants', list);
     };
     const updateParticipant = (idx, key, value) => {
@@ -401,6 +414,34 @@ function EventForm({ event, onSave, onCancel, saving }) {
         const list = [...form.participants];
         list.splice(idx, 1);
         updateField('participants', list);
+    };
+
+    // Waitlist
+    const addToWaitlist = () => {
+        const wl = [...(form.waitlist || [])];
+        wl.push({ id: crypto.randomUUID(), gt7Id: '', psnId: '' });
+        updateField('waitlist', wl);
+    };
+    const updateWaitlist = (idx, key, value) => {
+        const wl = [...(form.waitlist || [])];
+        wl[idx] = { ...wl[idx], [key]: value };
+        updateField('waitlist', wl);
+    };
+    const removeFromWaitlist = (idx) => {
+        const wl = [...(form.waitlist || [])];
+        wl.splice(idx, 1);
+        updateField('waitlist', wl);
+    };
+    const moveWaitlistToMain = (idx) => {
+        const list = [...(form.participants || [])];
+        if (form.maxParticipants && list.length >= form.maxParticipants) {
+            alert(`Cupo lleno (${form.maxParticipants}). Elimina un participante primero.`);
+            return;
+        }
+        const wl = [...(form.waitlist || [])];
+        const pilot = wl.splice(idx, 1)[0];
+        list.push(pilot);
+        setForm(prev => ({ ...prev, participants: list, waitlist: wl }));
     };
 
     // Results
@@ -822,15 +863,27 @@ function EventForm({ event, onSave, onCancel, saving }) {
                 title="Participantes"
                 icon="👥"
                 defaultOpen={isEditing && (form.participants?.length || 0) > 0}
-                badge={`${form.participants?.length || 0}/${form.maxParticipants || 16}`}
+                badge={`${form.participants?.length || 0}/${form.maxParticipants || 16}${(form.waitlist?.length || 0) > 0 ? ` · ⏳${form.waitlist.length}` : ''}`}
             >
                 <div className="space-y-3">
                     <div className="flex justify-between items-center">
                         <span className="text-gray-300 text-sm">
                             {form.participants?.length || 0} de {form.maxParticipants || 16} participantes
+                            {(form.waitlist?.length || 0) > 0 && (
+                                <span className="ml-2 text-yellow-400 text-xs font-semibold">· {form.waitlist.length} en reserva</span>
+                            )}
                         </span>
-                        <button type="button" onClick={addParticipant} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors">
-                            ➕ Añadir Piloto
+                        <button
+                            type="button"
+                            onClick={addParticipant}
+                            className={`px-3 py-1.5 text-white rounded-lg text-sm font-semibold transition-colors ${form.maxParticipants && (form.participants?.length || 0) >= form.maxParticipants
+                                ? 'bg-yellow-600 hover:bg-yellow-700'
+                                : 'bg-blue-600 hover:bg-blue-700'
+                                }`}
+                        >
+                            {form.maxParticipants && (form.participants?.length || 0) >= form.maxParticipants
+                                ? '⏳ Añadir a Reservas'
+                                : '➕ Añadir Piloto'}
                         </button>
                     </div>
 
@@ -853,6 +906,40 @@ function EventForm({ event, onSave, onCancel, saving }) {
                                     </div>
                                 ))}
                             </div>
+                        </div>
+                    )}
+
+                    {/* ---- WAITLIST ---- */}
+                    {((form.waitlist?.length || 0) > 0 || (form.maxParticipants && (form.participants?.length || 0) >= form.maxParticipants)) && (
+                        <div className="border-t border-white/10 pt-3">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-yellow-400 text-sm font-semibold">
+                                    ⏳ Lista de Reservas
+                                    {(form.waitlist?.length || 0) > 0 && (
+                                        <span className="ml-2 bg-yellow-500/20 text-yellow-300 text-xs px-2 py-0.5 rounded-full">{form.waitlist.length}</span>
+                                    )}
+                                </span>
+                                <button type="button" onClick={addToWaitlist} className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-semibold transition-colors">
+                                    ➕ Añadir a Reservas
+                                </button>
+                            </div>
+                            {(form.waitlist || []).length > 0 ? (
+                                <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-2 space-y-1">
+                                    {form.waitlist.map((p, idx) => (
+                                        <div key={p.id || idx} className="flex gap-2 items-center px-2 py-1.5 hover:bg-white/5 rounded">
+                                            <span className="text-yellow-600 text-xs w-6 text-center font-bold">{idx + 1}</span>
+                                            <input type="text" className="flex-1 bg-white/10 border border-white/20 rounded p-2 text-white text-sm focus:border-orange-500 outline-none" value={p.gt7Id || ''} onChange={(e) => updateWaitlist(idx, 'gt7Id', e.target.value)} placeholder="GT7 ID" />
+                                            <input type="text" className="w-32 bg-white/10 border border-white/20 rounded p-2 text-white text-sm focus:border-orange-500 outline-none" value={p.psnId || ''} onChange={(e) => updateWaitlist(idx, 'psnId', e.target.value)} placeholder="PSN ID" />
+                                            <button type="button" onClick={() => moveWaitlistToMain(idx)} title="Mover a inscriptos" className="px-2 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded transition-colors whitespace-nowrap">→ Inscribir</button>
+                                            <button type="button" onClick={() => removeFromWaitlist(idx)} className="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white w-8 h-8 rounded flex items-center justify-center transition-colors flex-shrink-0">×</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-gray-500 text-xs text-center py-3 bg-yellow-500/5 border border-yellow-500/10 rounded-lg">
+                                    Sin pilotos en lista de reservas
+                                </p>
+                            )}
                         </div>
                     )}
                 </div>
@@ -899,14 +986,22 @@ function EventForm({ event, onSave, onCancel, saving }) {
                                             <div className="flex items-center justify-between">
                                                 <h5 className="text-white font-semibold text-sm flex items-center gap-2">
                                                     🏟️ {room.name}
-                                                    <span className="text-xs bg-white/10 text-gray-400 px-2 py-0.5 rounded-full">
-                                                        {room.participants?.length || 0} pilotos
-                                                    </span>
+                                                    {(() => {
+                                                        const casterSlot = room.caster ? 1 : 0;
+                                                        const used = (room.participants?.length || 0) + casterSlot;
+                                                        const max = room.maxParticipants || 0;
+                                                        const isFull = max > 0 && used >= max;
+                                                        return (
+                                                            <span className={`text-xs px-2 py-0.5 rounded-full ${isFull ? 'bg-red-500/30 text-red-300' : 'bg-white/10 text-gray-400'}`}>
+                                                                {max > 0 ? `${used}/${max} plazas` : `${room.participants?.length || 0} pilotos`}
+                                                            </span>
+                                                        );
+                                                    })()}
                                                 </h5>
                                             </div>
 
                                             {/* Room Caster & Host */}
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
+                                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
                                                 <div>
                                                     <label className={labelCls}>🎙️ Caster</label>
                                                     <input type="text" className={`${inputCls} text-xs md:text-sm`} value={room.caster || ''} onChange={(e) => updateRoundRoom(rIdx, rmIdx, 'caster', e.target.value)} placeholder="Nombre del caster" />
@@ -918,6 +1013,11 @@ function EventForm({ event, onSave, onCancel, saving }) {
                                                 <div>
                                                     <label className={labelCls}>📺 Stream URL</label>
                                                     <input type="url" className={`${inputCls} text-xs md:text-sm`} value={room.streamUrl || ''} onChange={(e) => updateRoundRoom(rIdx, rmIdx, 'streamUrl', e.target.value)} placeholder="https://..." />
+                                                </div>
+                                                <div>
+                                                    <label className={labelCls}>👥 Máx. plazas <span className="text-gray-500 font-normal">(0=∞)</span></label>
+                                                    <input type="number" min={0} max={32} className={`${inputCls} text-xs md:text-sm`} value={room.maxParticipants || 0} onChange={(e) => updateRoundRoom(rIdx, rmIdx, 'maxParticipants', parseInt(e.target.value, 10) || 0)} />
+                                                    {room.maxParticipants > 0 && <p className="text-[10px] text-gray-500 mt-0.5">Caster ocupa 1 plaza</p>}
                                                 </div>
                                             </div>
 

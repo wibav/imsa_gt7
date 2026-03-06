@@ -1,35 +1,57 @@
 'use client';
 
 import { useEffect } from 'react';
-import { getAnalytics, isSupported } from 'firebase/analytics';
+import { usePathname } from 'next/navigation';
+import { getAnalytics, isSupported, logEvent } from 'firebase/analytics';
 import { app } from '../app/api/firebase/firebaseConfig';
 
+let analyticsInstance = null;
+
 export default function Analytics() {
+    const pathname = usePathname();
+
+    // Inicializar Firebase Analytics una sola vez
     useEffect(() => {
         const initializeAnalytics = async () => {
             try {
                 const supported = await isSupported();
                 if (supported) {
-                    getAnalytics(app);
-                    console.log('✅ Firebase Analytics initialized in client component');
-
-                    // Log a page view event
-                    if (typeof window !== 'undefined' && window.gtag) {
-                        window.gtag('config', process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, {
-                            page_title: document.title,
-                            page_location: window.location.href
-                        });
-                    }
-                } else {
-                    console.warn('⚠️ Firebase Analytics not supported in this browser');
+                    analyticsInstance = getAnalytics(app);
                 }
             } catch (error) {
-                console.error('❌ Error initializing Firebase Analytics:', error);
+                // Silenciar errores (ad blockers, navegadores sin soporte, etc.)
             }
         };
-
         initializeAnalytics();
     }, []);
 
-    return null; // This component doesn't render anything
+    // Trackear page_view en cada cambio de ruta (navegación SPA)
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const url = window.location.href;
+        const title = document.title;
+
+        // GA4 via gtag (Google Analytics)
+        if (window.gtag) {
+            window.gtag('event', 'page_view', {
+                page_title: title,
+                page_location: url,
+                page_path: pathname,
+            });
+        }
+
+        // Firebase Analytics SDK
+        if (analyticsInstance) {
+            try {
+                logEvent(analyticsInstance, 'page_view', {
+                    page_title: title,
+                    page_location: url,
+                    page_path: pathname,
+                });
+            } catch (e) { /* silenciar */ }
+        }
+    }, [pathname]);
+
+    return null;
 }
