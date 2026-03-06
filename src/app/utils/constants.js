@@ -209,6 +209,7 @@ export const getDefaultRounds = (eventType, playersPerRoom = 15) => {
         caster: '',
         host: '',
         streamUrl: '',
+        maxParticipants: 0,
         participants: [],
         results: []
     });
@@ -253,11 +254,11 @@ export const EVENT_CATEGORIES = [
  * Formatos de evento (tipo de sesión)
  */
 export const EVENT_FORMATS = [
-    { value: 'race', label: 'Carrera única' },
-    { value: 'sprint+race', label: 'Sprint + Carrera' },
-    { value: 'endurance', label: 'Resistencia' },
-    { value: 'time-attack', label: 'Time Attack' },
-    { value: 'drift', label: 'Drift' }
+    { value: 'race', label: 'Carrera única', icon: '🏁' },
+    { value: 'sprint+race', label: 'Sprint + Carrera', icon: '⚡' },
+    { value: 'endurance', label: 'Resistencia', icon: '⏱️' },
+    { value: 'time-attack', label: 'Time Attack', icon: '⏰' },
+    { value: 'drift', label: 'Drift', icon: '💨' }
 ];
 
 /**

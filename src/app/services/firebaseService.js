@@ -169,30 +169,42 @@ export class FirebaseService {
 
       const eventData = eventSnap.data();
       const currentParticipants = eventData.participants || [];
+      const currentWaitlist = eventData.waitlist || [];
 
-      // Verificar si el participante ya existe (por GT7 ID)
-      const exists = currentParticipants.some(p => p.gt7Id === participantData.gt7Id);
-      if (exists) {
+      // Verificar si el participante ya existe en inscriptos o reservas
+      const existsInMain = currentParticipants.some(p => p.gt7Id === participantData.gt7Id);
+      if (existsInMain) {
         throw new Error("Este GT7 ID ya está registrado en el evento");
       }
-
-      // Verificar límite de participantes
-      if (eventData.maxParticipants && currentParticipants.length >= eventData.maxParticipants) {
-        throw new Error("El evento ya está lleno");
+      const existsInWaitlist = currentWaitlist.some(p => p.gt7Id === participantData.gt7Id);
+      if (existsInWaitlist) {
+        throw new Error("Este GT7 ID ya está en la lista de reservas");
       }
 
-      // Agregar el nuevo participante
+      const isFull = eventData.maxParticipants && currentParticipants.length >= eventData.maxParticipants;
+
       const newParticipant = {
         ...participantData,
         registeredAt: new Date().toISOString()
       };
 
+      if (isFull) {
+        // Agregar a lista de reservas
+        const waitlistPosition = currentWaitlist.length + 1;
+        await updateDoc(eventRef, {
+          waitlist: [...currentWaitlist, { ...newParticipant, waitlistPosition }],
+          updatedAt: new Date().toISOString()
+        });
+        return { success: true, waitlisted: true, position: waitlistPosition, participant: newParticipant };
+      }
+
+      // Agregar a lista principal
       await updateDoc(eventRef, {
         participants: [...currentParticipants, newParticipant],
         updatedAt: new Date().toISOString()
       });
 
-      return { success: true, participant: newParticipant };
+      return { success: true, waitlisted: false, participant: newParticipant };
     } catch (error) {
       console.error("Error adding participant:", error);
       throw error;

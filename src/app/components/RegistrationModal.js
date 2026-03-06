@@ -119,6 +119,8 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
                         </div>
                     )}
 
+
+
                     {/* Botones */}
                     <div className="flex gap-3 pt-4">
                         <button
