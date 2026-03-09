@@ -17,7 +17,8 @@ const DEFAULT_RULES = {
     duration: '', laps: '',
     bop: 'SI', adjustments: 'NO', engineSwap: 'NO',
     damage: 'Graves', penalties: 'SI', shortcutPenalty: 'NO', ghostCar: 'NO',
-    tyreWear: 5, fuelWear: 0, fuelRefillRate: 10, mandatoryTyres: []
+    tyreWear: 5, fuelWear: 0, fuelRefillRate: 10, mandatoryTyres: [],
+    mandatoryTyreChange: 'NO', mandatoryPitstops: 0
 };
 
 const DEFAULT_STREAMING = { casterName: '', hostName: '', url: '', platform: '' };
@@ -386,6 +387,7 @@ function EventForm({ event, onSave, onCancel, saving }) {
         }
         setNewCar('');
     };
+
     const removeCar = (idx) => {
         const cars = [...(form.allowedCars || [])];
         cars.splice(idx, 1);
@@ -405,11 +407,13 @@ function EventForm({ event, onSave, onCancel, saving }) {
         list.push({ id: crypto.randomUUID(), gt7Id: '', psnId: '' });
         updateField('participants', list);
     };
+
     const updateParticipant = (idx, key, value) => {
         const list = [...form.participants];
         list[idx] = { ...list[idx], [key]: value };
         updateField('participants', list);
     };
+
     const removeParticipant = (idx) => {
         const list = [...form.participants];
         list.splice(idx, 1);
@@ -422,16 +426,19 @@ function EventForm({ event, onSave, onCancel, saving }) {
         wl.push({ id: crypto.randomUUID(), gt7Id: '', psnId: '' });
         updateField('waitlist', wl);
     };
+
     const updateWaitlist = (idx, key, value) => {
         const wl = [...(form.waitlist || [])];
         wl[idx] = { ...wl[idx], [key]: value };
         updateField('waitlist', wl);
     };
+
     const removeFromWaitlist = (idx) => {
         const wl = [...(form.waitlist || [])];
         wl.splice(idx, 1);
         updateField('waitlist', wl);
     };
+
     const moveWaitlistToMain = (idx) => {
         const list = [...(form.participants || [])];
         if (form.maxParticipants && list.length >= form.maxParticipants) {
@@ -629,7 +636,8 @@ function EventForm({ event, onSave, onCancel, saving }) {
                         { key: 'engineSwap', label: 'Cambio de motor (Swap)' },
                         { key: 'penalties', label: 'Penalizaciones del juego' },
                         { key: 'shortcutPenalty', label: 'Penalización por atajos' },
-                        { key: 'ghostCar', label: 'Coche fantasma' }
+                        { key: 'ghostCar', label: 'Coche fantasma' },
+                        { key: 'mandatoryTyreChange', label: 'Cambio de neumáticos obligatorio' }
                     ].map(rule => (
                         <div key={rule.key} className="bg-white/5 rounded-lg p-3">
                             <ToggleSwitch
@@ -690,6 +698,21 @@ function EventForm({ event, onSave, onCancel, saving }) {
                         </div>
                     </div>
                 )}
+
+                <div>
+                    <label className={labelCls}>Paradas obligatorias en boxes</label>
+                    <div className="flex items-center gap-3">
+                        <input
+                            type="number"
+                            min={0}
+                            max={10}
+                            className="w-24 bg-white/10 border border-white/30 rounded-lg p-2 text-white text-sm text-center"
+                            value={form.rules?.mandatoryPitstops ?? 0}
+                            onChange={(e) => updateRules('mandatoryPitstops', Number(e.target.value))}
+                        />
+                        <span className="text-gray-400 text-sm">parada(s) mínima(s)</span>
+                    </div>
+                </div>
 
                 <div>
                     <label className={labelCls}>Neumáticos obligatorios</label>
