@@ -431,6 +431,12 @@ function EventDetailContent() {
                                     {typeof event.rules.fuelRefillRate === "number" && event.rules.fuelRefillRate > 0 && (
                                         <RulePill label="Recarga Comb." value={`x${event.rules.fuelRefillRate}`} />
                                     )}
+                                    {event.rules.mandatoryTyreChange !== undefined && (
+                                        <RulePill label="Cambio Neum. Oblig." value={event.rules.mandatoryTyreChange === 'SI' ? "Sí" : "No"} />
+                                    )}
+                                    {typeof event.rules.mandatoryPitstops === "number" && event.rules.mandatoryPitstops > 0 && (
+                                        <RulePill label="Paradas Oblig." value={`${event.rules.mandatoryPitstops}`} />
+                                    )}
                                 </div>
                             </div>
                         )}

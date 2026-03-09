@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import Image from 'next/image';
+import ImageTracer from 'imagetracerjs';
 import Potrace from 'potrace';
 import Navbar from '../components/Navbar';
 
@@ -134,6 +135,7 @@ export default function ToolsPage() {
 
         // 2. Eliminar comentarios
         svg = svg.replace(/<!--[\s\S]*?-->/g, '');
+        svg = svg.replace(/<desc>[\s\S]*?<\/desc>/gi, '');
 
         // 3. Optimizar path data (la mayor fuente de ahorro)
         svg = svg.replace(/ d="([^"]+)"/g, (match, pathData) => {
@@ -144,8 +146,8 @@ export default function ToolsPage() {
             d = d.replace(/([MLHVCSQTAZ])\s+/gi, '$1');
             // Usar signo negativo como separador implícito: "10 -5" → "10-5"
             d = d.replace(/(\d)\s+(-)/g, '$1$2');
-            // Redondear a 1 decimal
-            d = d.replace(/(\d+\.\d{2,})/g, (m) => parseFloat(m).toFixed(1));
+            // Redondear a 1 decimal (esencial para mantener curvas suaves de Potrace)
+            d = d.replace(/(\d+\.\d+)/g, (m) => parseFloat(m).toFixed(1));
             // Eliminar .0 innecesarios: "10.0" → "10"
             d = d.replace(/(\d+)\.0(?=[^.\d]|$)/g, '$1');
             // Eliminar ceros iniciales: "0.5" → ".5"
@@ -155,10 +157,19 @@ export default function ToolsPage() {
 
         // 4. Eliminar atributos innecesarios
         svg = svg.replace(/\s+stroke="none"/gi, '');
+        svg = svg.replace(/\s+stroke="[^"]*"/gi, '');
         svg = svg.replace(/\s+fill-opacity="1"/gi, '');
         svg = svg.replace(/\s+stroke-opacity="1"/gi, '');
         svg = svg.replace(/\s+opacity="1"/gi, '');
         svg = svg.replace(/\s+stroke-width="0"/gi, '');
+        svg = svg.replace(/fill="rgb\((\d+),(\d+),(\d+)\)"/gi, (match, r, g, b) => {
+            const toHex = (value) => Number(value).toString(16).padStart(2, '0');
+            const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+            if (hex[1] === hex[2] && hex[3] === hex[4] && hex[5] === hex[6]) {
+                return `fill="#${hex[1]}${hex[3]}${hex[5]}"`;
+            }
+            return `fill="${hex}"`;
+        });
 
         // 5. Compactar espacios en blanco restantes
         svg = svg.replace(/\s+/g, ' ');
@@ -334,36 +345,55 @@ export default function ToolsPage() {
                     entry.sumR += p.r; entry.sumG += p.g; entry.sumB += p.b;
                 }
 
-                // Obtener color de fondo más probable
-                let bgColor = null;
-                let maxCount = 0;
-                colorCounts.forEach((entry) => {
-                    if (entry.count > maxCount) {
-                        maxCount = entry.count;
-                        bgColor = {
-                            r: Math.round(entry.sumR / entry.count),
-                            g: Math.round(entry.sumG / entry.count),
-                            b: Math.round(entry.sumB / entry.count)
-                        };
-                    }
-                });
+                // Obtener colores de fondo más probables ordenados
+                let candidateColors = Array.from(colorCounts.values())
+                    .map(entry => ({
+                        r: Math.round(entry.sumR / entry.count),
+                        g: Math.round(entry.sumG / entry.count),
+                        b: Math.round(entry.sumB / entry.count),
+                        count: entry.count
+                    }))
+                    .sort((a, b) => b.count - a.count);
 
-                // Si menos del 40% de los bordes comparten el mismo color, probablemente no hay fondo uniforme
-                if (!bgColor || maxCount < borderPixels.length * 0.4) {
+                let bgColors = [];
+                let totalBgCount = 0;
+
+                // Permitimos hasta 2 colores principales (útil para fondos de "cuadros falsos" de PNG no transparentes)
+                if (candidateColors.length > 0 && candidateColors[0].count > borderPixels.length * 0.15) {
+                    bgColors.push(candidateColors[0]);
+                    totalBgCount += candidateColors[0].count;
+                    if (candidateColors.length > 1 && candidateColors[1].count > borderPixels.length * 0.15) {
+                        bgColors.push(candidateColors[1]);
+                        totalBgCount += candidateColors[1].count;
+                    }
+                }
+
+                // Si los colores elegidos no llegan al 40% combinado del borde, probablemente no hay fondo uniforme
+                if (totalBgCount < borderPixels.length * 0.4) {
                     console.log('No se detectó fondo uniforme, saltando eliminación.');
                     resolve(imageDataUrl);
                     return;
                 }
 
-                console.log(`Fondo detectado: rgb(${bgColor.r},${bgColor.g},${bgColor.b}) — ${maxCount}/${borderPixels.length} píxeles de borde`);
-                setProcessingStep(`Eliminando fondo rgb(${bgColor.r},${bgColor.g},${bgColor.b})...`);
+                console.log(`Fondo detectado: ${bgColors.length} colores, cubriendo ${(totalBgCount / borderPixels.length * 100).toFixed(1)}% de bordes`);
+                setProcessingStep(`Eliminando fondo (detectados ${bgColors.length} tonos)...`);
 
                 // Eliminar fondo usando flood-fill desde los bordes
                 // Esto es más preciso que eliminar por color global, ya que solo quita
                 // el fondo conectado a los bordes (no elimina colores internos similares)
                 const visited = new Uint8Array(w * h);
                 const toRemove = new Uint8Array(w * h);
-                const bgThreshold = 50; // Distancia máxima al color de fondo
+                const bgThreshold = 60; // Distancia máxima al color de fondo (un poco más permisivo para ruido/compresión)
+
+                // Función auxiliar para comprobar si un píxel coincide con algún color de fondo
+                const isBgColor = (r, g, b) => {
+                    for (let i = 0; i < bgColors.length; i++) {
+                        const bg = bgColors[i];
+                        const dist = Math.sqrt((r - bg.r) ** 2 + (g - bg.g) ** 2 + (b - bg.b) ** 2);
+                        if (dist < bgThreshold) return true;
+                    }
+                    return false;
+                };
 
                 // Usar Int32Array como cola circular para BFS eficiente O(n)
                 // (queue.shift() en Array normal es O(n) → haría el BFS O(n²))
@@ -376,8 +406,7 @@ export default function ToolsPage() {
                     for (const y of [0, h - 1]) {
                         const idx = y * w + x;
                         const i = idx * 4;
-                        const dist = Math.sqrt((data[i] - bgColor.r) ** 2 + (data[i + 1] - bgColor.g) ** 2 + (data[i + 2] - bgColor.b) ** 2);
-                        if (dist < bgThreshold && data[i + 3] >= 128) {
+                        if (data[i + 3] >= 128 && isBgColor(data[i], data[i + 1], data[i + 2])) {
                             queue[qTail++] = idx;
                             visited[idx] = 1;
                         }
@@ -387,8 +416,7 @@ export default function ToolsPage() {
                     for (const x of [0, w - 1]) {
                         const idx = y * w + x;
                         const i = idx * 4;
-                        const dist = Math.sqrt((data[i] - bgColor.r) ** 2 + (data[i + 1] - bgColor.g) ** 2 + (data[i + 2] - bgColor.b) ** 2);
-                        if (dist < bgThreshold && data[i + 3] >= 128) {
+                        if (data[i + 3] >= 128 && isBgColor(data[i], data[i + 1], data[i + 2])) {
                             queue[qTail++] = idx;
                             visited[idx] = 1;
                         }
@@ -413,8 +441,8 @@ export default function ToolsPage() {
                         visited[nIdx] = 1;
                         const ni = nIdx * 4;
                         if (data[ni + 3] < 128) continue; // Ya transparente
-                        const dist = Math.sqrt((data[ni] - bgColor.r) ** 2 + (data[ni + 1] - bgColor.g) ** 2 + (data[ni + 2] - bgColor.b) ** 2);
-                        if (dist < bgThreshold) {
+                        
+                        if (isBgColor(data[ni], data[ni + 1], data[ni + 2])) {
                             queue[qTail++] = nIdx;
                         }
                     }
@@ -466,90 +494,341 @@ export default function ToolsPage() {
             const img = new window.Image();
 
             img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
+                const fitInside = (sourceWidth, sourceHeight, maxSize) => {
+                    let fittedWidth = sourceWidth;
+                    let fittedHeight = sourceHeight;
 
-                let width = img.width;
-                let height = img.height;
+                    if (fittedWidth > maxSize || fittedHeight > maxSize) {
+                        const aspectRatio = fittedWidth / fittedHeight;
 
-                // Ajuste inteligente de tamaño: escalar proporcionalmente
-                // Imágenes grandes se reducen más, pequeñas se preservan
-                let maxSize;
-                if (width > 1000 || height > 1000) {
-                    maxSize = 250; // Imágenes muy grandes: reducir agresivamente
-                } else if (width > 500 || height > 500) {
-                    maxSize = 350; // Imágenes medianas
-                } else {
-                    maxSize = Math.max(width, height); // Pequeñas: mantener tamaño original
-                }
-
-                // Calcular dimensiones manteniendo proporción
-                if (width > maxSize || height > maxSize) {
-                    const aspectRatio = width / height;
-
-                    if (width > height) {
-                        width = maxSize;
-                        height = maxSize / aspectRatio;
-                    } else {
-                        height = maxSize;
-                        width = maxSize * aspectRatio;
+                        if (fittedWidth > fittedHeight) {
+                            fittedWidth = maxSize;
+                            fittedHeight = maxSize / aspectRatio;
+                        } else {
+                            fittedHeight = maxSize;
+                            fittedWidth = maxSize * aspectRatio;
+                        }
                     }
+
+                    return {
+                        width: Math.round(fittedWidth),
+                        height: Math.round(fittedHeight)
+                    };
+                };
+
+                const buildScaledCanvas = (maxSize, smoothingEnabled) => {
+                    const { width, height } = fitInside(img.width, img.height, maxSize);
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.imageSmoothingEnabled = smoothingEnabled;
+                    if (smoothingEnabled) {
+                        ctx.imageSmoothingQuality = 'high';
+                    }
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    return { canvas, ctx, width, height };
+                };
+
+                // Preview en alta calidad para no degradar visualmente la interfaz.
+                const previewResult = buildScaledCanvas(400, true);
+                // Analizar primero en una resolución intermedia para decidir un tamaño inicial inteligente.
+                const analysisResult = buildScaledCanvas(220, true);
+                const analyzedImageData = analysisResult.ctx.getImageData(0, 0, analysisResult.width, analysisResult.height);
+                const complexity = analyzeImageComplexity(analyzedImageData);
+
+                let conversionMaxSize = 188;
+                if (complexity.complexity === 'muy_compleja') {
+                    conversionMaxSize = 140;
+                } else if (complexity.complexity === 'compleja') {
+                    conversionMaxSize = 156;
+                } else if (complexity.complexity === 'media') {
+                    conversionMaxSize = 172;
                 }
 
-                canvas.width = width;
-                canvas.height = height;
+                const conversionResult = buildScaledCanvas(conversionMaxSize, true);
 
-                // Aplicar suavizado para mejor calidad
-                ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = 'high';
-
-                ctx.drawImage(img, 0, 0, width, height);
-
-                // SIMPLIFICACIÓN DE COLORES: Reducir paleta para mejor vectorización
-                const imageData = ctx.getImageData(0, 0, width, height);
-                const simplifiedData = simplifyColors(imageData, 16); // Reducir a 16 colores máximo
-                ctx.putImageData(simplifiedData, 0, 0);
-
-                // Convertir a blob con compresión
-                canvas.toBlob(
-                    (blob) => {
-                        const optimizedUrl = URL.createObjectURL(blob);
-                        setOptimizedPreview(optimizedUrl);
-
-                        const originalSize = originalFile.size;
-                        const optimizedSize = blob.size;
-                        const reduction = ((1 - optimizedSize / originalSize) * 100).toFixed(1);
-
-                        // Analizar complejidad de la imagen simplificada
-                        const finalImageData = ctx.getImageData(0, 0, width, height);
-                        const complexity = analyzeImageComplexity(finalImageData);
-
-                        // Detectar si el fondo fue eliminado (hay píxeles transparentes)
-                        let hasTransparency = false;
-                        for (let pi = 3; pi < finalImageData.data.length; pi += 4) {
-                            if (finalImageData.data[pi] < 255) { hasTransparency = true; break; }
+                previewResult.canvas.toBlob(
+                    (previewBlob) => {
+                        if (previewBlob) {
+                            setOptimizedPreview(URL.createObjectURL(previewBlob));
                         }
 
-                        setOptimizationInfo({
-                            originalSize: (originalSize / 1024).toFixed(2),
-                            optimizedSize: (optimizedSize / 1024).toFixed(2),
-                            reduction: reduction,
-                            dimensions: `${Math.round(width)}x${Math.round(height)}`,
-                            backgroundRemoved: hasTransparency,
-                            complexity: complexity.complexity,
-                            colors: complexity.colorCount,
-                            colorSimplification: true
-                        });
+                        conversionResult.canvas.toBlob(
+                            (blob) => {
+                                if (!blob) {
+                                    resolve(imageDataUrl);
+                                    return;
+                                }
 
-                        resolve(optimizedUrl);
+                                const optimizedUrl = URL.createObjectURL(blob);
+                                const originalSize = originalFile.size;
+                                const optimizedSize = blob.size;
+                                const reduction = ((1 - optimizedSize / originalSize) * 100).toFixed(1);
+
+                                // Analizar el lienzo real usado para la conversión sin sobrescribir la recomendación inicial.
+                                const finalImageData = conversionResult.ctx.getImageData(0, 0, conversionResult.width, conversionResult.height);
+
+                                let hasTransparency = false;
+                                for (let pi = 3; pi < finalImageData.data.length; pi += 4) {
+                                    if (finalImageData.data[pi] < 255) { hasTransparency = true; break; }
+                                }
+
+                                setOptimizationInfo({
+                                    originalSize: (originalSize / 1024).toFixed(2),
+                                    optimizedSize: (optimizedSize / 1024).toFixed(2),
+                                    reduction: reduction,
+                                    dimensions: `${conversionResult.width}x${conversionResult.height}`,
+                                    backgroundRemoved: hasTransparency,
+                                    complexity: complexity.complexity,
+                                    colors: complexity.colorCount,
+                                    recommendedConversionSize: conversionMaxSize
+                                });
+
+                                resolve(optimizedUrl);
+                            },
+                            'image/png',
+                            0.9
+                        );
                     },
                     'image/png',
-                    0.9 // Alta calidad para mejor resultado
+                    0.95
                 );
             };
 
             img.src = imageDataUrl;
         });
+    };
+
+    const convertWithImageTracer = async (imageData, width, height, profile = {}) => {
+        const paletteLimit = profile.paletteLimit || 10;
+        const candidateColors = getUniqueColors(imageData)
+            .slice(0, Math.max(32, paletteLimit * 6));
+
+        const rgbToHsl = (r, g, b) => {
+            const rn = r / 255;
+            const gn = g / 255;
+            const bn = b / 255;
+            const max = Math.max(rn, gn, bn);
+            const min = Math.min(rn, gn, bn);
+            const delta = max - min;
+            let hue = 0;
+
+            if (delta !== 0) {
+                if (max === rn) hue = ((gn - bn) / delta) % 6;
+                else if (max === gn) hue = (bn - rn) / delta + 2;
+                else hue = (rn - gn) / delta + 4;
+                hue *= 60;
+                if (hue < 0) hue += 360;
+            }
+
+            const lightness = (max + min) / 2;
+            const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1));
+            return { h: hue, s: saturation, l: lightness };
+        };
+
+        const groups = {
+            black: [],
+            white: [],
+            gray: [],
+            red: [],
+            darkred: [],
+            orange: [],
+            yellow: [],
+            blue: [],
+            darkblue: [],
+            other: []
+        };
+
+        for (const color of candidateColors) {
+            const hsl = rgbToHsl(color.r, color.g, color.b);
+            if (hsl.l < 0.16) groups.black.push(color);
+            else if (hsl.s < 0.16 && hsl.l > 0.82) groups.white.push(color);
+            else if (hsl.s < 0.18) groups.gray.push(color);
+            else if ((hsl.h >= 345 || hsl.h < 15) && hsl.l < 0.45) groups.darkred.push(color);
+            else if (hsl.h >= 345 || hsl.h < 15) groups.red.push(color);
+            else if (hsl.h >= 15 && hsl.h < 42) groups.orange.push(color);
+            else if (hsl.h >= 42 && hsl.h < 72) groups.yellow.push(color);
+            else if (hsl.h >= 200 && hsl.h < 250 && hsl.l < 0.45) groups.darkblue.push(color);
+            else if (hsl.h >= 190 && hsl.h < 255) groups.blue.push(color);
+            else groups.other.push(color);
+        }
+
+        const palette = [];
+        const addPaletteColor = (color) => {
+            if (!color || palette.length >= paletteLimit) return;
+
+            const isDistinct = palette.every(existing => {
+                const dr = existing.r - color.r;
+                const dg = existing.g - color.g;
+                const db = existing.b - color.b;
+                return Math.sqrt(dr * dr + dg * dg + db * db) >= 24;
+            });
+
+            if (isDistinct) {
+                palette.push({ r: color.r, g: color.g, b: color.b, a: 255 });
+            }
+        };
+
+        const pickBest = (items, extraScore = () => 0) => items
+            .slice()
+            .sort((a, b) => (b.count + extraScore(b)) - (a.count + extraScore(a)))[0];
+
+        addPaletteColor(pickBest(groups.black));
+        addPaletteColor(pickBest(groups.white));
+        addPaletteColor(pickBest(groups.red, (color) => rgbToHsl(color.r, color.g, color.b).s * 80));
+        addPaletteColor(pickBest(groups.darkred, (color) => rgbToHsl(color.r, color.g, color.b).s * 60));
+        addPaletteColor(pickBest(groups.orange, (color) => rgbToHsl(color.r, color.g, color.b).s * 60));
+        addPaletteColor(pickBest(groups.yellow, (color) => rgbToHsl(color.r, color.g, color.b).s * 60));
+        addPaletteColor(pickBest(groups.blue, (color) => rgbToHsl(color.r, color.g, color.b).s * 60));
+        addPaletteColor(pickBest(groups.darkblue, (color) => rgbToHsl(color.r, color.g, color.b).s * 40));
+        addPaletteColor(pickBest(groups.gray));
+
+        [...groups.other, ...candidateColors].forEach(addPaletteColor);
+
+        if (palette.length === 0) {
+            candidateColors.slice(0, paletteLimit).forEach(addPaletteColor);
+        }
+
+        const sentinelCandidates = [
+            { r: 0, g: 255, b: 0, a: 255 },
+            { r: 255, g: 0, b: 255, a: 255 },
+            { r: 0, g: 255, b: 255, a: 255 },
+            { r: 255, g: 255, b: 0, a: 255 },
+            { r: 255, g: 0, b: 128, a: 255 }
+        ];
+
+        const getMinDistance = (candidate) => {
+            if (palette.length === 0) return Infinity;
+            return Math.min(...palette.map(color => {
+                const dr = candidate.r - color.r;
+                const dg = candidate.g - color.g;
+                const db = candidate.b - color.b;
+                return Math.sqrt(dr * dr + dg * dg + db * db);
+            }));
+        };
+
+        const sentinelColor = sentinelCandidates
+            .map(candidate => ({ candidate, score: getMinDistance(candidate) }))
+            .sort((a, b) => b.score - a.score)[0].candidate;
+
+        const getDistance = (r, g, b, color) => {
+            const dr = r - color.r;
+            const dg = g - color.g;
+            const db = b - color.b;
+            return (dr * dr * 0.299) + (dg * dg * 0.587) + (db * db * 0.114);
+        };
+
+        const pixelIndexes = new Int16Array(width * height);
+        const tracedData = new Uint8ClampedArray(imageData.data.length);
+        for (let pi = 0; pi < width * height; pi++) {
+            const i = pi * 4;
+            if (imageData.data[i + 3] < 128) {
+                tracedData[i] = sentinelColor.r;
+                tracedData[i + 1] = sentinelColor.g;
+                tracedData[i + 2] = sentinelColor.b;
+                tracedData[i + 3] = 255;
+                pixelIndexes[pi] = -1;
+                continue;
+            }
+
+            let nearest = 0;
+            let minDistance = Infinity;
+            for (let paletteIndex = 0; paletteIndex < palette.length; paletteIndex++) {
+                const distance = getDistance(imageData.data[i], imageData.data[i + 1], imageData.data[i + 2], palette[paletteIndex]);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearest = paletteIndex;
+                }
+            }
+
+            pixelIndexes[pi] = nearest;
+        }
+
+        const smoothedIndexes = new Int16Array(pixelIndexes);
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const pi = y * width + x;
+                if (pixelIndexes[pi] < 0) continue;
+
+                const votes = new Map();
+                for (let oy = -1; oy <= 1; oy++) {
+                    for (let ox = -1; ox <= 1; ox++) {
+                        const neighborIndex = pixelIndexes[(y + oy) * width + (x + ox)];
+                        if (neighborIndex < 0) continue;
+                        votes.set(neighborIndex, (votes.get(neighborIndex) || 0) + 1);
+                    }
+                }
+
+                let bestIndex = pixelIndexes[pi];
+                let bestVotes = 0;
+                votes.forEach((voteCount, candidateIndex) => {
+                    if (voteCount > bestVotes) {
+                        bestVotes = voteCount;
+                        bestIndex = candidateIndex;
+                    }
+                });
+
+                if (bestVotes >= 5) {
+                    smoothedIndexes[pi] = bestIndex;
+                }
+            }
+        }
+
+        for (let pi = 0; pi < width * height; pi++) {
+            const i = pi * 4;
+            if (smoothedIndexes[pi] < 0) {
+                tracedData[i] = sentinelColor.r;
+                tracedData[i + 1] = sentinelColor.g;
+                tracedData[i + 2] = sentinelColor.b;
+                tracedData[i + 3] = 255;
+            } else {
+                const color = palette[smoothedIndexes[pi]];
+                tracedData[i] = color.r;
+                tracedData[i + 1] = color.g;
+                tracedData[i + 2] = color.b;
+                tracedData[i + 3] = 255;
+            }
+        }
+
+        const tracedImageData = new ImageData(tracedData, width, height);
+        const tracerOptions = {
+            ltres: profile.ltres ?? 0.8,
+            qtres: profile.qtres ?? 0.8,
+            pathomit: profile.pathomit ?? 1,
+            rightangleenhance: true,
+            colorsampling: 0,
+            numberofcolors: palette.length + 1,
+            mincolorratio: profile.mincolorratio ?? 0,
+            colorquantcycles: profile.colorquantcycles ?? 1,
+            layering: 0,
+            strokewidth: 0,
+            linefilter: profile.linefilter ?? false,
+            scale: 1,
+            roundcoords: 1,
+            viewbox: true,
+            desc: false,
+            blurradius: profile.blurradius ?? 0,
+            blurdelta: profile.blurdelta ?? 20,
+            pal: [sentinelColor, ...palette]
+        };
+
+        let svg = ImageTracer.imagedataToSVG(tracedImageData, tracerOptions);
+        const sentinelFill = `rgb(${sentinelColor.r},${sentinelColor.g},${sentinelColor.b})`;
+        const sentinelHex = `#${sentinelColor.r.toString(16).padStart(2, '0')}${sentinelColor.g.toString(16).padStart(2, '0')}${sentinelColor.b.toString(16).padStart(2, '0')}`;
+        const shortSentinelHex = sentinelHex[1] === sentinelHex[2] && sentinelHex[3] === sentinelHex[4] && sentinelHex[5] === sentinelHex[6]
+            ? `#${sentinelHex[1]}${sentinelHex[3]}${sentinelHex[5]}`
+            : null;
+
+        svg = svg.replace(new RegExp(`<path[^>]*fill="${sentinelFill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*\\/?>`, 'gi'), '');
+        svg = svg.replace(new RegExp(`<path[^>]*fill="${sentinelHex.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*\\/?>`, 'gi'), '');
+        if (shortSentinelHex) {
+            svg = svg.replace(new RegExp(`<path[^>]*fill="${shortSentinelHex.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"[^>]*\\/?>`, 'gi'), '');
+        }
+
+        return svg;
     };
 
     const convertToSVGAutomatic = async (optimizedUrl) => {
@@ -563,71 +842,90 @@ export default function ToolsPage() {
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-                    let currentWidth = img.width;
-                    let currentHeight = img.height;
+                    const drawToCanvas = (targetWidth, targetHeight) => {
+                        canvas.width = targetWidth;
+                        canvas.height = targetHeight;
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+                        return ctx.getImageData(0, 0, targetWidth, targetHeight);
+                    };
 
-                    canvas.width = currentWidth;
-                    canvas.height = currentHeight;
-                    ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
+                    const conversionProfiles = [
+                        { scale: 1.00, paletteLimit: 10, pathomit: 0, ltres: 0.5, qtres: 0.5, linefilter: false, blurradius: 0, colorquantcycles: 1 },
+                        { scale: 0.92, paletteLimit: 9, pathomit: 0, ltres: 0.8, qtres: 0.8, linefilter: false, blurradius: 0, colorquantcycles: 1 },
+                        { scale: 0.84, paletteLimit: 8, pathomit: 1, ltres: 1.0, qtres: 1.0, linefilter: false, blurradius: 0, colorquantcycles: 1 },
+                        { scale: 0.76, paletteLimit: 7, pathomit: 2, ltres: 1.5, qtres: 1.5, linefilter: true, blurradius: 0, colorquantcycles: 1 },
+                        { scale: 0.68, paletteLimit: 6, pathomit: 3, ltres: 2.0, qtres: 2.0, linefilter: true, blurradius: 0, colorquantcycles: 1 }
+                    ];
 
-                    // Estrategia: comenzar con parámetros que preserven detalles
                     let svg = null;
                     let size = Infinity;
-                    let currentThreshold = threshold; // Usar los parámetros recomendados
-                    let currentTurdSize = turdSize;
                     let attempts = 0;
-                    const maxAttempts = 12;
-                    let sizeIncreasing = 0; // Contador de aumentos de tamaño
+                    let currentWidth = img.width;
+                    let currentHeight = img.height;
+                    let chosenProfile = null;
+                    let bestAttempt = null;
+                    const triedProfiles = new Set();
 
-                    while (size > 15 * 1024 && attempts < maxAttempts) {
-                        try {
-                            // Solo reducir dimensiones como último recurso (después de intentos 8+)
-                            if (attempts > 8 && currentWidth > 120) {
-                                currentWidth = Math.floor(currentWidth * 0.90);
-                                currentHeight = Math.floor(currentHeight * 0.90);
-                                canvas.width = currentWidth;
-                                canvas.height = currentHeight;
-                                ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
-                            }
+                    for (const profile of conversionProfiles) {
+                        const nextWidth = Math.max(72, Math.floor(img.width * profile.scale));
+                        const nextHeight = Math.max(72, Math.floor(img.height * profile.scale));
+                        const profileKey = `${nextWidth}x${nextHeight}-${profile.paletteLimit}-${profile.pathomit}-${profile.ltres}-${profile.qtres}`;
 
-                            // Obtener datos de imagen
-                            const imageData = ctx.getImageData(0, 0, currentWidth, currentHeight);
-
-                            // Usar método multicapa con reducción de colores
-                            svg = await convertWithMultipleLayers(imageData, currentWidth, currentHeight, currentThreshold, currentTurdSize);
-                            console.log('SVG optimizado:', svg);
-                            const svgBlob = new Blob([svg], { type: 'image/svg+xml' });
-                            size = svgBlob.size;
-
-                            attempts++;
-
-                            // Estrategia mejorada: aumentar parámetros de forma gradual
-                            if (size > 15 * 1024) {
-                                sizeIncreasing++;
-
-                                // Primero aumentar threshold gradualmente (preserva más detalles)
-                                if (sizeIncreasing <= 3) {
-                                    currentThreshold += 5;
-                                }
-                                // Luego aumentar turdSize (elimina detalles pequeños)
-                                else if (sizeIncreasing <= 6) {
-                                    currentThreshold += 3;
-                                    currentTurdSize += 1;
-                                }
-                                // Finalmente, ser muy agresivo
-                                else {
-                                    currentThreshold = Math.min(200, currentThreshold + 8);
-                                    currentTurdSize += 2;
-                                }
-
-                                // Limitar máximos
-                                currentThreshold = Math.min(220, currentThreshold);
-                                currentTurdSize = Math.min(6, currentTurdSize);
-                            }
-                        } catch (err) {
-                            console.error('Error en intento de conversión:', err);
-                            attempts++;
+                        if (triedProfiles.has(profileKey)) {
+                            continue;
                         }
+                        triedProfiles.add(profileKey);
+
+                        attempts++;
+                        currentWidth = nextWidth;
+                        currentHeight = nextHeight;
+                        setProcessingStep(`Convirtiendo a SVG... intento ${attempts}/${conversionProfiles.length}`);
+
+                        const imageData = drawToCanvas(currentWidth, currentHeight);
+                        let rawSvg;
+
+                        try {
+                            rawSvg = await convertWithImageTracer(imageData, currentWidth, currentHeight, profile);
+                        } catch (imageTracerError) {
+                            console.warn('ImageTracer falló, usando fallback Potrace:', imageTracerError);
+                            rawSvg = await convertWithMultipleLayers(
+                                imageData,
+                                currentWidth,
+                                currentHeight,
+                                threshold,
+                                turdSize,
+                                profile
+                            );
+                        }
+
+                        const candidateSvg = optimizeSvg(rawSvg);
+                        const candidateSize = new Blob([candidateSvg], { type: 'image/svg+xml' }).size;
+
+                        if (!bestAttempt || candidateSize < bestAttempt.size) {
+                            bestAttempt = {
+                                svg: candidateSvg,
+                                size: candidateSize,
+                                width: currentWidth,
+                                height: currentHeight,
+                                profile
+                            };
+                        }
+
+                        if (candidateSize <= 15 * 1024) {
+                            svg = candidateSvg;
+                            size = candidateSize;
+                            chosenProfile = profile;
+                            break;
+                        }
+                    }
+
+                    if (!svg && bestAttempt) {
+                        size = bestAttempt.size;
+                        currentWidth = bestAttempt.width;
+                        currentHeight = bestAttempt.height;
+                        chosenProfile = bestAttempt.profile;
                     }
 
                     setFileSize(size);
@@ -639,8 +937,8 @@ export default function ToolsPage() {
                         reject(new Error('SVG demasiado grande'));
                     } else {
                         // Aplicar optimización SVG avanzada
-                        const compressedSvg = optimizeSvg(svg);
-                        const compressedSize = new Blob([compressedSvg], { type: 'image/svg+xml' }).size;
+                        const compressedSvg = svg;
+                        const compressedSize = size;
 
                         console.log('Peso final del SVG:', (compressedSize / 1024).toFixed(2), 'KB');
 
@@ -659,9 +957,8 @@ export default function ToolsPage() {
                             compressionGain: ((size - compressedSize) / size * 100).toFixed(1),
                             finalDimensions: currentWidth !== img.width ? `${currentWidth}x${currentHeight}` : null,
                             attempts,
-                            finalThreshold: currentThreshold,
-                            finalTurdSize: currentTurdSize,
-                            svgLayers
+                            svgLayers,
+                            finalPalette: chosenProfile?.paletteLimit || null
                         }));
                         setFileSize(compressedSize);
                         setIsProcessing(false);
@@ -738,10 +1035,10 @@ export default function ToolsPage() {
 
             // Solo incluir píxeles opacos
             if (a >= 128) {
-                // Buckets de 24 para agrupar variaciones del mismo tono (gradientes, anti-alias)
-                const qr = Math.floor(r / 24) * 24;
-                const qg = Math.floor(g / 24) * 24;
-                const qb = Math.floor(b / 24) * 24;
+                // Buckets de 16 para diferenciar mejor entre colores cercanos
+                const qr = Math.floor(r / 16) * 16;
+                const qg = Math.floor(g / 16) * 16;
+                const qb = Math.floor(b / 16) * 16;
                 const colorKey = `${qr},${qg},${qb}`;
 
                 if (!colorMap.has(colorKey)) {
@@ -764,7 +1061,7 @@ export default function ToolsPage() {
             }))
             .sort((a, b) => b.count - a.count);
 
-        // Fusionar colores perceptualmente cercanos (distancia euclidiana < 50)
+        // Fusionar colores perceptualmente cercanos (distancia euclidiana < 30)
         const merged = [];
         const used = new Set();
         for (let i = 0; i < colors.length; i++) {
@@ -778,7 +1075,7 @@ export default function ToolsPage() {
                 const dist = Math.sqrt(
                     (c.r - colors[j].r) ** 2 + (c.g - colors[j].g) ** 2 + (c.b - colors[j].b) ** 2
                 );
-                if (dist < 50) {
+                if (dist < 30) {
                     sumR += colors[j].r * colors[j].count;
                     sumG += colors[j].g * colors[j].count;
                     sumB += colors[j].b * colors[j].count;
@@ -881,76 +1178,150 @@ export default function ToolsPage() {
         return new ImageData(newData, width, height);
     };
 
-    const convertWithMultipleLayers = async (imageData, width, height, threshold, turdSize) => {
+    const convertWithMultipleLayers = async (imageData, width, height, threshold, turdSize, profile = {}) => {
         try {
-            const totalPixels = width * height;
-            const uniqueColors = getUniqueColors(imageData)
-                .slice(0, 300);
-            console.log(`La imagen tiene ${uniqueColors.length} capas de color`);
-
-            let svgPathsByColor = new Map();
-            let currentSize = 0;
-            const maxSize = 15 * 1024; // 15KB
-
-            const reserveBytes = 3.5 * 1024;
-            const usableBudgetFirstPass = Math.max(4 * 1024, maxSize - reserveBytes);
-
             // SVG header con version="1.1" requerido por GT7
             const svgHeader = `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`;
             const svgFooter = '</svg>';
 
-            // Limitar cantidad de colores a procesar para reducir ruido - aumentado
-            const maxColorsToProcess = Math.min(150, uniqueColors.length);
-            const primaryColors = uniqueColors.slice(0, Math.min(15, maxColorsToProcess)); // principales aumentado
-            const secondaryCandidates = uniqueColors.slice(Math.min(12, maxColorsToProcess), maxColorsToProcess);
+            // ═══════════════════════════════════════════════════════════════
+            // PASO 1: Extraer paleta con bucketing agresivo + merge,
+            // luego asignar cada píxel al color más cercano (Voronoi).
+            // Produce regiones limpias sin anti-aliasing fragmentado.
+            // ═══════════════════════════════════════════════════════════════
+            const imgData = imageData.data;
+            const totalPixels = imgData.length / 4;
 
-            // Helper: dilatar máscara simple para unir píxeles aislados (1px dilation)
-            const dilateMask = (maskData, w, h, iterations = 1) => {
-                const copy = new Uint8ClampedArray(maskData.data);
-                const idx = (x, y) => (y * w + x) * 4;
-                for (let iter = 0; iter < iterations; iter++) {
-                    for (let y = 1; y < h - 1; y++) {
-                        for (let x = 1; x < w - 1; x++) {
-                            const i = idx(x, y);
-                            // if current pixel is white and any neighbor is black -> set black in copy
-                            if (copy[i] === 255) {
-                                let found = false;
-                                for (let oy = -1; oy <= 1 && !found; oy++) {
-                                    for (let ox = -1; ox <= 1 && !found; ox++) {
-                                        const ni = idx(x + ox, y + oy);
-                                        if (maskData.data[ni] === 0) found = true;
-                                    }
-                                }
-                                if (found) {
-                                    copy[i] = 0; copy[i + 1] = 0; copy[i + 2] = 0; copy[i + 3] = 255;
-                                }
-                            }
-                        }
+            // 1a. Agrupar colores en buckets grandes (32 niveles por canal)
+            const cMap = new Map();
+            for (let i = 0; i < imgData.length; i += 4) {
+                if (imgData[i + 3] < 128) continue;
+                const key = `${Math.floor(imgData[i] / 32) * 32},${Math.floor(imgData[i + 1] / 32) * 32},${Math.floor(imgData[i + 2] / 32) * 32}`;
+                if (!cMap.has(key)) cMap.set(key, { count: 0, sR: 0, sG: 0, sB: 0 });
+                const e = cMap.get(key);
+                e.count++; e.sR += imgData[i]; e.sG += imgData[i + 1]; e.sB += imgData[i + 2];
+            }
+            let bColors = Array.from(cMap.values())
+                .map(d => ({ r: Math.round(d.sR / d.count), g: Math.round(d.sG / d.count), b: Math.round(d.sB / d.count), count: d.count }))
+                .sort((a, b) => b.count - a.count);
+
+            // 1b. Merge colores cercanos (distancia euclidiana < 45)
+            const mergedArr = [];
+            const usedSet = new Set();
+            for (let i = 0; i < bColors.length; i++) {
+                if (usedSet.has(i)) continue;
+                let sR = bColors[i].r * bColors[i].count, sG = bColors[i].g * bColors[i].count, sB = bColors[i].b * bColors[i].count, tot = bColors[i].count;
+                for (let j = i + 1; j < bColors.length; j++) {
+                    if (usedSet.has(j)) continue;
+                    const dr = bColors[i].r - bColors[j].r, dg = bColors[i].g - bColors[j].g, db = bColors[i].b - bColors[j].b;
+                    if (Math.sqrt(dr * dr + dg * dg + db * db) < 45) {
+                        sR += bColors[j].r * bColors[j].count; sG += bColors[j].g * bColors[j].count; sB += bColors[j].b * bColors[j].count;
+                        tot += bColors[j].count; usedSet.add(j);
                     }
-                    maskData.data.set(copy);
                 }
+                const r = Math.round(sR / tot), g = Math.round(sG / tot), b = Math.round(sB / tot);
+                mergedArr.push({ r, g, b, rgb: `rgb(${r},${g},${b})`, count: tot });
+                usedSet.add(i);
+            }
+            const maxPaletteColors = profile.paletteLimit || (width <= 100 && height <= 100 ? 16 : 12);
+            const palette = mergedArr.sort((a, b) => b.count - a.count).slice(0, maxPaletteColors);
+            console.log(`Paleta: ${palette.length} colores`);
+            palette.forEach((c, i) => console.log(`  [${i}] ${c.rgb} — ${c.count} px`));
+
+            const getColorMetrics = (r, g, b) => {
+                const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+                const chroma = Math.max(r, g, b) - Math.min(r, g, b);
+                return { luminance, chroma };
             };
 
-            // Small function to trace a mask canvas with Potrace and return path d and fill
-            const traceMaskCanvas = (maskCanvas, fillColor, opts) => {
-                return new Promise((resolvePath, rejectPath) => {
+            const darkLumaThreshold = profile.darkLumaThreshold || (width <= 100 && height <= 100 ? 92 : 84);
+            const darkChromaThreshold = profile.darkChromaThreshold || 76;
+            const lightLumaThreshold = profile.lightLumaThreshold || (width <= 100 && height <= 100 ? 190 : 205);
+            const lightChromaThreshold = profile.lightChromaThreshold || 92;
+            const isDarkContourPixel = (r, g, b) => {
+                const { luminance, chroma } = getColorMetrics(r, g, b);
+                return luminance < darkLumaThreshold && (chroma < darkChromaThreshold || luminance < 42);
+            };
+            const isDarkContourColor = (color) => isDarkContourPixel(color.r, color.g, color.b);
+            const isLightFillPixel = (r, g, b) => {
+                const { luminance, chroma } = getColorMetrics(r, g, b);
+                return luminance > lightLumaThreshold && chroma < lightChromaThreshold && Math.min(r, g, b) > 150;
+            };
+            const isLightFillColor = (color) => isLightFillPixel(color.r, color.g, color.b);
+
+            // 1c. Asignación Voronoi: cada píxel → color de paleta más cercano
+            const assignments = new Uint8Array(totalPixels);
+            const colorCounts = new Array(palette.length).fill(0);
+            for (let i = 0; i < imgData.length; i += 4) {
+                const pi = i >> 2;
+                if (imgData[i + 3] < 128) { assignments[pi] = 255; continue; }
+                let minD = Infinity, nearest = 0;
+                for (let p = 0; p < palette.length; p++) {
+                    const dr = imgData[i] - palette[p].r, dg = imgData[i + 1] - palette[p].g, db = imgData[i + 2] - palette[p].b;
+                    // Dar más peso al brillo (luma) para que no junte colores de diferente brillo
+                    const d2 = (dr * dr * 0.299) + (dg * dg * 0.587) + (db * db * 0.114);
+                    if (d2 < minD) { minD = d2; nearest = p; }
+                }
+                assignments[pi] = nearest;
+                colorCounts[nearest]++;
+            }
+
+            // ═══════════════════════════════════════════════════════════════
+            // PASO 2: Extraer paths de SVG generado por Potrace (robust)
+            // ═══════════════════════════════════════════════════════════════
+            const extractPathsFromSvg = (svg) => {
+                const paths = [];
+                let m;
+                // Patrón 1: d antes de fill
+                const regex1 = /<path[^>]*?\bd="([^"]+)"[^>]*?\bfill="([^"]*)"[^>]*?\/?>/gi;
+                while ((m = regex1.exec(svg)) !== null) {
+                    if (m[1] && m[1].trim() && m[1].trim() !== 'M0 0') paths.push({ d: m[1], fill: m[2] });
+                }
+                if (paths.length > 0) return paths;
+                // Patrón 2: fill antes de d
+                const regex2 = /<path[^>]*?\bfill="([^"]*)"[^>]*?\bd="([^"]+)"[^>]*?\/?>/gi;
+                while ((m = regex2.exec(svg)) !== null) {
+                    if (m[2] && m[2].trim() && m[2].trim() !== 'M0 0') paths.push({ d: m[2], fill: m[1] });
+                }
+                if (paths.length > 0) return paths;
+                // Patrón 3: solo d (último recurso)
+                const regex3 = /<path[^>]*?\bd="([^"]+)"[^>]*?\/?>/gi;
+                while ((m = regex3.exec(svg)) !== null) {
+                    if (m[1] && m[1].trim() && m[1].trim() !== 'M0 0') paths.push({ d: m[1], fill: '' });
+                }
+                return paths;
+            };
+
+            // Trazar máscara con Potrace
+            const traceMask = (maskCanvas, fillColor, overrides = {}) => {
+                return new Promise((resolve) => {
                     maskCanvas.toBlob((blob) => {
-                        if (!blob) return resolvePath(null);
+                        if (!blob) return resolve(null);
                         const reader = new FileReader();
-                        reader.onerror = () => resolvePath(null);
+                        reader.onerror = () => resolve(null);
                         reader.onload = () => {
                             try {
                                 const buffer = Buffer.from(reader.result);
-                                Potrace.trace(buffer, opts, (err, svg) => {
-                                    if (err) return rejectPath(err);
-                                    if (!svg) return resolvePath(null);
-                                    const pathMatch = svg.match(/<path[^>]*d="([^"]*)"[^>]*fill="([^"]*)"[^>]*\/>/);
-                                    if (pathMatch) resolvePath({ d: pathMatch[1], fill: pathMatch[2], raw: svg });
-                                    else resolvePath(null);
+                                Potrace.trace(buffer, {
+                                    threshold: 128, // La máscara es blanco y negro puro, con 128 lee todo
+                                    turdSize: Math.max(turdSize, overrides.traceTurdFloor ?? profile.traceTurdFloor ?? 0),
+                                    optTolerance: overrides.traceTolerance ?? profile.traceTolerance ?? 0.7,
+                                    alphaMax: 1.0,
+                                    color: fillColor,
+                                    background: 'transparent',
+                                    turnPolicy: overrides.turnPolicy ?? 'minority'
+                                }, (err, svg) => {
+                                    if (err || !svg) return resolve(null);
+                                    const paths = extractPathsFromSvg(svg);
+                                    if (paths.length > 0) {
+                                        const combinedD = paths.map(p => p.d).join(' ');
+                                        resolve({ d: combinedD, fill: fillColor });
+                                    } else {
+                                        resolve(null);
+                                    }
                                 });
                             } catch (e) {
-                                console.error('Error en traceMaskCanvas:', e);
-                                resolvePath(null);
+                                resolve(null);
                             }
                         };
                         reader.readAsArrayBuffer(blob);
@@ -958,214 +1329,138 @@ export default function ToolsPage() {
                 });
             };
 
-            // FIRST PASS: capture main shapes (more permissive simplification)
-            for (let i = 0; i < primaryColors.length; i++) {
-                const color = primaryColors[i];
-                const maskCanvas = document.createElement('canvas');
-                const maskCtx = maskCanvas.getContext('2d');
-                maskCanvas.width = width; maskCanvas.height = height;
-                const maskData = maskCtx.createImageData(width, height);
-                const { data } = imageData;
-
-                // Tolerancia adaptiva: pocos colores → tolerancia alta, muchos → baja
-                const adaptiveTolerance = uniqueColors.length <= 8 ? 40
-                    : uniqueColors.length <= 16 ? 30
-                        : uniqueColors.length <= 30 ? 20
-                            : 12;
-                let pixelCount = 0;
-
-                for (let j = 0; j < data.length; j += 4) {
-                    const r = data[j]; const g = data[j + 1]; const b = data[j + 2]; const a = data[j + 3];
-                    // Usar distancia euclidiana para mejor matching perceptual
-                    const dist = Math.sqrt((r - color.r) ** 2 + (g - color.g) ** 2 + (b - color.b) ** 2);
-                    const matches = a >= 128 && dist <= adaptiveTolerance;
-                    if (matches) {
-                        maskData.data[j] = 0; maskData.data[j + 1] = 0; maskData.data[j + 2] = 0; maskData.data[j + 3] = 255;
-                        pixelCount++;
-                    } else {
-                        maskData.data[j] = 255; maskData.data[j + 1] = 255; maskData.data[j + 2] = 255; maskData.data[j + 3] = 255;
-                    }
-                }
-
-                // If very small area, dilate gently for better tracing without deformation
-                if (pixelCount > 0 && pixelCount < Math.max(120, Math.floor(totalPixels * 0.01))) {
-                    // apply 1 iteration dilation
-                    maskCtx.putImageData(maskData, 0, 0);
-                    const tmp = maskCtx.getImageData(0, 0, width, height);
-                    dilateMask(tmp, width, height, 1);
-                    maskCtx.putImageData(tmp, 0, 0);
-                } else {
-                    maskCtx.putImageData(maskData, 0, 0);
-                }
-
-                // Try trace with permissive simplification
-                try {
-                    const traceOpts = {
-                        threshold: Math.max(threshold - 10, 50),
-                        turdSize: Math.max(turdSize * 2.0, 2.0), // aumentado para más simplificación
-                        optTolerance: 0.2,
-                        optAlphaMax: 1.0,
-                        pathMargin: 0.8,
-                        color: color.rgb,
-                        background: 'transparent',
-                        turnpolicy: 'minority'
-                    };
-
-                    const traced = await traceMaskCanvas(maskCanvas, color.rgb, traceOpts);
-                    if (traced && traced.d && traced.d.trim() && traced.d !== 'M0 0') {
-                        // Simular tamaño tras agregar
-                        const tempMap = new Map(svgPathsByColor);
-                        tempMap.set(color.rgb, (tempMap.get(color.rgb) || []).concat([traced.d]));
-                        let tempSvgPaths = [];
-                        for (let [col, pathArr] of tempMap) {
-                            tempSvgPaths.push(`<path d="${pathArr.join(' ')}" fill="${col}" fill-rule="evenodd"/>`);
-                        }
-                        const testSvg = svgHeader + tempSvgPaths.join('') + svgFooter;
-                        const testBlob = new Blob([testSvg], { type: 'image/svg+xml' });
-                        const testSize = testBlob.size;
-
-                        if (testSize <= usableBudgetFirstPass) {
-                            svgPathsByColor.set(color.rgb, (svgPathsByColor.get(color.rgb) || []).concat([traced.d]));
-                            currentSize = testSize;
-                            console.log(`Primaria agregada: ${color.rgb}, píxeles: ${pixelCount}, tamaño actual: ${(currentSize / 1024).toFixed(2)} KB`);
-                        } else {
-                            console.log(`Primaria omitida (no cabe en primera pasada): ${color.rgb}, tamaño tentativa: ${(testSize / 1024).toFixed(2)} KB`);
-                        }
-                    }
-                } catch (err) {
-                    console.log(`Error trazando color primario ${color.rgb}:`, err.message || err);
-                }
-            }
-
-            // SECOND PASS: try a few important small/dominant colors within remaining budget
-            // Determine remaining budget
-            currentSize = currentSize || 0;
-            const remainingBudget = Math.max(0, maxSize - currentSize);
-
-            // Get user/detected dominant colors (top 5) and prioritize them
-            const dominantBuckets = detectDominantColors(imageData); // returns buckets like "r,g,b"
-            const dominantRgbList = dominantBuckets.map(b => {
-                const [br, bg, bb] = b.split(',').map(Number);
-                return `rgb(${br},${bg},${bb})`;
-            });
-
-            // Build secondary list prioritizing dominantRgbList, then yellow/red colors, then high-count secondaryCandidates
-            const secondaryOrdered = [];
-            // Add dominant colors first if present in candidates
-            for (const d of dominantRgbList) {
-                const found = secondaryCandidates.find(c => c.rgb === d);
-                if (found) secondaryOrdered.push(found);
-            }
-            // Add yellow/red colors next (high r/g, low b for yellows; high r, low g/b for reds)
-            const yellowRedCandidates = secondaryCandidates.filter(c => {
-                const [r, g, b] = c.rgb.match(/\d+/g).map(Number);
-                return (r > 200 && g > 200 && b < 100) || (r > 200 && g < 150 && b < 100); // yellows and reds
-            });
-            for (const c of yellowRedCandidates) {
-                if (!secondaryOrdered.find(x => x.rgb === c.rgb)) secondaryOrdered.push(c);
-            }
-            // Then add remaining secondary candidates by count ascending (small areas first)
-            for (const c of secondaryCandidates) {
-                if (!secondaryOrdered.find(x => x.rgb === c.rgb)) secondaryOrdered.push(c);
-            }
-            secondaryOrdered.sort((a, b) => a.count - b.count); // small areas first
-
-            // Limit tries to avoid explosion - aumentado para incluir más colores
-            const maxSecondary = 60;
-            for (let i = 0; i < Math.min(maxSecondary, secondaryOrdered.length); i++) {
-                const color = secondaryOrdered[i];
-                if (svgPathsByColor.has(color.rgb)) continue; // ya añadida
-
-                // Build mask stricter (preserve small spots)
-                const maskCanvas = document.createElement('canvas');
-                const maskCtx = maskCanvas.getContext('2d');
-                maskCanvas.width = width; maskCanvas.height = height;
-                const maskData = maskCtx.createImageData(width, height);
-                const { data } = imageData;
-                // Tolerancia adaptiva para secundarias (un poco más estricta)
-                const secTolerance = uniqueColors.length <= 8 ? 35
-                    : uniqueColors.length <= 16 ? 25
-                        : uniqueColors.length <= 30 ? 16
-                            : 10;
-                let pixelCount = 0;
-                for (let j = 0; j < data.length; j += 4) {
-                    const r = data[j]; const g = data[j + 1]; const b = data[j + 2]; const a = data[j + 3];
-                    const dist = Math.sqrt((r - color.r) ** 2 + (g - color.g) ** 2 + (b - color.b) ** 2);
-                    const matches = a >= 128 && dist <= secTolerance;
-                    if (matches) {
-                        maskData.data[j] = 0; maskData.data[j + 1] = 0; maskData.data[j + 2] = 0; maskData.data[j + 3] = 255;
-                        pixelCount++;
-                    } else {
-                        maskData.data[j] = 255; maskData.data[j + 1] = 255; maskData.data[j + 2] = 255; maskData.data[j + 3] = 255;
-                    }
-                }
-                if (pixelCount === 0) continue;
-                // If extremely small, dilate gently to help Potrace form a shape without deforming
-                maskCtx.putImageData(maskData, 0, 0);
-                const tmp = maskCtx.getImageData(0, 0, width, height);
-                if (pixelCount < 120) dilateMask(tmp, width, height, 1); // single iteration for small areas
-                maskCtx.putImageData(tmp, 0, 0);
-
-                try {
-                    const traceOpts = {
-                        threshold: Math.max(threshold - 5, 50),
-                        turdSize: Math.max(turdSize * 1.0, 1.0), // back to default for more detail
-                        optTolerance: 0.08, // back to default for more precision
-                        optAlphaMax: 1.0,
-                        pathMargin: 0.5,
-                        color: color.rgb,
-                        background: 'transparent',
-                        turnpolicy: 'minority'
-                    };
-
-                    const traced = await traceMaskCanvas(maskCanvas, color.rgb, traceOpts);
-                    if (traced && traced.d && traced.d.trim() && traced.d !== 'M0 0') {
-                        // Simular tamaño tras agregar
-                        const tempMap = new Map(svgPathsByColor);
-                        tempMap.set(color.rgb, (tempMap.get(color.rgb) || []).concat([traced.d]));
-                        let tempSvgPaths = [];
-                        for (let [col, pathArr] of tempMap) {
-                            tempSvgPaths.push(`<path d="${pathArr.join(' ')}" fill="${col}" fill-rule="evenodd"/>`);
-                        }
-                        const testSvg = svgHeader + tempSvgPaths.join('') + svgFooter;
-                        const testBlob = new Blob([testSvg], { type: 'image/svg+xml' });
-                        const testSize = testBlob.size;
-
-                        if (testSize <= maxSize) {
-                            svgPathsByColor.set(color.rgb, (svgPathsByColor.get(color.rgb) || []).concat([traced.d]));
-                            currentSize = testSize;
-                            console.log(`Secundaria agregada: ${color.rgb}, píxeles: ${pixelCount}, tamaño actual: ${(currentSize / 1024).toFixed(2)} KB`);
-                        } else {
-                            console.log(`Secundaria omitida (no cabe): ${color.rgb}, tamaño tentativa: ${(testSize / 1024).toFixed(2)} KB`);
-                        }
-                    }
-                } catch (err) {
-                    console.log(`Error trazando color secundario ${color.rgb}:`, err.message || err);
-                }
-            }
-
-            // Crear SVG final combinando paths por color
+            // ═══════════════════════════════════════════════════════════════
+            // PASO 3: Para cada color, crear máscara binaria desde Voronoi
+            // y trazar con Potrace. Máscaras no se solapan.
+            // ═══════════════════════════════════════════════════════════════
             let svgPaths = [];
-            for (let [color, pathDataArray] of svgPathsByColor) {
-                const combinedPathData = pathDataArray.join(' ');
-                const pathElement = `<path d="${combinedPathData}" fill="${color}" fill-rule="evenodd"/>`;
-                svgPaths.push(pathElement);
+
+            const minPixelsPerColor = profile.minPixelsPerColor || (width <= 100 && height <= 100 ? 2 : 5);
+
+            const buildMaskCanvas = (predicate) => {
+                const maskCanvas = document.createElement('canvas');
+                const maskCtx = maskCanvas.getContext('2d');
+                maskCanvas.width = width;
+                maskCanvas.height = height;
+                const maskData = maskCtx.createImageData(width, height);
+                let pixelCount = 0;
+
+                for (let pi = 0; pi < totalPixels; pi++) {
+                    const j = pi * 4;
+                    if (predicate(pi, j)) {
+                        maskData.data[j] = 0;
+                        maskData.data[j + 1] = 0;
+                        maskData.data[j + 2] = 0;
+                        maskData.data[j + 3] = 255;
+                        pixelCount++;
+                    } else {
+                        maskData.data[j] = 255;
+                        maskData.data[j + 1] = 255;
+                        maskData.data[j + 2] = 255;
+                        maskData.data[j + 3] = 255;
+                    }
+                }
+
+                maskCtx.putImageData(maskData, 0, 0);
+                return { maskCanvas, pixelCount };
+            };
+
+            // Pasada 1: rellenos claros unificados para conservar el banner y reflejos.
+            const lightMask = buildMaskCanvas((pi, j) => imgData[j + 3] >= 128 && isLightFillPixel(imgData[j], imgData[j + 1], imgData[j + 2]));
+            if (lightMask.pixelCount >= Math.max(10, Math.floor(totalPixels * 0.01))) {
+                const tracedLight = await traceMask(lightMask.maskCanvas, '#fff', {
+                    traceTolerance: Math.max(0.58, (profile.traceTolerance ?? 0.7) - 0.05),
+                    traceTurdFloor: 0,
+                    turnPolicy: 'white'
+                });
+                if (tracedLight && tracedLight.d) {
+                    svgPaths.push(`<path d="${tracedLight.d}" fill="#fff" fill-rule="evenodd"/>`);
+                    console.log(`✓ Capa rellenos claros: ${lightMask.pixelCount} px añadida`);
+                }
             }
 
-            console.log(`Total capas agregadas: ${svgPaths.length} (de ${uniqueColors.length} candidatos procesados)`);
+            // Pasada 1: contornos y masas oscuras como una sola capa para evitar perforaciones.
+            const contourMask = buildMaskCanvas((pi, j) => imgData[j + 3] >= 128 && isDarkContourPixel(imgData[j], imgData[j + 1], imgData[j + 2]));
+            let contourPath = null;
 
-            // Fallback: si no se añadió nada, trazar la silueta completa usando color dominante
+            if (contourMask.pixelCount >= Math.max(12, Math.floor(totalPixels * 0.01))) {
+                const tracedContour = await traceMask(contourMask.maskCanvas, '#000', {
+                    traceTolerance: Math.max(0.55, (profile.traceTolerance ?? 0.7) - 0.08),
+                    traceTurdFloor: 0,
+                    turnPolicy: 'minority'
+                });
+
+                if (tracedContour && tracedContour.d) {
+                    contourPath = `<path d="${tracedContour.d}" fill="#000" fill-rule="evenodd"/>`;
+                    console.log(`✓ Capa contornos oscuros: ${contourMask.pixelCount} px añadida`);
+                }
+            }
+
+            for (let p = 0; p < palette.length; p++) {
+                if (isDarkContourColor(palette[p])) {
+                    console.log(`Saltando ${palette[p].rgb}: resuelto en pasada de contornos`);
+                    continue;
+                }
+
+                if (isLightFillColor(palette[p])) {
+                    console.log(`Saltando ${palette[p].rgb}: resuelto en pasada de rellenos claros`);
+                    continue;
+                }
+
+                if (colorCounts[p] < minPixelsPerColor) {
+                    console.log(`Saltando ${palette[p].rgb}: solo ${colorCounts[p]} px`);
+                    continue;
+                }
+
+                const maskCanvas = document.createElement('canvas');
+                const maskCtx = maskCanvas.getContext('2d');
+                maskCanvas.width = width;
+                maskCanvas.height = height;
+                const maskData = maskCtx.createImageData(width, height);
+
+                for (let pi = 0; pi < totalPixels; pi++) {
+                    const j = pi * 4;
+                    if (
+                        assignments[pi] === p &&
+                        !isDarkContourPixel(imgData[j], imgData[j + 1], imgData[j + 2]) &&
+                        !isLightFillPixel(imgData[j], imgData[j + 1], imgData[j + 2])
+                    ) {
+                        maskData.data[j] = 0; maskData.data[j + 1] = 0;
+                        maskData.data[j + 2] = 0; maskData.data[j + 3] = 255;
+                    } else {
+                        maskData.data[j] = 255; maskData.data[j + 1] = 255;
+                        maskData.data[j + 2] = 255; maskData.data[j + 3] = 255;
+                    }
+                }
+                maskCtx.putImageData(maskData, 0, 0);
+
+                const traced = await traceMask(maskCanvas, palette[p].rgb);
+                if (!traced || !traced.d || !traced.d.trim()) {
+                    console.log(`Sin resultado para ${palette[p].rgb}`);
+                    continue;
+                }
+
+                const newPath = `<path d="${traced.d}" fill="${palette[p].rgb}" fill-rule="evenodd"/>`;
+                svgPaths.push(newPath);
+                console.log(`✓ Capa ${p}: ${palette[p].rgb}, ${colorCounts[p]} px añadida`);
+            }
+
+            if (contourPath) {
+                svgPaths.push(contourPath);
+            }
+
+            console.log(`Total capas: ${svgPaths.length} de ${palette.length} colores`);
+
+            // Fallback: silueta si nada se trazó
             if (svgPaths.length === 0) {
-                console.log('Ninguna capa pudo agregarse. Generando silueta con color dominante.');
-                // Crear máscara de opacidad (>128) para todo el objeto
+                console.log('Ninguna capa trazada. Generando silueta.');
                 const maskCanvas = document.createElement('canvas');
                 const maskCtx = maskCanvas.getContext('2d');
                 maskCanvas.width = width; maskCanvas.height = height;
                 const maskData = maskCtx.createImageData(width, height);
-                const { data } = imageData;
-                for (let j = 0; j < data.length; j += 4) {
-                    const a = data[j + 3];
-                    if (a >= 128) {
+                for (let pi = 0; pi < totalPixels; pi++) {
+                    const j = pi * 4;
+                    if (assignments[pi] !== 255) {
                         maskData.data[j] = 0; maskData.data[j + 1] = 0; maskData.data[j + 2] = 0; maskData.data[j + 3] = 255;
                     } else {
                         maskData.data[j] = 255; maskData.data[j + 1] = 255; maskData.data[j + 2] = 255; maskData.data[j + 3] = 255;
@@ -1173,30 +1468,13 @@ export default function ToolsPage() {
                 }
                 maskCtx.putImageData(maskData, 0, 0);
                 const dominant = getDominantColor(imageData);
-                try {
-                    const traced = await traceMaskCanvas(maskCanvas, dominant, {
-                        threshold: Math.max(threshold - 5, 50),
-                        turdSize: Math.max(turdSize * 1.2, 1.2),
-                        optTolerance: 0.2,
-                        optAlphaMax: 1.0,
-                        pathMargin: 1.0,
-                        color: dominant,
-                        background: 'transparent',
-                        turnpolicy: 'minority'
-                    });
-                    if (traced && traced.d) {
-                        svgPaths.push(`<path d="${traced.d}" fill="${traced.fill || dominant}" fill-rule="evenodd"/>`);
-                    }
-                } catch (err) {
-                    console.log('Fallback trace failed:', err.message || err);
+                const traced = await traceMask(maskCanvas, dominant);
+                if (traced && traced.d) {
+                    svgPaths.push(`<path d="${traced.d}" fill="${dominant}" fill-rule="evenodd"/>`);
                 }
             }
 
-            const finalSvg = svgHeader + svgPaths.join('') + svgFooter;
-
-            console.log('svgPaths.length:', svgPaths.length, `(capas combinadas por color)`);
-
-            return finalSvg;
+            return svgHeader + svgPaths.join('') + svgFooter;
         } catch (err) {
             throw err;
         }
@@ -1238,6 +1516,18 @@ export default function ToolsPage() {
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
+    };
+
+    const getSvgPreviewMarkup = (svgString) => {
+        if (!svgString) return '';
+
+        return svgString
+            .replace(/\swidth="[^"]*"/i, '')
+            .replace(/\sheight="[^"]*"/i, '')
+            .replace(
+                /<svg([^>]*)>/i,
+                '<svg$1 preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;">'
+            );
     };
 
     return (
@@ -1556,10 +1846,10 @@ export default function ToolsPage() {
                                         ✓ {(fileSize / 1024).toFixed(2)} KB
                                     </span>
                                 </div>
-                                <div className="relative w-full h-64 bg-gray-100 dark:bg-slate-700 rounded-lg overflow-hidden">
+                                <div className="relative w-full h-80 rounded-lg overflow-hidden" style={{ backgroundImage: 'repeating-conic-gradient(#d1d5db 0% 25%, #fff 0% 50%)', backgroundSize: '16px 16px' }}>
                                     <div
                                         className="w-full h-full flex items-center justify-center p-4"
-                                        dangerouslySetInnerHTML={{ __html: svgOutput }}
+                                        dangerouslySetInnerHTML={{ __html: getSvgPreviewMarkup(svgOutput) }}
                                     />
                                 </div>
                             </div>

@@ -16,6 +16,7 @@
   "dependencies": {
     "firebase": "^11.8.1",
     "html-to-image": "^1.11.13",
+    "imagetracerjs": "^1.2.6",
     "next": "15.3.3",
     "potrace": "^2.1.8",
     "react": "^19.0.0",
