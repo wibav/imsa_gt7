@@ -82,19 +82,12 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
                         <p className="text-gray-300 text-sm leading-relaxed mb-6">
                             {registrationMessage.replace(/^[✅⏳❌]\s*/, "")}
                         </p>
-                        {(isSuccess || isWaitlist) && (
-                            <p className="text-gray-500 text-xs">
-                                Esta ventana se cerrará automáticamente...
-                            </p>
-                        )}
-                        {isError && (
-                            <button
-                                onClick={onClose}
-                                className="bg-white/10 border border-white/20 text-white px-6 py-2 rounded-lg font-semibold hover:bg-white/20 transition-all"
-                            >
-                                Cerrar
-                            </button>
-                        )}
+                        <button
+                            onClick={onClose}
+                            className="bg-white/10 border border-white/20 text-white px-6 py-2 rounded-lg font-semibold hover:bg-white/20 transition-all"
+                        >
+                            Cerrar
+                        </button>
                     </div>
                 )}
 

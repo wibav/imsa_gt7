@@ -107,28 +107,29 @@ export default function DashboardRenovated() {
         if (!selectedEvent) return;
         setIsRegistering(true);
         try {
-            await FirebaseService.addEventParticipant(selectedEvent.id, participantData);
-            setRegistrationMessage("✅ ¡Inscripción exitosa! Bienvenido al evento.");
+            const result = await FirebaseService.addEventParticipant(selectedEvent.id, participantData);
+
+            if (result.waitlisted) {
+                setRegistrationMessage(`⏳ Cupo lleno. Quedaste en lista de reservas en la posición #${result.position}. Te avisaremos si se libera un lugar.`);
+            } else {
+                setRegistrationMessage("✅ ¡Inscripción exitosa! Bienvenido al evento.");
+            }
 
             // Recargar eventos para actualizar la lista de participantes
             await fetchData();
-
-            // Cerrar modal después de 2 segundos
-            setTimeout(() => {
-                setIsRegistrationModalOpen(false);
-                setSelectedEvent(null);
-                setRegistrationMessage("");
-            }, 2000);
         } catch (error) {
             const errorMessage = error.message || "Error al inscribirse. Intenta de nuevo.";
             setRegistrationMessage(`❌ ${errorMessage}`);
-
-            setTimeout(() => {
-                setRegistrationMessage("");
-            }, 5000);
         } finally {
             setIsRegistering(false);
         }
+    };
+
+    const handleModalClose = () => {
+        setIsRegistrationModalOpen(false);
+        setSelectedEvent(null);
+        setRegistrationMessage("");
+        window.scrollTo(0, 0); // Scroll to top of page
     };
 
     if (loading || championshipsLoading) {
@@ -308,13 +309,10 @@ export default function DashboardRenovated() {
             <RegistrationModal
                 event={selectedEvent}
                 isOpen={isRegistrationModalOpen}
-                onClose={() => {
-                    setIsRegistrationModalOpen(false);
-                    setSelectedEvent(null);
-                    setRegistrationMessage("");
-                }}
+                onClose={handleModalClose}
                 onSubmit={handleRegistration}
                 isLoading={isRegistering}
+                registrationMessage={registrationMessage}
             />
         </div>
     );

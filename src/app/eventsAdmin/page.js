@@ -1568,12 +1568,14 @@ export default function EventsAdminPage() {
                                                     </div>
 
                                                     {/* Quick info pills */}
-                                                    {(event.rules?.tyreWear > 0 || event.rules?.fuelWear > 0 || event.weather?.timeOfDay) && (
+                                                    {(event.rules?.tyreWear > 0 || event.rules?.fuelWear > 0 || event.weather?.timeOfDay || event.rules?.mandatoryTyreChange === 'SI' || (event.rules?.mandatoryPitstops || 0) > 0) && (
                                                         <div className="flex flex-wrap gap-1.5 pt-1">
                                                             {event.rules?.tyreWear > 0 && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">🔧 x{event.rules.tyreWear}</span>}
                                                             {event.rules?.fuelWear > 0 && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">⛽ x{event.rules.fuelWear}</span>}
                                                             {event.weather?.timeOfDay && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">🌦️ {event.weather.timeOfDay}</span>}
                                                             {(event.rules?.mandatoryTyres?.length > 0 || event.rules?.mandatoryTyre) && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">🛞 {event.rules.mandatoryTyres?.join(', ') || event.rules.mandatoryTyre}</span>}
+                                                            {event.rules?.mandatoryTyreChange === 'SI' && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">🔄 Cambio Oblig.</span>}
+                                                            {(event.rules?.mandatoryPitstops || 0) > 0 && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">🏁 {event.rules.mandatoryPitstops} Paradas</span>}
                                                         </div>
                                                     )}
 
