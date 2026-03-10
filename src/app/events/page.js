@@ -69,11 +69,10 @@ function EventDetailContent() {
                 setRegistrationMessage("✅ ¡Inscripción exitosa! Bienvenido al evento.");
             }
 
-            await loadEvent();
-
             setTimeout(() => {
                 setIsRegistrationModalOpen(false);
                 setRegistrationMessage("");
+                loadEvent();
             }, 4000);
         } catch (error) {
             const errorMessage = error.message || "Error al inscribirse. Intenta de nuevo.";
