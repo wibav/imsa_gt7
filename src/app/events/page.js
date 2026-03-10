@@ -814,6 +814,7 @@ function EventDetailContent() {
                 onClose={() => setIsRegistrationModalOpen(false)}
                 onSubmit={handleRegistration}
                 isLoading={isRegistering}
+                registrationMessage={registrationMessage}
             />
         </div>
     );

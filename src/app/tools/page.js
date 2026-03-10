@@ -441,7 +441,7 @@ export default function ToolsPage() {
                         visited[nIdx] = 1;
                         const ni = nIdx * 4;
                         if (data[ni + 3] < 128) continue; // Ya transparente
-                        
+
                         if (isBgColor(data[ni], data[ni + 1], data[ni + 2])) {
                             queue[qTail++] = nIdx;
                         }
