@@ -1,7 +1,7 @@
 # Análisis del Sistema de Campeonatos — IMSA GT7 + HGT GT7
 
 > **Fecha:** 18 de febrero de 2026  
-> **Última actualización:** 6 de marzo de 2026  
+> **Última actualización:** 10 de marzo de 2026  
 > **Proyectos analizados:** `imsa_gt7`, `hgt_gt7`  
 > **Referencia externa:** PDF "WORLD SERIES LEAGUE RR 10°MA EDICIÓN" (reglamento de club), PDF "Normativa DAS 2.3"
 
@@ -24,6 +24,7 @@
 9. [Modelo de Datos Propuesto (Unificado)](#9-modelo-de-datos-propuesto-unificado)
 10. [Roadmap Priorizado](#10-roadmap-priorizado)
 11. [Reglamento Unificado Público](#11-reglamento-unificado-público)
+12. [Actualizaciones Recientes (Marzo 2026)](#12-actualizaciones-recientes-marzo-2026)
 
 ---
 
@@ -149,6 +150,12 @@ Firestore
 | Eventos multi-ronda            | ✅ Completo  | Tipos: estándar, eliminatoria, doble eliminatoria; rondas con múltiples salas y promoción automática           |
 | Lista de reservas (waitlist)   | ✅ Completo  | Cupo global + por sala; auto-enrutamiento al cupo lleno, admin mueve a inscriptos, público se anota en reserva |
 | Inscripción pública en eventos | ✅ Completo  | Formulario público, aprobación opcional, fecha límite, waitlist con posición numerada                          |
+| Cambio neumáticos obligatorio  | ✅ Completo  | Toggle para cambio de neumáticos obligatorio en eventos                                                        |
+| Paradas obligatorias en boxes  | ✅ Completo  | Campo numérico para paradas mínimas obligatorias en eventos                                                    |
+| Modal de registro mejorado     | ✅ Completo  | Mensaje de confirmación dentro del modal, scroll al top al cerrar                                              |
+| Validación ronda 2             | ✅ Completo  | Select de participantes en ronda 2 solo muestra los de ronda 1                                                 |
+| Reglas Firebase Storage        | ✅ Completo  | Actualizadas para permitir uploads a events/ y championships/                                                  |
+| Equipamiento sin imágenes      | ✅ Completo  | Reemplazo de imágenes Amazon con emojis para evitar bloqueos                                                   |
 | Noticias/blog                  | ❌ No existe | —                                                                                                              |
 | Replays                        | ❌ No existe | —                                                                                                              |
 
@@ -1492,6 +1499,57 @@ El contenido del reglamento unificado incorpora las mejores prácticas extraída
 
 - **World Series League RR (10ᵐᵃ Edición)**: Sistema de divisiones, sanciones por compuestos, uso obligatorio de coches, banderas azules, formulario de reclamaciones, penalizaciones por no presentarse
 - **Normativa DAS 2.3**: Reglas de conducta, niveles de severidad de incidentes, procedimientos de reclamación, gestión de lag y desconexiones
+
+---
+
+## 12. Actualizaciones Recientes (Marzo 2026)
+
+### 12.1 Mejoras Implementadas
+
+| Fecha      | Funcionalidad Mejorada             | Detalle                                                                                    | Impacto  |
+| ---------- | ---------------------------------- | ------------------------------------------------------------------------------------------ | -------- |
+| 08/03/2026 | Cambio de neumáticos obligatorio   | Agregado toggle "Cambio neumaticos obligatorio" en reglas de eventos                       | 🟢 Alto  |
+| 08/03/2026 | Paradas obligatorias en boxes      | Agregado campo numérico "Paradas obligatorias" en reglas de eventos                        | 🟢 Alto  |
+| 08/03/2026 | Visualización de reglas en cliente | Nuevas reglas se muestran como RulePill en vista pública de eventos                        | 🟢 Alto  |
+| 08/03/2026 | Validación participantes ronda 2   | Select para ronda 2 solo muestra participantes de ronda 1                                  | 🟢 Medio |
+| 08/03/2026 | Modal de registro mejorado         | Mensaje de confirmación dentro del modal (éxito, waitlist, error), scroll al top al cerrar | 🟢 Alto  |
+| 08/03/2026 | Reglas Firebase Storage            | Actualizadas para permitir uploads a `events/` y `championships/` paths                    | 🟢 Alto  |
+| 08/03/2026 | Equipamiento sin imágenes externas | Reemplazo de imágenes Amazon con emojis para evitar bloqueos por hotlinking                | 🟢 Bajo  |
+| 08/03/2026 | Límite de tamaño de imágenes       | Arreglado límite de 1MB en Firebase Storage para banners de eventos                        | 🟢 Medio |
+| 08/03/2026 | Badges en dashboard admin          | Agregados pills para nuevas reglas en vista de lista de eventos                            | 🟢 Bajo  |
+
+### 12.2 Problemas Resueltos
+
+| Problema                                   | Solución Implementada                         | Estado      |
+| ------------------------------------------ | --------------------------------------------- | ----------- |
+| Imágenes de equipamiento no cargan         | Reemplazadas con emojis                       | ✅ Resuelto |
+| Límite 1MB en Firebase para banners        | Actualizadas reglas de Storage                | ✅ Resuelto |
+| Nuevas reglas no visibles en público       | Agregados RulePill en vista de eventos        | ✅ Resuelto |
+| Participantes ronda 2 incluyen todos       | Filtrado del select para mostrar solo ronda 1 | ✅ Resuelto |
+| Mensaje de registro se oculta por reload   | Modal con confirmación interna, scroll al top | ✅ Resuelto |
+| Página queda en footer después de registro | Scroll automático al top al cerrar modal      | ✅ Resuelto |
+
+### 12.3 Estado del Roadmap Actualizado
+
+| Funcionalidad                     | Estado Anterior | Estado Actual | Notas                    |
+| --------------------------------- | --------------- | ------------- | ------------------------ |
+| Sistema de Divisiones             | ❌ No existe    | ❌ No existe  | Pendiente implementación |
+| Sistema de Sanciones Configurable | ✅ Completo     | ✅ Completo   | Ya implementado          |
+| Formato Sprint + Carrera          | ❌ No existe    | ❌ No existe  | Pendiente                |
+| Standings Calculator Avanzado     | ✅ Completo     | ✅ Completo   | Ya implementado          |
+| Inscripción Pública de Pilotos    | ✅ Completo     | ✅ Completo   | Ya implementado          |
+| Caster, Host y Streaming por Sala | ✅ Completo     | ✅ Completo   | Ya implementado          |
+| Reglamento por Campeonato         | ✅ Completo     | ✅ Completo   | Ya implementado          |
+| Cambio Neumáticos Obligatorio     | ❌ No existe    | ✅ Completo   | ✅ Implementado          |
+| Paradas Obligatorias en Boxes     | ❌ No existe    | ✅ Completo   | ✅ Implementado          |
+
+### 12.4 Próximos Pasos Recomendados
+
+1. **Implementar Sistema de Divisiones**: Crear múltiples salas por campeonato con promoción/relegación
+2. **Agregar Formato Sprint**: Soporte para múltiples sesiones por ronda (pre-qualify, sprint, qualify, race)
+3. **Mejorar Standings**: Adoptar motor avanzado de hgt_gt7 con gráficas de evolución
+4. **Sistema de Replays**: Upload y moderación de clips de carreras
+5. **Unificación con hgt_gt7**: Extraer componentes compartidos y utilities comunes
 
 ### 11.4 Archivos Creados
 
