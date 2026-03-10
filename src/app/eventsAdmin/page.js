@@ -1069,14 +1069,12 @@ function EventForm({ event, onSave, onCancel, saving }) {
                                                                             {form.rounds?.[rIdx - 1]?.rooms?.flatMap(rm => rm.participants || []).map(prevP => {
                                                                                 const participantData = form.participants?.find(fp => fp.gt7Id === prevP.gt7Id);
                                                                                 if (!participantData) return null;
-                                                                                const isInAnyRoom = form.rounds?.some((r) =>
-                                                                                    r.rooms?.some((rm) =>
-                                                                                        rm.participants?.some(rp => rp.gt7Id === participantData.gt7Id)
-                                                                                    )
+                                                                                const isInCurrentRound = form.rounds?.[rIdx]?.rooms?.some((rm) =>
+                                                                                    rm.participants?.some(rp => rp.gt7Id === participantData.gt7Id)
                                                                                 );
                                                                                 return (
-                                                                                    <option key={participantData.gt7Id} value={participantData.gt7Id} disabled={isInAnyRoom}>
-                                                                                        {isInAnyRoom ? `✓ ${participantData.gt7Id} (Asignado)` : `${participantData.gt7Id} - ${participantData.psnId || 'Sin PSN'}`}
+                                                                                    <option key={participantData.gt7Id} value={participantData.gt7Id} disabled={isInCurrentRound}>
+                                                                                        {isInCurrentRound ? `✓ ${participantData.gt7Id} (Asignado)` : `${participantData.gt7Id} - ${participantData.psnId || 'Sin PSN'}`}
                                                                                     </option>
                                                                                 );
                                                                             })}
