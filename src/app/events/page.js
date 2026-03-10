@@ -68,23 +68,20 @@ function EventDetailContent() {
             } else {
                 setRegistrationMessage("✅ ¡Inscripción exitosa! Bienvenido al evento.");
             }
-
-            setTimeout(() => {
-                setIsRegistrationModalOpen(false);
-                setRegistrationMessage("");
-                loadEvent();
-            }, 4000);
         } catch (error) {
             const errorMessage = error.message || "Error al inscribirse. Intenta de nuevo.";
             setRegistrationMessage(`❌ ${errorMessage}`);
             console.error("Error during registration:", error);
-
-            setTimeout(() => {
-                setRegistrationMessage("");
-            }, 5000);
         } finally {
             setIsRegistering(false);
         }
+    };
+
+    const handleModalClose = () => {
+        setIsRegistrationModalOpen(false);
+        setRegistrationMessage("");
+        loadEvent();
+        window.scrollTo(0, 0); // Scroll to top of page
     };
 
     // Compute status
@@ -810,7 +807,7 @@ function EventDetailContent() {
             <RegistrationModal
                 event={event}
                 isOpen={isRegistrationModalOpen}
-                onClose={() => setIsRegistrationModalOpen(false)}
+                onClose={handleModalClose}
                 onSubmit={handleRegistration}
                 isLoading={isRegistering}
                 registrationMessage={registrationMessage}
