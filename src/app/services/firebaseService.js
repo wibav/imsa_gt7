@@ -88,30 +88,125 @@ export class FirebaseService {
     }
   }
 
-  // Obtener un evento por ID
+  // Obtener un evento por ID - subcollections tienen prioridad, doc principal como fallback
   static async getEvent(eventId) {
     try {
       const eventRef = doc(db, "events", String(eventId));
       const eventSnap = await getDoc(eventRef);
-      if (eventSnap.exists()) {
-        return { id: eventSnap.id, ...eventSnap.data() };
+
+      if (!eventSnap.exists()) {
+        return null;
       }
-      return null;
+
+      const baseEventData = { id: eventSnap.id, ...eventSnap.data() };
+
+      // Siempre intentar cargar subcollections (estructura nueva)
+      const [participants, waitlist, results, rounds] = await Promise.all([
+        this._loadEventParticipants(String(eventId)),
+        this._loadEventWaitlist(String(eventId)),
+        this._loadEventResults(String(eventId)),
+        this._loadEventRounds(String(eventId))
+      ]);
+
+      // Subcollections tienen prioridad; si están vacías, usar el doc principal (estructura vieja)
+      return {
+        ...baseEventData,
+        participants: participants.length > 0 ? participants : (baseEventData.participants || []),
+        waitlist: waitlist.length > 0 ? waitlist : (baseEventData.waitlist || []),
+        results: results.length > 0 ? results : (baseEventData.results || []),
+        rounds: rounds.length > 0 ? rounds : (baseEventData.rounds || [])
+      };
     } catch (error) {
       console.error("Error fetching event:", error);
       throw error;
     }
   }
 
-  // Obtener todos los eventos especiales
+  // Cargar participantes desde subcollection
+  static async _loadEventParticipants(eventId) {
+    try {
+      const subcolRef = collection(db, "events", eventId, "participants");
+      const snapshot = await getDocs(subcolRef);
+      return snapshot.docs
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map(doc => doc.data());
+    } catch (error) {
+      console.error("Error loading participants:", error);
+      return [];
+    }
+  }
+
+  // Cargar lista de espera desde subcollection
+  static async _loadEventWaitlist(eventId) {
+    try {
+      const subcolRef = collection(db, "events", eventId, "waitlist");
+      const snapshot = await getDocs(subcolRef);
+      return snapshot.docs
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map(doc => doc.data());
+    } catch (error) {
+      console.error("Error loading waitlist:", error);
+      return [];
+    }
+  }
+
+  // Cargar resultados desde subcollection
+  static async _loadEventResults(eventId) {
+    try {
+      const subcolRef = collection(db, "events", eventId, "results");
+      const snapshot = await getDocs(subcolRef);
+      return snapshot.docs
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map(doc => doc.data());
+    } catch (error) {
+      console.error("Error loading results:", error);
+      return [];
+    }
+  }
+
+  // Cargar rondas desde subcollection
+  static async _loadEventRounds(eventId) {
+    try {
+      const subcolRef = collection(db, "events", eventId, "rounds");
+      const snapshot = await getDocs(subcolRef);
+      return snapshot.docs
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map(doc => doc.data());
+    } catch (error) {
+      console.error("Error loading rounds:", error);
+      return [];
+    }
+  }
+
+  // Obtener todos los eventos especiales - SIN CARGAR DATOS ANIDADOS (más rápido)
   static async getEvents() {
     try {
       const eventsCol = collection(db, "events");
       const eventsSnapshot = await getDocs(eventsCol);
-      const events = eventsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+
+      // Cargar datos completos (incluyendo subcollections) para todos los eventos en paralelo
+      const events = await Promise.all(
+        eventsSnapshot.docs.map(async (docSnap) => {
+          const data = { id: docSnap.id, ...docSnap.data() };
+
+          // Siempre cargar subcollections — tienen prioridad sobre el doc principal
+          const [participants, waitlist, results, rounds] = await Promise.all([
+            this._loadEventParticipants(docSnap.id),
+            this._loadEventWaitlist(docSnap.id),
+            this._loadEventResults(docSnap.id),
+            this._loadEventRounds(docSnap.id)
+          ]);
+
+          return {
+            ...data,
+            participants: participants.length > 0 ? participants : (data.participants || []),
+            waitlist: waitlist.length > 0 ? waitlist : (data.waitlist || []),
+            results: results.length > 0 ? results : (data.results || []),
+            rounds: rounds.length > 0 ? rounds : (data.rounds || [])
+          };
+        })
+      );
+
       return events;
     } catch (error) {
       console.error("Error fetching events: ", error);
@@ -119,13 +214,10 @@ export class FirebaseService {
     }
   }
 
-  // Guardar eventos especiales
+  // Guardar múltiples eventos (redirige a saveEvent para mantener consistencia)
   static async saveEvents(events) {
     try {
-      const promises = events.map(event =>
-        setDoc(doc(collection(db, "events"), String(event.id)), event)
-      );
-      await Promise.all(promises);
+      await Promise.all(events.map(event => this.saveEvent(event)));
       return { success: true };
     } catch (error) {
       console.error("Error saving events: ", error);
@@ -133,12 +225,34 @@ export class FirebaseService {
     }
   }
 
-  // Guardar un solo evento (crear o actualizar)
+  // Guardar un solo evento (crear o actualizar) - OPTIMIZADO CON SUBCOLLECTIONS
   static async saveEvent(event) {
     try {
       const eventId = String(event.id);
-      const eventData = { ...event, updatedAt: new Date().toISOString() };
+
+      // Separar datos grandes que irán en subcollections
+      const { participants, waitlist, results, rounds, ...baseEventData } = event;
+
+      // Agregar timestamp
+      const eventData = {
+        ...baseEventData,
+        updatedAt: new Date().toISOString(),
+        participantCount: (participants || []).length,
+        waitlistCount: (waitlist || []).length,
+        roundCount: (rounds || []).length
+      };
+
+      // Guardar documento principal (mucho más pequeño)
       await setDoc(doc(collection(db, "events"), eventId), eventData);
+
+      // Siempre guardar subcollections (aunque estén vacías, para limpiar datos anteriores)
+      await Promise.all([
+        this._saveEventParticipants(eventId, participants || []),
+        this._saveEventWaitlist(eventId, waitlist || []),
+        this._saveEventResults(eventId, results || []),
+        this._saveEventRounds(eventId, rounds || [])
+      ]);
+
       return { success: true };
     } catch (error) {
       console.error("Error saving event:", error);
@@ -146,10 +260,112 @@ export class FirebaseService {
     }
   }
 
-  // Eliminar un evento por id
+  // Guardar participantes en subcollection
+  static async _saveEventParticipants(eventId, participants) {
+    try {
+      const subcolRef = collection(db, "events", eventId, "participants");
+
+      // Limpiar participantes anteriores
+      const existing = await getDocs(subcolRef);
+      const deletePromises = existing.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+
+      // Guardar nuevos participantes
+      const savePromises = participants.map((p, idx) =>
+        setDoc(doc(subcolRef, `p${idx}`), { ...p, savedAt: new Date().toISOString() })
+      );
+      await Promise.all(savePromises);
+    } catch (error) {
+      console.error("Error saving participants:", error);
+      throw error;
+    }
+  }
+
+  // Guardar lista de espera en subcollection
+  static async _saveEventWaitlist(eventId, waitlist) {
+    try {
+      const subcolRef = collection(db, "events", eventId, "waitlist");
+
+      const existing = await getDocs(subcolRef);
+      const deletePromises = existing.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+
+      const savePromises = waitlist.map((w, idx) =>
+        setDoc(doc(subcolRef, `w${idx}`), { ...w, savedAt: new Date().toISOString() })
+      );
+      await Promise.all(savePromises);
+    } catch (error) {
+      console.error("Error saving waitlist:", error);
+      throw error;
+    }
+  }
+
+  // Guardar resultados en subcollection
+  static async _saveEventResults(eventId, results) {
+    try {
+      const subcolRef = collection(db, "events", eventId, "results");
+
+      const existing = await getDocs(subcolRef);
+      const deletePromises = existing.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+
+      const savePromises = results.map((r, idx) =>
+        setDoc(doc(subcolRef, `r${idx}`), { ...r, position: idx + 1, savedAt: new Date().toISOString() })
+      );
+      await Promise.all(savePromises);
+    } catch (error) {
+      console.error("Error saving results:", error);
+      throw error;
+    }
+  }
+
+  // Guardar rondas en subcollection
+  static async _saveEventRounds(eventId, rounds) {
+    try {
+      const subcolRef = collection(db, "events", eventId, "rounds");
+
+      const existing = await getDocs(subcolRef);
+      const deletePromises = existing.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+
+      const savePromises = rounds.map((round, idx) =>
+        setDoc(doc(subcolRef, `rnd${idx}`), {
+          ...round,
+          roundNumber: idx + 1,
+          savedAt: new Date().toISOString()
+        })
+      );
+      await Promise.all(savePromises);
+    } catch (error) {
+      console.error("Error saving rounds:", error);
+      throw error;
+    }
+  }
+
+  // Eliminar un evento por id - OPTIMIZADO PARA SUBCOLLECTIONS
   static async deleteEvent(eventId) {
     try {
-      await deleteDoc(doc(collection(db, "events"), String(eventId)));
+      const eventId_str = String(eventId);
+      const eventRef = doc(collection(db, "events"), eventId_str);
+
+      // Eliminar subcollections
+      const subcollections = ["participants", "waitlist", "results", "rounds"];
+      const deletePromises = [];
+
+      for (const subcol of subcollections) {
+        const subcolRef = collection(db, "events", eventId_str, subcol);
+        const docs = await getDocs(subcolRef);
+        docs.forEach(doc => {
+          deletePromises.push(deleteDoc(doc.ref));
+        });
+      }
+
+      // Esperar a que se eliminen todos los documentos en subcollections
+      await Promise.all(deletePromises);
+
+      // Eliminar el documento principal
+      await deleteDoc(eventRef);
+
       return { success: true };
     } catch (error) {
       console.error("Error deleting event: ", error);
@@ -157,10 +373,11 @@ export class FirebaseService {
     }
   }
 
-  // Agregar un participante a un evento
+  // Agregar un participante a un evento - COMPATIBLE CON VIEJA Y NUEVA ESTRUCTURA
   static async addEventParticipant(eventId, participantData) {
     try {
-      const eventRef = doc(db, "events", String(eventId));
+      const eventId_str = String(eventId);
+      const eventRef = doc(db, "events", eventId_str);
       const eventSnap = await getDoc(eventRef);
 
       if (!eventSnap.exists()) {
@@ -168,10 +385,17 @@ export class FirebaseService {
       }
 
       const eventData = eventSnap.data();
-      const currentParticipants = eventData.participants || [];
-      const currentWaitlist = eventData.waitlist || [];
 
-      // Verificar si el participante ya existe en inscriptos o reservas
+      // Siempre leer desde subcollections; si están vacías, usar el doc principal (estructura vieja)
+      const [subParticipants, subWaitlist] = await Promise.all([
+        this._loadEventParticipants(eventId_str),
+        this._loadEventWaitlist(eventId_str)
+      ]);
+
+      const currentParticipants = subParticipants.length > 0 ? subParticipants : (eventData.participants || []);
+      const currentWaitlist = subWaitlist.length > 0 ? subWaitlist : (eventData.waitlist || []);
+
+      // Verificar si el participante ya existe
       const existsInMain = currentParticipants.some(p => p.gt7Id === participantData.gt7Id);
       if (existsInMain) {
         throw new Error("Este GT7 ID ya está registrado en el evento");
@@ -181,7 +405,8 @@ export class FirebaseService {
         throw new Error("Este GT7 ID ya está en la lista de reservas");
       }
 
-      const isFull = eventData.maxParticipants && currentParticipants.length >= eventData.maxParticipants;
+      const maxParticipants = eventData.maxParticipants;
+      const isFull = maxParticipants && currentParticipants.length >= maxParticipants;
 
       const newParticipant = {
         ...participantData,
@@ -189,20 +414,25 @@ export class FirebaseService {
       };
 
       if (isFull) {
-        // Agregar a lista de reservas
         const waitlistPosition = currentWaitlist.length + 1;
-        await updateDoc(eventRef, {
-          waitlist: [...currentWaitlist, { ...newParticipant, waitlistPosition }],
-          updatedAt: new Date().toISOString()
-        });
+        const updatedWaitlist = [...currentWaitlist, { ...newParticipant, waitlistPosition }];
+
+        // Siempre guardar en subcollections y actualizar contadores en doc principal
+        await Promise.all([
+          this._saveEventWaitlist(eventId_str, updatedWaitlist),
+          updateDoc(eventRef, { waitlistCount: updatedWaitlist.length, updatedAt: new Date().toISOString() })
+        ]);
+
         return { success: true, waitlisted: true, position: waitlistPosition, participant: newParticipant };
       }
 
-      // Agregar a lista principal
-      await updateDoc(eventRef, {
-        participants: [...currentParticipants, newParticipant],
-        updatedAt: new Date().toISOString()
-      });
+      const updatedParticipants = [...currentParticipants, newParticipant];
+
+      // Siempre guardar en subcollections y actualizar contadores en doc principal
+      await Promise.all([
+        this._saveEventParticipants(eventId_str, updatedParticipants),
+        updateDoc(eventRef, { participantCount: updatedParticipants.length, updatedAt: new Date().toISOString() })
+      ]);
 
       return { success: true, waitlisted: false, participant: newParticipant };
     } catch (error) {
