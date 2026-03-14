@@ -113,9 +113,9 @@ function EventDetailContent() {
         const deadline = event.registration.deadline;
         const eventDate = event.date;
         if (deadline === eventDate && event.hour) {
+            // Cerrar en el momento exacto del evento (no 1 hora antes)
             const [h, m] = event.hour.split(':').map(Number);
             const closeTime = new Date(`${eventDate}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
-            closeTime.setTime(closeTime.getTime() - 60 * 60 * 1000);
             return new Date() >= closeTime;
         }
         return new Date(`${deadline}T23:59:59`) < new Date();
@@ -173,9 +173,9 @@ function EventDetailContent() {
     const evType = EVENT_TYPES?.find((t) => t.value === event.eventType);
     const isMultiRound = event.eventType && event.eventType !== 'standard' && event.rounds?.length > 0;
     const hasStreaming = event.streaming?.url;
-    const participantCount = event.participants?.length || 0;
+    const participantCount = event.participants?.length || event.participantCount || 0;
     const maxP = event.maxParticipants || 0;
-    const waitlistCount = event.waitlist?.length || 0;
+    const waitlistCount = event.waitlist?.length || event.waitlistCount || 0;
     const isFull = maxP > 0 && participantCount >= maxP;
     const hasRules = event.rules && Object.keys(event.rules).length > 0;
     const hasWeather = event.weather && (event.weather.timeOfDay || event.weather.weatherSlots);

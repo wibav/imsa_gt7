@@ -52,7 +52,7 @@ export default function EventCard({ event, onViewDetails, onRegister }) {
     const statusConfig = EVENT_STATUSES[eventStatus] || EVENT_STATUSES.upcoming;
     const cat = EVENT_CATEGORIES.find(c => c.value === event.category);
     const hasStreaming = event.streaming?.url;
-    const participantCount = event.participants?.length || 0;
+    const participantCount = event.participants?.length || event.participantCount || 0;
     const maxP = event.maxParticipants || 0;
     const isFull = maxP > 0 && participantCount >= maxP;
 
