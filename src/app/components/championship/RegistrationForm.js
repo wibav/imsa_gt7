@@ -40,8 +40,12 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
         setError('');
 
         // Validaciones
-        if (!formData.gt7Id.trim()) {
+        if (fields.includes('gt7Id') && !formData.gt7Id.trim()) {
             setError('El GT7 ID es obligatorio');
+            return;
+        }
+        if (fields.includes('psnId') && fieldConfig.psnId?.required && !formData.psnId.trim()) {
+            setError('El PSN ID es obligatorio');
             return;
         }
         if (registration.acceptRules && !formData.acceptedRules) {
@@ -51,9 +55,9 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
 
         setSubmitting(true);
         try {
-            // Solo enviar campos configurados
+            // Enviar gt7Id siempre + campos configurados
             const data = {};
-            fields.forEach(f => {
+            visibleFields.forEach(f => {
                 if (formData[f] !== undefined) data[f] = formData[f].trim ? formData[f].trim() : formData[f];
             });
 
@@ -127,8 +131,9 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
     }
 
     const fieldConfig = {
-        gt7Id: { label: 'GT7 ID', type: 'text', placeholder: 'Tu GT7 ID', required: true },
-        psnId: { label: 'PSN ID (opcional)', type: 'text', placeholder: 'Tu PlayStation Network ID' },
+        gt7Id: { label: 'GT7 ID', type: 'text', placeholder: 'Tu GT7 ID (nombre en el juego)', required: true },
+        psnId: { label: 'PSN ID', type: 'text', placeholder: 'Tu ID de PlayStation Network' },
+        country: { label: 'País', type: 'text', placeholder: 'Ej: Guatemala, México...' },
         experience: {
             label: 'Experiencia', type: 'select', options: [
                 { value: '', label: 'Selecciona...' },
@@ -140,6 +145,9 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
         },
         preferredCar: { label: 'Auto preferido', type: 'text', placeholder: 'Ej: Toyota GR Supra, Mazda RX-Vision...' }
     };
+
+    // gt7Id siempre debe mostrarse, aunque no esté en fields (es el identificador principal)
+    const visibleFields = fields.includes('gt7Id') ? fields : ['gt7Id', ...fields];
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
@@ -182,7 +190,7 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                         </div>
                     )}
 
-                    {fields.map(fieldKey => {
+                    {visibleFields.map(fieldKey => {
                         const config = fieldConfig[fieldKey];
                         if (!config) return null;
 

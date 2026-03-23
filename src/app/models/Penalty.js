@@ -80,8 +80,8 @@ export class Claim {
         this.reporterName = data.reporterName || '';
         this.reporterPsnId = data.reporterPsnId || '';
 
-        // Piloto reportado
-        this.accusedName = data.accusedName || '';
+        // Pilotos reportados (puede ser más de uno)
+        this.accusedNames = data.accusedNames || (data.accusedName ? [data.accusedName] : []);
 
         // Carrera
         this.trackId = data.trackId || null;
@@ -89,9 +89,10 @@ export class Claim {
         this.round = data.round || null;
 
         // Detalle
-        this.lap = data.lap || '';
+        this.lap = data.lap || '';           // Número de vuelta (opcional)
+        this.minute = data.minute || '';     // Minuto de carrera (opcional, útil en resistencia)
         this.description = data.description || '';
-        this.evidence = data.evidence || '';          // URL de video/imagen
+        this.evidence = data.evidence || '';          // URL de video (YouTube, etc.)
 
         // Estado
         this.status = data.status || 'pending';       // 'pending' | 'reviewing' | 'accepted' | 'rejected' | 'resolved'
@@ -108,7 +109,7 @@ export class Claim {
     validate() {
         const errors = [];
         if (!this.reporterName) errors.push('Nombre del reclamante requerido');
-        if (!this.accusedName) errors.push('Piloto reportado requerido');
+        if (!this.accusedNames || this.accusedNames.length === 0) errors.push('Al menos un piloto reportado requerido');
         if (!this.description) errors.push('Descripción del incidente requerida');
         if (!this.trackName && !this.trackId) errors.push('Carrera asociada requerida');
         return { isValid: errors.length === 0, errors };

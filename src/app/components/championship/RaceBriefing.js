@@ -23,13 +23,23 @@ export default function RaceBriefing({ nextRace, championship, progress }) {
 
     const rules = nextRace.rules || {};
     const weather = nextRace.weather || {};
+    const weatherType = rules.weather || weather.weatherType;
+    const timeOfDay = rules.timeOfDay || weather.timeOfDay;
+    const timeMultiplier = rules.timeMultiplier || weather.multiplier;
+    const weatherSlots = rules.weatherSlots || weather.slots;
     const streamPlatform = STREAMING_PLATFORMS.find(p => p.value === championship?.streaming?.platform);
-    const mandatoryTyres = nextRace.mandatoryTyres || [];
+    const mandatoryTyres = rules.mandatoryTyre || nextRace.mandatoryTyres || [];
     const tyreLabels = mandatoryTyres.map(t => {
         const opt = TYRE_OPTIONS.find(o => o.value === t);
         return opt ? opt.label : t;
     });
-    const damageLabel = DAMAGE_OPTIONS.find(d => d.value === rules.damages)?.label || rules.damages;
+    const damageValue = rules.mechanicalDamage ?? rules.damages;
+    const damageLabel = DAMAGE_OPTIONS.find(d => d.value === damageValue)?.label || damageValue;
+    const tireWear = rules.tireWear ?? rules.tyreWear;
+    const bopEnabled = rules.bop === 'yes' || rules.bop === true;
+    const bopDisabled = rules.bop === 'no' || rules.bop === false;
+    const adjustmentsDisabled = rules.adjustments === 'no' || rules.tuning === false;
+    const adjustmentsEnabled = rules.adjustments === 'yes' || rules.tuning === true;
 
     const handleExport = async () => {
         if (!briefingRef.current) return;
@@ -206,25 +216,25 @@ export default function RaceBriefing({ nextRace, championship, progress }) {
                                         )}
 
                                         {/* Climatología */}
-                                        {(weather.timeOfDay || weather.weatherType || weather.multiplier) && (
+                                        {(timeOfDay || weatherType || timeMultiplier) && (
                                             <InfoBox
                                                 icon="🌦️"
                                                 title="Climatología"
                                                 items={[
-                                                    weather.timeOfDay,
-                                                    weather.multiplier ? `x${weather.multiplier}` : null,
-                                                    weather.weatherType
+                                                    timeOfDay,
+                                                    timeMultiplier ? `x${timeMultiplier}` : null,
+                                                    weatherType
                                                 ].filter(Boolean)}
                                             />
                                         )}
 
                                         {/* Desgaste */}
-                                        {(rules.tyreWear || rules.fuelConsumption) && (
+                                        {(tireWear || rules.fuelConsumption) && (
                                             <InfoBox
                                                 icon="⚙️"
                                                 title="Desgaste"
                                                 items={[
-                                                    rules.tyreWear ? `Neumáticos: x${rules.tyreWear}` : null,
+                                                    tireWear ? `Neumáticos: x${tireWear}` : null,
                                                     rules.fuelConsumption ? `Combustible: x${rules.fuelConsumption}` : null
                                                 ].filter(Boolean)}
                                             />
@@ -240,13 +250,13 @@ export default function RaceBriefing({ nextRace, championship, progress }) {
                                         )}
 
                                         {/* BOP / Ajustes */}
-                                        {(rules.bop !== undefined || rules.tuning !== undefined) && (
+                                        {(rules.bop !== undefined || rules.adjustments !== undefined || rules.tuning !== undefined) && (
                                             <InfoBox
                                                 icon="⚖️"
                                                 title="Configuración"
                                                 items={[
-                                                    rules.bop ? 'BOP: Activado' : rules.bop === false ? 'BOP: Desactivado' : null,
-                                                    rules.tuning === false ? 'Ajustes: Prohibidos' : rules.tuning ? 'Ajustes: Permitidos' : null
+                                                    bopEnabled ? 'BOP: Activado' : bopDisabled ? 'BOP: Desactivado' : null,
+                                                    adjustmentsDisabled ? 'Ajustes: Prohibidos' : adjustmentsEnabled ? 'Ajustes: Permitidos' : null
                                                 ].filter(Boolean)}
                                             />
                                         )}
@@ -302,7 +312,7 @@ export default function RaceBriefing({ nextRace, championship, progress }) {
                                     )}
 
                                     {/* Penalizaciones */}
-                                    {(rules.shortcutPenalty || rules.wallHitPenalty || rules.pitLinePenalty) && (
+                                    {(rules.penaltyShortcut || rules.penaltyWall || rules.penaltyPitLine || rules.penaltyCarCollision || rules.shortcutPenalty || rules.wallHitPenalty || rules.pitLinePenalty) && (
                                         <div style={{
                                             background: 'rgba(239,68,68,0.1)',
                                             border: '1px solid rgba(239,68,68,0.2)',
@@ -314,9 +324,10 @@ export default function RaceBriefing({ nextRace, championship, progress }) {
                                                 ⚠️ Penalizaciones
                                             </div>
                                             <div style={{ fontSize: '12px', color: '#fca5a5' }}>
-                                                {rules.shortcutPenalty && <div>• Atajos: {rules.shortcutPenalty}</div>}
-                                                {rules.wallHitPenalty && <div>• Choque muro: {rules.wallHitPenalty}</div>}
-                                                {rules.pitLinePenalty && <div>• Cruzar línea box: {rules.pitLinePenalty}</div>}
+                                                {(rules.penaltyShortcut || rules.shortcutPenalty) && <div>• Atajos: {rules.penaltyShortcut || rules.shortcutPenalty}</div>}
+                                                {(rules.penaltyWall || rules.wallHitPenalty) && <div>• Choque muro: {rules.penaltyWall || rules.wallHitPenalty}</div>}
+                                                {(rules.penaltyPitLine || rules.pitLinePenalty) && <div>• Cruzar línea box: {rules.penaltyPitLine || rules.pitLinePenalty}</div>}
+                                                {rules.penaltyCarCollision && <div>• Colisión entre coches: {rules.penaltyCarCollision}</div>}
                                                 {rules.ghostCar !== undefined && <div>• Fantasma: {rules.ghostCar ? 'Sí' : 'No'}</div>}
                                             </div>
                                         </div>
@@ -343,7 +354,7 @@ export default function RaceBriefing({ nextRace, championship, progress }) {
                                     )}
 
                                     {/* Weather Slots */}
-                                    {weather.slots && (
+                                    {weatherSlots && (
                                         <div style={{
                                             background: 'rgba(255,255,255,0.03)',
                                             border: '1px solid rgba(255,255,255,0.08)',
@@ -355,7 +366,7 @@ export default function RaceBriefing({ nextRace, championship, progress }) {
                                                 🌤️ Slots Climáticos
                                             </div>
                                             <div style={{ fontSize: '12px', color: '#6b7280', fontFamily: 'monospace' }}>
-                                                {weather.slots}
+                                                {typeof weatherSlots === 'string' ? weatherSlots : JSON.stringify(weatherSlots)}
                                             </div>
                                         </div>
                                     )}

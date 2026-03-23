@@ -11,6 +11,7 @@ import {
   orderBy,
   addDoc,
   updateDoc,
+  arrayUnion,
   Timestamp
 } from "firebase/firestore";
 import {
@@ -876,6 +877,22 @@ export class FirebaseService {
   // CLAIMS METHODS (subcolección championships/{id}/claims)
   // ========================================
 
+  static async createClaim(championshipId, claimData) {
+    try {
+      const claim = new Claim({ ...claimData, championshipId });
+      const validation = claim.validate();
+      if (!validation.isValid) throw new Error(validation.errors.join(', '));
+      const docRef = await addDoc(
+        collection(db, "championships", championshipId, "claims"),
+        claim.toFirestore()
+      );
+      return { success: true, id: docRef.id };
+    } catch (error) {
+      console.error("Error creating claim:", error);
+      throw error;
+    }
+  }
+
   static async getClaimsByChampionship(championshipId) {
     try {
       const col = collection(db, "championships", championshipId, "claims");
@@ -945,6 +962,168 @@ export class FirebaseService {
       return { success: true };
     } catch (error) {
       console.error("Error deleting division:", error);
+      throw error;
+    }
+  }
+
+  // ========================================
+  // CHAMPIONSHIP REGISTRATION METHODS
+  // ========================================
+
+  /**
+   * Enviar inscripción a un campeonato (acción pública del piloto)
+   */
+  static async submitRegistration(championshipId, data) {
+    try {
+      const docRef = doc(db, "championships", championshipId);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) throw new Error('Campeonato no encontrado');
+
+      const champ = snap.data();
+      const reg = champ.registration || {};
+      const existing = (champ.registrations || []);
+
+      // Fecha límite
+      if (reg.deadline && new Date() > new Date(reg.deadline + 'T23:59:59')) {
+        throw new Error('El plazo de inscripción ha vencido');
+      }
+
+      // Cupo lleno
+      const approvedCount = existing.filter(r => r.status === 'approved').length;
+      if (reg.maxParticipants > 0 && approvedCount >= reg.maxParticipants) {
+        throw new Error('No hay cupos disponibles');
+      }
+
+      // Duplicado (mismo gt7Id o psnId)
+      const gt7Id = data.gt7Id?.trim().toLowerCase();
+      const psnId = data.psnId?.trim().toLowerCase();
+      const isDuplicate = existing.some(r =>
+        (gt7Id && r.gt7Id?.toLowerCase() === gt7Id) ||
+        (psnId && r.psnId?.toLowerCase() === psnId)
+      );
+      if (isDuplicate) throw new Error('Ya tienes una inscripción enviada para este campeonato');
+
+      const regData = {
+        id: `reg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        ...data,
+        status: reg.requiresApproval ? 'pending' : 'approved',
+        createdAt: new Date().toISOString()
+      };
+
+      await updateDoc(docRef, { registrations: arrayUnion(regData) });
+
+      // Si es auto-approve y campeonato individual, agregar piloto directamente
+      if (!reg.requiresApproval && !champ.settings?.isTeamChampionship) {
+        const driverName = data.gt7Id || data.psnId || data.name || 'Piloto';
+        const existingDrivers = champ.drivers || [];
+        const alreadyDriver = existingDrivers.some(
+          d => d.name?.toLowerCase() === driverName.toLowerCase()
+        );
+        if (!alreadyDriver) {
+          await updateDoc(docRef, {
+            drivers: arrayUnion({ name: driverName, category: data.category || '' })
+          });
+        }
+      }
+
+      return { success: true, registration: regData };
+    } catch (error) {
+      console.error('Error submitting registration:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Actualizar estado de una o varias inscripciones (acción admin)
+   * @param {string} championshipId
+   * @param {Array<{id: string, status: string}>} updates
+   */
+  static async updateRegistrations(championshipId, updates) {
+    try {
+      const docRef = doc(db, "championships", championshipId);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) throw new Error('Campeonato no encontrado');
+
+      const champ = snap.data();
+      const registrations = [...(champ.registrations || [])];
+      const reviewedAt = new Date().toISOString();
+
+      const updMap = Object.fromEntries(updates.map(u => [u.id, u.status]));
+      const updatedRegistrations = registrations.map(r =>
+        updMap[r.id] ? { ...r, status: updMap[r.id], reviewedAt } : r
+      );
+
+      // Para campeonatos individuales: auto-agregar como piloto cuando se aprueba
+      let driversToAdd = [];
+      if (!champ.settings?.isTeamChampionship) {
+        const existingDriverNames = new Set(
+          (champ.drivers || []).map(d => d.name?.toLowerCase())
+        );
+        updates
+          .filter(u => u.status === 'approved')
+          .forEach(u => {
+            const reg = registrations.find(r => r.id === u.id);
+            if (!reg) return;
+            const driverName = reg.name || reg.psnId || reg.gt7Id;
+            if (driverName && !existingDriverNames.has(driverName.toLowerCase())) {
+              driversToAdd.push({ name: driverName, category: reg.category || '' });
+              existingDriverNames.add(driverName.toLowerCase());
+            }
+          });
+      }
+
+      const updatePayload = { registrations: updatedRegistrations };
+      if (driversToAdd.length > 0) {
+        updatePayload.drivers = [...(champ.drivers || []), ...driversToAdd];
+      }
+
+      await updateDoc(docRef, updatePayload);
+      return { success: true, addedDrivers: driversToAdd.length };
+    } catch (error) {
+      console.error('Error updating registrations:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Guardar resultados de Pre-Qualy en el campeonato
+   * @param {string} championshipId
+   * @param {Array<{driverName: string, time: string, classified: boolean}>} results
+   */
+  static async savePreQualyResults(championshipId, results) {
+    try {
+      const docRef = doc(db, 'championships', championshipId);
+      await updateDoc(docRef, {
+        'preQualy.results': results
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('Error saving pre-qualy results:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Editar datos de una inscripción específica (gt7Id, psnId, etc.)
+   * @param {string} championshipId
+   * @param {string} registrationId
+   * @param {Object} updates - Campos a actualizar (gt7Id, psnId, ...)
+   */
+  static async updateRegistrationData(championshipId, registrationId, updates) {
+    try {
+      const docRef = doc(db, 'championships', championshipId);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) throw new Error('Campeonato no encontrado');
+
+      const registrations = snap.data().registrations || [];
+      const updated = registrations.map(r =>
+        r.id === registrationId ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r
+      );
+
+      await updateDoc(docRef, { registrations: updated });
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating registration data:', error);
       throw error;
     }
   }

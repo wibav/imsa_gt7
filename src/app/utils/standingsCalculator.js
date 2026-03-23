@@ -74,11 +74,13 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             dnfs: 0,
             races: 0,
             bestPosition: null,
-            racePoints: [],    // Array de puntos por carrera (en orden de raceColumns)
-            racePositions: [],  // Array de posiciones por carrera
-            penaltyPoints: 0,   // Puntos deducidos por sanciones
-            warningPoints: 0,   // Puntos de amonestación acumulados
-            penalties: []       // Lista de sanciones aplicadas
+            racePoints: [],      // Array de puntos por carrera (en orden de raceColumns)
+            racePositions: [],    // Array de posiciones por carrera
+            raceFastestLap: [],   // Array de boolean: tuvo vuelta rápida en esa carrera
+            racePole: [],         // Array de boolean: tuvo pole en esa carrera
+            penaltyPoints: 0,     // Puntos deducidos por sanciones
+            warningPoints: 0,     // Puntos de amonestación acumulados
+            penalties: []         // Lista de sanciones aplicadas
         };
     });
 
@@ -103,16 +105,23 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             const sprintPts = isSprint ? (sprintPointsMap[driverName] || 0) : 0;
             const points = racePoints + sprintPts;
 
+            const hasFl = fastestLap?.driver === driverName;
+            const hasPole = qualyData?.top3?.first === driverName;
+
             // Si no participó en esta carrera
             if (!position && points === 0) {
                 stat.racePoints.push(null);
                 stat.racePositions.push(null);
+                stat.raceFastestLap.push(hasFl);
+                stat.racePole.push(hasPole);
                 return;
             }
 
             // Registrar puntos y posición
             stat.racePoints.push(points);
             stat.racePositions.push(position);
+            stat.raceFastestLap.push(hasFl);
+            stat.racePole.push(hasPole);
             stat.totalPoints += points;
             stat.races += 1;
 
@@ -138,14 +147,10 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             }
 
             // Pole position
-            if (qualyData?.top3?.first === driverName) {
-                stat.poles += 1;
-            }
+            if (hasPole) stat.poles += 1;
 
             // Vuelta rápida
-            if (fastestLap?.driver === driverName) {
-                stat.fastestLaps += 1;
-            }
+            if (hasFl) stat.fastestLaps += 1;
         });
     });
 

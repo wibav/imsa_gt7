@@ -256,6 +256,7 @@ export default function DashboardRenovated() {
                                         key={championship.id}
                                         championship={championship}
                                         tracks={championshipTracks[championship.id] || []}
+                                        onRegister={(c) => window.location.href = `/championships?id=${c.id}`}
                                     />
                                 ))}
                             </div>

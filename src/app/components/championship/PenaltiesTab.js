@@ -877,11 +877,15 @@ function ClaimsSection({ claims, championshipId, allDrivers, tracks, config, onR
                                                 {statusCfg.label}
                                             </span>
                                             <span className="text-white font-bold text-sm">
-                                                {claim.reporterName} → {claim.accusedName}
+                                                {claim.reporterName} → {(claim.accusedNames?.length > 0 ? claim.accusedNames : [claim.accusedName]).join(', ')}
                                             </span>
                                         </div>
                                         {claim.trackName && (
-                                            <div className="text-gray-500 text-xs mb-1">🏁 R{claim.round} - {claim.trackName} {claim.lap && `• Vuelta ${claim.lap}`}</div>
+                                            <div className="text-gray-500 text-xs mb-1">
+                                                🏁 R{claim.round} - {claim.trackName}
+                                                {claim.lap && ` • Vuelta ${claim.lap}`}
+                                                {claim.minute && ` • Min. ${claim.minute}`}
+                                            </div>
                                         )}
                                         <p className="text-gray-300 text-sm">{claim.description}</p>
                                         {claim.evidence && (
@@ -958,15 +962,20 @@ function ResolveClaimModal({ claim, allDrivers, tracks, presets, onClose, onReso
     const [selectedPreset, setSelectedPreset] = useState(null);
     const [saving, setSaving] = useState(false);
 
+    // Backward compat: accusedNames[] o legacy accusedName string
+    const accusedList = claim.accusedNames?.length > 0 ? claim.accusedNames : (claim.accusedName ? [claim.accusedName] : []);
+    const [selectedAccused, setSelectedAccused] = useState(accusedList[0] || '');
+
     const handleSubmit = async () => {
         if (!resolution) return alert('Escribe una resolución');
+        if (applyPenalty && !selectedAccused) return alert('Selecciona el piloto a sancionar');
         setSaving(true);
 
         let penaltyData = null;
         if (applyPenalty && selectedPreset) {
             penaltyData = {
-                driverName: claim.accusedName,
-                teamName: allDrivers.find(d => d.name === claim.accusedName)?.team || '',
+                driverName: selectedAccused,
+                teamName: allDrivers.find(d => d.name === selectedAccused)?.team || '',
                 trackId: claim.trackId,
                 trackName: claim.trackName,
                 round: claim.round,
@@ -1002,10 +1011,26 @@ function ResolveClaimModal({ claim, allDrivers, tracks, presets, onClose, onReso
                     <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-sm">
                         <div className="text-gray-400">
                             <strong className="text-white">{claim.reporterName}</strong> reportó a{' '}
-                            <strong className="text-white">{claim.accusedName}</strong>
+                            <strong className="text-white">{accusedList.join(', ')}</strong>
                         </div>
                         <div className="text-gray-500 text-xs mt-1">{claim.description}</div>
                     </div>
+
+                    {/* Selector de infractor a sancionar (si hay múltiples) */}
+                    {accusedList.length > 1 && (
+                        <div>
+                            <label className="text-gray-400 text-sm block mb-1">¿A quién sancionar? *</label>
+                            <select
+                                value={selectedAccused}
+                                onChange={e => setSelectedAccused(e.target.value)}
+                                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm"
+                            >
+                                {accusedList.map(name => (
+                                    <option key={name} value={name} className="bg-slate-800">{name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
                     <div>
                         <label className="text-gray-400 text-sm block mb-1">Resolución *</label>

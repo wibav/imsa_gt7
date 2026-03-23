@@ -130,6 +130,12 @@ export default function StandingsTable({
                                         <th className={`${headerPx} text-center hidden sm:table-cell`} title="Podiums">
                                             <span className="text-xs">🥇</span>
                                         </th>
+                                        <th className={`${headerPx} text-center hidden sm:table-cell`} title="Pole Positions">
+                                            <span className="text-xs">🎯</span>
+                                        </th>
+                                        <th className={`${headerPx} text-center hidden sm:table-cell`} title="Vueltas Rápidas">
+                                            <span className="text-xs">⚡</span>
+                                        </th>
                                     </>
                                 )}
 
@@ -208,14 +214,29 @@ export default function StandingsTable({
                                         {hasRaces && raceColumns.map((race, raceIdx) => {
                                             const pts = entry.racePoints?.[raceIdx];
                                             const pos = entry.racePositions?.[raceIdx];
+                                            const isFl = entry.raceFastestLap?.[raceIdx];
+                                            const isPole = entry.racePole?.[raceIdx];
+                                            const tooltipParts = [race.name];
+                                            if (pts !== null && pts !== undefined) tooltipParts.push(`P${pos || '?'} → ${pts} pts`);
+                                            else tooltipParts.push('No participó');
+                                            if (isFl) tooltipParts.push('⚡ Vuelta Rápida');
+                                            if (isPole) tooltipParts.push('🎯 Pole');
                                             return (
                                                 <td key={race.trackId || raceIdx}
-                                                    className={`${cellPx} text-center ${getRacePointsStyle(pts, pos)}`}
-                                                    title={pts !== null && pts !== undefined ? `${race.name}: P${pos || '?'} → ${pts} pts` : `${race.name}: -`}
+                                                    className={`${cellPx} text-center`}
+                                                    title={tooltipParts.join(' | ')}
                                                 >
-                                                    <span className="text-xs">
-                                                        {pts !== null && pts !== undefined ? pts : '-'}
-                                                    </span>
+                                                    <div className="flex flex-col items-center gap-0">
+                                                        <span className={`text-xs ${getRacePointsStyle(pts, pos)}`}>
+                                                            {pts !== null && pts !== undefined ? pts : '-'}
+                                                        </span>
+                                                        {(isFl || isPole) && (
+                                                            <div className="flex gap-0.5 mt-0.5">
+                                                                {isPole && <span className="text-purple-400" style={{ fontSize: '9px' }}>🎯</span>}
+                                                                {isFl && <span className="text-yellow-400" style={{ fontSize: '9px' }}>⚡</span>}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             );
                                         })}
@@ -231,6 +252,16 @@ export default function StandingsTable({
                                                 <td className={`${cellPx} text-center hidden sm:table-cell`}>
                                                     <span className={`text-xs ${entry.podiums > 0 ? 'text-orange-400 font-bold' : 'text-gray-600'}`}>
                                                         {entry.podiums || 0}
+                                                    </span>
+                                                </td>
+                                                <td className={`${cellPx} text-center hidden sm:table-cell`}>
+                                                    <span className={`text-xs ${entry.poles > 0 ? 'text-purple-400 font-bold' : 'text-gray-600'}`}>
+                                                        {entry.poles || 0}
+                                                    </span>
+                                                </td>
+                                                <td className={`${cellPx} text-center hidden sm:table-cell`}>
+                                                    <span className={`text-xs ${entry.fastestLaps > 0 ? 'text-yellow-300 font-bold' : 'text-gray-600'}`}>
+                                                        {entry.fastestLaps || 0}
                                                     </span>
                                                 </td>
                                             </>
