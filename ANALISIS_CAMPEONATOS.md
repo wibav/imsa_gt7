@@ -1,7 +1,7 @@
 # Análisis del Sistema de Campeonatos — IMSA GT7 + HGT GT7
 
 > **Fecha:** 18 de febrero de 2026  
-> **Última actualización:** 10 de marzo de 2026  
+> **Última actualización:** junio de 2026 (rev. 2 — Pre-Qualy results, GT7 ID fix, edición inscripciones, admins = comisarios)  
 > **Proyectos analizados:** `imsa_gt7`, `hgt_gt7`  
 > **Referencia externa:** PDF "WORLD SERIES LEAGUE RR 10°MA EDICIÓN" (reglamento de club), PDF "Normativa DAS 2.3"
 
@@ -24,7 +24,7 @@
 9. [Modelo de Datos Propuesto (Unificado)](#9-modelo-de-datos-propuesto-unificado)
 10. [Roadmap Priorizado](#10-roadmap-priorizado)
 11. [Reglamento Unificado Público](#11-reglamento-unificado-público)
-12. [Actualizaciones Recientes (Marzo 2026)](#12-actualizaciones-recientes-marzo-2026)
+12. [Actualizaciones Recientes (Marzo – Junio 2026)](#12-actualizaciones-recientes-marzo--junio-2026)
 
 ---
 
@@ -82,7 +82,9 @@ Firestore
 | `settings.isTeamChampionship` | boolean                                 | ¿Campeonato por equipos?                                                             |
 | `settings.maxTeams`           | number                                  | Máximo 20 equipos                                                                    |
 | `settings.maxDriversPerTeam`  | number                                  | Máximo 2 pilotos por equipo                                                          |
+| `settings.fuelRefillRates`    | object                                  | Tasa de repostaje por categoría en L/min `{ Gr1, Gr2, Gr3, Gr4, GrB, Street }`       |
 | `drivers`                     | array                                   | Pilotos (solo campeonatos individuales)                                              |
+| `preQualy`                    | object                                  | Sesión pre-clasificatoria opcional (ver modelo abajo)                                |
 
 #### Team (subcolección)
 
@@ -94,17 +96,62 @@ Firestore
 
 #### Track (subcolección)
 
-| Campo                         | Tipo                                     |
-| ----------------------------- | ---------------------------------------- |
-| `name`, `country`, `date`     | string                                   |
-| `round`                       | number                                   |
-| `category`                    | string                                   |
-| `raceType`                    | `carrera │ resistencia`                  |
-| `laps`, `duration`            | number                                   |
-| `rules`                       | object (clima, desgaste, combustible...) |
-| `specificCars`, `allowedCars` | boolean, string[]                        |
-| `points`                      | `{ "nombrePiloto": puntos }`             |
-| `status`                      | `scheduled │ in-progress │ completed`    |
+| Campo                         | Tipo                                             |
+| ----------------------------- | ------------------------------------------------ |
+| `name`, `country`, `date`     | string                                           |
+| `round`                       | number                                           |
+| `category`                    | string                                           |
+| `raceType`                    | `carrera │ resistencia`                          |
+| `laps`, `duration`            | number                                           |
+| `rules.weather`               | string — `clear│cloudy│rain│random`              |
+| `rules.timeOfDay`             | string — `day│morning│evening│night`             |
+| `rules.timeMultiplier`        | number — `1│3│5│8│10│20`                         |
+| `rules.tireWear`              | number — `0│1│2│3│5│8│10`                        |
+| `rules.fuelConsumption`       | number — mismo rango que tireWear                |
+| `rules.mandatoryTyre`         | string[] — compuestos obligatorios               |
+| `rules.mechanicalDamage`      | string — `No│Leve│Grave`                         |
+| `rules.bop`                   | string — `yes│no`                                |
+| `rules.qualySlipstream`       | boolean — rebufo en clasificación (false = off)  |
+| `rules.raceSlipstream`        | boolean — rebufo en carrera (false = sin rebufo) |
+| `rules.startingFuel`          | number — combustible inicial (%) en carrera      |
+| `rules.qualyTireWear`         | boolean — desgaste neumáticos en qualy           |
+| `rules.penaltyShortcut`       | string — `off│weak│moderate│strong`              |
+| `rules.penaltyWall`           | string — `on│off`                                |
+| `rules.penaltyPitLine`        | string — `on│off`                                |
+| `rules.penaltyCarCollision`   | string — `on│off`                                |
+| `specificCars`, `allowedCars` | boolean, string[]                                |
+| `points`                      | `{ "nombrePiloto": puntos }`                     |
+| `status`                      | `scheduled │ in-progress │ completed`            |
+
+#### PreQualy (campo en championship root)
+
+| Campo         | Tipo                                                                                                                                           |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`     | boolean                                                                                                                                        |
+| `date`        | ISO string                                                                                                                                     |
+| `track`       | string — circuito (de la lista GT7_TRACKS)                                                                                                     |
+| `duration`    | number — minutos de la sesión (default 15)                                                                                                     |
+| `allowedCars` | string[] — coches específicos permitidos                                                                                                       |
+| `notes`       | string — notas adicionales                                                                                                                     |
+| `rules`       | object — misma estructura que `rules` de Track (weather, timeMultiplier, penaltyShortcut, etc.)                                                |
+| `results`     | array — `[{ driverName: string, time: string, classified: boolean }]` — clasificados y no-clasificados, editables desde admin con tabla inline |
+
+#### Registrations (array embebido en championship root)
+
+> **Implementación real:** las inscripciones se almacenan como array `registrations[]` en el documento raíz del campeonato (no como subcolección Firestore). El admin gestiona el array completo vía `updateRegistrationData()`.
+
+| Campo          | Tipo                              | Descripción                                                |
+| -------------- | --------------------------------- | ---------------------------------------------------------- |
+| `id`           | string                            | UUID generado al registrarse                               |
+| `gt7Id`        | string                            | GT7 ID del piloto — **campo principal, siempre requerido** |
+| `psnId`        | string                            | PSN ID / gamertag del piloto                               |
+| `country`      | string \| null                    | País (opcional, si está en `fields` config)                |
+| `experience`   | string \| null                    | Nivel de experiencia (opcional)                            |
+| `preferredCar` | string \| null                    | Coche preferido (opcional)                                 |
+| `status`       | `pending \| approved \| rejected` | Estado de la inscripción                                   |
+| `createdAt`    | ISO string                        | Fecha de inscripción                                       |
+| `reviewedAt`   | ISO string \| null                | Fecha de revisión por admin                                |
+| `updatedAt`    | ISO string \| null                | Última edición via edición inline del admin                |
 
 #### Event (subcolección)
 
@@ -121,43 +168,46 @@ Firestore
 
 ### 2.4 Funcionalidades Actuales (imsa_gt7)
 
-| Funcionalidad                  | Estado       | Detalle                                                                                                        |
-| ------------------------------ | ------------ | -------------------------------------------------------------------------------------------------------------- |
-| CRUD de campeonatos            | ✅ Completo  | Crear, editar, eliminar, cambiar estado                                                                        |
-| Campeonatos por equipos        | ✅ Completo  | Equipos con pilotos, colores, logos                                                                            |
-| Campeonatos individuales       | ✅ Completo  | Pilotos directos en el campeonato                                                                              |
-| Configuración de circuitos     | ✅ Completo  | 70+ pistas reales de GT7, reglas por circuito                                                                  |
-| Sistema de puntos configurable | ✅ Parcial   | Puntos por carrera + qualifying + vuelta rápida                                                                |
-| Resultados por carrera         | ✅ Completo  | Puntos asignados por piloto + posiciones de evento desde participantes (drag/reorder)                          |
-| Clasificación/standings        | ✅ Completo  | Motor avanzado con desempate multinivel, estadísticas, comparador head-to-head                                 |
-| Calendario de carreras         | ✅ Completo  | Lista de rondas con fecha, circuito, estado                                                                    |
-| Dashboard público              | ✅ Completo  | Eventos semanales (filtrados por vigentes) + campeonatos + eventos pasados                                     |
-| Eventos especiales             | ✅ Completo  | CRUD completo con secciones colapsables, streaming, inscripción, clima, reglas, participantes, resultados      |
-| Subida de imágenes             | ✅ Completo  | Firebase Storage                                                                                               |
-| Creador de vinilos SVG         | ✅ Completo  | Conversión PNG → SVG con Potrace                                                                               |
-| Login admin                    | ✅ Básico    | Email hardcodeado como admin                                                                                   |
-| SEO/OG                         | ✅ Completo  | Meta tags dinámicos                                                                                            |
-| AdSense                        | ✅ Integrado | 3 formatos de anuncios                                                                                         |
-| Sanciones                      | ✅ Completo  | Sistema configurable con presets editables, amonestaciones acumulativas, reclamaciones públicas                |
-| Reglamento por campeonato      | ✅ Completo  | Reglamento editable por campeonato + página pública unificada `/reglamento`                                    |
-| Ascensos/descensos             | ✅ Completo  | Divisiones con promoción/relegación entre ediciones                                                            |
-| Compuestos obligatorios        | ✅ Completo  | Selección múltiple de neumáticos obligatorios en eventos y campeonatos                                         |
-| Inscripción de pilotos         | ✅ Completo  | Toggle inscripción pública con aprobación opcional, fecha límite, en eventos y campeonatos                     |
-| Perfiles de piloto             | ✅ Completo  | Página `/pilots` con stats históricas acumuladas de todos los campeonatos                                      |
-| Exportar clasificación PNG     | ✅ Completo  | Exportar standings como imagen para redes sociales                                                             |
-| Briefing pre-carrera           | ✅ Completo  | Vista informativa de la próxima carrera, exportable como imagen PNG                                            |
-| Divisiones/salas               | ✅ Completo  | Subcolección Firestore con CRUD, asignación de pilotos, standings por división                                 |
-| Eventos multi-ronda            | ✅ Completo  | Tipos: estándar, eliminatoria, doble eliminatoria; rondas con múltiples salas y promoción automática           |
-| Lista de reservas (waitlist)   | ✅ Completo  | Cupo global + por sala; auto-enrutamiento al cupo lleno, admin mueve a inscriptos, público se anota en reserva |
-| Inscripción pública en eventos | ✅ Completo  | Formulario público, aprobación opcional, fecha límite, waitlist con posición numerada                          |
-| Cambio neumáticos obligatorio  | ✅ Completo  | Toggle para cambio de neumáticos obligatorio en eventos                                                        |
-| Paradas obligatorias en boxes  | ✅ Completo  | Campo numérico para paradas mínimas obligatorias en eventos                                                    |
-| Modal de registro mejorado     | ✅ Completo  | Mensaje de confirmación dentro del modal, scroll al top al cerrar                                              |
-| Validación ronda 2             | ✅ Completo  | Select de participantes en ronda 2 solo muestra los de ronda 1                                                 |
-| Reglas Firebase Storage        | ✅ Completo  | Actualizadas para permitir uploads a events/ y championships/                                                  |
-| Equipamiento sin imágenes      | ✅ Completo  | Reemplazo de imágenes Amazon con emojis para evitar bloqueos                                                   |
-| Noticias/blog                  | ❌ No existe | —                                                                                                              |
-| Replays                        | ❌ No existe | —                                                                                                              |
+| Funcionalidad                  | Estado       | Detalle                                                                                                                                                                                                                                                                         |
+| ------------------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CRUD de campeonatos            | ✅ Completo  | Crear, editar, eliminar, cambiar estado                                                                                                                                                                                                                                         |
+| Campeonatos por equipos        | ✅ Completo  | Equipos con pilotos, colores, logos                                                                                                                                                                                                                                             |
+| Campeonatos individuales       | ✅ Completo  | Pilotos directos en el campeonato                                                                                                                                                                                                                                               |
+| Configuración de circuitos     | ✅ Completo  | 70+ pistas GT7 (incl. Dragon Trail Seaside Reverse), reglas completas: clima, desgaste, slipstream qualy/carrera, combustible inicial, compuestos, daños, penalizaciones específicas (atajo/muro/pit/colisión)                                                                  |
+| Sistema de puntos configurable | ✅ Parcial   | Puntos por carrera + qualifying + vuelta rápida                                                                                                                                                                                                                                 |
+| Resultados por carrera         | ✅ Completo  | Puntos asignados por piloto + posiciones de evento desde participantes (drag/reorder)                                                                                                                                                                                           |
+| Clasificación/standings        | ✅ Completo  | Motor avanzado con desempate multinivel, estadísticas, comparador head-to-head                                                                                                                                                                                                  |
+| Calendario de carreras         | ✅ Completo  | Lista de rondas con fecha, circuito, estado                                                                                                                                                                                                                                     |
+| Dashboard público              | ✅ Completo  | Eventos semanales (filtrados por vigentes) + campeonatos + eventos pasados                                                                                                                                                                                                      |
+| Eventos especiales             | ✅ Completo  | CRUD completo con secciones colapsables, streaming, inscripción, clima, reglas, participantes, resultados                                                                                                                                                                       |
+| Subida de imágenes             | ✅ Completo  | Firebase Storage                                                                                                                                                                                                                                                                |
+| Creador de vinilos SVG         | ✅ Completo  | Conversión PNG → SVG con Potrace                                                                                                                                                                                                                                                |
+| Login admin / Roles            | ✅ Básico    | Email hardcodeado como admin; rol **Comisario** separado (lista de emails); **los admins son automáticamente comisarios** (`isComisario()` retorna `true` si `isAdmin()`)                                                                                                       |
+| SEO/OG                         | ✅ Completo  | Meta tags dinámicos                                                                                                                                                                                                                                                             |
+| AdSense                        | ✅ Integrado | 3 formatos de anuncios                                                                                                                                                                                                                                                          |
+| Sanciones                      | ✅ Completo  | Sistema configurable con presets editables, amonestaciones acumulativas, reclamaciones públicas                                                                                                                                                                                 |
+| Reglamento por campeonato      | ✅ Completo  | Reglamento editable por campeonato + página pública unificada `/reglamento`                                                                                                                                                                                                     |
+| Ascensos/descensos             | ✅ Completo  | Divisiones con promoción/relegación entre ediciones                                                                                                                                                                                                                             |
+| Compuestos obligatorios        | ✅ Completo  | Selección múltiple de neumáticos obligatorios en eventos y campeonatos                                                                                                                                                                                                          |
+| Inscripción de pilotos         | ✅ Completo  | Toggle inscripción pública con aprobación opcional, fecha límite, en eventos y campeonatos; campo **GT7 ID** siempre requerido como identificador principal (`visibleFields` lo fuerza aunque no esté en `fields` config original)                                              |
+| Edición de inscripciones admin | ✅ Completo  | Admin puede editar datos de cada inscripción inline (GT7 ID, PSN ID, país, etc.) vía `updateRegistrationData()`; botón ✏️ por fila en **RegistrationsTab** con guardado parcial                                                                                                 |
+| Perfiles de piloto             | ✅ Completo  | Página `/pilots` con stats históricas acumuladas de todos los campeonatos                                                                                                                                                                                                       |
+| Exportar clasificación PNG     | ✅ Completo  | Exportar standings como imagen para redes sociales                                                                                                                                                                                                                              |
+| Briefing pre-carrera           | ✅ Completo  | Vista informativa de la próxima carrera, exportable como imagen PNG                                                                                                                                                                                                             |
+| Pre-Qualy                      | ✅ Completo  | Sesión previa al campeonato: fecha, circuito, autos específicos, reglas propias; resultados cargables desde admin con tabla inline (add/edit/delete, ordenados por tiempo); tab 🎯 Pre-Qualy en vista pública con tabla de clasificados (medallas) y sección de no-clasificados |
+| Tasas de repostaje             | ✅ Completo  | L/min configurables por categoría (Gr1, Gr2, Gr3, Gr4, GrB, Street) en settings del campeonato                                                                                                                                                                                  |
+| Divisiones/salas               | ✅ Completo  | Subcolección Firestore con CRUD, asignación de pilotos, standings por división                                                                                                                                                                                                  |
+| Eventos multi-ronda            | ✅ Completo  | Tipos: estándar, eliminatoria, doble eliminatoria; rondas con múltiples salas y promoción automática                                                                                                                                                                            |
+| Lista de reservas (waitlist)   | ✅ Completo  | Cupo global + por sala; auto-enrutamiento al cupo lleno, admin mueve a inscriptos, público se anota en reserva                                                                                                                                                                  |
+| Inscripción pública en eventos | ✅ Completo  | Formulario público, aprobación opcional, fecha límite, waitlist con posición numerada                                                                                                                                                                                           |
+| Cambio neumáticos obligatorio  | ✅ Completo  | Toggle para cambio de neumáticos obligatorio en eventos                                                                                                                                                                                                                         |
+| Paradas obligatorias en boxes  | ✅ Completo  | Campo numérico para paradas mínimas obligatorias en eventos                                                                                                                                                                                                                     |
+| Modal de registro mejorado     | ✅ Completo  | Mensaje de confirmación dentro del modal, scroll al top al cerrar                                                                                                                                                                                                               |
+| Validación ronda 2             | ✅ Completo  | Select de participantes en ronda 2 solo muestra los de ronda 1                                                                                                                                                                                                                  |
+| Reglas Firebase Storage        | ✅ Completo  | Actualizadas para permitir uploads a events/ y championships/                                                                                                                                                                                                                   |
+| Equipamiento sin imágenes      | ✅ Completo  | Reemplazo de imágenes Amazon con emojis para evitar bloqueos                                                                                                                                                                                                                    |
+| Noticias/blog                  | ❌ No existe | —                                                                                                                                                                                                                                                                               |
+| Replays                        | ❌ No existe | —                                                                                                                                                                                                                                                                               |
 
 ### 2.5 Páginas del Sistema
 
@@ -1095,18 +1145,24 @@ championships/
     │       ├── createdAt
     │       └── rejectionReason: string | null
     │
-    └── claims/                                  ← NUEVO: subcolección
+    └── claims/                                  ← subcolección
         └── {claimId}/
-            ├── claimantDriver: string
-            ├── accusedDriver: string
+            ├── reporterName: string             ← Piloto que reporta
+            ├── reporterPSN: string              ← PSN/ID (opcional)
+            ├── accusedNames: string[]           ← Pilotos infractores (múltiples)
             ├── trackId: string
+            ├── trackName: string
+            ├── round: number
+            ├── lap: string                      ← Vuelta del incidente (opcional)
+            ├── minute: string                   ← Minuto de carrera (opcional, resistencia)
             ├── description: string
-            ├── evidence: string[]               ← URLs de clips/capturas
-            ├── status: 'pending' | 'reviewing' | 'resolved' | 'dismissed'
+            ├── evidence: string                 ← URL de video YouTube
+            ├── status: 'pending' | 'reviewing' | 'accepted' | 'rejected' | 'resolved'
             ├── resolution: string | null
-            ├── sanctionId: string | null        ← Si resultó en sanción
-            ├── createdAt, updatedAt
-            └── resolvedBy: string | null
+            ├── penaltyId: string | null         ← Si resultó en sanción
+            ├── resolvedBy: string | null
+            ├── resolvedAt: string | null
+            └── createdAt, updatedAt
 ```
 
 ### 9.2 Colecciones de Nivel Superior (adicionales)
@@ -1502,46 +1558,89 @@ El contenido del reglamento unificado incorpora las mejores prácticas extraída
 
 ---
 
-## 12. Actualizaciones Recientes (Marzo 2026)
+## 12. Actualizaciones Recientes (Marzo – Junio 2026)
 
 ### 12.1 Mejoras Implementadas
 
-| Fecha      | Funcionalidad Mejorada             | Detalle                                                                                    | Impacto  |
-| ---------- | ---------------------------------- | ------------------------------------------------------------------------------------------ | -------- |
-| 08/03/2026 | Cambio de neumáticos obligatorio   | Agregado toggle "Cambio neumaticos obligatorio" en reglas de eventos                       | 🟢 Alto  |
-| 08/03/2026 | Paradas obligatorias en boxes      | Agregado campo numérico "Paradas obligatorias" en reglas de eventos                        | 🟢 Alto  |
-| 08/03/2026 | Visualización de reglas en cliente | Nuevas reglas se muestran como RulePill en vista pública de eventos                        | 🟢 Alto  |
-| 08/03/2026 | Validación participantes ronda 2   | Select para ronda 2 solo muestra participantes de ronda 1                                  | 🟢 Medio |
-| 08/03/2026 | Modal de registro mejorado         | Mensaje de confirmación dentro del modal (éxito, waitlist, error), scroll al top al cerrar | 🟢 Alto  |
-| 08/03/2026 | Reglas Firebase Storage            | Actualizadas para permitir uploads a `events/` y `championships/` paths                    | 🟢 Alto  |
-| 08/03/2026 | Equipamiento sin imágenes externas | Reemplazo de imágenes Amazon con emojis para evitar bloqueos por hotlinking                | 🟢 Bajo  |
-| 08/03/2026 | Límite de tamaño de imágenes       | Arreglado límite de 1MB en Firebase Storage para banners de eventos                        | 🟢 Medio |
-| 08/03/2026 | Badges en dashboard admin          | Agregados pills para nuevas reglas en vista de lista de eventos                            | 🟢 Bajo  |
+| Fecha      | Funcionalidad Mejorada                       | Detalle                                                                                                                                                                                                         | Impacto  |
+| ---------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 08/03/2026 | Cambio de neumáticos obligatorio             | Agregado toggle "Cambio neumaticos obligatorio" en reglas de eventos                                                                                                                                            | 🟢 Alto  |
+| 08/03/2026 | Paradas obligatorias en boxes                | Agregado campo numérico "Paradas obligatorias" en reglas de eventos                                                                                                                                             | 🟢 Alto  |
+| 08/03/2026 | Visualización de reglas en cliente           | Nuevas reglas se muestran como RulePill en vista pública de eventos                                                                                                                                             | 🟢 Alto  |
+| 08/03/2026 | Validación participantes ronda 2             | Select para ronda 2 solo muestra participantes de ronda 1                                                                                                                                                       | 🟢 Medio |
+| 08/03/2026 | Modal de registro mejorado                   | Mensaje de confirmación dentro del modal (éxito, waitlist, error), scroll al top al cerrar                                                                                                                      | 🟢 Alto  |
+| 08/03/2026 | Reglas Firebase Storage                      | Actualizadas para permitir uploads a `events/` y `championships/` paths                                                                                                                                         | 🟢 Alto  |
+| 08/03/2026 | Equipamiento sin imágenes externas           | Reemplazo de imágenes Amazon con emojis para evitar bloqueos por hotlinking                                                                                                                                     | 🟢 Bajo  |
+| 08/03/2026 | Límite de tamaño de imágenes                 | Arreglado límite de 1MB en Firebase Storage para banners de eventos                                                                                                                                             | 🟢 Medio |
+| 08/03/2026 | Badges en dashboard admin                    | Agregados pills para nuevas reglas en vista de lista de eventos                                                                                                                                                 | 🟢 Bajo  |
+| Jun/2026   | x8 multiplicador de tiempo                   | Agregada opción ×8 en TIME_MULTIPLIER_OPTIONS (entre ×5 y ×10)                                                                                                                                                  | 🟢 Bajo  |
+| Jun/2026   | Dragon Trail – Seaside Reverse               | Nuevo circuito agregado a GT7_TRACKS                                                                                                                                                                            | 🟢 Bajo  |
+| Jun/2026   | Slipstream configurable por sesión           | Campos `qualySlipstream` y `raceSlipstream` por circuito; chips en vista pública                                                                                                                                | 🟢 Alto  |
+| Jun/2026   | Combustible inicial (%)                      | Campo `startingFuel` por circuito (0–100 % paso 5); chip en vista pública                                                                                                                                       | 🟢 Medio |
+| Jun/2026   | Desgaste qualy                               | Campo `qualyTireWear` para activar desgaste de neumáticos en sesión de clasificación                                                                                                                            | 🟢 Medio |
+| Jun/2026   | Penalizaciones específicas                   | Campos penaltyShortcut / penaltyWall / penaltyPitLine / penaltyCarCollision por circuito                                                                                                                        | 🟢 Medio |
+| Jun/2026   | Sección Clasificación en modal               | Nuevo bloque "🎯 Clasificación (Qualy)" separado del bloque de Carrera en el form                                                                                                                               | 🟢 Medio |
+| Jun/2026   | Tasas de repostaje por categoría             | `settings.fuelRefillRates` (L/min) por categoría (Gr1–Street) en Step 4 del form                                                                                                                                | 🟢 Medio |
+| Jun/2026   | Pre-Qualy                                    | Sesión previa configurable: fecha, circuito, autos, reglas propias; guard en Firestore                                                                                                                          | 🟢 Alto  |
+| Jun/2026   | Vista pública Pre-Qualy                      | Card púrpura en pestaña Calendario mostrando toda la info del Pre-Qualy                                                                                                                                         | 🟢 Alto  |
+| Jun/2026   | Admin: Pre-Qualy display                     | Card informativa en TracksTab del panel admin cuando Pre-Qualy está activo                                                                                                                                      | 🟢 Medio |
+| Mar/2026   | UX ChampionshipForm — 6 pasos                | Step 4 dividido en "Participantes" + "Opciones"; ahora 6 pasos totales en el wizard                                                                                                                             | 🟢 Medio |
+| Mar/2026   | Modal de circuito — 4 pestañas               | Modal de circuito reorganizado en tabs: 📍 Circuito · 🎯 Qualy · ⚙️ Carrera · 🚦 Reglas                                                                                                                         | 🟢 Alto  |
+| Mar/2026   | TracksManager — botón Resultados             | Botón "Resultados" siempre visible (ya no requería `editMode`)                                                                                                                                                  | 🟢 Bajo  |
+| Mar/2026   | Reclamaciones — múltiples infractores        | `accusedNames[]` reemplaza `accusedName` string; chips de selección en formulario público                                                                                                                       | 🟢 Alto  |
+| Mar/2026   | Reclamaciones — restricción 48h              | Formulario público solo muestra carreras dentro de las 48h posteriores al evento                                                                                                                                | 🟢 Alto  |
+| Mar/2026   | Reclamaciones — campo minuto                 | Nuevo campo `minute` en modelo Claim (vuelta para sprints, minuto para resistencia)                                                                                                                             | 🟢 Medio |
+| Mar/2026   | FirebaseService — `createClaim`              | Método faltante añadido al servicio; valida modelo antes de escribir en Firestore                                                                                                                               | 🟢 Alto  |
+| Mar/2026   | Comisarios — nuevo rol                       | `isComisario()` en AuthContext; panel admin restringe vistas según rol (solo Pistas + Sanciones)                                                                                                                | 🟢 Alto  |
+| Jun/2026   | Admins = comisarios                          | `isComisario()` ahora devuelve `true` si el usuario es admin; `userIsComisario = isComisario() && !isAdmin()` preserva acceso completo de admins                                                                | 🟢 Alto  |
+| Jun/2026   | Pre-Qualy — carga de resultados              | `savePreQualyResults()` en FirebaseService; tabla inline en admin (TracksTab) con add/edit/delete/save, ordenados por tiempo; tab `🎯 Pre-Qualy` en vista pública con clasificados (medallas) y no-clasificados | 🟢 Alto  |
+| Jun/2026   | Inscripción — GT7 ID siempre visible         | `visibleFields` en `RegistrationForm` fuerza `gt7Id` como primer campo aunque no esté en la config `fields` almacenada; submit itera `visibleFields` en lugar de `fields`                                       | 🟢 Alto  |
+| Jun/2026   | ChampionshipForm — campo `name` eliminado    | Removido 'Nombre real' (`name`) del catálogo de campos opcionales; `gt7Id` establecido como campo requerido siempre activo; defaults cambiados a `['gt7Id', 'psnId']`                                           | 🟢 Medio |
+| Jun/2026   | RegistrationsTab — GT7 ID como identificador | Columna principal muestra `reg.gt7Id \|\| reg.psnId \|\| reg.name`; modo edición inline por fila (botón ✏️) guarda cambios con `updateRegistrationData()`                                                       | 🟢 Alto  |
+| Jun/2026   | FirebaseService — `updateRegistrationData`   | Nuevo método: lee array `registrations[]`, parcialmente actualiza entrada por `id`, escribe array completo de vuelta                                                                                            | 🟢 Medio |
+| Jun/2026   | Pilotos sin asignar — tabla con columnas     | `unassigned` filtra por `r.gt7Id \|\| r.psnId \|\| r.name` (antes solo `r.name`); tabla con columnas GT7 ID y PSN ID en vista pública                                                                           | 🟢 Medio |
 
 ### 12.2 Problemas Resueltos
 
-| Problema                                   | Solución Implementada                         | Estado      |
-| ------------------------------------------ | --------------------------------------------- | ----------- |
-| Imágenes de equipamiento no cargan         | Reemplazadas con emojis                       | ✅ Resuelto |
-| Límite 1MB en Firebase para banners        | Actualizadas reglas de Storage                | ✅ Resuelto |
-| Nuevas reglas no visibles en público       | Agregados RulePill en vista de eventos        | ✅ Resuelto |
-| Participantes ronda 2 incluyen todos       | Filtrado del select para mostrar solo ronda 1 | ✅ Resuelto |
-| Mensaje de registro se oculta por reload   | Modal con confirmación interna, scroll al top | ✅ Resuelto |
-| Página queda en footer después de registro | Scroll automático al top al cerrar modal      | ✅ Resuelto |
+| Problema                                            | Solución Implementada                                                                                             | Estado      |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------- |
+| Imágenes de equipamiento no cargan                  | Reemplazadas con emojis                                                                                           | ✅ Resuelto |
+| Límite 1MB en Firebase para banners                 | Actualizadas reglas de Storage                                                                                    | ✅ Resuelto |
+| Nuevas reglas no visibles en público                | Agregados RulePill en vista de eventos                                                                            | ✅ Resuelto |
+| Participantes ronda 2 incluyen todos                | Filtrado del select para mostrar solo ronda 1                                                                     | ✅ Resuelto |
+| Mensaje de registro se oculta por reload            | Modal con confirmación interna, scroll al top                                                                     | ✅ Resuelto |
+| Página queda en footer después de registro          | Scroll automático al top al cerrar modal                                                                          | ✅ Resuelto |
+| GT7 ID invisible en formulario de inscripción       | `fields` almacenado como `['name','psnId']` en campeonatos legacy; `visibleFields` ahora siempre prepende `gt7Id` | ✅ Resuelto |
+| GT7 ID no se guardaba al registrarse                | Submit iteraba `fields` (sin `gt7Id`); corregido para iterar `visibleFields`                                      | ✅ Resuelto |
+| RegistrationsTab mostraba campo obsoleto `reg.name` | Actualizado para mostrar `reg.gt7Id \|\| reg.psnId \|\| reg.name`                                                 | ✅ Resuelto |
+| Filtro "sin asignar" roto en campeonatos individ.   | Comparaba solo `r.name` (vacío en nuevas inscripciones); ahora usa `r.gt7Id \|\| r.psnId \|\| r.name`             | ✅ Resuelto |
+| Admin no podía editar datos de inscripciones        | Sin método ni UI para edición; agregado `updateRegistrationData()` + edición inline ✏️ por fila                   | ✅ Resuelto |
+| Admins no podían usar panel de comisario            | `isComisario()` solo verificaba lista de emails separada; ahora `isAdmin()` también retorna `true`                | ✅ Resuelto |
 
 ### 12.3 Estado del Roadmap Actualizado
 
-| Funcionalidad                     | Estado Anterior | Estado Actual | Notas                    |
-| --------------------------------- | --------------- | ------------- | ------------------------ |
-| Sistema de Divisiones             | ❌ No existe    | ❌ No existe  | Pendiente implementación |
-| Sistema de Sanciones Configurable | ✅ Completo     | ✅ Completo   | Ya implementado          |
-| Formato Sprint + Carrera          | ❌ No existe    | ❌ No existe  | Pendiente                |
-| Standings Calculator Avanzado     | ✅ Completo     | ✅ Completo   | Ya implementado          |
-| Inscripción Pública de Pilotos    | ✅ Completo     | ✅ Completo   | Ya implementado          |
-| Caster, Host y Streaming por Sala | ✅ Completo     | ✅ Completo   | Ya implementado          |
-| Reglamento por Campeonato         | ✅ Completo     | ✅ Completo   | Ya implementado          |
-| Cambio Neumáticos Obligatorio     | ❌ No existe    | ✅ Completo   | ✅ Implementado          |
-| Paradas Obligatorias en Boxes     | ❌ No existe    | ✅ Completo   | ✅ Implementado          |
+| Funcionalidad                      | Estado Anterior | Estado Actual | Notas                                                                  |
+| ---------------------------------- | --------------- | ------------- | ---------------------------------------------------------------------- |
+| Sistema de Divisiones              | ❌ No existe    | ❌ No existe  | Pendiente implementación                                               |
+| Sistema de Sanciones Configurable  | ✅ Completo     | ✅ Completo   | Ya implementado                                                        |
+| Formato Sprint + Carrera           | ❌ No existe    | ❌ No existe  | Pendiente                                                              |
+| Standings Calculator Avanzado      | ✅ Completo     | ✅ Completo   | Ya implementado                                                        |
+| Inscripción Pública de Pilotos     | ✅ Completo     | ✅ Completo   | Ya implementado                                                        |
+| Caster, Host y Streaming por Sala  | ✅ Completo     | ✅ Completo   | Ya implementado                                                        |
+| Reglamento por Campeonato          | ✅ Completo     | ✅ Completo   | Ya implementado                                                        |
+| Cambio Neumáticos Obligatorio      | ❌ No existe    | ✅ Completo   | ✅ Implementado                                                        |
+| Paradas Obligatorias en Boxes      | ❌ No existe    | ✅ Completo   | ✅ Implementado                                                        |
+| Slipstream configurable            | ❌ No existe    | ✅ Completo   | ✅ Implementado Jun/2026                                               |
+| Penalizaciones específicas         | ❌ No existe    | ✅ Completo   | ✅ Implementado Jun/2026                                               |
+| Tasas de repostaje por categoría   | ❌ No existe    | ✅ Completo   | ✅ Implementado Jun/2026                                               |
+| Pre-Qualy                          | ❌ No existe    | ✅ Completo   | ✅ Implementado Jun/2026                                               |
+| UX ChampionshipForm (6 pasos)      | 5 pasos         | ✅ Completo   | ✅ Implementado Mar/2026                                               |
+| Modal circuito con pestañas        | ❌ No existe    | ✅ Completo   | ✅ Implementado Mar/2026                                               |
+| Sistema de Reclamaciones mejorado  | Parcial         | ✅ Completo   | ✅ Multi-infractor, 48h, minuto Mar/2026                               |
+| Rol Comisario (acceso restringido) | Parcial         | ✅ Completo   | ✅ Implementado Mar/2026; admins = comisarios automáticamente Jun/2026 |
+| Pre-Qualy resultados en admin      | ❌ No existía   | ✅ Completo   | ✅ Tabla inline + tab público Jun/2026                                 |
+| Inscripción — GT7 ID como primario | ❌ Campo oculto | ✅ Completo   | ✅ `visibleFields` + submit fix Jun/2026                               |
+| Edición inline de inscripciones    | ❌ No existía   | ✅ Completo   | ✅ `updateRegistrationData()` + ✏️ UI Jun/2026                         |
 
 ### 12.4 Próximos Pasos Recomendados
 
@@ -1550,6 +1649,7 @@ El contenido del reglamento unificado incorpora las mejores prácticas extraída
 3. **Mejorar Standings**: Adoptar motor avanzado de hgt_gt7 con gráficas de evolución
 4. **Sistema de Replays**: Upload y moderación de clips de carreras
 5. **Unificación con hgt_gt7**: Extraer componentes compartidos y utilities comunes
+6. **Notificaciones a pilotos**: Avisar vía correo/push cuando una reclamación es resuelta
 
 ### 11.4 Archivos Creados
 

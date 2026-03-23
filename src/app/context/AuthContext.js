@@ -51,6 +51,19 @@ export function AuthProvider({ children }) {
         return currentUser && adminEmails.includes(currentUser.email);
     };
 
+    // Check if user is comisario (puede ver pistas y reclamaciones)
+    // Los admins también son comisarios automáticamente
+    const isComisario = () => {
+        const comisarioEmails = [
+            // Agregar emails de comisarios aquí
+        ];
+
+        return currentUser && (
+            comisarioEmails.includes(currentUser.email) ||
+            isAdmin()  // Los admins siempre tienen permisos de comisario
+        );
+    };
+
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setCurrentUser(user);
@@ -65,6 +78,7 @@ export function AuthProvider({ children }) {
         login,
         logout,
         isAdmin,
+        isComisario,
         loading
     };
 

@@ -16,7 +16,7 @@ export default function ChampionshipDetail() {
     const searchParams = useSearchParams();
     const championshipId = searchParams.get("id");
 
-    const { currentUser, loading: authLoading } = useAuth();
+    const { currentUser, isAdmin, isComisario, loading: authLoading } = useAuth();
     const { championships, updateChampionship, deleteChampionship, loading: championshipsLoading } = useChampionship();
 
     const [championship, setChampionship] = useState(null);
@@ -29,6 +29,14 @@ export default function ChampionshipDetail() {
     const [penalties, setPenalties] = useState([]);
     const [divisions, setDivisions] = useState([]);
     const [championshipsTeams, setChampionshipsTeams] = useState({}); // Equipos por campeonato
+
+    // Si es comisario (sin admin), arrancar en la tab de pistas
+    useEffect(() => {
+        if (isComisario() && !isAdmin()) {
+            setActiveTab('tracks');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Redirigir si no está autenticado
     useEffect(() => {
@@ -107,6 +115,23 @@ export default function ChampionshipDetail() {
 
     if (!currentUser) {
         return null;
+    }
+
+    // Bloquear acceso si no es admin ni comisario
+    if (!authLoading && !isAdmin() && !isComisario()) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-4">
+                <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-2xl p-10 text-center max-w-sm">
+                    <div className="text-5xl mb-4">🚫</div>
+                    <h2 className="text-2xl font-bold text-white mb-2">Acceso Denegado</h2>
+                    <p className="text-gray-400 text-sm mb-6">No tienes permisos para acceder al panel de administración.</p>
+                    <button onClick={() => router.push('/')}
+                        className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-all">
+                        Ir al inicio
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     // Si NO hay championshipId, mostrar lista de campeonatos
@@ -248,27 +273,33 @@ export default function ChampionshipDetail() {
         return null;
     }
 
-    // Construir tabs según el tipo de campeonato
-    const tabs = [
-        { id: 'info', label: '📋 Información', icon: '📋' }
-    ];
+    // Construir tabs según el tipo de campeonato y el rol del usuario
+    const userIsComisario = isComisario() && !isAdmin();
+    const tabs = [];
+
+    // Comisarios solo ven pistas y sanciones/reclamaciones
+    if (!userIsComisario) {
+        tabs.push({ id: 'info', label: '📋 Información', icon: '📋' });
+    }
 
     // Solo mostrar equipos si es campeonato por equipos
-    if (championship.settings?.isTeamChampionship) {
+    if (!userIsComisario && championship.settings?.isTeamChampionship) {
         tabs.push({ id: 'teams', label: '🏁 Equipos', icon: '🏁', count: teams.length });
     }
 
-    // Siempre mostrar pilotos
-    const driversCount = championship.settings?.isTeamChampionship
-        ? teams.reduce((sum, t) => sum + (t.drivers?.length || 0), 0)
-        : (championship.drivers?.length || 0);
-    tabs.push({ id: 'drivers', label: '🏎️ Pilotos', icon: '🏎️', count: driversCount });
+    // Siempre mostrar pilotos (solo admins)
+    if (!userIsComisario) {
+        const driversCount = championship.settings?.isTeamChampionship
+            ? teams.reduce((sum, t) => sum + (t.drivers?.length || 0), 0)
+            : (championship.drivers?.length || 0);
+        tabs.push({ id: 'drivers', label: '🏎️ Pilotos', icon: '🏎️', count: driversCount });
+    }
 
-    // Siempre mostrar pistas
+    // Pistas — visible para todos (admin y comisario)
     tabs.push({ id: 'tracks', label: '🗺 Pistas', icon: '🗺', count: tracks.length });
 
-    // Mostrar inscripciones si están habilitadas
-    if (championship.registration?.enabled) {
+    // Inscripciones solo para admins
+    if (!userIsComisario && championship.registration?.enabled) {
         const pendingCount = (championship.registrations || []).filter(r => r.status === 'pending').length;
         tabs.push({
             id: 'registrations',
@@ -279,7 +310,7 @@ export default function ChampionshipDetail() {
         });
     }
 
-    // Mostrar sanciones si están habilitadas
+    // Sanciones/Reclamaciones — visible para todos (admin y comisario)
     if (championship.penaltiesConfig?.enabled) {
         tabs.push({
             id: 'penalties',
@@ -289,8 +320,8 @@ export default function ChampionshipDetail() {
         });
     }
 
-    // Mostrar divisiones si están habilitadas
-    if (championship.divisionsConfig?.enabled) {
+    // Divisiones solo para admins
+    if (!userIsComisario && championship.divisionsConfig?.enabled) {
         tabs.push({
             id: 'divisions',
             label: '🏆 Divisiones',
@@ -324,12 +355,22 @@ export default function ChampionshipDetail() {
                         </div>
 
                         <div className="flex gap-3">
-                            <button
-                                onClick={() => setEditMode(!editMode)}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all"
-                            >
-                                {editMode ? '✅ Guardar' : '✏️ Editar'}
-                            </button>
+                            {!userIsComisario && (
+                                <>
+                                    <button
+                                        onClick={() => router.push(`/championshipsAdmin/edit?id=${championshipId}`)}
+                                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all font-medium"
+                                    >
+                                        ✏️ Editar Campeonato
+                                    </button>
+                                    <button
+                                        onClick={() => setEditMode(!editMode)}
+                                        className={`px-4 py-2 rounded-lg transition-all font-medium ${editMode ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
+                                    >
+                                        {editMode ? '🔒 Cerrar edición' : '⚡ Edición rápida'}
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -448,6 +489,7 @@ import StatusBadge from '../components/common/StatusBadge';
 
 // Tab de Información
 function InfoTab({ championship, editMode, onUpdate }) {
+    const router = useRouter();
     const [formData, setFormData] = useState({
         name: championship.name,
         shortName: championship.shortName,
@@ -457,8 +499,10 @@ function InfoTab({ championship, editMode, onUpdate }) {
         startDate: championship.startDate?.split('T')[0] || '',
         endDate: championship.endDate?.split('T')[0] || ''
     });
+    const [saving, setSaving] = useState(false);
 
     const handleSave = async () => {
+        setSaving(true);
         try {
             await FirebaseService.updateChampionship(championship.id, {
                 ...formData,
@@ -468,12 +512,32 @@ function InfoTab({ championship, editMode, onUpdate }) {
             onUpdate();
         } catch (error) {
             alert('Error al guardar: ' + error.message);
+        } finally {
+            setSaving(false);
         }
     };
 
+    const reg = championship.registration;
+    const streaming = championship.streaming;
+    const penalties = championship.penaltiesConfig;
+    const preQualy = championship.preQualy;
+    const divisions = championship.divisionsConfig;
+    const approvedCount = (championship.registrations || []).filter(r => r.status === 'approved').length;
+    const pendingCount = (championship.registrations || []).filter(r => r.status === 'pending').length;
+
     return (
         <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-white mb-4">Información General</h2>
+            <div className="flex items-center justify-between mb-2">
+                <h2 className="text-2xl font-bold text-white">Información General</h2>
+                {!editMode && (
+                    <button
+                        onClick={() => router.push(`/championshipsAdmin/edit?id=${championship.id}`)}
+                        className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/30 text-white rounded-lg transition-all text-sm font-medium"
+                    >
+                        ✏️ Editar configuración completa →
+                    </button>
+                )}
+            </div>
 
             {editMode ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -553,25 +617,106 @@ function InfoTab({ championship, editMode, onUpdate }) {
                     <div className="md:col-span-2">
                         <button
                             onClick={handleSave}
-                            className="px-6 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold rounded-lg"
+                            disabled={saving}
+                            className="px-6 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold rounded-lg disabled:opacity-50"
                         >
-                            💾 Guardar Cambios
+                            {saving ? '⏳ Guardando...' : '💾 Guardar Cambios'}
                         </button>
                     </div>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <InfoField label="Nombre" value={championship.name} />
-                    <InfoField label="Nombre Corto" value={championship.shortName} />
-                    <InfoField label="Descripción" value={championship.description} className="md:col-span-2" />
-                    <InfoField label="Temporada" value={championship.season} />
-                    <InfoField label="Estado" value={<StatusBadge status={championship.status} />} />
-                    {championship.startDate && (
-                        <InfoField label="Fecha Inicio" value={new Date(championship.startDate).toLocaleDateString()} />
-                    )}
-                    {championship.endDate && (
-                        <InfoField label="Fecha Fin" value={new Date(championship.endDate).toLocaleDateString()} />
-                    )}
+                <div className="space-y-6">
+                    {/* Datos básicos */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <ConfigCard label="Nombre" value={championship.name} icon="🏆" />
+                        <ConfigCard label="Nombre Corto" value={championship.shortName} icon="🔖" />
+                        <ConfigCard label="Temporada" value={championship.season} icon="📅" />
+                        <ConfigCard label="Estado" value={<StatusBadge status={championship.status} />} icon="🔵" />
+                        <ConfigCard label="Tipo" value={championship.settings?.isTeamChampionship ? '👥 Por Equipos' : '👤 Individual'} icon="🎮" />
+                        <ConfigCard label="Categorías" value={(championship.categories || []).join(', ') || '—'} icon="🏎️" />
+                        {championship.startDate && (
+                            <ConfigCard label="Fecha Inicio" value={new Date(championship.startDate).toLocaleDateString('es-ES')} icon="🟢" />
+                        )}
+                        {championship.endDate && (
+                            <ConfigCard label="Fecha Fin" value={new Date(championship.endDate).toLocaleDateString('es-ES')} icon="🔴" />
+                        )}
+                        {championship.description && (
+                            <div className="md:col-span-2 bg-white/5 border border-white/10 rounded-lg p-4">
+                                <p className="text-xs text-gray-400 mb-1">📝 Descripción</p>
+                                <p className="text-white text-sm">{championship.description}</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Inscripciones */}
+                    <div className={`rounded-xl border p-4 ${reg?.enabled ? 'bg-green-500/10 border-green-400/30' : 'bg-white/5 border-white/10'}`}>
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-white font-semibold flex items-center gap-2">📝 Inscripciones públicas</span>
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${reg?.enabled ? 'bg-green-500/30 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
+                                {reg?.enabled ? '✅ Habilitadas' : '❌ Deshabilitadas'}
+                            </span>
+                        </div>
+                        {reg?.enabled && (
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                <div className="text-center bg-white/5 rounded-lg p-2">
+                                    <div className="text-2xl font-bold text-green-400">{approvedCount}</div>
+                                    <div className="text-gray-400 text-xs">Aprobados</div>
+                                </div>
+                                <div className="text-center bg-white/5 rounded-lg p-2">
+                                    <div className="text-2xl font-bold text-yellow-400">{pendingCount}</div>
+                                    <div className="text-gray-400 text-xs">Pendientes</div>
+                                </div>
+                                <div className="text-center bg-white/5 rounded-lg p-2">
+                                    <div className="text-2xl font-bold text-white">{reg.maxParticipants || '∞'}</div>
+                                    <div className="text-gray-400 text-xs">Cupo máximo</div>
+                                </div>
+                                <div className="text-center bg-white/5 rounded-lg p-2">
+                                    <div className="text-sm font-semibold text-white">{reg.requiresApproval ? '✋ Manual' : '⚡ Auto'}</div>
+                                    <div className="text-gray-400 text-xs">Aprobación</div>
+                                </div>
+                                {reg.deadline && (
+                                    <div className="col-span-2 md:col-span-4 bg-white/5 rounded-lg p-2 text-center">
+                                        <span className="text-orange-300 text-xs">📅 Plazo: {new Date(reg.deadline + 'T23:59:59').toLocaleDateString('es-ES')}</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Módulos activos */}
+                    <div>
+                        <p className="text-sm text-gray-400 mb-3 font-medium">⚙️ Módulos activados</p>
+                        <div className="flex flex-wrap gap-2">
+                            {penalties?.enabled && (
+                                <span className="bg-red-500/20 text-red-300 border border-red-400/30 px-3 py-1.5 rounded-full text-xs font-medium">
+                                    ⚠️ Sanciones y reclamaciones
+                                </span>
+                            )}
+                            {divisions?.enabled && (
+                                <span className="bg-purple-500/20 text-purple-300 border border-purple-400/30 px-3 py-1.5 rounded-full text-xs font-medium">
+                                    🏟️ Divisiones/Salas ({divisions.maxDriversPerDivision} pilotos c/u)
+                                </span>
+                            )}
+                            {preQualy?.enabled && (
+                                <span className="bg-blue-500/20 text-blue-300 border border-blue-400/30 px-3 py-1.5 rounded-full text-xs font-medium">
+                                    🏎️ Pre-Qualy ({preQualy.track || 'sin circuito'})
+                                </span>
+                            )}
+                            {streaming?.casterName && (
+                                <span className="bg-yellow-500/20 text-yellow-300 border border-yellow-400/30 px-3 py-1.5 rounded-full text-xs font-medium">
+                                    📺 Streaming ({streaming.casterName})
+                                </span>
+                            )}
+                            {championship.carUsageTracking?.enabled && (
+                                <span className="bg-teal-500/20 text-teal-300 border border-teal-400/30 px-3 py-1.5 rounded-full text-xs font-medium">
+                                    🚗 Control de uso de autos
+                                </span>
+                            )}
+                            {!penalties?.enabled && !divisions?.enabled && !preQualy?.enabled && !streaming?.casterName && !championship.carUsageTracking?.enabled && (
+                                <span className="text-gray-500 text-sm">Ningún módulo adicional activado</span>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
@@ -583,6 +728,15 @@ function InfoField({ label, value, className = '' }) {
         <div className={className}>
             <p className="text-sm text-gray-400 mb-1">{label}</p>
             <p className="text-white text-lg">{value || '-'}</p>
+        </div>
+    );
+}
+
+function ConfigCard({ label, value, icon }) {
+    return (
+        <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+            <p className="text-xs text-gray-400 mb-1">{icon} {label}</p>
+            <div className="text-white text-sm font-medium">{value || '—'}</div>
         </div>
     );
 }
@@ -895,6 +1049,15 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
     const [fastestLapDriver, setFastestLapDriver] = useState('');
     const [savingResults, setSavingResults] = useState(false);
 
+    // Estados para resultados Pre-Qualy
+    const [preQualyResults, setPreQualyResults] = useState(
+        () => [...(championship?.preQualy?.results || [])]
+    );
+    const [editingPreQualy, setEditingPreQualy] = useState(false);
+    const [savingPreQualy, setSavingPreQualy] = useState(false);
+    const [newPQRow, setNewPQRow] = useState({ driverName: '', time: '', classified: true });
+    const [showAddPQ, setShowAddPQ] = useState(false);
+
     // Obtener todos los pilotos según tipo de campeonato
     const allDrivers = championship?.settings?.isTeamChampionship
         ? teams.flatMap(team =>
@@ -1062,6 +1225,231 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
 
     return (
         <div className="text-white">
+            {/* Pre-Qualy info + resultados si está configurada */}
+            {championship?.preQualy?.enabled && (
+                <div className="mb-6 bg-purple-900/30 border border-purple-400/40 rounded-xl p-5 space-y-5">
+                    {/* Config */}
+                    <div>
+                        <div className="flex items-center gap-3 mb-3">
+                            <span className="text-xl font-bold text-purple-400">🎯</span>
+                            <h3 className="text-lg font-bold text-white">Pre-Qualy</h3>
+                            <span className="text-xs text-purple-300 bg-purple-500/20 px-2 py-1 rounded-full border border-purple-400/30">Sesión previa</span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                            {championship.preQualy.date && (
+                                <div className="bg-white/5 rounded-lg p-2">
+                                    <div className="text-gray-400 text-xs mb-1">Fecha</div>
+                                    <div className="text-white">{new Date(championship.preQualy.date).toLocaleDateString('es-ES')}</div>
+                                </div>
+                            )}
+                            {championship.preQualy.track && (
+                                <div className="bg-white/5 rounded-lg p-2">
+                                    <div className="text-gray-400 text-xs mb-1">Circuito</div>
+                                    <div className="text-white">{championship.preQualy.track}</div>
+                                </div>
+                            )}
+                            <div className="bg-white/5 rounded-lg p-2">
+                                <div className="text-gray-400 text-xs mb-1">Duración</div>
+                                <div className="text-white">{championship.preQualy.duration ?? 15} min</div>
+                            </div>
+                            {championship.preQualy.allowedCars?.length > 0 && (
+                                <div className="bg-white/5 rounded-lg p-2">
+                                    <div className="text-gray-400 text-xs mb-1">Autos</div>
+                                    <div className="text-white text-xs">{championship.preQualy.allowedCars.join(', ')}</div>
+                                </div>
+                            )}
+                        </div>
+                        {championship.preQualy.notes && (
+                            <p className="mt-3 text-purple-200 text-sm bg-purple-500/10 rounded-lg p-2">{championship.preQualy.notes}</p>
+                        )}
+                    </div>
+
+                    {/* Resultados Pre-Qualy */}
+                    <div className="border-t border-purple-400/20 pt-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-bold text-purple-300 flex items-center gap-2">
+                                🏁 Resultados Pre-Qualy
+                                <span className="text-xs font-normal text-gray-400">({preQualyResults.length} pilotos)</span>
+                            </h4>
+                            <div className="flex gap-2">
+                                {editingPreQualy && (
+                                    <button
+                                        onClick={() => { setShowAddPQ(true); setNewPQRow({ driverName: '', time: '', classified: true }); }}
+                                        className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg font-medium"
+                                    >
+                                        + Agregar piloto
+                                    </button>
+                                )}
+                                <button
+                                    onClick={async () => {
+                                        if (editingPreQualy) {
+                                            // Guardar
+                                            setSavingPreQualy(true);
+                                            try {
+                                                const sorted = [...preQualyResults].sort((a, b) => a.time.localeCompare(b.time, undefined, { numeric: false }));
+                                                await FirebaseService.savePreQualyResults(championshipId, sorted);
+                                                setPreQualyResults(sorted);
+                                                onUpdate();
+                                            } catch (e) {
+                                                alert('Error al guardar: ' + e.message);
+                                            } finally {
+                                                setSavingPreQualy(false);
+                                            }
+                                            setEditingPreQualy(false);
+                                        } else {
+                                            setEditingPreQualy(true);
+                                        }
+                                    }}
+                                    disabled={savingPreQualy}
+                                    className={`px-3 py-1.5 text-white text-xs rounded-lg font-medium transition-all disabled:opacity-50 ${editingPreQualy ? 'bg-green-600 hover:bg-green-700' : 'bg-white/10 hover:bg-white/20 border border-white/30'}`}
+                                >
+                                    {savingPreQualy ? '⏳ Guardando...' : editingPreQualy ? '💾 Guardar resultados' : '✏️ Editar resultados'}
+                                </button>
+                                {editingPreQualy && (
+                                    <button
+                                        onClick={() => { setEditingPreQualy(false); setPreQualyResults(championship?.preQualy?.results || []); setShowAddPQ(false); }}
+                                        className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-gray-300 text-xs rounded-lg"
+                                    >
+                                        Cancelar
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Tabla de resultados */}
+                        {preQualyResults.length > 0 ? (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="text-left text-xs text-gray-400 border-b border-white/10">
+                                            <th className="pb-2 pr-4 w-8">#</th>
+                                            <th className="pb-2 pr-4">Piloto</th>
+                                            <th className="pb-2 pr-4">Tiempo</th>
+                                            <th className="pb-2 pr-4">Estado</th>
+                                            {editingPreQualy && <th className="pb-2"></th>}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {preQualyResults.map((r, idx) => (
+                                            <tr key={idx} className="hover:bg-white/5">
+                                                <td className="py-2 pr-4 text-gray-400 font-mono">{idx + 1}</td>
+                                                <td className="py-2 pr-4 text-white font-medium">
+                                                    {editingPreQualy ? (
+                                                        <input
+                                                            type="text"
+                                                            value={r.driverName}
+                                                            onChange={e => {
+                                                                const updated = [...preQualyResults];
+                                                                updated[idx] = { ...updated[idx], driverName: e.target.value };
+                                                                setPreQualyResults(updated);
+                                                            }}
+                                                            list="pq-drivers-list"
+                                                            className="bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs w-40"
+                                                        />
+                                                    ) : r.driverName}
+                                                </td>
+                                                <td className="py-2 pr-4 font-mono text-yellow-300">
+                                                    {editingPreQualy ? (
+                                                        <input
+                                                            type="text"
+                                                            value={r.time}
+                                                            placeholder="1:23.456"
+                                                            onChange={e => {
+                                                                const updated = [...preQualyResults];
+                                                                updated[idx] = { ...updated[idx], time: e.target.value };
+                                                                setPreQualyResults(updated);
+                                                            }}
+                                                            className="bg-white/10 border border-white/20 rounded px-2 py-1 text-yellow-200 text-xs w-28 font-mono"
+                                                        />
+                                                    ) : r.time || '—'}
+                                                </td>
+                                                <td className="py-2 pr-4">
+                                                    {editingPreQualy ? (
+                                                        <button
+                                                            onClick={() => {
+                                                                const updated = [...preQualyResults];
+                                                                updated[idx] = { ...updated[idx], classified: !updated[idx].classified };
+                                                                setPreQualyResults(updated);
+                                                            }}
+                                                            className={`px-2 py-1 rounded text-xs font-medium ${r.classified ? 'bg-green-500/30 text-green-300 border border-green-400/30' : 'bg-red-500/20 text-red-300 border border-red-400/30'}`}
+                                                        >
+                                                            {r.classified ? '✅ Clasificado' : '❌ No clasificado'}
+                                                        </button>
+                                                    ) : (
+                                                        <span className={`px-2 py-1 rounded text-xs font-medium ${r.classified ? 'bg-green-500/20 text-green-300' : 'bg-red-500/10 text-red-400'}`}>
+                                                            {r.classified ? '✅ Clasificado' : '❌ No clasificado'}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                {editingPreQualy && (
+                                                    <td className="py-2">
+                                                        <button
+                                                            onClick={() => setPreQualyResults(prev => prev.filter((_, i) => i !== idx))}
+                                                            className="text-red-400 hover:text-red-300 text-xs px-2"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                <datalist id="pq-drivers-list">
+                                    {allDriverNames.map(n => <option key={n} value={n} />)}
+                                </datalist>
+                            </div>
+                        ) : (
+                            <div className="text-center py-6 text-gray-500 text-sm">
+                                {editingPreQualy ? 'Añade pilotos con el botón "+ Agregar piloto"' : 'Aún no hay resultados cargados. Usa "✏️ Editar resultados".'}
+                            </div>
+                        )}
+
+                        {/* Formulario para agregar nueva fila */}
+                        {editingPreQualy && showAddPQ && (
+                            <div className="mt-3 flex flex-wrap items-center gap-2 p-3 bg-purple-500/10 border border-purple-400/30 rounded-lg">
+                                <input
+                                    type="text"
+                                    placeholder="Nombre del piloto"
+                                    value={newPQRow.driverName}
+                                    onChange={e => setNewPQRow(p => ({ ...p, driverName: e.target.value }))}
+                                    list="pq-drivers-list"
+                                    className="bg-white/10 border border-white/20 rounded px-3 py-1.5 text-white text-sm w-44"
+                                />
+                                <input
+                                    type="text"
+                                    placeholder="Tiempo (1:23.456)"
+                                    value={newPQRow.time}
+                                    onChange={e => setNewPQRow(p => ({ ...p, time: e.target.value }))}
+                                    className="bg-white/10 border border-white/20 rounded px-3 py-1.5 text-yellow-200 text-sm w-36 font-mono"
+                                />
+                                <button
+                                    onClick={() => setNewPQRow(p => ({ ...p, classified: !p.classified }))}
+                                    className={`px-3 py-1.5 rounded text-xs font-medium ${newPQRow.classified ? 'bg-green-600 text-white' : 'bg-red-700/50 text-red-200'}`}
+                                >
+                                    {newPQRow.classified ? '✅ Clasificar' : '❌ No clasificar'}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (!newPQRow.driverName.trim()) return;
+                                        setPreQualyResults(prev => [...prev, { ...newPQRow, driverName: newPQRow.driverName.trim() }]);
+                                        setNewPQRow({ driverName: '', time: '', classified: true });
+                                        setShowAddPQ(false);
+                                    }}
+                                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg font-medium"
+                                >
+                                    ➕ Agregar
+                                </button>
+                                <button
+                                    onClick={() => setShowAddPQ(false)}
+                                    className="px-3 py-1.5 text-gray-400 hover:text-white text-xs"
+                                >Cancelar</button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Usar el nuevo componente TracksManager */}
             <TracksManager
                 championshipId={championshipId}
@@ -1535,6 +1923,8 @@ function RegistrationsTab({ championshipId, championship, onUpdate }) {
     const [filter, setFilter] = useState('all');
     const [saving, setSaving] = useState(false);
     const [selectedIds, setSelectedIds] = useState([]);
+    const [editingReg, setEditingReg] = useState(null); // { id, gt7Id, psnId, country, experience }
+    const [editSaving, setEditSaving] = useState(false);
 
     const registrations = championship.registrations || [];
     const filtered = filter === 'all' ? registrations : registrations.filter(r => r.status === filter);
@@ -1587,15 +1977,61 @@ function RegistrationsTab({ championshipId, championship, onUpdate }) {
         }
     };
 
+    const handleEditSave = async () => {
+        if (!editingReg) return;
+        setEditSaving(true);
+        try {
+            const { id, ...fields } = editingReg;
+            await FirebaseService.updateRegistrationData(championshipId, id, fields);
+            setEditingReg(null);
+            onUpdate();
+        } catch (error) {
+            alert('Error al guardar: ' + error.message);
+        } finally {
+            setEditSaving(false);
+        }
+    };
+
     const statusStyles = {
         pending: { bg: 'bg-yellow-500/20', border: 'border-yellow-400/50', text: 'text-yellow-200', label: '⏳ Pendiente' },
         approved: { bg: 'bg-green-500/20', border: 'border-green-400/50', text: 'text-green-200', label: '✅ Aprobado' },
         rejected: { bg: 'bg-red-500/20', border: 'border-red-400/50', text: 'text-red-200', label: '❌ Rechazado' }
     };
 
+    const reg = championship.registration || {};
+
     return (
         <div className="space-y-6">
-            {/* Resumen */}
+            {/* Configuración de inscripciones */}
+            {reg.enabled && (
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <p className="text-sm font-semibold text-gray-300 mb-3">⚙️ Configuración de inscripciones</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div>
+                            <p className="text-xs text-gray-400">Aprobación</p>
+                            <p className="text-white font-medium">{reg.requiresApproval ? '✋ Manual' : '⚡ Automática'}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-400">Cupo máximo</p>
+                            <p className="text-white font-medium">{reg.maxParticipants > 0 ? reg.maxParticipants : '∞ Sin límite'}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-400">Plazo</p>
+                            <p className="text-white font-medium">{reg.deadline ? new Date(reg.deadline + 'T23:59:59').toLocaleDateString('es-ES') : 'Sin plazo'}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-400">Disponibles</p>
+                            <p className="text-white font-medium">
+                                {reg.maxParticipants > 0
+                                    ? `${Math.max(0, reg.maxParticipants - counts.approved)} de ${reg.maxParticipants}`
+                                    : '∞'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Contadores / filtros */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
                     { key: 'all', label: 'Total', icon: '📋', color: 'bg-blue-500/20 border-blue-400/50' },
@@ -1663,61 +2099,125 @@ function RegistrationsTab({ championshipId, championship, onUpdate }) {
                         <span className="text-sm text-gray-400">Seleccionar todos</span>
                     </div>
 
-                    {filtered.map(reg => {
-                        const style = statusStyles[reg.status] || statusStyles.pending;
+                    {filtered.map(r => {
+                        const style = statusStyles[r.status] || statusStyles.pending;
+                        const isEditing = editingReg?.id === r.id;
                         return (
-                            <div key={reg.id} className={`${style.bg} border ${style.border} rounded-lg p-4`}>
-                                <div className="flex items-center gap-4">
+                            <div key={r.id} className={`${style.bg} border ${style.border} rounded-lg p-4`}>
+                                <div className="flex items-start gap-4">
                                     <input
                                         type="checkbox"
-                                        checked={selectedIds.includes(reg.id)}
-                                        onChange={() => toggleSelect(reg.id)}
-                                        className="w-4 h-4 accent-orange-500"
+                                        checked={selectedIds.includes(r.id)}
+                                        onChange={() => toggleSelect(r.id)}
+                                        className="w-4 h-4 accent-orange-500 mt-1"
                                     />
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-3 mb-1">
-                                            <span className="text-white font-bold text-lg">{reg.name}</span>
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
-                                                {style.label}
-                                            </span>
-                                        </div>
-                                        <div className="flex flex-wrap gap-4 text-sm text-gray-300">
-                                            {reg.psnId && <span>🎮 {reg.psnId}</span>}
-                                            {reg.country && <span>🌍 {reg.country}</span>}
-                                            {reg.experience && <span>⭐ {reg.experience}</span>}
-                                            {reg.preferredCar && <span>🚗 {reg.preferredCar}</span>}
-                                            <span>📅 {new Date(reg.createdAt).toLocaleDateString('es-ES')}</span>
-                                            {reg.reviewedAt && <span>✏️ Revisado: {new Date(reg.reviewedAt).toLocaleDateString('es-ES')}</span>}
-                                        </div>
+                                    <div className="flex-1 min-w-0">
+                                        {isEditing ? (
+                                            /* Modo edición */
+                                            <div className="space-y-3">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="text-xs text-gray-400 mb-1 block">GT7 ID *</label>
+                                                        <input
+                                                            type="text"
+                                                            value={editingReg.gt7Id || ''}
+                                                            onChange={e => setEditingReg(p => ({ ...p, gt7Id: e.target.value }))}
+                                                            className="w-full px-3 py-1.5 bg-white/10 border border-white/30 rounded text-white text-sm"
+                                                            placeholder="GT7 ID"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-xs text-gray-400 mb-1 block">PSN ID</label>
+                                                        <input
+                                                            type="text"
+                                                            value={editingReg.psnId || ''}
+                                                            onChange={e => setEditingReg(p => ({ ...p, psnId: e.target.value }))}
+                                                            className="w-full px-3 py-1.5 bg-white/10 border border-white/30 rounded text-white text-sm"
+                                                            placeholder="PSN ID"
+                                                        />
+                                                    </div>
+                                                    {r.country !== undefined && (
+                                                        <div>
+                                                            <label className="text-xs text-gray-400 mb-1 block">País</label>
+                                                            <input
+                                                                type="text"
+                                                                value={editingReg.country || ''}
+                                                                onChange={e => setEditingReg(p => ({ ...p, country: e.target.value }))}
+                                                                className="w-full px-3 py-1.5 bg-white/10 border border-white/30 rounded text-white text-sm"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={handleEditSave}
+                                                        disabled={editSaving}
+                                                        className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded font-medium disabled:opacity-50"
+                                                    >
+                                                        {editSaving ? '⏳ Guardando...' : '💾 Guardar'}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setEditingReg(null)}
+                                                        className="px-4 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded"
+                                                    >
+                                                        Cancelar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            /* Modo vista */
+                                            <>
+                                                <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mb-1">
+                                                    <span className="text-white font-bold text-base">
+                                                        🎮 {r.gt7Id || r.psnId || r.name || '(sin ID)'}
+                                                    </span>
+                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
+                                                        {style.label}
+                                                    </span>
+                                                </div>
+                                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-300">
+                                                    {r.gt7Id && r.psnId && <span>🕹️ PSN: {r.psnId}</span>}
+                                                    {!r.gt7Id && r.psnId && <span>🕹️ PSN: {r.psnId}</span>}
+                                                    {r.country && <span>🌍 {r.country}</span>}
+                                                    {r.experience && <span>⭐ {r.experience}</span>}
+                                                    {r.preferredCar && <span>🚗 {r.preferredCar}</span>}
+                                                    <span className="text-gray-500 text-xs">📅 {new Date(r.createdAt).toLocaleDateString('es-ES')}</span>
+                                                    {r.reviewedAt && <span className="text-gray-500 text-xs">✏️ {new Date(r.reviewedAt).toLocaleDateString('es-ES')}</span>}
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
-                                    {/* Acciones individuales */}
-                                    {reg.status === 'pending' && (
-                                        <div className="flex gap-2">
+
+                                    {/* Acciones */}
+                                    {!isEditing && (
+                                        <div className="flex gap-2 shrink-0">
                                             <button
-                                                onClick={() => handleSingleAction(reg.id, 'approved')}
-                                                disabled={saving}
-                                                className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition-all disabled:opacity-50"
+                                                onClick={() => setEditingReg({ id: r.id, gt7Id: r.gt7Id || '', psnId: r.psnId || '', country: r.country || '' })}
+                                                className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs rounded transition-all"
+                                                title="Editar datos"
                                             >
-                                                ✅
+                                                ✏️
                                             </button>
-                                            <button
-                                                onClick={() => handleSingleAction(reg.id, 'rejected')}
-                                                disabled={saving}
-                                                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-all disabled:opacity-50"
-                                            >
-                                                ❌
-                                            </button>
+                                            {r.status === 'pending' && (
+                                                <>
+                                                    <button onClick={() => handleSingleAction(r.id, 'approved')} disabled={saving}
+                                                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg disabled:opacity-50">
+                                                        ✅
+                                                    </button>
+                                                    <button onClick={() => handleSingleAction(r.id, 'rejected')} disabled={saving}
+                                                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg disabled:opacity-50">
+                                                        ❌
+                                                    </button>
+                                                </>
+                                            )}
+                                            {r.status !== 'pending' && (
+                                                <button onClick={() => handleSingleAction(r.id, 'pending')} disabled={saving}
+                                                    className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-lg disabled:opacity-50"
+                                                    title="Devolver a pendiente">
+                                                    ↩️
+                                                </button>
+                                            )}
                                         </div>
-                                    )}
-                                    {reg.status !== 'pending' && (
-                                        <button
-                                            onClick={() => handleSingleAction(reg.id, 'pending')}
-                                            disabled={saving}
-                                            className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-lg transition-all disabled:opacity-50"
-                                            title="Devolver a pendiente"
-                                        >
-                                            ↩️
-                                        </button>
                                     )}
                                 </div>
                             </div>

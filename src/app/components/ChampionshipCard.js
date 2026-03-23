@@ -15,11 +15,19 @@ export { calculateProgress } from "../utils/championshipUtils";
  * @param {Object} championship - Datos del campeonato
  * @param {Array} tracks - Pistas del campeonato para calcular progreso
  * @param {Function} onClick - Función para navegar al detalle (opcional)
+ * @param {Function} onRegister - Callback para inscribirse (opcional)
  */
-export default function ChampionshipCard({ championship, tracks = [], onClick }) {
+export default function ChampionshipCard({ championship, tracks = [], onClick, onRegister }) {
     const router = useRouter();
     const progress = calculateProgress(tracks, championship);
     const nextRace = getNextRace(tracks);
+
+    const registrationEnabled = championship.registration?.enabled && !['completed', 'archived'].includes(championship.status);
+    const approvedCount = registrationEnabled
+        ? (championship.registrations || []).filter(r => r.status === 'approved' || (!championship.registration?.requiresApproval && r.status !== 'rejected')).length
+        : 0;
+    const maxParticipants = championship.registration?.maxParticipants || 0;
+    const isFull = maxParticipants > 0 && approvedCount >= maxParticipants;
 
     const handleClick = () => {
         if (onClick) {
@@ -145,12 +153,45 @@ export default function ChampionshipCard({ championship, tracks = [], onClick })
                     </p>
                 )}
 
-                {/* Botón de acción */}
-                <button
-                    className="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white px-4 py-3 rounded-lg font-bold hover:from-orange-700 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl"
-                >
-                    🏆 Ver Campeonato
-                </button>
+                {/* Inscripción abierta: conteo de cupos */}
+                {registrationEnabled && (
+                    <div className="flex items-center justify-between bg-green-500/10 border border-green-400/30 rounded-lg px-3 py-2 mb-4">
+                        <div className="flex items-center gap-2 text-sm">
+                            <span className="text-green-400">📝</span>
+                            <span className="text-green-300 font-semibold">Inscripción abierta</span>
+                        </div>
+                        {maxParticipants > 0 && (
+                            <div className="flex items-center gap-2 text-sm">
+                                <span className="text-gray-300">👥 {approvedCount}/{maxParticipants}</span>
+                                {isFull && <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-medium">LLENO</span>}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Botones de acción */}
+                <div className={`grid gap-3 ${registrationEnabled ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                    <button
+                        className="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white px-4 py-3 rounded-lg font-bold hover:from-orange-700 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                    >
+                        🏆 Ver Campeonato
+                    </button>
+                    {registrationEnabled && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (onRegister) {
+                                    onRegister(championship);
+                                } else {
+                                    router.push(`/championships?id=${championship.id}`);
+                                }
+                            }}
+                            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 rounded-lg font-bold hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                        >
+                            ✍️ Inscribirse
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );

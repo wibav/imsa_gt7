@@ -46,6 +46,18 @@ const ABS_OPTIONS = [
 
 const CATEGORIES = ['Gr1', 'Gr2', 'Gr3', 'Gr4', 'GrB', 'Street'];
 
+const PENALTY_SHORTCUT_OPTIONS = [
+    { value: 'off', label: 'Desactivado' },
+    { value: 'weak', label: 'Leve' },
+    { value: 'moderate', label: 'Moderado' },
+    { value: 'strong', label: 'Fuerte' }
+];
+
+const ON_OFF_OPTIONS = [
+    { value: 'on', label: 'Activado' },
+    { value: 'off', label: 'Desactivado' }
+];
+
 // ============================================================
 // Default data factories
 // ============================================================
@@ -98,6 +110,31 @@ function getEmptyFormData() {
             maxUsesPerCar: 2,
             alertThreshold: 1
         },
+        preQualy: {
+            enabled: false,
+            date: '',
+            track: '',
+            duration: 15,
+            allowedCars: [],
+            notes: '',
+            rules: {
+                weather: 'clear',
+                timeOfDay: 'day',
+                timeMultiplier: 1,
+                startTime: '',
+                tireWear: 0,
+                fuelConsumption: 0,
+                mandatoryTyre: [],
+                mechanicalDamage: 'No',
+                bop: 'yes',
+                qualySlipstream: false,
+                penaltyShortcut: 'strong',
+                penaltyWall: 'off',
+                penaltyPitLine: 'on',
+                penaltyCarCollision: 'on',
+                notes: ''
+            }
+        },
         divisionsConfig: { ...DEFAULT_DIVISIONS_CONFIG }
     };
 }
@@ -130,10 +167,21 @@ function getEmptyTrackData(formData) {
             adjustments: 'no',
             engineSwap: 'no',
             penalties: 'yes',
+            penaltyShortcut: 'moderate',
+            penaltyWall: 'on',
+            penaltyPitLine: 'on',
+            penaltyCarCollision: 'on',
             abs: 'default',
             tcs: 'no',
             asm: 'no',
             counterSteering: 'no',
+            // Slipstream
+            qualySlipstream: false,
+            raceSlipstream: true,
+            // Qualy settings
+            qualyTireWear: false,
+            // Starting fuel
+            startingFuel: 100,
             notes: ''
         },
         specificCars: false,
@@ -165,6 +213,7 @@ export default function ChampionshipForm({ isEditing = false }) {
     // Estado general
     const [championship, setChampionship] = useState(null);
     const [currentStep, setCurrentStep] = useState(1);
+    const [trackModalTab, setTrackModalTab] = useState('info');
     const [formData, setFormData] = useState(isEditing ? null : getEmptyFormData());
     const [formErrors, setFormErrors] = useState([]);
     const [saving, setSaving] = useState(false);
@@ -280,7 +329,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                 requiresApproval: champ.registration?.requiresApproval ?? true,
                 deadline: champ.registration?.deadline || '',
                 maxParticipants: champ.registration?.maxParticipants || 0,
-                fields: champ.registration?.fields || ['name', 'psnId'],
+                fields: champ.registration?.fields || ['gt7Id', 'psnId'],
                 acceptRules: champ.registration?.acceptRules || false
             },
             streaming: {
@@ -302,6 +351,31 @@ export default function ChampionshipForm({ isEditing = false }) {
                 enabled: champ.carUsageTracking?.enabled || false,
                 maxUsesPerCar: champ.carUsageTracking?.maxUsesPerCar ?? 2,
                 alertThreshold: champ.carUsageTracking?.alertThreshold ?? 1
+            },
+            preQualy: {
+                enabled: champ.preQualy?.enabled || false,
+                date: champ.preQualy?.date || '',
+                track: champ.preQualy?.track || '',
+                duration: champ.preQualy?.duration || 15,
+                allowedCars: champ.preQualy?.allowedCars || [],
+                notes: champ.preQualy?.notes || '',
+                rules: {
+                    weather: champ.preQualy?.rules?.weather || 'clear',
+                    timeOfDay: champ.preQualy?.rules?.timeOfDay || 'day',
+                    timeMultiplier: champ.preQualy?.rules?.timeMultiplier ?? 1,
+                    startTime: champ.preQualy?.rules?.startTime || '',
+                    tireWear: champ.preQualy?.rules?.tireWear ?? 0,
+                    fuelConsumption: champ.preQualy?.rules?.fuelConsumption ?? 0,
+                    mandatoryTyre: champ.preQualy?.rules?.mandatoryTyre || [],
+                    mechanicalDamage: champ.preQualy?.rules?.mechanicalDamage || 'No',
+                    bop: champ.preQualy?.rules?.bop || 'yes',
+                    qualySlipstream: champ.preQualy?.rules?.qualySlipstream ?? false,
+                    penaltyShortcut: champ.preQualy?.rules?.penaltyShortcut || 'strong',
+                    penaltyWall: champ.preQualy?.rules?.penaltyWall || 'off',
+                    penaltyPitLine: champ.preQualy?.rules?.penaltyPitLine || 'on',
+                    penaltyCarCollision: champ.preQualy?.rules?.penaltyCarCollision || 'on',
+                    notes: champ.preQualy?.rules?.notes || ''
+                }
             },
             divisionsConfig: {
                 enabled: champ.divisionsConfig?.enabled || false,
@@ -461,6 +535,7 @@ export default function ChampionshipForm({ isEditing = false }) {
         setShowTrackModal(false);
         setEditingTrackIndex(null);
         setTrackFormData(null);
+        setTrackModalTab('info');
     };
 
     const handleSelectTrack = (trackName) => {
@@ -689,7 +764,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                     requiresApproval: source.registration?.requiresApproval ?? true,
                     deadline: '',
                     maxParticipants: source.registration?.maxParticipants || 0,
-                    fields: source.registration?.fields || ['name', 'psnId'],
+                    fields: source.registration?.fields || ['gt7Id', 'psnId'],
                     acceptRules: source.registration?.acceptRules || false
                 },
                 streaming: {
@@ -751,7 +826,7 @@ export default function ChampionshipForm({ isEditing = false }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (currentStep !== 5) return;
+        if (currentStep !== 6) return;
         if (!validateStep(currentStep)) return;
         if (saving) return;
 
@@ -872,11 +947,12 @@ export default function ChampionshipForm({ isEditing = false }) {
     // ============================================================
 
     const steps = [
-        { number: 1, title: 'Información Básica', icon: '📋' },
+        { number: 1, title: 'Info Básica', icon: '📋' },
         { number: 2, title: 'Categorías', icon: '🏎️' },
-        { number: 3, title: 'Sistema de Puntos', icon: '🏆' },
-        { number: 4, title: 'Configuración', icon: '⚙️' },
-        { number: 5, title: 'Finalizar', icon: '✅' }
+        { number: 3, title: 'Puntos', icon: '🏆' },
+        { number: 4, title: 'Participantes', icon: '👥' },
+        { number: 5, title: 'Opciones', icon: '⚙️' },
+        { number: 6, title: 'Finalizar', icon: '✅' }
     ];
 
     // ============================================================
@@ -1439,6 +1515,218 @@ export default function ChampionshipForm({ isEditing = false }) {
                                         </div>
                                     )}
 
+                                    {/* ══════════════════════════════════════════ */}
+                                    {/* PRE-QUALY                                  */}
+                                    {/* ══════════════════════════════════════════ */}
+                                    <div className="bg-white/5 backdrop-blur-sm border border-purple-400/30 rounded-lg p-6">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div>
+                                                <h3 className="text-xl font-bold text-white mb-2">🎯 Pre-Qualy</h3>
+                                                <p className="text-gray-300 text-sm">
+                                                    {formData.preQualy?.enabled
+                                                        ? 'Sesión clasificatoria previa al campeonato habilitada'
+                                                        : 'Activa para definir una sesión de clasificación antes de que inicie el campeonato'}
+                                                </p>
+                                            </div>
+                                            {renderToggle(formData.preQualy?.enabled ?? false, () =>
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    preQualy: { ...prev.preQualy, enabled: !(prev.preQualy?.enabled ?? false) }
+                                                })), 'lg'
+                                            )}
+                                        </div>
+
+                                        {formData.preQualy?.enabled && (
+                                            <div className="space-y-6 mt-4 pt-4 border-t border-purple-400/20">
+                                                {/* Fecha, Circuito y Duración */}
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-300 mb-2">📅 Fecha</label>
+                                                        <input type="date"
+                                                            value={formData.preQualy.date}
+                                                            onChange={(e) => setFormData(prev => ({
+                                                                ...prev, preQualy: { ...prev.preQualy, date: e.target.value }
+                                                            }))}
+                                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-300 mb-2">⏱️ Duración (min)</label>
+                                                        <input type="number" min="5" max="120"
+                                                            value={formData.preQualy.duration ?? 15}
+                                                            onChange={(e) => setFormData(prev => ({
+                                                                ...prev, preQualy: { ...prev.preQualy, duration: parseInt(e.target.value) || 15 }
+                                                            }))}
+                                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-300 mb-2">⏩ Velocidad del Tiempo</label>
+                                                        <select value={formData.preQualy.rules?.timeMultiplier ?? 1}
+                                                            onChange={(e) => setFormData(prev => ({
+                                                                ...prev, preQualy: {
+                                                                    ...prev.preQualy,
+                                                                    rules: { ...prev.preQualy.rules, timeMultiplier: parseInt(e.target.value) }
+                                                                }
+                                                            }))}
+                                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                                            {TIME_MULTIPLIER_OPTIONS.map(opt => (
+                                                                <option key={opt.value} value={opt.value} className="bg-slate-800">{opt.label}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                {/* Circuito */}
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-300 mb-2">🏁 Circuito</label>
+                                                    <select value={formData.preQualy.track}
+                                                        onChange={(e) => setFormData(prev => ({
+                                                            ...prev, preQualy: { ...prev.preQualy, track: e.target.value }
+                                                        }))}
+                                                        className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                                        <option value="" className="bg-slate-800">Seleccionar circuito...</option>
+                                                        {firebaseTracks.length > 0 && (
+                                                            <optgroup label="🖼️ Circuitos con Imagen" className="bg-slate-800">
+                                                                {firebaseTracks.map(t => (
+                                                                    <option key={t.id} value={t.name} className="bg-slate-800">{t.name} ✨</option>
+                                                                ))}
+                                                            </optgroup>
+                                                        )}
+                                                        <optgroup label="🎮 Gran Turismo 7" className="bg-slate-800">
+                                                            {GT7_TRACKS.filter(n => !firebaseTracks.map(t => t.name).includes(n)).map(t => (
+                                                                <option key={t} value={t} className="bg-slate-800">{t}</option>
+                                                            ))}
+                                                        </optgroup>
+                                                    </select>
+                                                </div>
+
+                                                {/* Autos específicos */}
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-300 mb-2">🚗 Autos Permitidos</label>
+                                                    <div className="flex gap-2 mb-2">
+                                                        <input type="text" placeholder="Nombre del carro (ej: Toyota GR86)"
+                                                            id="preQualyCarInput"
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    e.preventDefault();
+                                                                    const v = e.target.value.trim();
+                                                                    if (v && !formData.preQualy.allowedCars.includes(v)) {
+                                                                        setFormData(prev => ({ ...prev, preQualy: { ...prev.preQualy, allowedCars: [...prev.preQualy.allowedCars, v] } }));
+                                                                    }
+                                                                    e.target.value = '';
+                                                                }
+                                                            }}
+                                                            className="flex-1 px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                                                        <button type="button" onClick={() => {
+                                                            const input = document.getElementById('preQualyCarInput');
+                                                            const v = input?.value?.trim();
+                                                            if (v && !formData.preQualy.allowedCars.includes(v)) {
+                                                                setFormData(prev => ({ ...prev, preQualy: { ...prev.preQualy, allowedCars: [...prev.preQualy.allowedCars, v] } }));
+                                                            }
+                                                            if (input) input.value = '';
+                                                        }}
+                                                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg">
+                                                            Agregar
+                                                        </button>
+                                                    </div>
+                                                    {formData.preQualy.allowedCars?.length > 0 && (
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {formData.preQualy.allowedCars.map((car, idx) => (
+                                                                <span key={idx} className="flex items-center gap-1 bg-purple-600/20 border border-purple-400/30 text-purple-200 px-3 py-1 rounded-full text-sm">
+                                                                    {car}
+                                                                    <button type="button" onClick={() => setFormData(prev => ({
+                                                                        ...prev, preQualy: { ...prev.preQualy, allowedCars: prev.preQualy.allowedCars.filter((_, i) => i !== idx) }
+                                                                    }))} className="text-purple-400 hover:text-red-400 ml-1">×</button>
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Reglas de la Pre-Qualy */}
+                                                <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                                                    <h4 className="text-white font-semibold mb-4">⚙️ Configuración de la Sesión</h4>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-300 mb-2">🌤️ Clima</label>
+                                                            {renderSelect(formData.preQualy.rules?.weather ?? 'clear', (e) => setFormData(prev => ({
+                                                                ...prev, preQualy: { ...prev.preQualy, rules: { ...prev.preQualy.rules, weather: e.target.value } }
+                                                            })), WEATHER_OPTIONS)}
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-300 mb-2">🔧 Daños</label>
+                                                            {renderSelect(formData.preQualy.rules?.mechanicalDamage ?? 'No', (e) => setFormData(prev => ({
+                                                                ...prev, preQualy: { ...prev.preQualy, rules: { ...prev.preQualy.rules, mechanicalDamage: e.target.value } }
+                                                            })), DAMAGE_OPTIONS)}
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-300 mb-2">🔀 Penalización por Atajo</label>
+                                                            {renderSelect(formData.preQualy.rules?.penaltyShortcut ?? 'strong', (e) => setFormData(prev => ({
+                                                                ...prev, preQualy: { ...prev.preQualy, rules: { ...prev.preQualy.rules, penaltyShortcut: e.target.value } }
+                                                            })), PENALTY_SHORTCUT_OPTIONS)}
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-300 mb-2">🧱 Penalización por Muro</label>
+                                                            {renderSelect(formData.preQualy.rules?.penaltyWall ?? 'off', (e) => setFormData(prev => ({
+                                                                ...prev, preQualy: { ...prev.preQualy, rules: { ...prev.preQualy.rules, penaltyWall: e.target.value } }
+                                                            })), ON_OFF_OPTIONS)}
+                                                        </div>
+                                                        <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
+                                                            <div>
+                                                                <label className="block text-sm font-medium text-gray-300">💨 Rebufo (Slipstream)</label>
+                                                                <p className="text-xs text-gray-400">Efecto de succión entre coches</p>
+                                                            </div>
+                                                            {renderToggle(formData.preQualy.rules?.qualySlipstream ?? false, () =>
+                                                                setFormData(prev => ({
+                                                                    ...prev, preQualy: {
+                                                                        ...prev.preQualy,
+                                                                        rules: { ...prev.preQualy.rules, qualySlipstream: !(prev.preQualy.rules?.qualySlipstream ?? false) }
+                                                                    }
+                                                                }))
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-300 mb-2">🛞 Neumáticos Obligatorios</label>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {TYRE_OPTIONS.filter(t => ['CB', 'CM', 'CD'].includes(t.value)).map(tyre => {
+                                                                    const tyres = formData.preQualy.rules?.mandatoryTyre || [];
+                                                                    const isSelected = tyres.includes(tyre.value);
+                                                                    return (
+                                                                        <label key={tyre.value}
+                                                                            className={`flex items-center gap-1 px-2 py-1 rounded-lg border cursor-pointer text-xs transition-all ${isSelected ? 'bg-purple-600/30 border-purple-500 text-white' : 'bg-white/5 border-white/20 text-gray-300 hover:bg-white/10'}`}>
+                                                                            <input type="checkbox" checked={isSelected}
+                                                                                onChange={(e) => {
+                                                                                    const newTyres = e.target.checked ? [...tyres, tyre.value] : tyres.filter(t => t !== tyre.value);
+                                                                                    setFormData(prev => ({
+                                                                                        ...prev, preQualy: { ...prev.preQualy, rules: { ...prev.preQualy.rules, mandatoryTyre: newTyres } }
+                                                                                    }));
+                                                                                }}
+                                                                                className="w-3 h-3" />
+                                                                            {tyre.label}
+                                                                        </label>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Notas */}
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-300 mb-2">📝 Notas / Instrucciones</label>
+                                                    <textarea
+                                                        value={formData.preQualy.notes || ''}
+                                                        onChange={(e) => setFormData(prev => ({
+                                                            ...prev, preQualy: { ...prev.preQualy, notes: e.target.value }
+                                                        }))}
+                                                        rows={3}
+                                                        placeholder="Instrucciones especiales para la sesión de Pre-Qualy..."
+                                                        className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y text-sm"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     {/* Circuitos del Campeonato */}
                                     <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
                                         <div className="flex items-center justify-between mb-4">
@@ -1498,6 +1786,16 @@ export default function ChampionshipForm({ isEditing = false }) {
                                         )}
                                     </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* ============================== */}
+                        {/* Step 5: Opciones               */}
+                        {/* ============================== */}
+                        {currentStep === 5 && (
+                            <div className="space-y-6">
+                                <h2 className="text-2xl font-bold text-white mb-4">⚙️ Opciones del Campeonato</h2>
+                                <p className="text-gray-300 mb-2">Todas estas secciones son opcionales. Activa solo las que necesites.</p>
 
                                 {/* Inscripción Pública */}
                                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
@@ -1568,7 +1866,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                 <label className="block text-sm font-medium text-gray-300 mb-2">Campos requeridos en el formulario</label>
                                                 <div className="flex flex-wrap gap-2">
                                                     {[
-                                                        { value: 'name', label: 'Nombre', required: true },
+                                                        { value: 'gt7Id', label: 'GT7 ID', required: true },
                                                         { value: 'psnId', label: 'PSN ID', required: true },
                                                         { value: 'country', label: 'País' },
                                                         { value: 'experience', label: 'Experiencia' },
@@ -1893,9 +2191,9 @@ export default function ChampionshipForm({ isEditing = false }) {
                         )}
 
                         {/* ============================== */}
-                        {/* Step 5: Resumen                */}
+                        {/* Step 6: Resumen                */}
                         {/* ============================== */}
-                        {currentStep === 5 && (
+                        {currentStep === 6 && (
                             <div className="space-y-6">
                                 <h2 className="text-2xl font-bold text-white mb-4">
                                     {isEditing ? '✅ Resumen de Cambios' : '✅ Resumen del Campeonato'}
@@ -1989,6 +2287,37 @@ export default function ChampionshipForm({ isEditing = false }) {
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Pre-Qualy */}
+                                    {formData.preQualy?.enabled && (
+                                        <div className="bg-white/5 border border-purple-400/30 rounded-lg p-4">
+                                            <h3 className="text-white font-medium mb-2">🎯 Pre-Qualy</h3>
+                                            <div className="space-y-1 text-sm">
+                                                {formData.preQualy.date && (
+                                                    <div className="flex justify-between text-gray-300">
+                                                        <span>Fecha:</span>
+                                                        <span className="text-white">{new Date(formData.preQualy.date).toLocaleDateString('es-ES')}</span>
+                                                    </div>
+                                                )}
+                                                {formData.preQualy.track && (
+                                                    <div className="flex justify-between text-gray-300">
+                                                        <span>Circuito:</span>
+                                                        <span className="text-white">{formData.preQualy.track}</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between text-gray-300">
+                                                    <span>Duración:</span>
+                                                    <span className="text-white">{formData.preQualy.duration ?? 15} min</span>
+                                                </div>
+                                                {formData.preQualy.allowedCars?.length > 0 && (
+                                                    <div className="flex justify-between text-gray-300">
+                                                        <span>Autos:</span>
+                                                        <span className="text-white">{formData.preQualy.allowedCars.join(', ')}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Circuitos */}
                                     <div className="bg-white/5 border border-white/20 rounded-lg p-4">
@@ -2097,7 +2426,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                 ← Anterior
                             </button>
                         )}
-                        {currentStep < 5 ? (
+                        {currentStep < 6 ? (
                             <button type="button" onClick={handleNext}
                                 className="ml-auto px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold rounded-lg transition-all">
                                 Siguiente →
@@ -2120,18 +2449,36 @@ export default function ChampionshipForm({ isEditing = false }) {
                     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
                         <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 rounded-xl border border-white/30 shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
                             {/* Header */}
-                            <div className="sticky top-0 bg-gradient-to-r from-slate-900 to-blue-900 p-6 border-b border-white/20 z-10">
-                                <div className="flex justify-between items-center">
+                            <div className="sticky top-0 bg-gradient-to-r from-slate-900 to-blue-900 border-b border-white/20 z-10">
+                                <div className="flex justify-between items-center px-6 pt-6 pb-4">
                                     <h3 className="text-2xl font-bold text-white">
                                         {editingTrackIndex !== null ? '✏️ Editar Circuito' : '➕ Agregar Circuito'}
                                     </h3>
                                     <button onClick={handleCloseTrackModal} className="text-white hover:text-red-400 text-3xl transition-colors">×</button>
                                 </div>
+                                {/* Tabs del modal */}
+                                <div className="flex border-t border-white/10">
+                                    {[
+                                        { id: 'info', label: '📍 Circuito' },
+                                        { id: 'qualy', label: '🎯 Qualy' },
+                                        { id: 'carrera', label: '⚙️ Carrera' },
+                                        { id: 'reglas', label: '🚦 Reglas' },
+                                    ].map(tab => (
+                                        <button key={tab.id} type="button"
+                                            onClick={() => setTrackModalTab(tab.id)}
+                                            className={`flex-1 py-3 px-2 text-sm font-medium transition-all border-b-2 ${trackModalTab === tab.id
+                                                ? 'border-orange-500 text-orange-400 bg-white/5'
+                                                : 'border-transparent text-gray-400 hover:text-white'
+                                                }`}>
+                                            {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
                             <div className="p-6 space-y-6">
                                 {/* Selector de Circuito */}
-                                <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
+                                <div className={`bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6 ${trackModalTab !== 'info' ? 'hidden' : ''}`}>
                                     <h4 className="text-xl font-bold text-white mb-4">📍 Información del Circuito</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="md:col-span-2">
@@ -2199,7 +2546,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                 </div>
 
                                 {/* Tipo de Carrera */}
-                                <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
+                                <div className={`bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6 ${trackModalTab !== 'info' ? 'hidden' : ''}`}>
                                     <h4 className="text-xl font-bold text-white mb-4">🏁 Tipo de Carrera</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="md:col-span-2">
@@ -2262,10 +2609,57 @@ export default function ChampionshipForm({ isEditing = false }) {
                                     </div>
                                 </div>
 
-                                {/* Reglas del Circuito */}
-                                <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
-                                    <h4 className="text-xl font-bold text-white mb-4">⚙️ Reglas del Circuito</h4>
+                                {/* Configuración de Clasificación (Qualy) */}
+                                <div className={`bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6 ${trackModalTab !== 'qualy' ? 'hidden' : ''}`}>
+                                    <h4 className="text-xl font-bold text-white mb-1">🎯 Clasificación (Qualy)</h4>
+                                    <p className="text-xs text-gray-400 mb-4">Configuración específica para la sesión de clasificación</p>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300">💨 Rebufo (Slipstream)</label>
+                                                <p className="text-xs text-gray-400">Efecto de succión entre coches en qualy</p>
+                                            </div>
+                                            {renderToggle(trackFormData.rules.qualySlipstream ?? false, () =>
+                                                handleTrackRuleChange('qualySlipstream', !(trackFormData.rules.qualySlipstream ?? false))
+                                            )}
+                                        </div>
+                                        <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300">🛞 Desgaste de Neumáticos</label>
+                                                <p className="text-xs text-gray-400">Activar desgaste durante la qualy</p>
+                                            </div>
+                                            {renderToggle(trackFormData.rules.qualyTireWear ?? false, () =>
+                                                handleTrackRuleChange('qualyTireWear', !(trackFormData.rules.qualyTireWear ?? false))
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Reglas del Circuito */}
+                                <div className={`bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6 ${trackModalTab !== 'carrera' ? 'hidden' : ''}`}>
+                                    <h4 className="text-xl font-bold text-white mb-1">⚙️ Reglas de Carrera</h4>
+                                    <p className="text-xs text-gray-400 mb-4">Configuración para la sesión de carrera</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {/* Rebufo en carrera y combustible inicial */}
+                                        <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300">💨 Rebufo (Slipstream)</label>
+                                                <p className="text-xs text-gray-400">Efecto de succión entre coches en carrera</p>
+                                            </div>
+                                            {renderToggle(trackFormData.rules.raceSlipstream ?? true, () =>
+                                                handleTrackRuleChange('raceSlipstream', !(trackFormData.rules.raceSlipstream ?? true))
+                                            )}
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">⛽ Combustible Inicial (%)</label>
+                                            <div className="flex items-center gap-2">
+                                                <input type="range" min="0" max="100" step="5"
+                                                    value={trackFormData.rules.startingFuel ?? 100}
+                                                    onChange={(e) => handleTrackRuleChange('startingFuel', parseInt(e.target.value))}
+                                                    className="flex-1" />
+                                                <span className="text-white font-medium w-12">{trackFormData.rules.startingFuel ?? 100}%</span>
+                                            </div>
+                                        </div>
                                         {/* Clima y Hora */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-300 mb-2">🌤️ Clima</label>
@@ -2456,14 +2850,38 @@ export default function ChampionshipForm({ isEditing = false }) {
                                             {renderSelect(trackFormData.rules.engineSwap, (e) => handleTrackRuleChange('engineSwap', e.target.value), YES_NO)}
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">⚠️ Penalizaciones</label>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">⚠️ Penalizaciones (General)</label>
                                             {renderSelect(trackFormData.rules.penalties, (e) => handleTrackRuleChange('penalties', e.target.value), YES_NO)}
                                         </div>
                                     </div>
                                 </div>
 
+                                {/* Penalizaciones Específicas */}
+                                <div className={`bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6 ${trackModalTab !== 'reglas' ? 'hidden' : ''}`}>
+                                    <h4 className="text-xl font-bold text-white mb-1">🚦 Penalizaciones Específicas</h4>
+                                    <p className="text-xs text-gray-400 mb-4">Configura el comportamiento de cada tipo de penalización en GT7</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">🔀 Penalización por Atajo</label>
+                                            {renderSelect(trackFormData.rules.penaltyShortcut ?? 'moderate', (e) => handleTrackRuleChange('penaltyShortcut', e.target.value), PENALTY_SHORTCUT_OPTIONS)}
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">🧱 Penalización por Contacto con Muro</label>
+                                            {renderSelect(trackFormData.rules.penaltyWall ?? 'on', (e) => handleTrackRuleChange('penaltyWall', e.target.value), ON_OFF_OPTIONS)}
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">🏎️ Penalización por Pisar Línea de Box</label>
+                                            {renderSelect(trackFormData.rules.penaltyPitLine ?? 'on', (e) => handleTrackRuleChange('penaltyPitLine', e.target.value), ON_OFF_OPTIONS)}
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">💥 Penalización por Golpe a Otro Coche</label>
+                                            {renderSelect(trackFormData.rules.penaltyCarCollision ?? 'on', (e) => handleTrackRuleChange('penaltyCarCollision', e.target.value), ON_OFF_OPTIONS)}
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {/* Asistencias de Conducción */}
-                                <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
+                                <div className={`bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6 ${trackModalTab !== 'reglas' ? 'hidden' : ''}`}>
                                     <h4 className="text-xl font-bold text-white mb-4">🎮 Asistencias de Conducción</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
@@ -2536,7 +2954,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                 </div>
 
                                 {/* Notas del Circuito */}
-                                <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
+                                <div className={`bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6 ${trackModalTab !== 'reglas' ? 'hidden' : ''}`}>
                                     <h4 className="text-xl font-bold text-white mb-4">📝 Notas del Circuito</h4>
                                     <textarea
                                         value={trackFormData.rules?.notes || ''}

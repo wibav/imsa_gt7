@@ -261,14 +261,12 @@ export default function TracksManager({
                                         ✏️ Editar
                                     </button>
 
-                                    {editMode && (
-                                        <button
-                                            onClick={() => handleOpenResultsModal(track)}
-                                            className="px-3 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white text-sm font-medium rounded-lg transition-all"
-                                        >
-                                            🏁 Resultados
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={() => handleOpenResultsModal(track)}
+                                        className="px-3 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white text-sm font-medium rounded-lg transition-all"
+                                    >
+                                        🏁 Resultados
+                                    </button>
 
                                     {track.points && Object.keys(track.points).length > 0 && (
                                         <button

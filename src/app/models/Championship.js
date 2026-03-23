@@ -28,6 +28,16 @@ export class Championship {
         this.createdAt = data.createdAt || new Date().toISOString();
         this.updatedAt = data.updatedAt || new Date().toISOString();
         this.createdBy = data.createdBy || null;
+
+        // Campos extendidos que se guardan directamente en Firestore
+        this.registration = data.registration || null;
+        this.registrations = data.registrations || [];
+        this.streaming = data.streaming || null;
+        this.penaltiesConfig = data.penaltiesConfig || null;
+        this.regulations = data.regulations || null;
+        this.carUsageTracking = data.carUsageTracking || null;
+        this.preQualy = data.preQualy || null;
+        this.divisionsConfig = data.divisionsConfig || null;
     }
 
     /**
@@ -104,10 +114,19 @@ export class Championship {
             logo: this.logo,
             categories: this.categories,
             settings: this.settings,
-            drivers: this.drivers, // Incluir drivers para campeonatos individuales
+            drivers: this.drivers,
             createdAt: this.createdAt,
             updatedAt: new Date().toISOString(),
-            createdBy: this.createdBy
+            createdBy: this.createdBy,
+            // Campos extendidos
+            registration: this.registration,
+            registrations: this.registrations,
+            streaming: this.streaming,
+            penaltiesConfig: this.penaltiesConfig,
+            regulations: this.regulations,
+            carUsageTracking: this.carUsageTracking,
+            preQualy: this.preQualy,
+            divisionsConfig: this.divisionsConfig
         };
     }
 
