@@ -1631,8 +1631,8 @@ export default function ChampionshipDetailPage() {
                                                                             {idx + 1}
                                                                         </span>
                                                                         <div className="flex-1 min-w-0">
-                                                                            <span className="text-white font-medium text-sm">{r.name}</span>
-                                                                            {r.psnId && <span className="text-gray-500 text-xs ml-2">@{r.psnId}</span>}
+                                                                            <span className="text-white font-medium text-sm">{r.gt7Id}</span>
+                                                                            {r.psnId && <span className="text-gray-500 text-xs ml-2">{r.psnId}</span>}
                                                                         </div>
                                                                         {divAssigned ? (
                                                                             <span
