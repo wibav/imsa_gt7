@@ -357,64 +357,53 @@ export default function ToolsPage() {
                     let currentThreshold = threshold; // Usar los parámetros recomendados
                     let currentTurdSize = turdSize;
                     let attempts = 0;
-                    const maxAttempts = 15;
+                    const maxAttempts = 12;
                     let sizeIncreasing = 0; // Contador de aumentos de tamaño
 
                     while (size > 15 * 1024 && attempts < maxAttempts) {
                         try {
+                            // Solo reducir dimensiones como último recurso (después de intentos 8+)
+                            if (attempts > 8 && currentWidth > 120) {
+                                currentWidth = Math.floor(currentWidth * 0.90);
+                                currentHeight = Math.floor(currentHeight * 0.90);
+                                canvas.width = currentWidth;
+                                canvas.height = currentHeight;
+                                ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
+                            }
+
                             // Obtener datos de imagen
                             const imageData = ctx.getImageData(0, 0, currentWidth, currentHeight);
 
                             // Usar método multicapa con reducción de colores
                             svg = await convertWithMultipleLayers(imageData, currentWidth, currentHeight, currentThreshold, currentTurdSize);
-
-                            // APLICAR COMPRESIÓN DENTRO DEL BUCLE PARA MEDIR PESO REAL
-                            // y evitar dar más vueltas/encoger si ya se alcanzó el límite
-                            svg = compressSvgWithSVGO(svg);
-
-                            console.log('SVG optimizado y comprimido');
+                            console.log('SVG optimizado:', svg);
                             const svgBlob = new Blob([svg], { type: 'image/svg+xml' });
                             size = svgBlob.size;
 
                             attempts++;
 
-                            // Si sigue muy grande, penalizamos duramente los detallitos o encogemos la imagen
+                            // Estrategia mejorada: aumentar parámetros de forma gradual
                             if (size > 15 * 1024) {
                                 sizeIncreasing++;
 
+                                // Primero aumentar threshold gradualmente (preserva más detalles)
                                 if (sizeIncreasing <= 3) {
-                                    currentThreshold += 10;
-                                }
-                                else if (sizeIncreasing <= 5) {
-                                    currentTurdSize += (size > 30 * 1024) ? 4 : 2;
                                     currentThreshold += 5;
                                 }
-                                else {
-                                    // Si no hay de otra, empezamos a encoger suavemente, pero con límite para que no sea un microscopio
-                                    if (currentWidth > 180) {
-                                        let factor = (size > 35 * 1024) ? 0.70 : 0.85;
-                                        let nextWidth = Math.floor(currentWidth * factor);
-                                        let nextHeight = Math.floor(currentHeight * factor);
-
-                                        if (nextWidth < 180) {
-                                            nextWidth = 180;
-                                            nextHeight = Math.floor(180 * (img.height / img.width));
-                                        }
-
-                                        currentWidth = nextWidth;
-                                        currentHeight = nextHeight;
-                                        canvas.width = currentWidth;
-                                        canvas.height = currentHeight;
-                                        ctx.imageSmoothingEnabled = true;
-                                        ctx.imageSmoothingQuality = 'high';
-                                        ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
-                                    }
+                                // Luego aumentar turdSize (elimina detalles pequeños)
+                                else if (sizeIncreasing <= 6) {
+                                    currentThreshold += 3;
                                     currentTurdSize += 1;
                                 }
+                                // Finalmente, ser muy agresivo
+                                else {
+                                    currentThreshold = Math.min(200, currentThreshold + 8);
+                                    currentTurdSize += 2;
+                                }
 
-                                // Limitar máximos lógicos
-                                currentThreshold = Math.min(230, currentThreshold);
-                                currentTurdSize = Math.min(10, currentTurdSize); // Subimos limite de basurita a 10px para forzar limpiar imagenes gigantes
+                                // Limitar máximos
+                                currentThreshold = Math.min(220, currentThreshold);
+                                currentTurdSize = Math.min(6, currentTurdSize);
                             }
                         } catch (err) {
                             console.error('Error en intento de conversión:', err);
@@ -422,34 +411,39 @@ export default function ToolsPage() {
                         }
                     }
 
-                    // Después del bucle, procesamos la salida
                     setFileSize(size);
 
                     if (size > 15 * 1024) {
-                        // En lugar de dar error, mostramos la imagen final pero con una advertencia en amarillo
-                        setError(`⚠️ Advertencia: El resultado es ${(size / 1024).toFixed(2)} KB (GT7 permite máximo 15 KB). Usa el Modo Avanzado para subir la limpieza (TurdSize) o el umbral, o recorta la imagen.`);
+                        setError(`La imagen es muy compleja. Tamaño final: ${(size / 1024).toFixed(2)} KB. Usa Modo Avanzado para ajustar parámetros.`);
+                        setIsProcessing(false);
+                        setProcessingStep('');
+                        reject(new Error('SVG demasiado grande'));
+                    } else {
+                        // Aplicar compresión SVGO
+                        const compressedSvg = compressSvgWithSVGO(svg);
+                        const compressedSize = new Blob([compressedSvg], { type: 'image/svg+xml' }).size;
+
+                        console.log('Peso final del SVG:', (compressedSize / 1024).toFixed(2), 'KB');
+
+                        // Contar capas SVG
+                        const svgLayers = (compressedSvg.match(/<path/g) || []).length;
+
+                        setSvgOutput(compressedSvg);
+                        setOptimizationInfo(prev => ({
+                            ...prev,
+                            svgSize: (compressedSize / 1024).toFixed(2),
+                            compressionGain: ((size - compressedSize) / size * 100).toFixed(1),
+                            finalDimensions: currentWidth !== img.width ? `${currentWidth}x${currentHeight}` : null,
+                            attempts,
+                            finalThreshold: currentThreshold,
+                            finalTurdSize: currentTurdSize,
+                            svgLayers
+                        }));
+                        setFileSize(compressedSize);
+                        setIsProcessing(false);
+                        setProcessingStep('');
+                        resolve(compressedSvg);
                     }
-
-                    console.log('Peso final del SVG:', (size / 1024).toFixed(2), 'KB');
-
-                    // Contar capas SVG
-                    const svgLayers = (svg.match(/<path/g) || []).length;
-
-                    setSvgOutput(svg);
-                    setOptimizationInfo(prev => ({
-                        ...prev,
-                        svgSize: (size / 1024).toFixed(2),
-                        compressionGain: "N/A", // Ya medimos dentro del bucle
-                        finalDimensions: currentWidth !== img.width ? `${currentWidth}x${currentHeight}` : null,
-                        attempts,
-                        finalThreshold: currentThreshold,
-                        finalTurdSize: currentTurdSize,
-                        svgLayers
-                    }));
-                    setIsProcessing(false);
-                    setProcessingStep('');
-                    resolve(svg);
-
                 } catch (err) {
                     console.error('Error general en conversión:', err);
                     setError('Error al procesar la imagen: ' + err.message);
