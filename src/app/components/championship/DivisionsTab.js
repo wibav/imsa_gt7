@@ -1,16 +1,22 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { DEFAULT_DIVISION_COLORS } from '../../utils/constants';
 import { calculateAdvancedStandings } from '../../utils/standingsCalculator';
 
-/**
- * DivisionsTab — Gestión de divisiones del campeonato (admin)
- * 
- * Permite crear, editar, eliminar divisiones y asignar pilotos.
- * Incluye sistema de ascensos/descensos entre divisiones.
- */
+/** Convierte "M:SS.mmm" o "SS.mmm" a milisegundos para comparación correcta de tiempos */
+function parseTimeToMs(str) {
+    if (!str) return Infinity;
+    const parts = str.trim().split(':');
+    if (parts.length === 2) {
+        const mins = parseInt(parts[0], 10) || 0;
+        const secs = parseFloat(parts[1]) || 0;
+        return mins * 60000 + Math.round(secs * 1000);
+    }
+    return Math.round((parseFloat(parts[0]) || 0) * 1000);
+}
+
 export default function DivisionsTab({
     championshipId,
     championship,
@@ -18,42 +24,90 @@ export default function DivisionsTab({
     teams,
     tracks = [],
     penalties = [],
+    registrations = [],
     onUpdate
 }) {
     const [creating, setCreating] = useState(false);
     const [newDivName, setNewDivName] = useState('');
     const [saving, setSaving] = useState(false);
+    const [savingTimes, setSavingTimes] = useState(false);
     const [editingDiv, setEditingDiv] = useState(null);
     const [showPromotions, setShowPromotions] = useState(false);
     const [promotionPreview, setPromotionPreview] = useState(null);
+    const [showPreQualyModal, setShowPreQualyModal] = useState(false);
+    const [preQualyAssignPreview, setPreQualyAssignPreview] = useState([]);
 
-    // Obtener todos los pilotos del campeonato
-    const allDriverNames = (() => {
-        const names = new Set();
-        if (championship?.settings?.isTeamChampionship || teams?.length > 0) {
-            teams.forEach(team => {
-                (team.drivers || []).forEach(d => names.add(d.name));
-            });
-        }
-        if (championship?.drivers?.length > 0) {
-            championship.drivers.forEach(d => {
-                const name = typeof d === 'string' ? d : d.name;
-                names.add(name);
-            });
-        }
-        return [...names].sort();
-    })();
-
-    // Pilotos ya asignados a alguna división
-    const assignedDrivers = new Set();
-    divisions.forEach(div => {
-        (div.drivers || []).forEach(d => assignedDrivers.add(d));
+    // Estado local de tiempos Pre-Qualy: driverName → time
+    const [pqTimes, setPqTimes] = useState(() => {
+        const map = {};
+        (championship?.preQualy?.results || []).forEach(r => {
+            if (r.driverName) map[r.driverName] = r.time || '';
+        });
+        return map;
     });
 
-    // Pilotos sin asignar
-    const unassignedDrivers = allDriverNames.filter(d => !assignedDrivers.has(d));
+    // Snapshot inicial para detectar cambios pendientes
+    const [pqTimesSnapshot] = useState(() => {
+        const map = {};
+        (championship?.preQualy?.results || []).forEach(r => {
+            if (r.driverName) map[r.driverName] = r.time || '';
+        });
+        return map;
+    });
 
-    // Crear nueva división
+    // ── Datos derivados ──────────────────────────────────────────
+
+    const approvedRegs = useMemo(
+        () => registrations.filter(r => r.status === 'approved'),
+        [registrations]
+    );
+
+    // driverName → { gt7Id, psnId }
+    const regMap = useMemo(() => {
+        const map = {};
+        approvedRegs.forEach(r => {
+            const key = r.name || r.psnId || r.gt7Id || '';
+            if (key) map[key] = { gt7Id: r.gt7Id || '', psnId: r.psnId || '' };
+        });
+        return map;
+    }, [approvedRegs]);
+
+    // driverName → divId
+    const divisionMap = useMemo(() => {
+        const map = {};
+        divisions.forEach(div => {
+            (div.drivers || []).forEach(name => { map[name] = div.id; });
+        });
+        return map;
+    }, [divisions]);
+
+    const assignedCount = useMemo(() => {
+        const s = new Set();
+        divisions.forEach(div => (div.drivers || []).forEach(d => s.add(d)));
+        return s.size;
+    }, [divisions]);
+
+    const pqTimesHaveChanges = useMemo(() => {
+        const keys = new Set([...Object.keys(pqTimes), ...Object.keys(pqTimesSnapshot)]);
+        for (const k of keys) {
+            if ((pqTimes[k] || '') !== (pqTimesSnapshot[k] || '')) return true;
+        }
+        return false;
+    }, [pqTimes, pqTimesSnapshot]);
+
+    // Pilotos con tiempo registrado, ordenados fastest first (para modal Pre-Qualy)
+    const classifiedByTime = useMemo(() => {
+        return approvedRegs
+            .map(r => {
+                const name = r.name || r.psnId || r.gt7Id || '';
+                return { driverName: name, time: pqTimes[name] || '', gt7Id: r.gt7Id || '' };
+            })
+            .filter(r => r.time)
+            .sort((a, b) => parseTimeToMs(a.time) - parseTimeToMs(b.time));
+    }, [approvedRegs, pqTimes]);
+
+    // ── Handlers ───────────────────────────────────────────────
+
     const handleCreateDivision = async () => {
         if (!newDivName.trim()) return;
         setSaving(true);
@@ -114,15 +168,41 @@ export default function DivisionsTab({
         }
     };
 
-    // Mover piloto entre divisiones (drag & drop simplificado)
+    // Cambia la división de un piloto desde la tabla global (inmediato)
+    const handleChangeDriverDivision = async (driverName, newDivId) => {
+        const currentDivId = divisionMap[driverName];
+        if (currentDivId === (newDivId || undefined)) return;
+        try {
+            if (currentDivId && !newDivId) {
+                // Quitar de su división
+                await handleRemoveDriver(currentDivId, driverName);
+            } else if (!currentDivId && newDivId) {
+                // Asignar a nueva división
+                await handleAssignDriver(newDivId, driverName);
+            } else if (currentDivId && newDivId) {
+                // Mover de división a división
+                const fromDiv = divisions.find(d => d.id === currentDivId);
+                const toDiv = divisions.find(d => d.id === newDivId);
+                if (!fromDiv || !toDiv) return;
+                await FirebaseService.updateDivision(championshipId, currentDivId, {
+                    drivers: (fromDiv.drivers || []).filter(d => d !== driverName)
+                });
+                await FirebaseService.updateDivision(championshipId, newDivId, {
+                    drivers: [...(toDiv.drivers || []), driverName]
+                });
+                await onUpdate();
+            }
+        } catch (error) {
+            console.error('Error cambiando división:', error);
+        }
+    };
+
     const handleMoveDriver = async (driverName, fromDivId, toDivId) => {
         if (fromDivId === toDivId) return;
         try {
-            // Remover de origen
             const fromDiv = divisions.find(d => d.id === fromDivId);
             const toDiv = divisions.find(d => d.id === toDivId);
             if (!fromDiv || !toDiv) return;
-
             await FirebaseService.updateDivision(championshipId, fromDivId, {
                 drivers: (fromDiv.drivers || []).filter(d => d !== driverName)
             });
@@ -135,7 +215,6 @@ export default function DivisionsTab({
         }
     };
 
-    // Actualizar campo de división (nombre, color, maxDrivers, streaming)
     const handleUpdateDivField = async (divId, field, value) => {
         try {
             await FirebaseService.updateDivision(championshipId, divId, { [field]: value });
@@ -145,115 +224,128 @@ export default function DivisionsTab({
         }
     };
 
-    // Auto-asignar todos los drivers equitativamente
-    const handleAutoAssign = async () => {
-        if (divisions.length === 0) {
-            alert('Primero crea al menos una división');
-            return;
-        }
-        if (!confirm(`¿Auto-asignar ${unassignedDrivers.length} pilotos sin asignar equitativamente entre ${divisions.length} divisiones?`)) return;
-
-        setSaving(true);
+    // Guardar tiempos Pre-Qualy desde la tabla global
+    const handleSavePqTimes = async () => {
+        setSavingTimes(true);
         try {
-            const sorted = [...divisions].sort((a, b) => a.order - b.order);
-            const assignments = sorted.map(d => ({ id: d.id, drivers: [...(d.drivers || [])] }));
-
-            unassignedDrivers.forEach((driver, idx) => {
-                const targetIdx = idx % sorted.length;
-                assignments[targetIdx].drivers.push(driver);
-            });
-
-            for (const assignment of assignments) {
-                await FirebaseService.updateDivision(championshipId, assignment.id, { drivers: assignment.drivers });
-            }
+            const existingResults = championship?.preQualy?.results || [];
+            const allNames = new Set([
+                ...Object.keys(pqTimes),
+                ...existingResults.map(r => r.driverName)
+            ]);
+            const results = [...allNames]
+                .filter(name => pqTimes[name])
+                .map(name => {
+                    const existing = existingResults.find(r => r.driverName === name);
+                    return {
+                        driverName: name,
+                        time: pqTimes[name],
+                        classified: existing?.classified !== undefined ? existing.classified : true
+                    };
+                })
+                .sort((a, b) => parseTimeToMs(a.time) - parseTimeToMs(b.time));
+            await FirebaseService.savePreQualyResults(championshipId, results);
             await onUpdate();
         } catch (error) {
-            console.error('Error auto-asignando:', error);
+            console.error('Error guardando tiempos:', error);
+            alert('Error al guardar tiempos: ' + error.message);
+        } finally {
+            setSavingTimes(false);
+        }
+    };
+
+    // Abrir modal de auto-asignación por Pre-Qualy
+    const handleOpenPreQualyAssign = () => {
+        if (classifiedByTime.length === 0) {
+            alert('No hay pilotos con tiempo registrado. Ingresa los tiempos primero y guárdalos.');
+            return;
+        }
+        if (divisions.length === 0) {
+            alert('Primero crea al menos una división.');
+            return;
+        }
+        const sortedDivs = [...divisions].sort((a, b) => a.order - b.order);
+        const groupSize = Math.ceil(classifiedByTime.length / sortedDivs.length);
+        const preview = classifiedByTime.map((r, idx) => ({
+            driverName: r.driverName,
+            time: r.time,
+            divId: sortedDivs[Math.min(Math.floor(idx / groupSize), sortedDivs.length - 1)].id
+        }));
+        setPreQualyAssignPreview(preview);
+        setShowPreQualyModal(true);
+    };
+
+    // Confirmar asignación desde modal Pre-Qualy
+    const handleConfirmPreQualyAssign = async () => {
+        setSaving(true);
+        try {
+            const involvedDivIds = new Set(preQualyAssignPreview.map(p => p.divId));
+            const assignedNames = new Set(preQualyAssignPreview.map(p => p.driverName));
+            const divDriversMap = {};
+            // Conservar pilotos existentes que no están en el preview
+            divisions.forEach(div => {
+                if (involvedDivIds.has(div.id)) {
+                    divDriversMap[div.id] = (div.drivers || []).filter(d => !assignedNames.has(d));
+                }
+            });
+            preQualyAssignPreview.forEach(p => {
+                if (divDriversMap[p.divId]) divDriversMap[p.divId].push(p.driverName);
+            });
+            for (const [divId, drivers] of Object.entries(divDriversMap)) {
+                await FirebaseService.updateDivision(championshipId, divId, { drivers });
+            }
+            setShowPreQualyModal(false);
+            setPreQualyAssignPreview([]);
+            await onUpdate();
+        } catch (error) {
+            console.error('Error asignando desde Pre-Qualy:', error);
+            alert('Error al asignar: ' + error.message);
         } finally {
             setSaving(false);
         }
     };
 
-    // Generar preview de ascensos/descensos
     const handleGeneratePromotions = (standings) => {
         if (!standings || divisions.length < 2) return;
-
         const promoCount = championship?.divisionsConfig?.promotionCount ?? 5;
         const releCount = championship?.divisionsConfig?.relegationCount ?? 5;
         const sorted = [...divisions].sort((a, b) => a.order - b.order);
-
         const preview = [];
-
         for (let i = 0; i < sorted.length; i++) {
             const div = sorted[i];
             const divStandings = standings[div.id] || [];
-
-            // Pilotos que bajan (últimos N de esta división, excepto la última)
             if (i < sorted.length - 1 && divStandings.length > releCount) {
-                const relegados = divStandings.slice(-releCount);
-                relegados.forEach(d => {
-                    preview.push({
-                        driver: d.name,
-                        from: div.name,
-                        fromId: div.id,
-                        to: sorted[i + 1].name,
-                        toId: sorted[i + 1].id,
-                        type: 'relegation'
-                    });
+                divStandings.slice(-releCount).forEach(d => {
+                    preview.push({ driver: d.name, from: div.name, fromId: div.id, to: sorted[i + 1].name, toId: sorted[i + 1].id, type: 'relegation' });
                 });
             }
-
-            // Pilotos que suben (primeros N de esta división, excepto la primera)
             if (i > 0 && divStandings.length > 0) {
-                const promovidos = divStandings.slice(0, promoCount);
-                promovidos.forEach(d => {
-                    preview.push({
-                        driver: d.name,
-                        from: div.name,
-                        fromId: div.id,
-                        to: sorted[i - 1].name,
-                        toId: sorted[i - 1].id,
-                        type: 'promotion'
-                    });
+                divStandings.slice(0, promoCount).forEach(d => {
+                    preview.push({ driver: d.name, from: div.name, fromId: div.id, to: sorted[i - 1].name, toId: sorted[i - 1].id, type: 'promotion' });
                 });
             }
         }
-
         setPromotionPreview(preview);
         setShowPromotions(true);
     };
 
-    // Aplicar ascensos/descensos
     const handleApplyPromotions = async () => {
         if (!promotionPreview || promotionPreview.length === 0) return;
         if (!confirm(`¿Aplicar ${promotionPreview.length} movimientos de ascenso/descenso? Esta acción reorganizará los pilotos entre divisiones.`)) return;
-
         setSaving(true);
         try {
-            // Construir nuevo mapa de pilotos por división
             const divDriversMap = {};
-            divisions.forEach(d => {
-                divDriversMap[d.id] = [...(d.drivers || [])];
-            });
-
-            // Primero remover todos los pilotos involucrados de sus divisiones actuales
+            divisions.forEach(d => { divDriversMap[d.id] = [...(d.drivers || [])]; });
             const movedDrivers = new Set(promotionPreview.map(p => p.driver));
             Object.keys(divDriversMap).forEach(divId => {
                 divDriversMap[divId] = divDriversMap[divId].filter(d => !movedDrivers.has(d));
             });
-
-            // Luego agregar a sus nuevas divisiones
             promotionPreview.forEach(p => {
-                if (divDriversMap[p.toId]) {
-                    divDriversMap[p.toId].push(p.driver);
-                }
+                if (divDriversMap[p.toId]) divDriversMap[p.toId].push(p.driver);
             });
-
-            // Guardar cambios
             for (const [divId, drivers] of Object.entries(divDriversMap)) {
                 await FirebaseService.updateDivision(championshipId, divId, { drivers });
             }
-
             setShowPromotions(false);
             setPromotionPreview(null);
             await onUpdate();
@@ -266,20 +358,27 @@ export default function DivisionsTab({
         }
     };
 
+    // ── Render ─────────────────────────────────────────────────
+
+    const sortedDivisions = [...divisions].sort((a, b) => a.order - b.order);
+    const totalSlots = divisions.reduce((s, d) => s + (d.maxDrivers || 15), 0);
+
     return (
         <div className="space-y-6">
+
+            {/* ── Header ── */}
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-2xl font-bold text-white">🏆 Divisiones del Campeonato</h2>
                     <p className="text-gray-400 text-sm mt-1">
-                        {divisions.length} divisiones • {assignedDrivers.size}/{allDriverNames.length} pilotos asignados
+                        {divisions.length} divisiones • {assignedCount}/{approvedRegs.length} pilotos asignados • {totalSlots} cupos totales
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    {unassignedDrivers.length > 0 && divisions.length > 0 && (
-                        <button onClick={handleAutoAssign} disabled={saving}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors disabled:opacity-50">
-                            🔀 Auto-asignar ({unassignedDrivers.length})
+                    {classifiedByTime.length > 0 && divisions.length > 0 && (
+                        <button onClick={handleOpenPreQualyAssign} disabled={saving}
+                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
+                            🏁 Auto-asignar por Pre-Qualy
                         </button>
                     )}
                     <button onClick={() => setCreating(true)}
@@ -289,14 +388,14 @@ export default function DivisionsTab({
                 </div>
             </div>
 
-            {/* Crear nueva división */}
+            {/* ── Crear nueva división ── */}
             {creating && (
                 <div className="bg-white/5 border border-white/20 rounded-xl p-4">
                     <div className="flex gap-3">
                         <input type="text" value={newDivName}
                             onChange={(e) => setNewDivName(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleCreateDivision()}
-                            placeholder="Nombre de la división (ej: División 1)"
+                            placeholder="Nombre de la división (ej: División A)"
                             className="flex-1 px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
                             autoFocus
                         />
@@ -312,36 +411,87 @@ export default function DivisionsTab({
                 </div>
             )}
 
-            {/* Pilotos sin asignar */}
-            {unassignedDrivers.length > 0 && (
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
-                    <h4 className="text-yellow-300 font-bold text-sm mb-2">
-                        ⚠️ {unassignedDrivers.length} pilotos sin división
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                        {unassignedDrivers.map(driver => (
-                            <div key={driver} className="bg-yellow-500/20 border border-yellow-500/40 rounded-lg px-3 py-1.5 text-sm text-yellow-200 flex items-center gap-2">
-                                <span>{driver}</span>
-                                {divisions.length > 0 && (
-                                    <select
-                                        onChange={(e) => {
-                                            if (e.target.value) handleAssignDriver(e.target.value, driver);
-                                            e.target.value = '';
-                                        }}
-                                        className="bg-transparent border border-yellow-500/30 rounded text-xs px-1 py-0.5 text-yellow-300">
-                                        <option value="" className="bg-slate-800">Asignar a...</option>
-                                        {divisions.sort((a, b) => a.order - b.order).map(div => (
-                                            <option key={div.id} value={div.id} className="bg-slate-800">{div.name}</option>
-                                        ))}
-                                    </select>
-                                )}
-                            </div>
-                        ))}
+            {/* ── Tabla global: todos los inscritos aprobados ── */}
+            {approvedRegs.length > 0 ? (
+                <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                        <h3 className="text-white font-semibold text-sm">
+                            📋 Pilotos inscritos aprobados
+                            <span className="ml-2 text-gray-400 font-normal text-xs">
+                                ({approvedRegs.length} en total • {assignedCount} asignados)
+                            </span>
+                        </h3>
+                        {pqTimesHaveChanges && (
+                            <button onClick={handleSavePqTimes} disabled={savingTimes}
+                                className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg font-medium disabled:opacity-50 transition-colors">
+                                {savingTimes ? '⏳ Guardando...' : '💾 Guardar tiempos Pre-Qualy'}
+                            </button>
+                        )}
                     </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="text-left text-xs text-gray-400 border-b border-white/10 bg-white/5">
+                                    <th className="px-4 py-2.5 font-medium w-8">#</th>
+                                    <th className="px-4 py-2.5 font-medium">GT7 ID</th>
+                                    <th className="px-4 py-2.5 font-medium">PSN ID</th>
+                                    <th className="px-4 py-2.5 font-medium">⏱ Tiempo Pre-Qualy</th>
+                                    <th className="px-4 py-2.5 font-medium">División</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {approvedRegs.map((r, idx) => {
+                                    const driverName = r.name || r.psnId || r.gt7Id || '';
+                                    const currentDivId = divisionMap[driverName] || '';
+                                    const currentDiv = divisions.find(d => d.id === currentDivId);
+                                    return (
+                                        <tr key={r.id} className="hover:bg-white/5 transition-colors">
+                                            <td className="px-4 py-2.5 text-gray-500 font-mono text-xs">{idx + 1}</td>
+                                            <td className="px-4 py-2.5 text-white font-medium">
+                                                {r.gt7Id || <span className="text-gray-600 italic text-xs">—</span>}
+                                            </td>
+                                            <td className="px-4 py-2.5 text-gray-300">
+                                                {r.psnId || <span className="text-gray-600 italic text-xs">—</span>}
+                                            </td>
+                                            <td className="px-4 py-2.5">
+                                                <input
+                                                    type="text"
+                                                    value={pqTimes[driverName] || ''}
+                                                    onChange={e => setPqTimes(prev => ({ ...prev, [driverName]: e.target.value }))}
+                                                    placeholder="1:23.456"
+                                                    className="w-28 px-2 py-1 bg-white/10 border border-white/20 rounded text-yellow-200 text-xs font-mono placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                                                />
+                                            </td>
+                                            <td className="px-4 py-2.5">
+                                                <select
+                                                    value={currentDivId}
+                                                    onChange={e => handleChangeDriverDivision(driverName, e.target.value)}
+                                                    className={`px-2 py-1 rounded text-xs font-medium border focus:outline-none ${currentDiv
+                                                            ? 'bg-white/10 border-white/20 text-white'
+                                                            : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300'
+                                                        }`}
+                                                    style={currentDiv ? { borderLeftColor: currentDiv.color, borderLeftWidth: 3 } : {}}
+                                                >
+                                                    <option value="" className="bg-slate-800 text-gray-300">Sin división</option>
+                                                    {sortedDivisions.map(div => (
+                                                        <option key={div.id} value={div.id} className="bg-slate-800">{div.name}</option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ) : (
+                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 text-yellow-300 text-sm text-center">
+                    ⚠️ No hay inscripciones aprobadas aún. Aprueba pilotos en la pestaña <strong>Inscripciones</strong>.
                 </div>
             )}
 
-            {/* Lista de divisiones */}
+            {/* ── Lista de divisiones ── */}
             {divisions.length === 0 ? (
                 <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
                     <div className="text-6xl mb-4">🏆</div>
@@ -350,16 +500,14 @@ export default function DivisionsTab({
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {[...divisions].sort((a, b) => a.order - b.order).map((division) => (
+                    {sortedDivisions.map((division) => (
                         <DivisionCard
                             key={division.id}
                             division={division}
                             divisions={divisions}
-                            allDriverNames={allDriverNames}
-                            assignedDrivers={assignedDrivers}
+                            regMap={regMap}
                             editing={editingDiv === division.id}
                             onEdit={() => setEditingDiv(editingDiv === division.id ? null : division.id)}
-                            onAssign={(driver) => handleAssignDriver(division.id, driver)}
                             onRemove={(driver) => handleRemoveDriver(division.id, driver)}
                             onMove={(driver, toDivId) => handleMoveDriver(driver, division.id, toDivId)}
                             onUpdate={(field, value) => handleUpdateDivField(division.id, field, value)}
@@ -369,20 +517,18 @@ export default function DivisionsTab({
                 </div>
             )}
 
-            {/* Botón de ascensos/descensos */}
+            {/* ── Ascensos/Descensos (solo campeonatos completados) ── */}
             {divisions.length >= 2 && championship?.status === 'completed' && (
                 <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-xl p-6">
                     <div className="flex items-center justify-between">
                         <div>
                             <h3 className="text-white font-bold text-lg">🔄 Ascensos y Descensos</h3>
                             <p className="text-gray-300 text-sm mt-1">
-                                Procesa los movimientos de pilotos entre divisiones basado en la clasificación final.
                                 Los primeros {championship?.divisionsConfig?.promotionCount ?? 5} suben,
                                 los últimos {championship?.divisionsConfig?.relegationCount ?? 5} bajan.
                             </p>
                         </div>
                         <button onClick={() => {
-                            // Calcular standings por división
                             const standingsByDiv = {};
                             divisions.forEach(div => {
                                 const { driverStandings } = calculateAdvancedStandings(
@@ -400,7 +546,68 @@ export default function DivisionsTab({
                 </div>
             )}
 
-            {/* Modal de ascensos/descensos */}
+            {/* ── Modal: Auto-asignar por Pre-Qualy ── */}
+            {showPreQualyModal && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-white/30 rounded-xl p-6 w-full max-w-2xl max-h-[85vh] flex flex-col">
+                        <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                            <div>
+                                <h3 className="text-xl font-bold text-white">🏁 Auto-asignar por Pre-Qualy</h3>
+                                <p className="text-gray-400 text-sm mt-0.5">
+                                    {classifiedByTime.length} pilotos ordenados por tiempo · grupos secuenciales
+                                </p>
+                            </div>
+                            <button onClick={() => setShowPreQualyModal(false)}
+                                className="text-gray-400 hover:text-white text-xl">✕</button>
+                        </div>
+                        <div className="overflow-y-auto flex-1">
+                            <table className="w-full text-sm">
+                                <thead className="sticky top-0 bg-slate-800 z-10">
+                                    <tr className="text-left text-xs text-gray-400 border-b border-white/10">
+                                        <th className="pb-2 px-3 py-2 font-medium">#</th>
+                                        <th className="pb-2 px-3 py-2 font-medium">GT7 ID</th>
+                                        <th className="pb-2 px-3 py-2 font-medium">⏱ Tiempo</th>
+                                        <th className="pb-2 px-3 py-2 font-medium">División asignada</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {preQualyAssignPreview.map((row, idx) => (
+                                        <tr key={row.driverName} className="hover:bg-white/5">
+                                            <td className="py-2.5 px-3 text-gray-500 font-mono text-xs">{idx + 1}</td>
+                                            <td className="py-2.5 px-3 text-white font-medium text-sm">{row.driverName}</td>
+                                            <td className="py-2.5 px-3 font-mono text-yellow-300 text-sm">{row.time}</td>
+                                            <td className="py-2.5 px-3">
+                                                <select
+                                                    value={row.divId}
+                                                    onChange={e => setPreQualyAssignPreview(prev =>
+                                                        prev.map((p, i) => i === idx ? { ...p, divId: e.target.value } : p)
+                                                    )}
+                                                    className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-xs focus:outline-none">
+                                                    {sortedDivisions.map(div => (
+                                                        <option key={div.id} value={div.id} className="bg-slate-800">{div.name}</option>
+                                                    ))}
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="flex gap-3 mt-4 pt-4 border-t border-white/20 flex-shrink-0">
+                            <button onClick={() => setShowPreQualyModal(false)}
+                                className="flex-1 px-4 py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm">
+                                Cancelar
+                            </button>
+                            <button onClick={handleConfirmPreQualyAssign} disabled={saving}
+                                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold rounded-lg text-sm disabled:opacity-50">
+                                {saving ? '⏳ Asignando...' : `✅ Confirmar (${preQualyAssignPreview.length} pilotos)`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Modal: Ascensos/Descensos ── */}
             {showPromotions && promotionPreview && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-white/30 rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -409,36 +616,30 @@ export default function DivisionsTab({
                             <button onClick={() => setShowPromotions(false)}
                                 className="text-gray-400 hover:text-white text-xl">✕</button>
                         </div>
-
                         {promotionPreview.length === 0 ? (
                             <p className="text-gray-400 text-center py-8">No hay movimientos que procesar</p>
                         ) : (
                             <div className="space-y-3">
-                                {promotionPreview.filter(p => p.type === 'promotion').length > 0 && (
-                                    <>
-                                        <h4 className="text-green-400 font-bold text-sm">⬆️ ASCIENDEN</h4>
-                                        {promotionPreview.filter(p => p.type === 'promotion').map((p, i) => (
-                                            <div key={i} className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 flex items-center justify-between">
-                                                <span className="text-white font-medium">{p.driver}</span>
-                                                <span className="text-green-300 text-sm">{p.from} → {p.to}</span>
-                                            </div>
-                                        ))}
-                                    </>
-                                )}
-                                {promotionPreview.filter(p => p.type === 'relegation').length > 0 && (
-                                    <>
-                                        <h4 className="text-red-400 font-bold text-sm mt-4">⬇️ DESCIENDEN</h4>
-                                        {promotionPreview.filter(p => p.type === 'relegation').map((p, i) => (
-                                            <div key={i} className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-center justify-between">
-                                                <span className="text-white font-medium">{p.driver}</span>
-                                                <span className="text-red-300 text-sm">{p.from} → {p.to}</span>
-                                            </div>
-                                        ))}
-                                    </>
-                                )}
+                                {promotionPreview.filter(p => p.type === 'promotion').length > 0 && (<>
+                                    <h4 className="text-green-400 font-bold text-sm">⬆️ ASCIENDEN</h4>
+                                    {promotionPreview.filter(p => p.type === 'promotion').map((p, i) => (
+                                        <div key={i} className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 flex items-center justify-between">
+                                            <span className="text-white font-medium">{p.driver}</span>
+                                            <span className="text-green-300 text-sm">{p.from} → {p.to}</span>
+                                        </div>
+                                    ))}
+                                </>)}
+                                {promotionPreview.filter(p => p.type === 'relegation').length > 0 && (<>
+                                    <h4 className="text-red-400 font-bold text-sm mt-4">⬇️ DESCIENDEN</h4>
+                                    {promotionPreview.filter(p => p.type === 'relegation').map((p, i) => (
+                                        <div key={i} className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-center justify-between">
+                                            <span className="text-white font-medium">{p.driver}</span>
+                                            <span className="text-red-300 text-sm">{p.from} → {p.to}</span>
+                                        </div>
+                                    ))}
+                                </>)}
                             </div>
                         )}
-
                         <div className="flex gap-3 mt-6 pt-4 border-t border-white/20">
                             <button onClick={() => setShowPromotions(false)}
                                 className="flex-1 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg">
@@ -457,34 +658,27 @@ export default function DivisionsTab({
 }
 
 /**
- * Tarjeta individual de división con gestión de pilotos
+ * Tarjeta individual de división — tabla GT7 ID + PSN ID
  */
 function DivisionCard({
     division,
     divisions,
+    regMap,
     editing,
     onEdit,
-    onAssign,
     onRemove,
     onMove,
     onUpdate,
     onDelete
 }) {
-    const [addingDriver, setAddingDriver] = useState('');
     const driverCount = (division.drivers || []).length;
 
     return (
         <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-white/20 rounded-xl overflow-hidden">
             {/* Header con color de división */}
-            <div
-                className="p-4 flex items-center justify-between"
-                style={{ borderLeft: `4px solid ${division.color}` }}
-            >
+            <div className="p-4 flex items-center justify-between" style={{ borderLeft: `4px solid ${division.color}` }}>
                 <div className="flex items-center gap-3">
-                    <div
-                        className="w-4 h-4 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: division.color }}
-                    />
+                    <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: division.color }} />
                     <div>
                         <h3 className="text-white font-bold text-lg">{division.name}</h3>
                         <p className="text-gray-400 text-sm">
@@ -558,38 +752,58 @@ function DivisionCard({
                 </div>
             )}
 
-            {/* Lista de pilotos */}
-            <div className="p-4 border-t border-white/10">
-                <div className="flex flex-wrap gap-2">
-                    {(division.drivers || []).map((driver, idx) => (
-                        <div key={driver}
-                            className="group bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 flex items-center gap-2 text-sm">
-                            <span className="text-gray-500 text-xs w-4">{idx + 1}</span>
-                            <span className="text-white">{driver}</span>
-                            <div className="hidden group-hover:flex items-center gap-1">
-                                {/* Mover a otra división */}
-                                {divisions.length > 1 && (
-                                    <select onChange={(e) => {
-                                        if (e.target.value) onMove(driver, e.target.value);
-                                        e.target.value = '';
-                                    }}
-                                        className="bg-transparent border-none text-xs text-blue-400 cursor-pointer w-5 px-0"
-                                        title="Mover a otra división">
-                                        <option value="">→</option>
-                                        {divisions.filter(d => d.id !== division.id).sort((a, b) => a.order - b.order).map(d => (
-                                            <option key={d.id} value={d.id} className="bg-slate-800">{d.name}</option>
-                                        ))}
-                                    </select>
-                                )}
-                                <button onClick={() => onRemove(driver)}
-                                    className="text-red-400 hover:text-red-300 text-xs" title="Remover">✕</button>
-                            </div>
-                        </div>
-                    ))}
-                    {driverCount === 0 && (
-                        <p className="text-gray-500 text-sm italic">Sin pilotos asignados</p>
-                    )}
-                </div>
+            {/* Tabla de pilotos: GT7 ID + PSN ID */}
+            <div className="border-t border-white/10">
+                {driverCount === 0 ? (
+                    <p className="px-4 py-4 text-gray-500 text-sm italic text-center">Sin pilotos asignados</p>
+                ) : (
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="text-left text-xs text-gray-500 border-b border-white/5 bg-white/[0.02]">
+                                <th className="px-4 py-2 font-normal w-8">#</th>
+                                <th className="px-4 py-2 font-normal">GT7 ID</th>
+                                <th className="px-4 py-2 font-normal">PSN ID</th>
+                                <th className="px-4 py-2 font-normal w-20"></th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                            {(division.drivers || []).map((driver, idx) => {
+                                const info = regMap?.[driver] || {};
+                                return (
+                                    <tr key={driver} className="group hover:bg-white/5 transition-colors">
+                                        <td className="px-4 py-2.5 text-gray-500 font-mono text-xs">{idx + 1}</td>
+                                        <td className="px-4 py-2.5 text-white font-medium text-sm">
+                                            {info.gt7Id || <span className="text-gray-500 italic text-xs">{driver}</span>}
+                                        </td>
+                                        <td className="px-4 py-2.5 text-gray-300 text-sm">
+                                            {info.psnId || <span className="text-gray-600 text-xs">—</span>}
+                                        </td>
+                                        <td className="px-4 py-2.5">
+                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                                                {divisions.length > 1 && (
+                                                    <select onChange={(e) => {
+                                                        if (e.target.value) onMove(driver, e.target.value);
+                                                        e.target.value = '';
+                                                    }}
+                                                        className="bg-transparent border-none text-xs text-blue-400 cursor-pointer"
+                                                        title="Mover a otra división">
+                                                        <option value="">→</option>
+                                                        {divisions.filter(d => d.id !== division.id).sort((a, b) => a.order - b.order).map(d => (
+                                                            <option key={d.id} value={d.id} className="bg-slate-800">{d.name}</option>
+                                                        ))}
+                                                    </select>
+                                                )}
+                                                <button onClick={() => onRemove(driver)}
+                                                    className="text-red-400 hover:text-red-300 text-xs px-1"
+                                                    title="Quitar de división">✕</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                )}
             </div>
         </div>
     );

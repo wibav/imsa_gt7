@@ -236,11 +236,11 @@ export default function ToolsPage() {
 
             // Paso 2: Optimizar tamaño y calidad
             setProcessingStep('Optimizando imagen...');
-            const optimizedUrl = await optimizeImageSmart(imageDataUrl, originalFile);
+            const { optimizedUrl, complexityHint } = await optimizeImageSmart(imageDataUrl, originalFile);
 
             // Paso 3: Convertir a SVG automáticamente
             setProcessingStep('Convirtiendo a SVG...');
-            await convertToSVGAutomatic(optimizedUrl);
+            await convertToSVGAutomatic(optimizedUrl, complexityHint);
 
         } catch (err) {
             console.error('Error en procesamiento automático:', err);
@@ -261,16 +261,32 @@ export default function ToolsPage() {
                 let height = img.height;
 
                 // Ajuste inteligente de tamaño basado en complejidad
-                let maxSize = 200; // Reducido para más detalle en formas complejas
+                let maxSize = 200; // base contenida para liberar presupuesto de capas
 
-                // Si la imagen es muy grande, reducir más
-                if (width > 1000 || height > 1000) {
-                    maxSize = 300;
-                } else if (width < 500 && height < 500) {
-                    maxSize = 500; // Permitir más tamaño en imágenes pequeñas
+                // Calcular complejidad antes de escalar
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
+                const initialImageData = ctx.getImageData(0, 0, width, height);
+                const preComplexity = analyzeImageComplexity(initialImageData);
+
+                // Reducir dimensiones para liberar presupuesto de capas
+                if (preComplexity.complexity === 'muy_compleja') {
+                    maxSize = 230;
+                } else if (preComplexity.complexity === 'compleja') {
+                    maxSize = 190;
+                } else if (preComplexity.complexity === 'media') {
+                    maxSize = 180;
+                } else {
+                    maxSize = 200; // simples suficientemente grandes sin ensuciar
                 }
 
-                // Calcular dimensiones manteniendo proporción
+                // Si la imagen es muy grande, limitar más aún
+                if (width > 1000 || height > 1000) {
+                    maxSize = Math.min(maxSize, 220);
+                }
+
+                // Recalcular dimensiones manteniendo proporción
                 if (width > maxSize || height > maxSize) {
                     const aspectRatio = width / height;
 
@@ -294,8 +310,22 @@ export default function ToolsPage() {
 
                 // SIMPLIFICACIÓN DE COLORES: Reducir paleta para mejor vectorización
                 const imageData = ctx.getImageData(0, 0, width, height);
-                const simplifiedData = simplifyColors(imageData, 16); // Reducir a 16 colores máximo
-                ctx.putImageData(simplifiedData, 0, 0);
+                let simplifiedData = imageData;
+                if (preComplexity.complexity === 'muy_compleja') {
+                    // No simplificar colores en logos muy complejos para conservar gama completa
+                    simplifiedData = imageData;
+                } else {
+                    const paletteTarget = preComplexity.complexity === 'compleja'
+                        ? 28
+                        : preComplexity.complexity === 'media'
+                            ? 18
+                            : 12; // menos colores en logos simples para evitar motas
+                    const quantStep = preComplexity.complexity === 'compleja'
+                        ? 12
+                        : 32;
+                    simplifiedData = simplifyColors(imageData, paletteTarget, quantStep);
+                    ctx.putImageData(simplifiedData, 0, 0);
+                }
 
                 // Convertir a blob con compresión
                 canvas.toBlob(
@@ -322,7 +352,7 @@ export default function ToolsPage() {
                             colorSimplification: true
                         });
 
-                        resolve(optimizedUrl);
+                        resolve({ optimizedUrl, complexityHint: preComplexity.complexity });
                     },
                     'image/png',
                     0.9 // Alta calidad para mejor resultado
@@ -333,7 +363,7 @@ export default function ToolsPage() {
         });
     };
 
-    const convertToSVGAutomatic = async (optimizedUrl) => {
+    const convertToSVGAutomatic = async (optimizedUrl, complexityHint = 'media') => {
         return new Promise((resolve, reject) => {
             const img = new window.Image();
             img.crossOrigin = 'anonymous';
@@ -346,6 +376,21 @@ export default function ToolsPage() {
 
                     let currentWidth = img.width;
                     let currentHeight = img.height;
+
+                    // Escalar preventivamente si es grande para ayudar a caber en 15KB, pero permitir un poco más en logos complejos
+                    const maxDim = complexityHint === 'muy_compleja' ? 230
+                        : complexityHint === 'compleja' ? 190
+                            : complexityHint === 'media' ? 180 : 200; // subimos muy complejas para no perder contorno
+                    if (currentWidth > maxDim || currentHeight > maxDim) {
+                        const ratio = currentWidth / currentHeight;
+                        if (ratio >= 1) {
+                            currentWidth = maxDim;
+                            currentHeight = Math.round(maxDim / ratio);
+                        } else {
+                            currentHeight = maxDim;
+                            currentWidth = Math.round(maxDim * ratio);
+                        }
+                    }
 
                     canvas.width = currentWidth;
                     canvas.height = currentHeight;
@@ -363,10 +408,16 @@ export default function ToolsPage() {
                     while (size > 15 * 1024 && attempts < maxAttempts) {
                         try {
                             // Obtener datos de imagen
-                            const imageData = ctx.getImageData(0, 0, currentWidth, currentHeight);
+                            let imageData = ctx.getImageData(0, 0, currentWidth, currentHeight);
+
+                            // Para logos muy complejos, aplicar una cuantización suave (48 colores, paso 8) para exponer la paleta completa
+                            if (complexityHint === 'muy_compleja') {
+                                const quantized = simplifyColors(imageData, 96, 4);
+                                imageData = quantized;
+                            }
 
                             // Usar método multicapa con reducción de colores
-                            svg = await convertWithMultipleLayers(imageData, currentWidth, currentHeight, currentThreshold, currentTurdSize);
+                            svg = await convertWithMultipleLayers(imageData, currentWidth, currentHeight, currentThreshold, currentTurdSize, complexityHint);
 
                             // APLICAR COMPRESIÓN DENTRO DEL BUCLE PARA MEDIR PESO REAL
                             // y evitar dar más vueltas/encoger si ya se alcanzó el límite
@@ -378,43 +429,38 @@ export default function ToolsPage() {
 
                             attempts++;
 
-                            // Si sigue muy grande, penalizamos duramente los detallitos o encogemos la imagen
+                            // Si sigue grande, limpiar detalles y (si es necesario) reducir resolución con piso 150px
                             if (size > 15 * 1024) {
                                 sizeIncreasing++;
 
-                                if (sizeIncreasing <= 3) {
-                                    currentThreshold += 10;
-                                }
-                                else if (sizeIncreasing <= 5) {
-                                    currentTurdSize += (size > 30 * 1024) ? 4 : 2;
+                                if (size > 30 * 1024) {
+                                    currentTurdSize += 4;
+                                    currentThreshold += 8;
+                                } else {
+                                    currentTurdSize += 2;
                                     currentThreshold += 5;
                                 }
-                                else {
-                                    // Si no hay de otra, empezamos a encoger suavemente, pero con límite para que no sea un microscopio
-                                    if (currentWidth > 180) {
-                                        let factor = (size > 35 * 1024) ? 0.70 : 0.85;
-                                        let nextWidth = Math.floor(currentWidth * factor);
-                                        let nextHeight = Math.floor(currentHeight * factor);
 
-                                        if (nextWidth < 180) {
-                                            nextWidth = 180;
-                                            nextHeight = Math.floor(180 * (img.height / img.width));
-                                        }
-
-                                        currentWidth = nextWidth;
-                                        currentHeight = nextHeight;
-                                        canvas.width = currentWidth;
-                                        canvas.height = currentHeight;
-                                        ctx.imageSmoothingEnabled = true;
-                                        ctx.imageSmoothingQuality = 'high';
-                                        ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
+                                // Reducir tamaño gradualmente si aún excede bastante
+                                if (size > 20 * 1024 && currentWidth > 150) {
+                                    const factor = size > 35 * 1024 ? 0.78 : 0.88;
+                                    let nextWidth = Math.floor(currentWidth * factor);
+                                    let nextHeight = Math.floor(currentHeight * factor);
+                                    if (nextWidth < 150) {
+                                        nextWidth = 150;
+                                        nextHeight = Math.floor(150 * (img.height / img.width));
                                     }
-                                    currentTurdSize += 1;
+                                    currentWidth = nextWidth;
+                                    currentHeight = nextHeight;
+                                    canvas.width = currentWidth;
+                                    canvas.height = currentHeight;
+                                    ctx.imageSmoothingEnabled = true;
+                                    ctx.imageSmoothingQuality = 'high';
+                                    ctx.drawImage(img, 0, 0, currentWidth, currentHeight);
                                 }
 
-                                // Limitar máximos lógicos
                                 currentThreshold = Math.min(230, currentThreshold);
-                                currentTurdSize = Math.min(10, currentTurdSize); // Subimos limite de basurita a 10px para forzar limpiar imagenes gigantes
+                                currentTurdSize = Math.min(10, currentTurdSize);
                             }
                         } catch (err) {
                             console.error('Error en intento de conversión:', err);
@@ -539,7 +585,7 @@ export default function ToolsPage() {
     };
 
     // Simplificar colores: reducir paleta para mejor vectorización SVG
-    const simplifyColors = (imageData, maxColors = 16) => {
+    const simplifyColors = (imageData, maxColors = 16, quantStep = 32) => {
         const { data, width, height } = imageData;
         const newData = new Uint8ClampedArray(data);
 
@@ -556,10 +602,11 @@ export default function ToolsPage() {
 
             if (a < 128) continue; // Saltar píxeles transparentes
 
-            // Cuantizar a 8 niveles por canal (32^3 = 32768 colores posibles, reducible)
-            const qr = Math.floor(r / 32) * 32;
-            const qg = Math.floor(g / 32) * 32;
-            const qb = Math.floor(b / 32) * 32;
+            // Cuantizar según step configurable (por defecto 32)
+            const step = quantStep;
+            const qr = Math.floor(r / step) * step;
+            const qg = Math.floor(g / step) * step;
+            const qb = Math.floor(b / step) * step;
             const key = `${qr},${qg},${qb}`;
 
             if (!colorMap.has(key)) {
@@ -627,7 +674,7 @@ export default function ToolsPage() {
         return result;
     };
 
-    const convertWithMultipleLayers = async (imageData, width, height, threshold, turdSize) => {
+    const convertWithMultipleLayers = async (imageData, width, height, threshold, turdSize, complexityHint = 'media') => {
         return new Promise(async (resolve, reject) => {
             try {
                 const totalPixels = width * height;
@@ -643,8 +690,12 @@ export default function ToolsPage() {
                 const maxSize = 15 * 1024; // 15KB
 
                 // Reservar bytes para detalles pequeños (oj. ojos, lengua) - aumentado para dejar espacio
-                const reserveBytes = 3.5 * 1024; // aumentado a 2KB para más espacio en secundaria
-                const usableBudgetFirstPass = Math.max(4 * 1024, maxSize - reserveBytes); // garantizar al menos 4KB
+                // Presupuesto según complejidad: más espacio para primarios en logos complejos
+                const reserveBytes = complexityHint === 'muy_compleja' ? 2.5 * 1024 : 2 * 1024;
+                const usableBudgetFirstPass = Math.max(
+                    complexityHint === 'muy_compleja' ? 8 * 1024 : complexityHint === 'compleja' ? 7 * 1024 : 5 * 1024,
+                    maxSize - reserveBytes
+                );
 
                 // SVG base
                 const svgHeader = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`;
@@ -652,7 +703,7 @@ export default function ToolsPage() {
 
                 // Limitar cantidad de colores a procesar para reducir ruido - aumentado
                 const maxColorsToProcess = Math.min(150, uniqueColors.length);
-                const primaryColors = uniqueColors.slice(0, Math.min(15, maxColorsToProcess)); // principales aumentado
+                const primaryColors = uniqueColors.slice(0, Math.min(complexityHint === 'simple' ? 14 : 22, maxColorsToProcess)); // menos primarios en simples
                 const secondaryCandidates = uniqueColors.slice(Math.min(12, maxColorsToProcess), maxColorsToProcess);
 
                 // Helper: dilatar máscara simple para unir píxeles aislados (1px dilation)
@@ -739,8 +790,8 @@ export default function ToolsPage() {
                     // Try trace with permissive simplification
                     try {
                         const traceOpts = {
-                            threshold: Math.max(threshold - 10, 50),
-                            turdSize: Math.max(turdSize * 2.0, 2.0), // aumentado para más simplificación
+                            threshold: Math.max(threshold - (complexityHint === 'muy_compleja' ? 2 : complexityHint === 'compleja' ? 5 : 12), 46),
+                            turdSize: Math.max(turdSize * (complexityHint === 'muy_compleja' ? 1.15 : complexityHint === 'compleja' ? 1.5 : 2.2), 1.8), // más limpieza en simples, menos en complejas
                             optTolerance: 0.2,
                             optAlphaMax: 1.0,
                             pathMargin: 0.8,
@@ -762,10 +813,12 @@ export default function ToolsPage() {
                             const testBlob = new Blob([testSvg], { type: 'image/svg+xml' });
                             const testSize = testBlob.size;
 
-                            if (testSize <= usableBudgetFirstPass) {
+                            const allowPrimaryOverride = i < (complexityHint === 'muy_compleja' ? 5 : complexityHint === 'compleja' ? 3 : 2) && testSize <= maxSize; // asegura colores clave en logos complejos
+
+                            if (testSize <= usableBudgetFirstPass || allowPrimaryOverride) {
                                 svgPathsByColor.set(color.rgb, (svgPathsByColor.get(color.rgb) || []).concat([traced.d]));
                                 currentSize = testSize;
-                                console.log(`Primaria agregada: ${color.rgb}, píxeles: ${pixelCount}, tamaño actual: ${(currentSize / 1024).toFixed(2)} KB`);
+                                console.log(`Primaria agregada: ${color.rgb}, píxeles: ${pixelCount}, tamaño actual: ${(currentSize / 1024).toFixed(2)} KB${allowPrimaryOverride ? ' (override)' : ''}`);
                             } else {
                                 console.log(`Primaria omitida (no cabe en primera pasada): ${color.rgb}, tamaño tentativa: ${(testSize / 1024).toFixed(2)} KB`);
                             }
@@ -787,17 +840,32 @@ export default function ToolsPage() {
                     return `rgb(${br},${bg},${bb})`;
                 });
 
-                // Build secondary list prioritizing dominantRgbList, then yellow/red colors, then high-count secondaryCandidates
+                // Build secondary list prioritizing dominantRgbList, forced key colors, then yellow/red colors, then high-count secondaryCandidates
                 const secondaryOrdered = [];
                 // Add dominant colors first if present in candidates
                 for (const d of dominantRgbList) {
                     const found = secondaryCandidates.find(c => c.rgb === d);
                     if (found) secondaryOrdered.push(found);
                 }
+
+                // Force-add key colors for logos complejos (negro, blanco, rojo, azul)
+                if (complexityHint !== 'simple') {
+                    const forced = [
+                        { r: 0, g: 0, b: 0, rgb: 'rgb(0,0,0)', count: 999999 },
+                        { r: 255, g: 255, b: 255, rgb: 'rgb(255,255,255)', count: 999999 },
+                        { r: 210, g: 20, b: 20, rgb: 'rgb(210,20,20)', count: 999998 },
+                        { r: 20, g: 60, b: 140, rgb: 'rgb(20,60,140)', count: 999997 }
+                    ];
+                    forced.forEach(f => {
+                        if (!secondaryOrdered.find(x => x.rgb === f.rgb)) {
+                            secondaryOrdered.push(f);
+                        }
+                    });
+                }
                 // Add yellow/red colors next (high r/g, low b for yellows; high r, low g/b for reds)
                 const yellowRedCandidates = secondaryCandidates.filter(c => {
                     const [r, g, b] = c.rgb.match(/\d+/g).map(Number);
-                    return (r > 200 && g > 200 && b < 100) || (r > 200 && g < 150 && b < 100); // yellows and reds
+                    return (r > 200 && g > 200 && b < 120) || (r > 200 && g < 170 && b < 140); // ampliar rango para rojos/azules apagados
                 });
                 for (const c of yellowRedCandidates) {
                     if (!secondaryOrdered.find(x => x.rgb === c.rgb)) secondaryOrdered.push(c);
@@ -805,14 +873,15 @@ export default function ToolsPage() {
                 // Then add remaining secondary candidates.
                 for (const c of secondaryCandidates) {
                     // Solo incluir colores que tengan un minimo de peso, ignorar polvo/antialiasing
-                    if (c.count > 15 && !secondaryOrdered.find(x => x.rgb === c.rgb)) {
+                    const minCount = complexityHint === 'muy_compleja' ? 2 : complexityHint === 'compleja' ? 6 : complexityHint === 'media' ? 10 : 18;
+                    if (c.count > minCount && !secondaryOrdered.find(x => x.rgb === c.rgb)) {
                         secondaryOrdered.push(c);
                     }
                 }
                 secondaryOrdered.sort((a, b) => b.count - a.count); // large areas first, avoid speckles
 
                 // Limit tries to avoid explosion - aumentado para incluir más colores
-                const maxSecondary = 30; // Reducido para evitar el peso excesivo de colores fantasma
+                const maxSecondary = complexityHint === 'muy_compleja' ? 64 : complexityHint === 'compleja' ? 52 : complexityHint === 'media' ? 32 : 18; // abrimos más secundarios para ocupar presupuesto
                 for (let i = 0; i < Math.min(maxSecondary, secondaryOrdered.length); i++) {
                     const color = secondaryOrdered[i];
                     if (svgPathsByColor.has(color.rgb)) continue; // ya añadida
@@ -823,7 +892,7 @@ export default function ToolsPage() {
                     maskCanvas.width = width; maskCanvas.height = height;
                     const maskData = maskCtx.createImageData(width, height);
                     const { data } = imageData;
-                    const tolerance = 4; // less strict to capture color variations
+                    const tolerance = complexityHint === 'muy_compleja' ? 8 : complexityHint === 'compleja' ? 6 : complexityHint === 'media' ? 5 : 3; // menos bleeding para conservar contraste
                     let pixelCount = 0;
                     for (let j = 0; j < data.length; j += 4) {
                         const r = data[j]; const g = data[j + 1]; const b = data[j + 2]; const a = data[j + 3];
@@ -835,7 +904,8 @@ export default function ToolsPage() {
                             maskData.data[j] = 255; maskData.data[j + 1] = 255; maskData.data[j + 2] = 255; maskData.data[j + 3] = 255;
                         }
                     }
-                    if (pixelCount < 15) continue; // Ignorar si son muy pocos píxeles en total
+                    const minPixels = complexityHint === 'muy_compleja' ? 5 : complexityHint === 'compleja' ? 9 : complexityHint === 'media' ? 12 : 18;
+                    if (pixelCount < minPixels) continue; // Ignorar si son muy pocos píxeles en total
                     // If extremely small, dilate gently to help Potrace form a shape without deforming
                     maskCtx.putImageData(maskData, 0, 0);
                     const tmp = maskCtx.getImageData(0, 0, width, height);
@@ -844,9 +914,9 @@ export default function ToolsPage() {
 
                     try {
                         const traceOpts = {
-                            threshold: Math.max(threshold - 5, 50),
-                            turdSize: Math.max(turdSize * 1.5, 3.0), // Ignorar artefactos de antialiasing menores a 3px
-                            optTolerance: 0.1, // ligeramente relajado para no hacer ruido
+                            threshold: Math.max(threshold - (complexityHint === 'muy_compleja' ? 0 : complexityHint === 'compleja' ? 2 : 5), 44),
+                            turdSize: Math.max(turdSize * (complexityHint === 'muy_compleja' ? 0.9 : complexityHint === 'compleja' ? 1.1 : 1.4), 1.6), // más detalle en complejas
+                            optTolerance: 0.06, // ligeramente relajado
                             optAlphaMax: 1.0,
                             pathMargin: 0.5,
                             color: color.rgb,
@@ -877,6 +947,213 @@ export default function ToolsPage() {
                         }
                     } catch (err) {
                         console.log(`Error trazando color secundario ${color.rgb}:`, err.message || err);
+                    }
+                }
+
+                // Tercera pasada opcional: usar presupuesto restante para añadir colores importantes no incluidos aún
+                let remainingBudgetExtra = maxSize - currentSize;
+                const allowThirdPass = complexityHint !== 'simple';
+                if (allowThirdPass && remainingBudgetExtra > 200) {
+                    const leftovers = secondaryCandidates.filter(c => !svgPathsByColor.has(c.rgb)).slice(0, 120);
+                    for (let i = 0; i < leftovers.length && currentSize < maxSize - 48; i++) {
+                        const color = leftovers[i];
+                        const maskCanvas = document.createElement('canvas');
+                        const maskCtx = maskCanvas.getContext('2d');
+                        maskCanvas.width = width; maskCanvas.height = height;
+                        const maskData = maskCtx.createImageData(width, height);
+                        const { data } = imageData;
+                        const tolerance = complexityHint === 'muy_compleja' ? 10 : complexityHint === 'compleja' ? 8 : 5;
+                        let pixelCount = 0;
+                        for (let j = 0; j < data.length; j += 4) {
+                            const r = data[j]; const g = data[j + 1]; const b = data[j + 2]; const a = data[j + 3];
+                            const matches = a >= 128 && Math.abs(r - color.r) <= tolerance && Math.abs(g - color.g) <= tolerance && Math.abs(b - color.b) <= tolerance;
+                            if (matches) {
+                                maskData.data[j] = 0; maskData.data[j + 1] = 0; maskData.data[j + 2] = 0; maskData.data[j + 3] = 255;
+                                pixelCount++;
+                            } else {
+                                maskData.data[j] = 255; maskData.data[j + 1] = 255; maskData.data[j + 2] = 255; maskData.data[j + 3] = 255;
+                            }
+                        }
+                        const minExtra = complexityHint === 'muy_compleja' ? 6 : complexityHint === 'compleja' ? 7 : complexityHint === 'media' ? 10 : 16;
+                        if (pixelCount < minExtra) continue; // evitar motas diminutas
+                        maskCtx.putImageData(maskData, 0, 0);
+
+                        try {
+                            const traceOpts = {
+                                threshold: Math.max(threshold - (complexityHint === 'muy_compleja' ? 0 : 1), 43),
+                                turdSize: Math.max(turdSize * (complexityHint === 'muy_compleja' ? 0.8 : 0.95), 1.2),
+                                optTolerance: 0.05,
+                                optAlphaMax: 1.0,
+                                pathMargin: 0.4,
+                                color: color.rgb,
+                                background: 'transparent',
+                                turnpolicy: 'minority'
+                            };
+
+                            const traced = await traceMaskCanvas(maskCanvas, color.rgb, traceOpts);
+                            if (traced && traced.d && traced.d.trim() && traced.d !== 'M0 0') {
+                                const tempMap = new Map(svgPathsByColor);
+                                tempMap.set(color.rgb, (tempMap.get(color.rgb) || []).concat([traced.d]));
+                                let tempSvgPaths = [];
+                                for (let [col, pathArr] of tempMap) {
+                                    tempSvgPaths.push(`<path d="${pathArr.join(' ')}" fill="${col}" fill-rule="evenodd"/>`);
+                                }
+                                const testSvg = svgHeader + tempSvgPaths.join('') + svgFooter;
+                                const testBlob = new Blob([testSvg], { type: 'image/svg+xml' });
+                                const testSize = testBlob.size;
+
+                                if (testSize <= maxSize) {
+                                    svgPathsByColor.set(color.rgb, (svgPathsByColor.get(color.rgb) || []).concat([traced.d]));
+                                    currentSize = testSize;
+                                    remainingBudgetExtra = maxSize - currentSize;
+                                    console.log(`Extra agregado: ${color.rgb}, tamaño actual: ${(currentSize / 1024).toFixed(2)} KB`);
+                                }
+                            }
+                        } catch (err) {
+                            console.log(`Error trazando extra ${color.rgb}:`, err.message || err);
+                        }
+                    }
+                }
+
+                // Cuarta pasada (relleno final) para consumir presupuesto restante con colores pendientes
+                let remainingBudgetFinal = maxSize - currentSize;
+                if (allowThirdPass && remainingBudgetFinal > 100) {
+                    const filler = secondaryCandidates.filter(c => !svgPathsByColor.has(c.rgb)).slice(0, 80);
+                    for (let i = 0; i < filler.length && currentSize < maxSize - 24; i++) {
+                        const color = filler[i];
+                        const maskCanvas = document.createElement('canvas');
+                        const maskCtx = maskCanvas.getContext('2d');
+                        maskCanvas.width = width; maskCanvas.height = height;
+                        const maskData = maskCtx.createImageData(width, height);
+                        const { data } = imageData;
+                        const tolerance = complexityHint === 'muy_compleja' ? 7 : complexityHint === 'compleja' ? 6 : complexityHint === 'media' ? 5 : 3;
+                        let pixelCount = 0;
+                        for (let j = 0; j < data.length; j += 4) {
+                            const r = data[j]; const g = data[j + 1]; const b = data[j + 2]; const a = data[j + 3];
+                            const matches = a >= 128 && Math.abs(r - color.r) <= tolerance && Math.abs(g - color.g) <= tolerance && Math.abs(b - color.b) <= tolerance;
+                            if (matches) {
+                                maskData.data[j] = 0; maskData.data[j + 1] = 0; maskData.data[j + 2] = 0; maskData.data[j + 3] = 255;
+                                pixelCount++;
+                            } else {
+                                maskData.data[j] = 255; maskData.data[j + 1] = 255; maskData.data[j + 2] = 255; maskData.data[j + 3] = 255;
+                            }
+                        }
+                        const minFiller = complexityHint === 'muy_compleja' ? 5 : complexityHint === 'compleja' ? 6 : complexityHint === 'media' ? 10 : 16;
+                        if (pixelCount < minFiller) continue;
+                        maskCtx.putImageData(maskData, 0, 0);
+
+                        try {
+                            const traceOpts = {
+                                threshold: Math.max(threshold - 1, 42),
+                                turdSize: Math.max(turdSize * 0.95, 1.2),
+                                optTolerance: 0.05,
+                                optAlphaMax: 1.0,
+                                pathMargin: 0.35,
+                                color: color.rgb,
+                                background: 'transparent',
+                                turnpolicy: 'minority'
+                            };
+
+                            const traced = await traceMaskCanvas(maskCanvas, color.rgb, traceOpts);
+                            if (traced && traced.d && traced.d.trim() && traced.d !== 'M0 0') {
+                                const tempMap = new Map(svgPathsByColor);
+                                tempMap.set(color.rgb, (tempMap.get(color.rgb) || []).concat([traced.d]));
+                                let tempSvgPaths = [];
+                                for (let [col, pathArr] of tempMap) {
+                                    tempSvgPaths.push(`<path d="${pathArr.join(' ')}" fill="${col}" fill-rule="evenodd"/>`);
+                                }
+                                const testSvg = svgHeader + tempSvgPaths.join('') + svgFooter;
+                                const testBlob = new Blob([testSvg], { type: 'image/svg+xml' });
+                                const testSize = testBlob.size;
+
+                                if (testSize <= maxSize) {
+                                    svgPathsByColor.set(color.rgb, (svgPathsByColor.get(color.rgb) || []).concat([traced.d]));
+                                    currentSize = testSize;
+                                } else {
+                                    break; // llegamos al límite
+                                }
+                            }
+                        } catch (err) {
+                            console.log(`Error trazando filler ${color.rgb}:`, err.message || err);
+                        }
+                    }
+                }
+
+                // Pasada forzada para colores clave (negro, blanco, rojo, azul) si todavía no entraron
+                if (complexityHint !== 'simple') {
+                    const forcedColors = [
+                        { r: 0, g: 0, b: 0, rgb: 'rgb(0,0,0)' },
+                        { r: 255, g: 255, b: 255, rgb: 'rgb(255,255,255)' },
+                        { r: 210, g: 20, b: 20, rgb: 'rgb(210,20,20)' },
+                        { r: 20, g: 60, b: 140, rgb: 'rgb(20,60,140)' },
+                        { r: 30, g: 90, b: 190, rgb: 'rgb(30,90,190)' }
+                    ];
+
+                    for (const color of forcedColors) {
+                        if (svgPathsByColor.has(color.rgb)) continue;
+
+                        const maskCanvas = document.createElement('canvas');
+                        const maskCtx = maskCanvas.getContext('2d');
+                        maskCanvas.width = width; maskCanvas.height = height;
+                        const maskData = maskCtx.createImageData(width, height);
+                        const { data } = imageData;
+                        const tolerance = 14; // más ancho para capturar variaciones
+                        let pixelCount = 0;
+
+                        for (let j = 0; j < data.length; j += 4) {
+                            const r = data[j]; const g = data[j + 1]; const b = data[j + 2]; const a = data[j + 3];
+                            const matches = a >= 128 && Math.abs(r - color.r) <= tolerance && Math.abs(g - color.g) <= tolerance && Math.abs(b - color.b) <= tolerance;
+                            if (matches) {
+                                maskData.data[j] = 0; maskData.data[j + 1] = 0; maskData.data[j + 2] = 0; maskData.data[j + 3] = 255;
+                                pixelCount++;
+                            } else {
+                                maskData.data[j] = 255; maskData.data[j + 1] = 255; maskData.data[j + 2] = 255; maskData.data[j + 3] = 255;
+                            }
+                        }
+
+                        if (pixelCount < 5) continue; // deja pasar áreas pequeñas clave
+
+                        // Si el área es pequeña pero existe, dilatar suavemente para no perderla al vectorizar
+                        if (pixelCount < 40) {
+                            maskCtx.putImageData(maskData, 0, 0);
+                            const tmp = maskCtx.getImageData(0, 0, width, height);
+                            dilateMask(tmp, width, height, 1);
+                            maskCtx.putImageData(tmp, 0, 0);
+                        }
+                        maskCtx.putImageData(maskData, 0, 0);
+
+                        try {
+                            const traceOpts = {
+                                threshold: Math.max(threshold - 2, 44),
+                                turdSize: Math.max(turdSize, 1.2),
+                                optTolerance: 0.08,
+                                optAlphaMax: 1.0,
+                                pathMargin: 0.5,
+                                color: color.rgb,
+                                background: 'transparent',
+                                turnpolicy: 'minority'
+                            };
+
+                            const traced = await traceMaskCanvas(maskCanvas, color.rgb, traceOpts);
+                            if (traced && traced.d && traced.d.trim() && traced.d !== 'M0 0') {
+                                const tempMap = new Map(svgPathsByColor);
+                                tempMap.set(color.rgb, (tempMap.get(color.rgb) || []).concat([traced.d]));
+                                let tempSvgPaths = [];
+                                for (let [col, pathArr] of tempMap) {
+                                    tempSvgPaths.push(`<path d="${pathArr.join(' ')}" fill="${col}" fill-rule="evenodd"/>`);
+                                }
+                                const testSvg = svgHeader + tempSvgPaths.join('') + svgFooter;
+                                const testBlob = new Blob([testSvg], { type: 'image/svg+xml' });
+                                const testSize = testBlob.size;
+
+                                if (testSize <= maxSize) {
+                                    svgPathsByColor.set(color.rgb, (svgPathsByColor.get(color.rgb) || []).concat([traced.d]));
+                                    currentSize = testSize;
+                                }
+                            }
+                        } catch (err) {
+                            console.log(`Error trazando color forzado ${color.rgb}:`, err.message || err);
+                        }
                     }
                 }
 
@@ -941,7 +1218,7 @@ export default function ToolsPage() {
                 // Reducir decimales pero preservar precisión
                 optimizedSvg = optimizedSvg.replace(/(\d+\.\d{3,})/g, (m) => {
                     const num = parseFloat(m);
-                    return num.toFixed(2);
+                    return num.toFixed(complexityHint === 'simple' ? 1 : 2);
                 });
 
                 resolve(optimizedSvg.trim());
