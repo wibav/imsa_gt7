@@ -11,6 +11,18 @@ import PenaltiesTab from '../components/championship/PenaltiesTab';
 import DivisionsTab from '../components/championship/DivisionsTab';
 import { DEFAULT_SPRINT_POINTS } from '../utils/constants';
 
+/** Convierte "M:SS.mmm" o "SS.mmm" a milisegundos para sort correcto de tiempos */
+function parseTimeToMs(str) {
+    if (!str) return Infinity;
+    const parts = str.trim().split(':');
+    if (parts.length === 2) {
+        const mins = parseInt(parts[0], 10) || 0;
+        const secs = parseFloat(parts[1]) || 0;
+        return mins * 60000 + Math.round(secs * 1000);
+    }
+    return Math.round((parseFloat(parts[0]) || 0) * 1000);
+}
+
 export default function ChampionshipDetail() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -475,6 +487,7 @@ export default function ChampionshipDetail() {
                             teams={teams}
                             tracks={tracks}
                             penalties={penalties}
+                            registrations={championship.registrations || []}
                             onUpdate={loadChampionshipData}
                         />
                     )}
@@ -1071,6 +1084,10 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
 
     const allDriverNames = allDrivers.map(d => d.name);
 
+    // Pilotos inscritos aprobados (para PreQualy — misma fuente que DivisionsTab)
+    const approvedRegs = (championship?.registrations || []).filter(r => r.status === 'approved');
+    const pqDriverOptions = approvedRegs.map(r => r.name || r.psnId || r.gt7Id).filter(Boolean);
+
     // Calcular puntos según posición usando la tabla del campeonato
     const calculateRacePoints = (position) => {
         const pointsTable = championship?.settings?.pointsSystem?.race || {};
@@ -1286,7 +1303,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                             // Guardar
                                             setSavingPreQualy(true);
                                             try {
-                                                const sorted = [...preQualyResults].sort((a, b) => a.time.localeCompare(b.time, undefined, { numeric: false }));
+                                                const sorted = [...preQualyResults].sort((a, b) => parseTimeToMs(a.time) - parseTimeToMs(b.time));
                                                 await FirebaseService.savePreQualyResults(championshipId, sorted);
                                                 setPreQualyResults(sorted);
                                                 onUpdate();
@@ -1335,17 +1352,20 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                                 <td className="py-2 pr-4 text-gray-400 font-mono">{idx + 1}</td>
                                                 <td className="py-2 pr-4 text-white font-medium">
                                                     {editingPreQualy ? (
-                                                        <input
-                                                            type="text"
+                                                        <select
                                                             value={r.driverName}
                                                             onChange={e => {
                                                                 const updated = [...preQualyResults];
                                                                 updated[idx] = { ...updated[idx], driverName: e.target.value };
                                                                 setPreQualyResults(updated);
                                                             }}
-                                                            list="pq-drivers-list"
-                                                            className="bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs w-40"
-                                                        />
+                                                            className="bg-gray-800 border border-white/20 rounded px-2 py-1 text-white text-xs w-44"
+                                                        >
+                                                            <option value="">— Seleccionar piloto —</option>
+                                                            {pqDriverOptions.map(n => (
+                                                                <option key={n} value={n}>{n}</option>
+                                                            ))}
+                                                        </select>
                                                     ) : r.driverName}
                                                 </td>
                                                 <td className="py-2 pr-4 font-mono text-yellow-300">
@@ -1395,9 +1415,6 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                         ))}
                                     </tbody>
                                 </table>
-                                <datalist id="pq-drivers-list">
-                                    {allDriverNames.map(n => <option key={n} value={n} />)}
-                                </datalist>
                             </div>
                         ) : (
                             <div className="text-center py-6 text-gray-500 text-sm">
@@ -1408,14 +1425,16 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                         {/* Formulario para agregar nueva fila */}
                         {editingPreQualy && showAddPQ && (
                             <div className="mt-3 flex flex-wrap items-center gap-2 p-3 bg-purple-500/10 border border-purple-400/30 rounded-lg">
-                                <input
-                                    type="text"
-                                    placeholder="Nombre del piloto"
+                                <select
                                     value={newPQRow.driverName}
                                     onChange={e => setNewPQRow(p => ({ ...p, driverName: e.target.value }))}
-                                    list="pq-drivers-list"
-                                    className="bg-white/10 border border-white/20 rounded px-3 py-1.5 text-white text-sm w-44"
-                                />
+                                    className="bg-gray-800 border border-white/20 rounded px-3 py-1.5 text-white text-sm w-44"
+                                >
+                                    <option value="">— Seleccionar piloto —</option>
+                                    {pqDriverOptions.map(n => (
+                                        <option key={n} value={n}>{n}</option>
+                                    ))}
+                                </select>
                                 <input
                                     type="text"
                                     placeholder="Tiempo (1:23.456)"
