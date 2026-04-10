@@ -15,12 +15,14 @@ export default function PenaltiesTab({
     championship,
     teams = [],
     tracks = [],
-    onUpdate
+    onUpdate,
+    isAdminUser = false
 }) {
     const [penalties, setPenalties] = useState([]);
     const [claims, setClaims] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeSection, setActiveSection] = useState('penalties'); // penalties | config | claims
+    // Comisarios aterrizan en 'claims'; admins en 'penalties'
+    const [activeSection, setActiveSection] = useState(isAdminUser ? 'penalties' : 'claims'); // penalties | config | claims
     const [showApplyModal, setShowApplyModal] = useState(false);
     const [showClaimResolveModal, setShowClaimResolveModal] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -182,7 +184,7 @@ export default function PenaltiesTab({
                     <div className="flex gap-2 border-b border-white/10 pb-2">
                         {[
                             { id: 'penalties', label: '⚠️ Sanciones', count: penalties.filter(p => p.status === 'applied').length },
-                            { id: 'config', label: '⚙️ Configuración' },
+                            ...(isAdminUser ? [{ id: 'config', label: '⚙️ Configuración' }] : []),
                             { id: 'claims', label: '📩 Reclamaciones', count: pendingClaims || undefined }
                         ].map(tab => (
                             <button

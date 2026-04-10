@@ -27,6 +27,7 @@ export default function ChampionshipDetail() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const championshipId = searchParams.get("id");
+    const adminSection = searchParams.get("section") || 'campeonatos'; // 'campeonatos' | 'usuarios'
 
     const { currentUser, isAdmin, isComisario, loading: authLoading } = useAuth();
     const { championships, updateChampionship, deleteChampionship, loading: championshipsLoading } = useChampionship();
@@ -41,6 +42,9 @@ export default function ChampionshipDetail() {
     const [penalties, setPenalties] = useState([]);
     const [divisions, setDivisions] = useState([]);
     const [championshipsTeams, setChampionshipsTeams] = useState({}); // Equipos por campeonato
+
+    // Sección activa del panel principal (cuando no hay championshipId)
+    // Se lee desde el query param ?section= (ver AdminLayout)
 
     // Si es comisario (sin admin), arrancar en la tab de pistas
     useEffect(() => {
@@ -146,137 +150,127 @@ export default function ChampionshipDetail() {
         );
     }
 
-    // Si NO hay championshipId, mostrar lista de campeonatos
+    // Si NO hay championshipId, mostrar el contenido según la sección activa
     if (!championshipId) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 p-4 md:p-8">
-                <div className="max-w-7xl mx-auto">
-                    <div className="flex justify-between items-center mb-8">
-                        <h1 className="text-4xl font-bold text-white">
-                            🏆 Administrar Campeonatos
-                        </h1>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => window.location.href = '/'}
-                                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-lg transition-all border border-white/30"
-                            >
-                                🏠 Dashboard
-                            </button>
+            <div className="p-4 md:p-8">
+
+                {/* ── Sección: Campeonatos ── */}
+                {adminSection === 'campeonatos' && (
+                    <>
+                        <div className="flex justify-between items-center mb-8">
+                            <h1 className="text-3xl font-bold text-white">🏆 Campeonatos</h1>
                             <button
                                 onClick={() => router.push('/championshipsAdmin/new')}
-                                className="px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg font-bold hover:from-orange-700 hover:to-red-700"
+                                className="px-6 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg font-bold hover:from-orange-700 hover:to-red-700"
                             >
                                 + Nuevo Campeonato
                             </button>
                         </div>
-                    </div>
+                        {championshipsLoading ? (
+                            <LoadingSkeleton variant="spinner" message="Cargando campeonatos..." />
+                        ) : championships.length === 0 ? (
+                            <div className="text-center py-12 text-gray-400">
+                                No hay campeonatos creados. Crea uno nuevo para comenzar.
+                            </div>
+                        ) : (
+                            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                {championships.map((champ) => (
+                                    <div
+                                        key={champ.id}
+                                        className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg overflow-hidden hover:border-orange-500/50 transition-all cursor-pointer"
+                                        onClick={() => router.push(`/championshipsAdmin?id=${champ.id}`)}
+                                    >
+                                        <div className="p-6">
+                                            <div className="flex items-start justify-between mb-3">
+                                                <h3 className="text-xl font-bold text-white flex-1">{champ.name}</h3>
+                                                <StatusBadge status={champ.status} />
+                                            </div>
 
-                    {championshipsLoading ? (
-                        <LoadingSkeleton variant="spinner" message="Cargando campeonatos..." />
-                    ) : championships.length === 0 ? (
-                        <div className="text-center py-12 text-gray-400">
-                            No hay campeonatos creados. Crea uno nuevo para comenzar.
-                        </div>
-                    ) : (
-                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {championships.map((champ) => (
-                                <div
-                                    key={champ.id}
-                                    className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg overflow-hidden hover:border-orange-500/50 transition-all cursor-pointer"
-                                    onClick={() => router.push(`/championshipsAdmin?id=${champ.id}`)}
-                                >
-                                    <div className="p-6">
-                                        <div className="flex items-start justify-between mb-3">
-                                            <h3 className="text-xl font-bold text-white flex-1">{champ.name}</h3>
-                                            <StatusBadge status={champ.status} />
-                                        </div>
-
-                                        <p className="text-gray-300 text-sm mb-4">
-                                            {champ.shortName} • Temporada {champ.season}
-                                        </p>
-
-                                        {champ.description && (
-                                            <p className="text-gray-400 text-sm mb-4 line-clamp-2">
-                                                {champ.description}
+                                            <p className="text-gray-300 text-sm mb-4">
+                                                {champ.shortName} • Temporada {champ.season}
                                             </p>
-                                        )}
 
-                                        <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
-                                            <div className="bg-white/5 rounded-lg p-2">
-                                                <div className="text-gray-400">Tipo</div>
-                                                <div className="text-white font-medium">
-                                                    {champ.settings?.isTeamChampionship ? '👥 Equipos' : '🏎️ Individual'}
-                                                </div>
-                                            </div>
-                                            <div className="bg-white/5 rounded-lg p-2">
-                                                <div className="text-gray-400">Pilotos</div>
-                                                <div className="text-white font-medium">
-                                                    {(() => {
-                                                        if (champ.settings?.isTeamChampionship) {
-                                                            // Para campeonatos por equipos, contar pilotos en todos los equipos
-                                                            const champTeams = championshipsTeams[champ.id] || [];
-                                                            return champTeams.reduce((total, team) => {
-                                                                return total + (team.drivers?.length || 0);
-                                                            }, 0);
-                                                        }
-                                                        // Para campeonatos individuales, contar directamente
-                                                        return champ.drivers?.length || 0;
-                                                    })()}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {(champ.startDate || champ.endDate) && (
-                                            <div className="text-xs text-gray-400 mb-4">
-                                                {champ.startDate && new Date(champ.startDate).toLocaleDateString('es-ES')}
-                                                {champ.startDate && champ.endDate && ' - '}
-                                                {champ.endDate && new Date(champ.endDate).toLocaleDateString('es-ES')}
-                                            </div>
-                                        )}
-
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    router.push(`/championshipsAdmin?id=${champ.id}`);
-                                                }}
-                                                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all text-sm font-medium"
-                                            >
-                                                📊 Ver Detalles
-                                            </button>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    router.push(`/championshipsAdmin/edit?id=${champ.id}`);
-                                                }}
-                                                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all text-sm font-medium"
-                                            >
-                                                ✏️
-                                            </button>
-                                            {champ.status === 'draft' && (
-                                                <button
-                                                    onClick={async (e) => {
-                                                        e.stopPropagation();
-                                                        if (window.confirm(`¿Eliminar el campeonato "${champ.name}"? Esta acción no se puede deshacer.`)) {
-                                                            try {
-                                                                await deleteChampionship(champ.id);
-                                                            } catch (err) {
-                                                                alert('Error al eliminar: ' + err.message);
-                                                            }
-                                                        }
-                                                    }}
-                                                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all text-sm font-medium"
-                                                >
-                                                    🗑️
-                                                </button>
+                                            {champ.description && (
+                                                <p className="text-gray-400 text-sm mb-4 line-clamp-2">
+                                                    {champ.description}
+                                                </p>
                                             )}
+
+                                            <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+                                                <div className="bg-white/5 rounded-lg p-2">
+                                                    <div className="text-gray-400">Tipo</div>
+                                                    <div className="text-white font-medium">
+                                                        {champ.settings?.isTeamChampionship ? '👥 Equipos' : '🏎️ Individual'}
+                                                    </div>
+                                                </div>
+                                                <div className="bg-white/5 rounded-lg p-2">
+                                                    <div className="text-gray-400">Pilotos</div>
+                                                    <div className="text-white font-medium">
+                                                        {(() => {
+                                                            if (champ.settings?.isTeamChampionship) {
+                                                                const champTeams = championshipsTeams[champ.id] || [];
+                                                                return champTeams.reduce((total, team) => total + (team.drivers?.length || 0), 0);
+                                                            }
+                                                            return champ.drivers?.length || 0;
+                                                        })()}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {(champ.startDate || champ.endDate) && (
+                                                <div className="text-xs text-gray-400 mb-4">
+                                                    {champ.startDate && new Date(champ.startDate).toLocaleDateString('es-ES')}
+                                                    {champ.startDate && champ.endDate && ' - '}
+                                                    {champ.endDate && new Date(champ.endDate).toLocaleDateString('es-ES')}
+                                                </div>
+                                            )}
+
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        router.push(`/championshipsAdmin?id=${champ.id}`);
+                                                    }}
+                                                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all text-sm font-medium"
+                                                >
+                                                    📊 Ver Detalles
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        router.push(`/championshipsAdmin/edit?id=${champ.id}`);
+                                                    }}
+                                                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all text-sm font-medium"
+                                                >
+                                                    ✏️
+                                                </button>
+                                                {champ.status === 'draft' && (
+                                                    <button
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            if (window.confirm(`¿Eliminar el campeonato "${champ.name}"? Esta acción no se puede deshacer.`)) {
+                                                                try {
+                                                                    await deleteChampionship(champ.id);
+                                                                } catch (err) {
+                                                                    alert('Error al eliminar: ' + err.message);
+                                                                }
+                                                            }
+                                                        }}
+                                                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all text-sm font-medium"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
+
             </div>
         );
     }
@@ -456,6 +450,7 @@ export default function ChampionshipDetail() {
                             tracks={tracks}
                             teams={teams}
                             championship={championship}
+                            divisions={divisions}
                             editMode={editMode}
                             onUpdate={loadChampionshipData}
                         />
@@ -476,6 +471,7 @@ export default function ChampionshipDetail() {
                             teams={teams}
                             tracks={tracks}
                             onUpdate={loadChampionshipData}
+                            isAdminUser={isAdmin()}
                         />
                     )}
 
@@ -1052,7 +1048,7 @@ function TeamsTab({ championshipId, teams, tracks, editMode, onUpdate }) {
 }
 
 // Tab de Pistas con edición de puntajes
-function TracksTab({ championshipId, tracks, teams, championship, editMode, onUpdate }) {
+function TracksTab({ championshipId, tracks, teams, championship, editMode, onUpdate, divisions = [] }) {
     // Estados para modal de asignación de posiciones
     const [showPositionsModal, setShowPositionsModal] = useState(false);
     const [selectedTrack, setSelectedTrack] = useState(null);
@@ -1061,6 +1057,13 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
     const [qualyTop3, setQualyTop3] = useState({ first: '', second: '', third: '' });
     const [fastestLapDriver, setFastestLapDriver] = useState('');
     const [savingResults, setSavingResults] = useState(false);
+
+    // Estados para modo divisiones en el modal
+    const [activeDivisionTab, setActiveDivisionTab] = useState(null);
+    const [divPositions, setDivPositions] = useState({});
+    const [divSprintPositions, setDivSprintPositions] = useState({});
+    const [divQualyTop3, setDivQualyTop3] = useState({});
+    const [divFastestLap, setDivFastestLap] = useState({});
 
     // Estados para resultados Pre-Qualy
     const [preQualyResults, setPreQualyResults] = useState(
@@ -1084,9 +1087,17 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
 
     const allDriverNames = allDrivers.map(d => d.name);
 
+    // Divisiones activas ordenadas por order
+    const sortedDivisions = [...divisions].sort((a, b) => (a.order || 0) - (b.order || 0));
+    const hasDivisions = championship?.divisionsConfig?.enabled && sortedDivisions.length > 0;
+
     // Pilotos inscritos aprobados (para PreQualy — misma fuente que DivisionsTab)
     const approvedRegs = (championship?.registrations || []).filter(r => r.status === 'approved');
     const pqDriverOptions = approvedRegs.map(r => r.name || r.psnId || r.gt7Id).filter(Boolean);
+    // Mapa nombre → gt7Id para auto-poblar al seleccionar piloto
+    const pqDriverGt7Map = Object.fromEntries(
+        approvedRegs.map(r => [r.name || r.psnId || r.gt7Id, r.gt7Id || ''])
+    );
 
     // Calcular puntos según posición usando la tabla del campeonato
     const calculateRacePoints = (position) => {
@@ -1098,19 +1109,38 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
     const handleOpenResultsModal = (track) => {
         setSelectedTrack(track);
 
-        // Inicializar posiciones vacías
-        const currentPositions = {};
-        const currentSprintPositions = {};
-        allDriverNames.forEach(driver => {
-            currentPositions[driver] = '';
-            currentSprintPositions[driver] = '';
-        });
-        setPositions(currentPositions);
-        setSprintPositions(currentSprintPositions);
-
-        // Resetear qualy y vuelta rápida
-        setQualyTop3({ first: '', second: '', third: '' });
-        setFastestLapDriver('');
+        if (hasDivisions) {
+            // Inicializar estado por división
+            const divPos = {};
+            const divSprint = {};
+            const divQualy = {};
+            const divFL = {};
+            sortedDivisions.forEach(div => {
+                const drivers = div.drivers || [];
+                divPos[div.id] = {};
+                divSprint[div.id] = {};
+                drivers.forEach(d => { divPos[div.id][d] = ''; divSprint[div.id][d] = ''; });
+                divQualy[div.id] = { first: '', second: '', third: '' };
+                divFL[div.id] = '';
+            });
+            setDivPositions(divPos);
+            setDivSprintPositions(divSprint);
+            setDivQualyTop3(divQualy);
+            setDivFastestLap(divFL);
+            setActiveDivisionTab(sortedDivisions[0]?.id || null);
+        } else {
+            // Inicializar posiciones vacías (modo sin divisiones)
+            const currentPositions = {};
+            const currentSprintPositions = {};
+            allDriverNames.forEach(driver => {
+                currentPositions[driver] = '';
+                currentSprintPositions[driver] = '';
+            });
+            setPositions(currentPositions);
+            setSprintPositions(currentSprintPositions);
+            setQualyTop3({ first: '', second: '', third: '' });
+            setFastestLapDriver('');
+        }
 
         setShowPositionsModal(true);
     };
@@ -1119,98 +1149,141 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
     const handleSaveResults = async () => {
         setSavingResults(true);
         try {
-            // 1. Calcular puntos de carrera
-            const racePoints = {};
-            Object.entries(positions).forEach(([driver, position]) => {
-                if (position && position !== '') {
-                    const pos = parseInt(position);
-                    racePoints[driver] = calculateRacePoints(pos);
-                }
-            });
+            if (hasDivisions) {
+                // ── Modo divisiones: calcular por división y fusionar ──
+                const totalPoints = {};
+                const divisionResults = {};
 
-            // 2. Agregar puntos de qualy si está habilitado
-            const qualyPoints = {};
-            if (championship?.settings?.pointsSystem?.qualifying?.enabled) {
-                const qualyTable = championship.settings.pointsSystem.qualifying.positions || {};
-                if (qualyTop3.first) qualyPoints[qualyTop3.first] = qualyTable[1] || 0;
-                if (qualyTop3.second) qualyPoints[qualyTop3.second] = qualyTable[2] || 0;
-                if (qualyTop3.third) qualyPoints[qualyTop3.third] = qualyTable[3] || 0;
-            }
+                sortedDivisions.forEach(div => {
+                    const divId = div.id;
+                    const ps = championship?.settings?.pointsSystem || {};
 
-            // 3. Agregar puntos de vuelta rápida si está habilitado
-            const fastestLapPoints = {};
-            if (championship?.settings?.pointsSystem?.fastestLap?.enabled && fastestLapDriver) {
-                fastestLapPoints[fastestLapDriver] = championship.settings.pointsSystem.fastestLap.points || 0;
-            }
+                    // Puntos de carrera
+                    const racePoints = {};
+                    Object.entries(divPositions[divId] || {}).forEach(([driver, position]) => {
+                        if (position !== '') {
+                            const pts = calculateRacePoints(parseInt(position));
+                            racePoints[driver] = pts;
+                            totalPoints[driver] = (totalPoints[driver] || 0) + pts;
+                        }
+                    });
 
-            // 4. Combinar todos los puntos
-            const totalPoints = { ...racePoints };
+                    // Puntos de qualy
+                    const qualyPoints = {};
+                    if (ps.qualifying?.enabled) {
+                        const qt = ps.qualifying.positions || {};
+                        const qt3 = divQualyTop3[divId] || {};
+                        if (qt3.first) { qualyPoints[qt3.first] = qt[1] || 0; totalPoints[qt3.first] = (totalPoints[qt3.first] || 0) + (qt[1] || 0); }
+                        if (qt3.second) { qualyPoints[qt3.second] = qt[2] || 0; totalPoints[qt3.second] = (totalPoints[qt3.second] || 0) + (qt[2] || 0); }
+                        if (qt3.third) { qualyPoints[qt3.third] = qt[3] || 0; totalPoints[qt3.third] = (totalPoints[qt3.third] || 0) + (qt[3] || 0); }
+                    }
 
-            // Sumar puntos de sprint si es formato sprint+carrera
-            const sprintPtsMap = {};
-            if (selectedTrack.raceType === 'sprint_carrera') {
-                Object.entries(sprintPositions).forEach(([driver, position]) => {
+                    // Puntos de vuelta rápida
+                    const fastestLapPoints = {};
+                    const fl = divFastestLap[divId] || '';
+                    if (ps.fastestLap?.enabled && fl) {
+                        const flPts = ps.fastestLap.points || 0;
+                        fastestLapPoints[fl] = flPts;
+                        totalPoints[fl] = (totalPoints[fl] || 0) + flPts;
+                    }
+
+                    // Puntos de sprint
+                    const sprintPtsMap = {};
+                    if (selectedTrack.raceType === 'sprint_carrera') {
+                        Object.entries(divSprintPositions[divId] || {}).forEach(([driver, position]) => {
+                            if (position !== '') {
+                                const pts = DEFAULT_SPRINT_POINTS[parseInt(position)] || 0;
+                                sprintPtsMap[driver] = pts;
+                                totalPoints[driver] = (totalPoints[driver] || 0) + pts;
+                            }
+                        });
+                    }
+
+                    divisionResults[divId] = {
+                        racePositions: divPositions[divId] || {},
+                        racePoints,
+                        ...(selectedTrack.raceType === 'sprint_carrera' ? { sprintPositions: divSprintPositions[divId] || {}, sprintPoints: sprintPtsMap } : {}),
+                        ...(ps.qualifying?.enabled ? { qualifying: { top3: divQualyTop3[divId] || {}, points: qualyPoints } } : {}),
+                        ...(ps.fastestLap?.enabled ? { fastestLap: { driver: fl, points: fastestLapPoints } } : {}),
+                    };
+                });
+
+                await FirebaseService.updateTrack(championshipId, selectedTrack.id, {
+                    points: totalPoints,
+                    results: { divisions: divisionResults },
+                });
+            } else {
+                // ── Modo sin divisiones (lógica original) ──
+                const racePoints = {};
+                Object.entries(positions).forEach(([driver, position]) => {
                     if (position && position !== '') {
                         const pos = parseInt(position);
-                        sprintPtsMap[driver] = DEFAULT_SPRINT_POINTS[pos] || 0;
+                        racePoints[driver] = calculateRacePoints(pos);
                     }
                 });
-                Object.entries(sprintPtsMap).forEach(([driver, pts]) => {
+
+                const qualyPoints = {};
+                if (championship?.settings?.pointsSystem?.qualifying?.enabled) {
+                    const qualyTable = championship.settings.pointsSystem.qualifying.positions || {};
+                    if (qualyTop3.first) qualyPoints[qualyTop3.first] = qualyTable[1] || 0;
+                    if (qualyTop3.second) qualyPoints[qualyTop3.second] = qualyTable[2] || 0;
+                    if (qualyTop3.third) qualyPoints[qualyTop3.third] = qualyTable[3] || 0;
+                }
+
+                const fastestLapPoints = {};
+                if (championship?.settings?.pointsSystem?.fastestLap?.enabled && fastestLapDriver) {
+                    fastestLapPoints[fastestLapDriver] = championship.settings.pointsSystem.fastestLap.points || 0;
+                }
+
+                const totalPoints = { ...racePoints };
+
+                const sprintPtsMap = {};
+                if (selectedTrack.raceType === 'sprint_carrera') {
+                    Object.entries(sprintPositions).forEach(([driver, position]) => {
+                        if (position && position !== '') {
+                            const pos = parseInt(position);
+                            sprintPtsMap[driver] = DEFAULT_SPRINT_POINTS[pos] || 0;
+                        }
+                    });
+                    Object.entries(sprintPtsMap).forEach(([driver, pts]) => {
+                        totalPoints[driver] = (totalPoints[driver] || 0) + pts;
+                    });
+                }
+                Object.entries(qualyPoints).forEach(([driver, pts]) => {
                     totalPoints[driver] = (totalPoints[driver] || 0) + pts;
                 });
-            }
+                Object.entries(fastestLapPoints).forEach(([driver, pts]) => {
+                    totalPoints[driver] = (totalPoints[driver] || 0) + pts;
+                });
 
-            // Sumar puntos de qualy
-            Object.entries(qualyPoints).forEach(([driver, pts]) => {
-                totalPoints[driver] = (totalPoints[driver] || 0) + pts;
-            });
-
-            // Sumar puntos de vuelta rápida
-            Object.entries(fastestLapPoints).forEach(([driver, pts]) => {
-                totalPoints[driver] = (totalPoints[driver] || 0) + pts;
-            });
-
-            // 5. Preparar datos para guardar
-            const trackUpdate = {
-                points: totalPoints,
-                results: {
-                    racePositions: positions,
-                    racePoints: racePoints
+                const trackUpdate = {
+                    points: totalPoints,
+                    results: { racePositions: positions, racePoints }
+                };
+                if (selectedTrack.raceType === 'sprint_carrera') {
+                    trackUpdate.sprintPoints = sprintPtsMap;
+                    trackUpdate.results.sprintPositions = sprintPositions;
                 }
-            };
-
-            // Agregar sprint si es formato dual
-            if (selectedTrack.raceType === 'sprint_carrera') {
-                trackUpdate.sprintPoints = sprintPtsMap;
-                trackUpdate.results.sprintPositions = sprintPositions;
+                if (championship?.settings?.pointsSystem?.qualifying?.enabled) {
+                    trackUpdate.results.qualifying = { top3: qualyTop3, points: qualyPoints };
+                }
+                if (championship?.settings?.pointsSystem?.fastestLap?.enabled) {
+                    trackUpdate.results.fastestLap = { driver: fastestLapDriver, points: fastestLapPoints };
+                }
+                await FirebaseService.updateTrack(championshipId, selectedTrack.id, trackUpdate);
             }
 
-            // Agregar qualy si está habilitado
-            if (championship?.settings?.pointsSystem?.qualifying?.enabled) {
-                trackUpdate.results.qualifying = {
-                    top3: qualyTop3,
-                    points: qualyPoints
-                };
-            }
-
-            // Agregar vuelta rápida si está habilitado
-            if (championship?.settings?.pointsSystem?.fastestLap?.enabled) {
-                trackUpdate.results.fastestLap = {
-                    driver: fastestLapDriver,
-                    points: fastestLapPoints
-                };
-            }
-
-            // 6. Actualizar pista en Firebase
-            await FirebaseService.updateTrack(championshipId, selectedTrack.id, trackUpdate);
-
-            // 7. Resetear y refrescar
+            // Resetear y refrescar
             setShowPositionsModal(false);
             setSelectedTrack(null);
             setPositions({});
             setSprintPositions({});
             setQualyTop3({ first: '', second: '', third: '' });
             setFastestLapDriver('');
+            setDivPositions({});
+            setDivSprintPositions({});
+            setDivQualyTop3({});
+            setDivFastestLap({});
             await onUpdate();
         } catch (error) {
             console.error('Error al guardar resultados:', error);
@@ -1356,7 +1429,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                                             value={r.driverName}
                                                             onChange={e => {
                                                                 const updated = [...preQualyResults];
-                                                                updated[idx] = { ...updated[idx], driverName: e.target.value };
+                                                                updated[idx] = { ...updated[idx], driverName: e.target.value, gt7Id: pqDriverGt7Map[e.target.value] || '' };
                                                                 setPreQualyResults(updated);
                                                             }}
                                                             className="bg-gray-800 border border-white/20 rounded px-2 py-1 text-white text-xs w-44"
@@ -1427,7 +1500,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                             <div className="mt-3 flex flex-wrap items-center gap-2 p-3 bg-purple-500/10 border border-purple-400/30 rounded-lg">
                                 <select
                                     value={newPQRow.driverName}
-                                    onChange={e => setNewPQRow(p => ({ ...p, driverName: e.target.value }))}
+                                    onChange={e => setNewPQRow(p => ({ ...p, driverName: e.target.value, gt7Id: pqDriverGt7Map[e.target.value] || '' }))}
                                     className="bg-gray-800 border border-white/20 rounded px-3 py-1.5 text-white text-sm w-44"
                                 >
                                     <option value="">— Seleccionar piloto —</option>
@@ -1482,223 +1555,210 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
             />
 
             {/* Modal para asignar resultados completos de la pista */}
-            {showPositionsModal && selectedTrack && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-white/30 rounded-xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <h3 className="text-2xl font-bold text-white">🏁 Asignar Resultados de Carrera</h3>
-                                <p className="text-gray-400 mt-1">
-                                    {selectedTrack.name} - Ronda {selectedTrack.round}
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setShowPositionsModal(false)}
-                                className="text-gray-400 hover:text-white text-2xl"
-                            >
-                                ✕
-                            </button>
-                        </div>
+            {showPositionsModal && selectedTrack && (() => {
+                const ps = championship?.settings?.pointsSystem || {};
+                // División activa en el modal (solo aplica cuando hasDivisions)
+                const activeDivObj = hasDivisions ? sortedDivisions.find(d => d.id === activeDivisionTab) : null;
+                const modalDriverNames = hasDivisions ? (activeDivObj?.drivers || []) : allDriverNames;
 
-                        {/* Sección 1: Posiciones de Carrera */}
-                        <div className="mb-8">
-                            <h4 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                                🏎️ Posiciones de Carrera
-                            </h4>
-                            <p className="text-sm text-gray-400 mb-4">
-                                Ingresa la posición final de cada piloto (1, 2, 3...). Los puntos se calcularán automáticamente.
-                            </p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                {allDriverNames.map(driver => (
-                                    <div key={driver} className="bg-white/5 border border-white/20 rounded-lg p-3">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-white font-medium text-sm">{driver}</span>
-                                            {positions[driver] && (
-                                                <span className="text-sm text-orange-400 font-bold">
-                                                    = {calculateRacePoints(parseInt(positions[driver]))} pts
-                                                </span>
-                                            )}
-                                        </div>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            max="99"
-                                            value={positions[driver] || ''}
-                                            onChange={(e) => setPositions({ ...positions, [driver]: e.target.value })}
-                                            placeholder="Pos (1, 2, 3...)"
-                                            className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 text-sm"
-                                        />
-                                    </div>
-                                ))}
+                return (
+                    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-white/30 rounded-xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h3 className="text-2xl font-bold text-white">🏁 Asignar Resultados de Carrera</h3>
+                                    <p className="text-gray-400 mt-1">{selectedTrack.name} - Ronda {selectedTrack.round}</p>
+                                </div>
+                                <button onClick={() => setShowPositionsModal(false)} className="text-gray-400 hover:text-white text-2xl">✕</button>
                             </div>
-                        </div>
 
-                        {/* Sección Sprint (condicional: solo para sprint_carrera) */}
-                        {selectedTrack.raceType === 'sprint_carrera' && (
-                            <div className="mb-8 pt-6 border-t border-white/20">
-                                <h4 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                                    ⚡ Posiciones del Sprint
-                                </h4>
-                                <p className="text-sm text-gray-400 mb-2">
-                                    Ingresa la posición del sprint ({selectedTrack.sprintLaps || 5} vueltas). Puntos: P1={DEFAULT_SPRINT_POINTS[1]}, P2={DEFAULT_SPRINT_POINTS[2]}, P3={DEFAULT_SPRINT_POINTS[3]}...
-                                </p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {allDriverNames.map(driver => (
-                                        <div key={driver} className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-white font-medium text-sm">{driver}</span>
-                                                {sprintPositions[driver] && (
-                                                    <span className="text-sm text-purple-400 font-bold">
-                                                        = {DEFAULT_SPRINT_POINTS[parseInt(sprintPositions[driver])] || 0} pts
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                max="99"
-                                                value={sprintPositions[driver] || ''}
-                                                onChange={(e) => setSprintPositions({ ...sprintPositions, [driver]: e.target.value })}
-                                                placeholder="Pos sprint (1, 2, 3...)"
-                                                className="w-full px-3 py-2 bg-white/10 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 text-sm"
-                                            />
-                                        </div>
+                            {/* Tabs de división — solo cuando hay divisiones activas */}
+                            {hasDivisions && (
+                                <div className="flex gap-2 mb-6 flex-wrap border-b border-white/10 pb-4">
+                                    {sortedDivisions.map(div => (
+                                        <button
+                                            key={div.id}
+                                            onClick={() => setActiveDivisionTab(div.id)}
+                                            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all border-2 ${activeDivisionTab === div.id
+                                                ? 'text-white border-orange-500 bg-orange-500/20'
+                                                : 'text-gray-400 border-white/10 hover:border-white/30 hover:text-white'
+                                                }`}
+                                        >
+                                            {div.name}
+                                            <span className="ml-2 text-xs opacity-60">({(div.drivers || []).length} pilotos)</span>
+                                        </button>
                                     ))}
                                 </div>
+                            )}
+
+                            {/* Sección: Posiciones de Carrera */}
+                            <div className="mb-8">
+                                <h4 className="text-xl font-bold text-white mb-3 flex items-center gap-2">🏎️ Posiciones de Carrera</h4>
+                                <p className="text-sm text-gray-400 mb-4">Ingresa la posición final de cada piloto (1, 2, 3...). Los puntos se calcularán automáticamente.</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {modalDriverNames.map(driver => {
+                                        const pos = hasDivisions ? (divPositions[activeDivisionTab]?.[driver] || '') : (positions[driver] || '');
+                                        const pts = pos ? calculateRacePoints(parseInt(pos)) : null;
+                                        return (
+                                            <div key={driver} className="bg-white/5 border border-white/20 rounded-lg p-3">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-white font-medium text-sm">{driver}</span>
+                                                    {pts !== null && <span className="text-sm text-orange-400 font-bold">= {pts} pts</span>}
+                                                </div>
+                                                <input
+                                                    type="number" min="1" max="99"
+                                                    value={pos}
+                                                    onChange={e => {
+                                                        if (hasDivisions) {
+                                                            setDivPositions(prev => ({
+                                                                ...prev,
+                                                                [activeDivisionTab]: { ...prev[activeDivisionTab], [driver]: e.target.value }
+                                                            }));
+                                                        } else {
+                                                            setPositions({ ...positions, [driver]: e.target.value });
+                                                        }
+                                                    }}
+                                                    placeholder="Pos (1, 2, 3...)"
+                                                    className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 text-sm"
+                                                />
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        )}
 
-                        {/* Sección 2: Qualifying (condicional) */}
-                        {championship?.settings?.pointsSystem?.qualifying?.enabled === true ? (
-                            <div className="mb-8 pt-6 border-t border-white/20">
-                                <h4 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                                    ⏱️ Qualifying - Top 3
-                                </h4>
-                                <p className="text-sm text-gray-400 mb-4">
-                                    Selecciona los 3 pilotos más rápidos en clasificación.
-                                </p>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="bg-gradient-to-br from-yellow-600/20 to-yellow-700/20 border border-yellow-500/30 rounded-lg p-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span className="text-2xl">🥇</span>
-                                            <span className="text-white font-bold">1º Lugar</span>
-                                            <span className="text-yellow-400 text-sm">
-                                                (+{championship.settings.pointsSystem.qualifying.positions[1] || 0} pts)
-                                            </span>
-                                        </div>
-                                        <select
-                                            value={qualyTop3.first}
-                                            onChange={(e) => setQualyTop3({ ...qualyTop3, first: e.target.value })}
-                                            className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white"
-                                        >
-                                            <option value="" className="bg-slate-800">Seleccionar piloto</option>
-                                            {allDriverNames.map(driver => (
-                                                <option key={driver} value={driver} className="bg-slate-800">
-                                                    {driver}
-                                                </option>
-                                            ))}
-                                        </select>
+                            {/* Sección Sprint */}
+                            {selectedTrack.raceType === 'sprint_carrera' && (
+                                <div className="mb-8 pt-6 border-t border-white/20">
+                                    <h4 className="text-xl font-bold text-white mb-3 flex items-center gap-2">⚡ Posiciones del Sprint</h4>
+                                    <p className="text-sm text-gray-400 mb-2">Ingresa la posición del sprint ({selectedTrack.sprintLaps || 5} vueltas). Puntos: P1={DEFAULT_SPRINT_POINTS[1]}, P2={DEFAULT_SPRINT_POINTS[2]}, P3={DEFAULT_SPRINT_POINTS[3]}...</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {modalDriverNames.map(driver => {
+                                            const pos = hasDivisions ? (divSprintPositions[activeDivisionTab]?.[driver] || '') : (sprintPositions[driver] || '');
+                                            const pts = pos ? (DEFAULT_SPRINT_POINTS[parseInt(pos)] || 0) : null;
+                                            return (
+                                                <div key={driver} className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-white font-medium text-sm">{driver}</span>
+                                                        {pts !== null && <span className="text-sm text-purple-400 font-bold">= {pts} pts</span>}
+                                                    </div>
+                                                    <input
+                                                        type="number" min="1" max="99"
+                                                        value={pos}
+                                                        onChange={e => {
+                                                            if (hasDivisions) {
+                                                                setDivSprintPositions(prev => ({
+                                                                    ...prev,
+                                                                    [activeDivisionTab]: { ...prev[activeDivisionTab], [driver]: e.target.value }
+                                                                }));
+                                                            } else {
+                                                                setSprintPositions({ ...sprintPositions, [driver]: e.target.value });
+                                                            }
+                                                        }}
+                                                        placeholder="Pos sprint (1, 2, 3...)"
+                                                        className="w-full px-3 py-2 bg-white/10 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 text-sm"
+                                                    />
+                                                </div>
+                                            );
+                                        })}
                                     </div>
+                                </div>
+                            )}
 
-                                    <div className="bg-gradient-to-br from-gray-400/20 to-gray-500/20 border border-gray-400/30 rounded-lg p-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span className="text-2xl">🥈</span>
-                                            <span className="text-white font-bold">2º Lugar</span>
-                                            <span className="text-gray-300 text-sm">
-                                                (+{championship.settings.pointsSystem.qualifying.positions[2] || 0} pts)
-                                            </span>
-                                        </div>
-                                        <select
-                                            value={qualyTop3.second}
-                                            onChange={(e) => setQualyTop3({ ...qualyTop3, second: e.target.value })}
-                                            className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white"
-                                        >
-                                            <option value="" className="bg-slate-800">Seleccionar piloto</option>
-                                            {allDriverNames.map(driver => (
-                                                <option key={driver} value={driver} className="bg-slate-800">
-                                                    {driver}
-                                                </option>
-                                            ))}
-                                        </select>
+                            {/* Sección Qualifying */}
+                            {ps.qualifying?.enabled && (
+                                <div className="mb-8 pt-6 border-t border-white/20">
+                                    <h4 className="text-xl font-bold text-white mb-3 flex items-center gap-2">⏱️ Qualifying - Top 3</h4>
+                                    <p className="text-sm text-gray-400 mb-4">Selecciona los 3 pilotos más rápidos en clasificación.</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {[
+                                            { key: 'first', medal: '🥇', label: '1º Lugar', posKey: 1, colorFrom: 'yellow-600', colorTo: 'yellow-700', border: 'yellow-500', textColor: 'yellow-400' },
+                                            { key: 'second', medal: '🥈', label: '2º Lugar', posKey: 2, colorFrom: 'gray-400', colorTo: 'gray-500', border: 'gray-400', textColor: 'gray-300' },
+                                            { key: 'third', medal: '🥉', label: '3º Lugar', posKey: 3, colorFrom: 'orange-700', colorTo: 'orange-800', border: 'orange-600', textColor: 'orange-300' },
+                                        ].map(({ key, medal, label, posKey, colorFrom, colorTo, border, textColor }) => {
+                                            const qt3 = hasDivisions ? (divQualyTop3[activeDivisionTab] || {}) : qualyTop3;
+                                            const val = qt3[key] || '';
+                                            const pts = ps.qualifying.positions?.[posKey] || 0;
+                                            return (
+                                                <div key={key} className={`bg-gradient-to-br from-${colorFrom}/20 to-${colorTo}/20 border border-${border}/30 rounded-lg p-4`}>
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <span className="text-2xl">{medal}</span>
+                                                        <span className="text-white font-bold">{label}</span>
+                                                        <span className={`text-${textColor} text-sm`}>(+{pts} pts)</span>
+                                                    </div>
+                                                    <select
+                                                        value={val}
+                                                        onChange={e => {
+                                                            if (hasDivisions) {
+                                                                setDivQualyTop3(prev => ({
+                                                                    ...prev,
+                                                                    [activeDivisionTab]: { ...prev[activeDivisionTab], [key]: e.target.value }
+                                                                }));
+                                                            } else {
+                                                                setQualyTop3({ ...qualyTop3, [key]: e.target.value });
+                                                            }
+                                                        }}
+                                                        className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white"
+                                                    >
+                                                        <option value="" className="bg-slate-800">Seleccionar piloto</option>
+                                                        {modalDriverNames.map(d => <option key={d} value={d} className="bg-slate-800">{d}</option>)}
+                                                    </select>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
+                                </div>
+                            )}
 
-                                    <div className="bg-gradient-to-br from-orange-700/20 to-orange-800/20 border border-orange-600/30 rounded-lg p-4">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span className="text-2xl">🥉</span>
-                                            <span className="text-white font-bold">3º Lugar</span>
-                                            <span className="text-orange-300 text-sm">
-                                                (+{championship.settings.pointsSystem.qualifying.positions[3] || 0} pts)
-                                            </span>
+                            {/* Sección Vuelta Rápida */}
+                            {ps.fastestLap?.enabled && (
+                                <div className="mb-8 pt-6 border-t border-white/20">
+                                    <h4 className="text-xl font-bold text-white mb-3 flex items-center gap-2">⚡ Vuelta Rápida en Carrera</h4>
+                                    <p className="text-sm text-gray-400 mb-4">Selecciona el piloto que hizo la vuelta más rápida durante la carrera.</p>
+                                    <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-lg p-4 max-w-md">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <span className="text-2xl">🏆</span>
+                                            <span className="text-white font-bold">Vuelta Rápida</span>
+                                            <span className="text-purple-300 text-sm">(+{ps.fastestLap.points || 0} pts)</span>
                                         </div>
                                         <select
-                                            value={qualyTop3.third}
-                                            onChange={(e) => setQualyTop3({ ...qualyTop3, third: e.target.value })}
+                                            value={hasDivisions ? (divFastestLap[activeDivisionTab] || '') : fastestLapDriver}
+                                            onChange={e => {
+                                                if (hasDivisions) {
+                                                    setDivFastestLap(prev => ({ ...prev, [activeDivisionTab]: e.target.value }));
+                                                } else {
+                                                    setFastestLapDriver(e.target.value);
+                                                }
+                                            }}
                                             className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white"
                                         >
                                             <option value="" className="bg-slate-800">Seleccionar piloto</option>
-                                            {allDriverNames.map(driver => (
-                                                <option key={driver} value={driver} className="bg-slate-800">
-                                                    {driver}
-                                                </option>
-                                            ))}
+                                            {modalDriverNames.map(d => <option key={d} value={d} className="bg-slate-800">{d}</option>)}
                                         </select>
                                     </div>
                                 </div>
-                            </div>
-                        ) : null}
+                            )}
 
-                        {/* Sección 3: Vuelta Rápida (condicional) */}
-                        {championship?.settings?.pointsSystem?.fastestLap?.enabled === true ? (
-                            <div className="mb-8 pt-6 border-t border-white/20">
-                                <h4 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
-                                    ⚡ Vuelta Rápida en Carrera
-                                </h4>
-                                <p className="text-sm text-gray-400 mb-4">
-                                    Selecciona el piloto que hizo la vuelta más rápida durante la carrera.
-                                </p>
-                                <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-lg p-4 max-w-md">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <span className="text-2xl">🏆</span>
-                                        <span className="text-white font-bold">Vuelta Rápida</span>
-                                        <span className="text-purple-300 text-sm">
-                                            (+{championship.settings.pointsSystem.fastestLap.points || 0} pts)
-                                        </span>
-                                    </div>
-                                    <select
-                                        value={fastestLapDriver}
-                                        onChange={(e) => setFastestLapDriver(e.target.value)}
-                                        className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white"
-                                    >
-                                        <option value="" className="bg-slate-800">Seleccionar piloto</option>
-                                        {allDriverNames.map(driver => (
-                                            <option key={driver} value={driver} className="bg-slate-800">
-                                                {driver}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                            {/* Botones de acción */}
+                            <div className="flex gap-3 pt-6 border-t border-white/20">
+                                <button
+                                    onClick={() => setShowPositionsModal(false)}
+                                    className="flex-1 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-all"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleSaveResults}
+                                    disabled={savingResults}
+                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold rounded-lg transition-all disabled:opacity-50"
+                                >
+                                    {savingResults ? '⏳ Guardando...' : '💾 Guardar Todos los Resultados'}
+                                </button>
                             </div>
-                        ) : null}
-
-                        {/* Botones de acción */}
-                        <div className="flex gap-3 pt-6 border-t border-white/20">
-                            <button
-                                onClick={() => setShowPositionsModal(false)}
-                                className="flex-1 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-all"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleSaveResults}
-                                disabled={savingResults}
-                                className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold rounded-lg transition-all disabled:opacity-50"
-                            >
-                                {savingResults ? '⏳ Guardando...' : '💾 Guardar Todos los Resultados'}
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
         </div>
     );
 }

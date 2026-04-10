@@ -239,6 +239,7 @@ export default function DivisionsTab({
                     const existing = existingResults.find(r => r.driverName === name);
                     return {
                         driverName: name,
+                        gt7Id: regMap[name]?.gt7Id || existing?.gt7Id || '',
                         time: pqTimes[name],
                         classified: existing?.classified !== undefined ? existing.classified : true
                     };
@@ -467,8 +468,8 @@ export default function DivisionsTab({
                                                     value={currentDivId}
                                                     onChange={e => handleChangeDriverDivision(driverName, e.target.value)}
                                                     className={`px-2 py-1 rounded text-xs font-medium border focus:outline-none ${currentDiv
-                                                            ? 'bg-white/10 border-white/20 text-white'
-                                                            : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300'
+                                                        ? 'bg-white/10 border-white/20 text-white'
+                                                        : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300'
                                                         }`}
                                                     style={currentDiv ? { borderLeftColor: currentDiv.color, borderLeftWidth: 3 } : {}}
                                                 >

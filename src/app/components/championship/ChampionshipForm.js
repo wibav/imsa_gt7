@@ -359,6 +359,8 @@ export default function ChampionshipForm({ isEditing = false }) {
                 duration: champ.preQualy?.duration || 15,
                 allowedCars: champ.preQualy?.allowedCars || [],
                 notes: champ.preQualy?.notes || '',
+                // Preservar resultados ya guardados — no se editan desde este formulario
+                results: champ.preQualy?.results || [],
                 rules: {
                     weather: champ.preQualy?.rules?.weather || 'clear',
                     timeOfDay: champ.preQualy?.rules?.timeOfDay || 'day',

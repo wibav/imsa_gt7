@@ -1181,4 +1181,84 @@ export class FirebaseService {
       throw error;
     }
   }
+
+  // ══════════════════════════════════════════
+  // Gestión de roles de usuario (comisarios)
+  // Colección: userRoles / doc id = email (reemplazar . por _)
+  // ══════════════════════════════════════════
+
+  /** Convierte email en id de documento seguro */
+  static _emailToDocId(email) {
+    return email.toLowerCase().replace(/\./g, '_').replace(/@/g, '__at__');
+  }
+
+  /** Obtener el rol de un usuario por email. Devuelve null si no existe. */
+  static async getUserRoleByEmail(email) {
+    try {
+      const docRef = doc(db, 'userRoles', FirebaseService._emailToDocId(email));
+      const snap = await getDoc(docRef);
+      return snap.exists() ? snap.data() : null;
+    } catch (error) {
+      console.error('Error getting user role:', error);
+      return null;
+    }
+  }
+
+  /** Asignar o actualizar el rol de un usuario. role: 'comisario' */
+  static async setUserRole(email, role, displayName = '') {
+    try {
+      const docRef = doc(db, 'userRoles', FirebaseService._emailToDocId(email));
+      await setDoc(docRef, {
+        email: email.toLowerCase(),
+        role,
+        displayName,
+        updatedAt: Timestamp.now()
+      }, { merge: true });
+      return { success: true };
+    } catch (error) {
+      console.error('Error setting user role:', error);
+      throw error;
+    }
+  }
+
+  /** Eliminar el rol de un usuario (vuelve a ser usuario normal) */
+  static async removeUserRole(email) {
+    try {
+      const docRef = doc(db, 'userRoles', FirebaseService._emailToDocId(email));
+      await deleteDoc(docRef);
+      return { success: true };
+    } catch (error) {
+      console.error('Error removing user role:', error);
+      throw error;
+    }
+  }
+
+  /** Obtener todos los comisarios activos */
+  static async getComisarios() {
+    try {
+      const q = query(collection(db, 'userRoles'), where('role', '==', 'comisario'));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (error) {
+      console.error('Error getting comisarios:', error);
+      return [];
+    }
+  }
+
+  /** Obtener nombres almacenados para una lista de emails de admin */
+  static async getAdminNames(emails) {
+    try {
+      const snaps = await Promise.all(
+        emails.map(email => getDoc(doc(db, 'userRoles', FirebaseService._emailToDocId(email))))
+      );
+      const result = {};
+      snaps.forEach((snap, i) => {
+        result[emails[i]] = snap.exists() ? (snap.data().displayName || '') : '';
+      });
+      return result;
+    } catch (error) {
+      console.error('Error getting admin names:', error);
+      return {};
+    }
+  }
 }

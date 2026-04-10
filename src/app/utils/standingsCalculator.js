@@ -87,11 +87,35 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
     // Procesar cada track
     sortedTracks.forEach((track) => {
         const results = track.results || {};
-        const racePositions = results.racePositions || {};
         const pointsMap = track.points || {};
-        const sprintPointsMap = track.sprintPoints || {};
-        const qualyData = results.qualifying || {};
-        const fastestLap = results.fastestLap || {};
+
+        // Compatibilidad con formato dividido por salas (results.divisions) y formato plano
+        // Si hay divisions, fusionar racePositions, qualifying y fastestLap de todas las divisiones
+        let racePositions = {};
+        let qualyData = {};
+        let fastestLap = {};
+        let sprintPointsMap = track.sprintPoints || {};
+
+        if (results.divisions && Object.keys(results.divisions).length > 0) {
+            // Nuevo formato: resultados por división
+            Object.values(results.divisions).forEach(divResult => {
+                Object.assign(racePositions, divResult.racePositions || {});
+                // Qualy: el primero que tenga datos gana (por división)
+                if (!qualyData.top3 && divResult.qualifying?.top3) qualyData = divResult.qualifying;
+                // Fastest lap: igual, tomar el primero que tenga driver
+                if (!fastestLap.driver && divResult.fastestLap?.driver) fastestLap = divResult.fastestLap;
+                // Sprint: fusionar también
+                if (divResult.sprintPositions) {
+                    Object.assign(sprintPointsMap, divResult.sprintPoints || {});
+                }
+            });
+        } else {
+            // Formato legado: plano
+            racePositions = results.racePositions || {};
+            qualyData = results.qualifying || {};
+            fastestLap = results.fastestLap || {};
+        }
+
         const isSprint = track.raceType === 'sprint_carrera';
 
         // Para cada driver, calcular stats de esta carrera

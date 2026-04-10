@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminLayout({ children }) {
     const router = useRouter();
     const pathname = usePathname();
-    const { currentUser, logout } = useAuth();
+    const searchParams = useSearchParams();
+    const { currentUser, logout, isAdmin } = useAuth();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
 
@@ -27,6 +28,7 @@ export default function AdminLayout({ children }) {
             items: [
                 { name: 'Campeonatos', path: '/championshipsAdmin', icon: '🏁' },
                 { name: 'Crear Campeonato', path: '/championshipsAdmin/new', icon: '➕' },
+                ...(isAdmin() ? [{ name: 'Usuarios', path: '/usersAdmin', icon: '👥' }] : []),
             ]
         },
         {
@@ -53,8 +55,14 @@ export default function AdminLayout({ children }) {
     ];
 
     const isActive = (path) => {
+        const [basePath, query] = path.split('?');
+        if (query) {
+            const paramKey = query.split('=')[0];
+            const paramVal = query.split('=')[1];
+            return pathname === basePath && searchParams.get(paramKey) === paramVal;
+        }
         if (path === '/championshipsAdmin') {
-            return pathname === path;
+            return pathname === path && !searchParams.get('section');
         }
         return pathname?.startsWith(path);
     };

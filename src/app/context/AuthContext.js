@@ -6,8 +6,17 @@ import {
     onAuthStateChanged
 } from 'firebase/auth';
 import { auth } from '../api/firebase/firebaseConfig';
+import { FirebaseService } from '../services/firebaseService';
 
 const AuthContext = createContext();
+
+export const ADMIN_EMAILS = [
+    'eric.jce@gmail.com',
+    'wolcutor@gmail.com',
+    'yecherm@hotmail.com',
+    'storricosan@gmail.com',
+    'ojervoley@hotmail.com'
+];
 
 export function useAuth() {
     return useContext(AuthContext);
@@ -16,6 +25,7 @@ export function useAuth() {
 export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [userRole, setUserRole] = useState(null); // null | 'comisario'
 
     // Login function
     const login = async (email, password) => {
@@ -31,6 +41,7 @@ export function AuthProvider({ children }) {
     const logout = async () => {
         try {
             await signOut(auth);
+            setUserRole(null);
         } catch (error) {
             throw error;
         }
@@ -38,35 +49,31 @@ export function AuthProvider({ children }) {
 
     // Check if user is admin
     const isAdmin = () => {
-        // Lista de emails autorizados como admin
-        const adminEmails = [
-            'eric.jce@gmail.com',
-            'wolcutor@gmail.com',
-            'yecherm@hotmail.com',
-            'storricosan@gmail.com',
-            'ojervoley@hotmail.com',
-            'griffi@mail.com'
-        ];
-
-        return currentUser && adminEmails.includes(currentUser.email);
+        return currentUser && ADMIN_EMAILS.includes(currentUser.email);
     };
 
     // Check if user is comisario (puede ver pistas y reclamaciones)
     // Los admins también son comisarios automáticamente
     const isComisario = () => {
-        const comisarioEmails = [
-            // Agregar emails de comisarios aquí
-        ];
-
-        return currentUser && (
-            comisarioEmails.includes(currentUser.email) ||
-            isAdmin()  // Los admins siempre tienen permisos de comisario
-        );
+        if (!currentUser) return false;
+        if (isAdmin()) return true; // Admins siempre tienen permisos de comisario
+        return userRole === 'comisario';
     };
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
+            if (user) {
+                // Cargar rol desde Firestore (solo si no es admin hardcodeado)
+                try {
+                    const roleData = await FirebaseService.getUserRoleByEmail(user.email);
+                    setUserRole(roleData?.role || null);
+                } catch {
+                    setUserRole(null);
+                }
+            } else {
+                setUserRole(null);
+            }
             setLoading(false);
         });
 
@@ -79,6 +86,7 @@ export function AuthProvider({ children }) {
         logout,
         isAdmin,
         isComisario,
+        userRole,
         loading
     };
 

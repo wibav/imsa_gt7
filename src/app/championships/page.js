@@ -919,11 +919,13 @@ export default function ChampionshipDetailPage() {
                                 .filter(r => r.status === 'approved' || !championship.registration?.requiresApproval);
                             const totalAssigned = divisions.reduce((sum, d) => sum + (d.drivers || []).length, 0);
                             const allAssignedDrivers = new Set(divisions.flatMap(d => d.drivers || []));
-                            // Identificar por gt7Id (campo principal) o psnId/name como fallback
-                            const unassigned = approvedRegistrations.filter(r => {
-                                const id = r.gt7Id || r.psnId || r.name;
-                                return !allAssignedDrivers.has(id);
-                            });
+                            // Un piloto está asignado si CUALQUIERA de sus identificadores aparece en alguna división
+                            // (DivisionsTab guarda la clave con prioridad r.name || r.psnId || r.gt7Id)
+                            const unassigned = approvedRegistrations.filter(r =>
+                                !allAssignedDrivers.has(r.name) &&
+                                !allAssignedDrivers.has(r.psnId) &&
+                                !allAssignedDrivers.has(r.gt7Id)
+                            );
 
                             return (
                                 <div className="space-y-6">
@@ -1130,6 +1132,12 @@ export default function ChampionshipDetailPage() {
                             const results = pq.results || [];
                             const classified = results.filter(r => r.classified !== false);
                             const notClassified = results.filter(r => r.classified === false);
+                            // Mapa driverName → { gt7Id, psnId } desde registrations
+                            const pqRegMap = {};
+                            (championship.registrations || []).forEach(r => {
+                                const key = r.name || r.psnId || r.gt7Id;
+                                if (key) pqRegMap[key] = { gt7Id: r.gt7Id || '', psnId: r.psnId || '' };
+                            });
                             return (
                                 <div className="space-y-6">
                                     <h2 className="text-3xl font-bold text-white flex items-center gap-3">
@@ -1197,23 +1205,30 @@ export default function ChampionshipDetailPage() {
                                                     <thead>
                                                         <tr className="text-left text-xs text-gray-400 border-b border-white/10 bg-white/5">
                                                             <th className="px-5 py-2 w-10">Pos</th>
-                                                            <th className="px-5 py-2">Piloto (GT7 ID)</th>
+                                                            <th className="px-5 py-2">GT7 ID</th>
+                                                            <th className="px-5 py-2">PSN ID</th>
                                                             <th className="px-5 py-2 text-right">Tiempo</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-white/5">
-                                                        {classified.map((r, idx) => (
-                                                            <tr key={idx} className={`hover:bg-white/5 transition-colors ${idx < 3 ? 'bg-yellow-500/5' : ''}`}>
-                                                                <td className="px-5 py-3">
-                                                                    {idx === 0 && <span className="text-yellow-400 font-bold">🥇</span>}
-                                                                    {idx === 1 && <span className="text-gray-300 font-bold">🥈</span>}
-                                                                    {idx === 2 && <span className="text-orange-400 font-bold">🥉</span>}
-                                                                    {idx > 2 && <span className="text-gray-500 font-mono">{idx + 1}</span>}
-                                                                </td>
-                                                                <td className="px-5 py-3 text-white font-medium">{r.driverName}</td>
-                                                                <td className="px-5 py-3 text-right font-mono text-yellow-300">{r.time || '—'}</td>
-                                                            </tr>
-                                                        ))}
+                                                        {classified.map((r, idx) => {
+                                                            const info = pqRegMap[r.driverName] || {};
+                                                            const gt7Id = r.gt7Id || info.gt7Id || r.driverName;
+                                                            const psnId = info.psnId || '—';
+                                                            return (
+                                                                <tr key={idx} className={`hover:bg-white/5 transition-colors ${idx < 3 ? 'bg-yellow-500/5' : ''}`}>
+                                                                    <td className="px-5 py-3">
+                                                                        {idx === 0 && <span className="text-yellow-400 font-bold">🥇</span>}
+                                                                        {idx === 1 && <span className="text-gray-300 font-bold">🥈</span>}
+                                                                        {idx === 2 && <span className="text-orange-400 font-bold">🥉</span>}
+                                                                        {idx > 2 && <span className="text-gray-500 font-mono">{idx + 1}</span>}
+                                                                    </td>
+                                                                    <td className="px-5 py-3 text-white font-medium">{gt7Id}</td>
+                                                                    <td className="px-5 py-3 text-gray-300">{psnId}</td>
+                                                                    <td className="px-5 py-3 text-right font-mono text-yellow-300">{r.time || '—'}</td>
+                                                                </tr>
+                                                            );
+                                                        })}
                                                     </tbody>
                                                 </table>
                                             </div>
@@ -1226,12 +1241,18 @@ export default function ChampionshipDetailPage() {
                                                         <span className="bg-red-500/20 text-red-300 text-xs px-2 py-0.5 rounded-full">{notClassified.length}</span>
                                                     </div>
                                                     <div className="divide-y divide-white/5">
-                                                        {notClassified.map((r, idx) => (
-                                                            <div key={idx} className="px-5 py-3 flex items-center justify-between">
-                                                                <span className="text-gray-400">{r.driverName}</span>
-                                                                <span className="text-gray-600 font-mono text-sm">{r.time || '—'}</span>
-                                                            </div>
-                                                        ))}
+                                                        {notClassified.map((r, idx) => {
+                                                            const info = pqRegMap[r.driverName] || {};
+                                                            const gt7Id = r.gt7Id || info.gt7Id || r.driverName;
+                                                            const psnId = info.psnId || '—';
+                                                            return (
+                                                                <div key={idx} className="px-5 py-3 flex items-center justify-between gap-4">
+                                                                    <span className="text-gray-400 font-medium">{gt7Id}</span>
+                                                                    <span className="text-gray-500 text-xs">{psnId}</span>
+                                                                    <span className="text-gray-600 font-mono text-sm ml-auto">{r.time || '—'}</span>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
                                             )}

@@ -39,8 +39,7 @@ const SECTIONS = [
                 items: [
                     "Toda comunicación oficial se realiza por los canales designados por la organización (Comunidad de Whatsapp (Comisarios)).",
                     "Las quejas, reclamaciones o disputas NUNCA deben resolverse en chat público, redes sociales o durante la retransmisión. Existe un procedimiento formal de reclamaciones (ver sección correspondiente).",
-                    "Las decisiones de los comisarios y la organización son definitivas una vez publicadas. No se admiten apelaciones salvo nuevas pruebas contundentes.",
-                    "Está prohibido hablar por micrófono o escribir por chat durante la clasificación y la carrera, salvo el anfitrión de sala para cuestiones de organización. Infracción: -3 puntos."
+                    "Las decisiones de los comisarios y la organización son definitivas una vez publicadas. No se admiten apelaciones salvo nuevas pruebas contundentes."
                 ]
             }
         ]
@@ -290,7 +289,6 @@ const SECTIONS = [
                     ["Aparcar coche fuera de boxes en carrera", "-5 puntos", "🟠 Moderada"],
                     ["Empujarse en clasificación", "-5 puntos", "🟠 Moderada"],
                     ["Uso abusivo de ráfagas de luces para distraer", "-3 puntos", "🟠 Moderada"],
-                    ["Hablar por micro/chat en clasificación o carrera", "-3 puntos", "🟠 Moderada"],
                     ["Obstaculizar tráfico durante compensación de penalización", "-6 puntos", "🟠 Moderada"],
                     ["Trompear causando daños graves", "-5 puntos", "🟠 Moderada"],
                     ["Pasada de frenada y chocar a otro piloto", "-5 puntos", "🟠 Moderada"],
@@ -342,9 +340,12 @@ const SECTIONS = [
             {
                 subtitle: "Cómo presentar una reclamación",
                 items: [
-                    "Las reclamaciones SOLO se aceptan a través del formulario oficial dentro de la plataforma web del campeonato.",
-                    "NO se aceptan reclamaciones por la comunidad de WhatsApp, comentarios de stream o cualquier otro medio informal. Reclamar fuera del formulario: -5 puntos.",
-                    "El plazo para presentar una reclamación es de 48 horas después de finalizada la carrera."
+                    "Las reclamaciones SOLO se aceptan a través del formulario oficial de la plataforma web. NO se aceptan por WhatsApp, chat de stream ni ningún otro medio. Reclamar fuera del formulario: -5 puntos.",
+                    "El plazo para presentar una reclamación es de 48 horas después de finalizada la carrera. Pasado ese tiempo el formulario no estará disponible para esa carrera.",
+                    "Para acceder al formulario: entra a la página del campeonato, ve a la sección de Sanciones y pulsa el botón '📩 Reportar Incidente'. Solo aparecerá si el campeonato tiene habilitadas las reclamaciones.",
+                    "En el formulario deberás indicar: tu nombre (seleccionado de la lista de pilotos), el o los pilotos infractores, la carrera en la que ocurrió el incidente (solo aparecen las carreras dentro del plazo de 48h), la vuelta o el minuto de carrera (opcional), una descripción detallada de lo sucedido y, si dispones de ella, la URL del video del incidente (muy recomendado).",
+                    "Puedes reportar a más de un piloto en la misma reclamación si el incidente involucró a varios.",
+                    "Incluir un clip de video (YouTube u otra plataforma) con el HUD de daños visible agiliza enormemente la revisión. Sin evidencia, la reclamación puede ser desestimada."
                 ]
             },
             {
