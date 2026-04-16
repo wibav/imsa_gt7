@@ -23,6 +23,13 @@ export default function AdminLayout({ children }) {
 
     const menuItems = [
         {
+            title: 'Navegación',
+            icon: '🏠',
+            items: [
+                { name: 'Volver al Dashboard', path: '/', icon: '🏠' },
+            ]
+        },
+        {
             title: 'Gestión de Campeonatos',
             icon: '🏆',
             items: [
@@ -61,6 +68,9 @@ export default function AdminLayout({ children }) {
             const paramVal = query.split('=')[1];
             return pathname === basePath && searchParams.get(paramKey) === paramVal;
         }
+        if (path === '/') {
+            return pathname === '/';
+        }
         if (path === '/championshipsAdmin') {
             return pathname === path && !searchParams.get('section');
         }
@@ -77,11 +87,19 @@ export default function AdminLayout({ children }) {
             <aside className={`hidden md:flex md:w-64 h-screen bg-slate-900/50 backdrop-blur-md border-r border-white/10 flex-col transition-all duration-300`}>
                 {/* Header */}
                 <div className="p-4 border-b border-white/10">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                         <div>
                             <h1 className="text-lg md:text-xl font-bold text-white">Admin</h1>
                             <p className="text-xs text-gray-400 truncate">{currentUser?.email}</p>
                         </div>
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/15 text-red-300 hover:bg-red-500/25 hover:text-red-200 transition-all text-xs font-medium"
+                            title="Cerrar sesión"
+                        >
+                            <span className="text-sm">🚪</span>
+                            <span className="hidden lg:inline">Salir</span>
+                        </button>
                     </div>
                 </div>
 
@@ -204,7 +222,13 @@ export default function AdminLayout({ children }) {
                         ☰
                     </button>
                     <h2 className="text-white font-bold text-sm">GT7 Admin</h2>
-                    <div className="w-10"></div>
+                    <button
+                        onClick={handleLogout}
+                        className="p-2 bg-red-500/15 hover:bg-red-500/25 rounded-lg transition-colors text-red-300"
+                        title="Cerrar sesión"
+                    >
+                        🚪
+                    </button>
                 </div>
                 {/* Scrollable Content Area */}
                 <div className="flex-1 overflow-auto">

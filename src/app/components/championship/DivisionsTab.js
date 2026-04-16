@@ -118,7 +118,10 @@ export default function DivisionsTab({
                 order,
                 color: DEFAULT_DIVISION_COLORS[(order - 1) % DEFAULT_DIVISION_COLORS.length],
                 drivers: [],
-                maxDrivers: championship?.divisionsConfig?.maxDriversPerDivision || 15
+                maxDrivers: championship?.divisionsConfig?.maxDriversPerDivision || 15,
+                hour: '22:30',
+                hostName: '',
+                casterName: ''
             });
             setNewDivName('');
             setCreating(false);
@@ -688,6 +691,16 @@ function DivisionCard({
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    {division.hour && (
+                        <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
+                            🕐 {division.hour}h (🇪🇸)
+                        </span>
+                    )}
+                    {division.hostName && (
+                        <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded">
+                            🎮 {division.hostName}
+                        </span>
+                    )}
                     {division.casterName && (
                         <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded">
                             📺 {division.casterName}
@@ -727,7 +740,7 @@ function DivisionCard({
                                 className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm" />
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-300 mb-1">📺 Caster</label>
                             <input type="text" defaultValue={division.casterName}
@@ -736,7 +749,7 @@ function DivisionCard({
                                 className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm placeholder-gray-500" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">🏠 Host</label>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">🎮 Host</label>
                             <input type="text" defaultValue={division.hostName}
                                 onBlur={(e) => onUpdate('hostName', e.target.value)}
                                 placeholder="Nombre del anfitrión"
@@ -748,6 +761,16 @@ function DivisionCard({
                                 onBlur={(e) => onUpdate('streamUrl', e.target.value)}
                                 placeholder="https://..."
                                 className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm placeholder-gray-500" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">🕐 Hora (España)</label>
+                            <input
+                                type="time"
+                                defaultValue={division.hour || '22:30'}
+                                onBlur={(e) => onUpdate('hour', e.target.value)}
+                                className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm"
+                            />
+                            <p className="text-gray-500 text-xs mt-1">Hora peninsular española (CET/CEST)</p>
                         </div>
                     </div>
                 </div>

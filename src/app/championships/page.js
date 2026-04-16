@@ -350,9 +350,11 @@ export default function ChampionshipDetailPage() {
                                                     </div>
                                                     <div className="flex-1">
                                                         <div className="text-white font-bold text-lg leading-tight">{div.name}</div>
-                                                        <div className="text-xs" style={{ color: `${div.color || '#f97316'}cc` }}>
-                                                            {(div.drivers || []).length} piloto{(div.drivers || []).length !== 1 ? 's' : ''}
-                                                            {div.casterName && <span className="ml-3">🎙️ {div.casterName}</span>}
+                                                        <div className="text-xs flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5" style={{ color: `${div.color || '#f97316'}cc` }}>
+                                                            <span>{(div.drivers || []).length} piloto{(div.drivers || []).length !== 1 ? 's' : ''}</span>
+                                                            {div.hour && <span>🕐 {div.hour}h <span className="opacity-70">(España)</span></span>}
+                                                            {div.hostName && <span>🎮 Host: {div.hostName}</span>}
+                                                            {div.casterName && <span>📺 {div.casterName}</span>}
                                                         </div>
                                                     </div>
                                                     <button
@@ -973,6 +975,7 @@ export default function ChampionshipDetailPage() {
                                                 const spotsLeft = maxPerSala - spotsUsed;
                                                 const fillPct = Math.min((spotsUsed / maxPerSala) * 100, 100);
                                                 const divColor = div.color || '#f97316';
+                                                const displayHour = div.hour || '22:30';
 
                                                 return (
                                                     <div
@@ -994,7 +997,10 @@ export default function ChampionshipDetailPage() {
                                                                 </div>
                                                                 <div>
                                                                     <div className="text-white font-bold text-lg leading-tight">{div.name}</div>
-                                                                    <div className="text-xs mt-0.5" style={{ color: `${divColor}cc` }}>Sala {div.order}</div>
+                                                                    <div className="text-xs mt-0.5 flex flex-wrap gap-x-3 gap-y-1" style={{ color: `${divColor}cc` }}>
+                                                                        <span>Sala {div.order}</span>
+                                                                        <span>🕐 {displayHour} hora española</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                             <div className="text-right">
@@ -1014,33 +1020,35 @@ export default function ChampionshipDetailPage() {
                                                         </div>
 
                                                         {/* Caster / Host / Stream */}
-                                                        {(div.casterName || div.hostName || div.streamUrl) && (
-                                                            <div className="px-5 py-3 border-b flex flex-wrap gap-3 text-sm" style={{ borderColor: `${divColor}20` }}>
-                                                                {div.casterName && (
-                                                                    <div className="flex items-center gap-1.5 text-gray-300">
-                                                                        <span className="text-base">🎙️</span>
-                                                                        <span className="font-medium text-white">{div.casterName}</span>
-                                                                    </div>
-                                                                )}
-                                                                {div.hostName && (
-                                                                    <div className="flex items-center gap-1.5 text-gray-300">
-                                                                        <span className="text-base">🏠</span>
-                                                                        <span>{div.hostName}</span>
-                                                                    </div>
-                                                                )}
-                                                                {div.streamUrl && (
-                                                                    <a
-                                                                        href={div.streamUrl}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="flex items-center gap-1.5 text-blue-300 hover:text-blue-100 transition-colors"
-                                                                    >
-                                                                        <span>📺</span>
-                                                                        <span className="underline">Ver Stream</span>
-                                                                    </a>
-                                                                )}
+                                                        <div className="px-5 py-3 border-b flex flex-wrap gap-3 text-sm" style={{ borderColor: `${divColor}20` }}>
+                                                            <div className="flex items-center gap-1.5 text-gray-300">
+                                                                <span className="text-base">🕐</span>
+                                                                <span>{displayHour} <span className="text-gray-500">hora española</span></span>
                                                             </div>
-                                                        )}
+                                                            {div.casterName && (
+                                                                <div className="flex items-center gap-1.5 text-gray-300">
+                                                                    <span className="text-base">🎙️</span>
+                                                                    <span className="font-medium text-white">{div.casterName}</span>
+                                                                </div>
+                                                            )}
+                                                            {div.hostName && (
+                                                                <div className="flex items-center gap-1.5 text-gray-300">
+                                                                    <span className="text-base">🏠</span>
+                                                                    <span>{div.hostName}</span>
+                                                                </div>
+                                                            )}
+                                                            {div.streamUrl && (
+                                                                <a
+                                                                    href={div.streamUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="flex items-center gap-1.5 text-blue-300 hover:text-blue-100 transition-colors"
+                                                                >
+                                                                    <span>📺</span>
+                                                                    <span className="underline">Ver Stream</span>
+                                                                </a>
+                                                            )}
+                                                        </div>
 
                                                         {/* Lista de pilotos */}
                                                         <div className="px-5 py-4">
