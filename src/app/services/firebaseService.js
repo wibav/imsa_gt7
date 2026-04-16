@@ -737,6 +737,35 @@ export class FirebaseService {
     }
   }
 
+  /**
+   * Propaga el layoutImage actualizado del catálogo global a todos los campeonatos
+   * que tengan una carrera con el mismo nombre de circuito.
+   * @param {string} trackName - Nombre del circuito
+   * @param {string} layoutImage - Nueva URL de imagen
+   */
+  static async propagateTrackImage(trackName, layoutImage) {
+    try {
+      const championships = await FirebaseService.getChampionships();
+      const normalizedName = (trackName || '').trim().toLowerCase();
+      const promises = championships.map(async (champ) => {
+        const champTracks = await FirebaseService.getTracksByChampionship(champ.id);
+        const matches = champTracks.filter(
+          t => (t.name || '').trim().toLowerCase() === normalizedName
+        );
+        return Promise.all(
+          matches.map(t =>
+            FirebaseService.updateTrack(champ.id, t.id, { layoutImage })
+          )
+        );
+      });
+      await Promise.all(promises);
+      return { success: true };
+    } catch (error) {
+      console.error('Error propagating track image:', error);
+      // No lanzar — es una operación secundaria
+    }
+  }
+
   // ========================================
   // EVENTS METHODS (con championshipId)
   // ========================================

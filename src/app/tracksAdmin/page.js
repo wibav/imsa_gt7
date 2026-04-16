@@ -19,6 +19,7 @@ export default function TracksAdminPage() {
     const [uploadingImage, setUploadingImage] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [imageFilter, setImageFilter] = useState('all'); // 'all' | 'with' | 'without'
+    const [syncing, setSyncing] = useState(false);
 
     const [trackForm, setTrackForm] = useState({
         name: '',
@@ -155,12 +156,19 @@ export default function TracksAdminPage() {
                     await FirebaseService.saveTracks(updatedTracks);
                     alert('✅ Pista guardada correctamente');
                 } else {
-                    // Actualizar pista existente en Firestore
-                    trackData.id = editingTrack.id;
-                    const updatedTracks = firestoreTracks.map(t =>
-                        t.id === editingTrack.id ? { ...t, ...trackData } : t
-                    );
-                    await FirebaseService.saveTracks(updatedTracks);
+                    // Actualizar pista existente en Firestore directamente por su ID
+                    // (evita el problema de tipo numérico/string en la comparación)
+                    const updatedTrack = {
+                        ...editingTrack,  // conserva createdAt y otros campos
+                        ...trackData,     // sobreescribe con los nuevos valores (incluye layoutImage)
+                        id: editingTrack.id,
+                    };
+                    delete updatedTrack._isVirtual; // nunca persistir el flag virtual
+                    await FirebaseService.saveTracks([updatedTrack]);
+                    // Propagar el layoutImage a todos los campeonatos que usen este circuito
+                    if (updatedTrack.layoutImage) {
+                        await FirebaseService.propagateTrackImage(updatedTrack.name, updatedTrack.layoutImage);
+                    }
                     alert('✅ Pista actualizada correctamente');
                 }
             } else {
@@ -229,6 +237,27 @@ export default function TracksAdminPage() {
     const tracksWithImage = tracks.filter(t => t.layoutImage).length;
     const tracksWithoutImage = tracks.length - tracksWithImage;
 
+    const handleSyncAll = async () => {
+        const tracksToSync = firestoreTracks.filter(t => t.layoutImage && t.name);
+        if (tracksToSync.length === 0) {
+            alert('No hay pistas con imagen en el cat\u00e1logo para sincronizar.');
+            return;
+        }
+        if (!confirm(`\u00bfSincronizar las im\u00e1genes de ${tracksToSync.length} pistas a todos los campeonatos?\n\nEsto actualizar\u00e1 el layoutImage en todos los campeonatos que usen esas pistas.`)) return;
+        try {
+            setSyncing(true);
+            for (const track of tracksToSync) {
+                await FirebaseService.propagateTrackImage(track.name, track.layoutImage);
+            }
+            alert(`\u2705 Sincronizaci\u00f3n completada: ${tracksToSync.length} pistas propagadas a todos los campeonatos.`);
+        } catch (error) {
+            console.error('Error en sincronizaci\u00f3n masiva:', error);
+            alert('Error durante la sincronizaci\u00f3n: ' + error.message);
+        } finally {
+            setSyncing(false);
+        }
+    };
+
     if (loading) {
         return <LoadingSkeleton variant="page" message="Cargando pistas..." />;
     }
@@ -250,12 +279,22 @@ export default function TracksAdminPage() {
                             <span className="text-red-400">{tracksWithoutImage} sin imagen</span>
                         </p>
                     </div>
-                    <button
-                        onClick={openCreateModal}
-                        className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold rounded-lg transition-all"
-                    >
-                        ➕ Nueva Pista
-                    </button>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleSyncAll}
+                            disabled={syncing}
+                            className="px-5 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 text-white font-bold rounded-lg transition-all"
+                            title="Propaga las im\u00e1genes actuales del cat\u00e1logo a todos los campeonatos"
+                        >
+                            {syncing ? '⏳ Sincronizando...' : '🔄 Sincronizar Imágenes'}
+                        </button>
+                        <button
+                            onClick={openCreateModal}
+                            className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold rounded-lg transition-all"
+                        >
+                            ➕ Nueva Pista
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filtros de imagen */}
