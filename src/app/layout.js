@@ -38,13 +38,23 @@ export const metadata = {
   },
   icons: {
     icon: "/favicon.ico",
+    apple: "/icon-192.png",
+  },
+  manifest: "/manifest.json",
+  themeColor: "#1e3a5f",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "GT7 Championships",
   },
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="es">
-      <head />
+      <head>
+        <meta name="theme-color" content="#1e3a5f" />
+      </head>
       <body className={`${inter.className} overflow-x-hidden`}>
         {/* Google AdSense - cargado después de que la página es interactiva */}
         <Script
@@ -52,6 +62,21 @@ export default function RootLayout({ children }) {
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3229768467294527"
           crossOrigin="anonymous"
           strategy="afterInteractive"
+        />
+        {/* Service Worker - PWA */}
+        <Script
+          id="sw-register"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js')
+                    .catch(function(err) { console.error('SW registration failed:', err); });
+                });
+              }
+            `
+          }}
         />
         <Analytics />
         <AnalyticsDebugger />
