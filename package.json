@@ -17,8 +17,8 @@
     "firebase": "^11.8.1",
     "html-to-image": "^1.11.13",
     "imagetracerjs": "^1.2.6",
-    "jimp": "^0.16.1",
-    "next": "15.3.3",
+    "jimp": "^0.16.13",
+    "next": "^15.5.15",
     "potrace": "^2.1.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
@@ -28,10 +28,10 @@
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.1.0",
     "@types/react": "^19.1.8",
-    "eslint": "^9",
-    "eslint-config-next": "15.3.3",
+    "eslint": "~9.39.4",
+    "eslint-config-next": "^15.5.15",
     "firebase-admin": "^13.6.0",
     "tailwindcss": "^4",
-    "typescript": "^5.8.3"
+    "typescript": "~5.9.3"
   }
 }

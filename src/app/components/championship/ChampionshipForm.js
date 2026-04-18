@@ -282,6 +282,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                 router.push('/championshipsAdmin');
             }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isEditing, championships, championshipId, currentUser, authLoading, router]);
 
     async function loadChampionshipFormData(champ) {
@@ -1148,6 +1149,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                         className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-orange-600 file:text-white hover:file:bg-orange-700" />
                                     {bannerPreview && (
                                         <div className="mt-4">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
                                             <img src={bannerPreview} alt="Preview" className="w-full h-48 object-cover rounded-lg border border-white/30" />
                                         </div>
                                     )}

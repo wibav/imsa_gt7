@@ -39,6 +39,7 @@ function EventDetailContent() {
             setLoading(false);
             setNotFound(true);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [eventId]);
 
     const loadEvent = async () => {

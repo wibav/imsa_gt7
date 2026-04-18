@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 
-const HOURS_LIMIT = 48;
+const HOURS_LIMIT = 72;
 
 /** Verifica si una carrera sigue dentro del plazo de 48h para reclamaciones */
 function isClaimable(track) {
@@ -39,9 +39,9 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
 
     const allDrivers = getAllDrivers(championship, teams);
 
-    // Solo carreras con resultados y dentro del plazo de 48h
+    // Solo carreras dentro del plazo de 48h (no se requiere que ya tengan puntos cargados)
     const claimableTracks = tracks
-        .filter(t => t.points && Object.keys(t.points).length > 0 && isClaimable(t))
+        .filter(t => isClaimable(t))
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const handleTrackChange = (trackId) => {

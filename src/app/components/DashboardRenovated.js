@@ -31,6 +31,7 @@ export default function DashboardRenovated() {
         if (championships && championships.length > 0) {
             loadChampionshipsTracks();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [championships]);
 
     const fetchData = async () => {

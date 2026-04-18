@@ -49,6 +49,7 @@ export default function ChampionshipDetailPage() {
         if (championshipId) {
             loadChampionshipData();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [championshipId]);
 
     const loadChampionshipData = async () => {
@@ -105,6 +106,13 @@ export default function ChampionshipDetailPage() {
     const standings = getStandings(championship, teams, tracks);
     const nextRace = getNextRace(tracks);
     const progress = calculateProgress(tracks, championship);
+
+    // Mapa driverName → gt7Id desde registrations (para display en tablas)
+    const driverGt7Map = {};
+    (championship.registrations || []).forEach(r => {
+        const key = r.name || r.psnId || r.gt7Id;
+        if (key && r.gt7Id) driverGt7Map[key] = r.gt7Id;
+    });
 
     // ── Standings Avanzado ──
     const activeDivision = divisions.find(d => d.id === selectedDivision);
@@ -380,6 +388,7 @@ export default function ChampionshipDetailPage() {
                                                             showRaceColumns={rc.length > 0}
                                                             showStatsColumns={rc.length > 0}
                                                             raceColumns={rc}
+                                                            driverGt7Map={driverGt7Map}
                                                         />
                                                         <StandingsTable
                                                             standings={ds}
@@ -393,6 +402,7 @@ export default function ChampionshipDetailPage() {
                                                             raceColumns={rc}
                                                             promotionZone={pz}
                                                             relegationZone={rz}
+                                                            driverGt7Map={driverGt7Map}
                                                         />
                                                     </div>
                                                 ) : (
@@ -408,6 +418,7 @@ export default function ChampionshipDetailPage() {
                                                         raceColumns={rc}
                                                         promotionZone={pz}
                                                         relegationZone={rz}
+                                                        driverGt7Map={driverGt7Map}
                                                     />
                                                 )}
                                             </div>
@@ -429,6 +440,7 @@ export default function ChampionshipDetailPage() {
                                                     showRaceColumns={raceColumns.length > 0}
                                                     showStatsColumns={raceColumns.length > 0}
                                                     raceColumns={raceColumns}
+                                                    driverGt7Map={driverGt7Map}
                                                 />
                                                 <StandingsTable
                                                     standings={advancedDriverStandings}
@@ -442,6 +454,7 @@ export default function ChampionshipDetailPage() {
                                                     raceColumns={raceColumns}
                                                     promotionZone={promotionZone}
                                                     relegationZone={relegationZone}
+                                                    driverGt7Map={driverGt7Map}
                                                 />
                                             </div>
                                         )}
@@ -459,6 +472,7 @@ export default function ChampionshipDetailPage() {
                                                 raceColumns={raceColumns}
                                                 promotionZone={promotionZone}
                                                 relegationZone={relegationZone}
+                                                driverGt7Map={driverGt7Map}
                                             />
                                         )}
                                     </>

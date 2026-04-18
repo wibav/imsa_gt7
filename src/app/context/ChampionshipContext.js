@@ -51,6 +51,7 @@ export function ChampionshipProvider({ children }) {
             // Si no hay campeonato guardado, seleccionar el primero activo
             selectFirstActiveChampionship();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [championships]);
 
     /**

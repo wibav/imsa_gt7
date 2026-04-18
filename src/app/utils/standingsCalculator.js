@@ -52,10 +52,20 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
     // Recopilar todos los drivers
     let allDrivers = getAllDrivers(championship, teams);
 
-    // Fase 6: Filtrar por división si se especifica
+    // Fase 6: Filtrar/agregar pilotos por división si se especifica
     if (options.divisionDrivers && options.divisionDrivers.length > 0) {
         const divSet = new Set(options.divisionDrivers);
+        // Filtrar solo los que pertenecen a la división
         allDrivers = allDrivers.filter(d => divSet.has(d.name));
+        // Agregar los pilotos de la división que no estén ya en allDrivers
+        // (caso: pilotos en divisiones pero no en championship.drivers ni teams)
+        const knownNames = new Set(allDrivers.map(d => d.name));
+        options.divisionDrivers.forEach(driverName => {
+            const name = typeof driverName === 'string' ? driverName : driverName.name;
+            if (name && !knownNames.has(name)) {
+                allDrivers.push({ name, team: '', teamColor: '', category: '' });
+            }
+        });
     }
 
     // Inicializar mapa de stats
@@ -133,7 +143,8 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             const hasPole = qualyData?.top3?.first === driverName;
 
             // Si no participó en esta carrera
-            if (!position && points === 0) {
+            // Si el driver está en track.points (aunque con 0), sí participó — no saltar
+            if (!position && points === 0 && !(driverName in pointsMap)) {
                 stat.racePoints.push(null);
                 stat.racePositions.push(null);
                 stat.raceFastestLap.push(hasFl);

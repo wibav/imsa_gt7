@@ -263,6 +263,8 @@ export class Track {
         this.specificCars = data.specificCars || false;
         this.allowedCars = data.allowedCars || [];
         this.points = data.points || {}; // Puntajes de pilotos: { "pilotoName": puntos }
+        this.results = data.results || {}; // Resultados detallados: { divisions: { divId: { racePositions, racePoints, ... } } }
+        this.sprintPoints = data.sprintPoints || {}; // Puntos sprint (formato legado)
         this.status = data.status || 'scheduled'; // 'scheduled' | 'in-progress' | 'completed'
         this.createdAt = data.createdAt || new Date().toISOString();
         this.updatedAt = data.updatedAt || new Date().toISOString();
@@ -309,6 +311,8 @@ export class Track {
             specificCars: this.specificCars,
             allowedCars: this.allowedCars,
             points: this.points,
+            results: this.results,
+            sprintPoints: this.sprintPoints,
             status: this.status,
             createdAt: this.createdAt,
             updatedAt: new Date().toISOString()

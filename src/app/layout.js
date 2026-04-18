@@ -41,12 +41,15 @@ export const metadata = {
     apple: "/icon-192.png",
   },
   manifest: "/manifest.json",
-  themeColor: "#1e3a5f",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "GT7 Championships",
   },
+};
+
+export const viewport = {
+  themeColor: "#1e3a5f",
 };
 
 export default function RootLayout({ children }) {

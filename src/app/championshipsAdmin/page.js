@@ -66,6 +66,7 @@ export default function ChampionshipDetail() {
         if (championships && championships.length > 0 && !championshipId) {
             loadAllChampionshipsTeams();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [championships, championshipId]);
 
     const loadAllChampionshipsTeams = async () => {
@@ -123,6 +124,7 @@ export default function ChampionshipDetail() {
         } else {
             setLoading(false);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [championshipId]);
 
     if (authLoading || (championshipId && loading)) {
@@ -1110,18 +1112,22 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
         setSelectedTrack(track);
 
         if (hasDivisions) {
-            // Inicializar estado por división
+            // Inicializar estado por división — precargar resultados existentes si los hay
             const divPos = {};
             const divSprint = {};
             const divQualy = {};
             const divFL = {};
             sortedDivisions.forEach(div => {
                 const drivers = div.drivers || [];
+                const existing = track.results?.divisions?.[div.id];
                 divPos[div.id] = {};
                 divSprint[div.id] = {};
-                drivers.forEach(d => { divPos[div.id][d] = ''; divSprint[div.id][d] = ''; });
-                divQualy[div.id] = { first: '', second: '', third: '' };
-                divFL[div.id] = '';
+                drivers.forEach(d => {
+                    divPos[div.id][d] = existing?.racePositions?.[d] ?? '';
+                    divSprint[div.id][d] = existing?.sprintPositions?.[d] ?? '';
+                });
+                divQualy[div.id] = existing?.qualifying?.top3 || { first: '', second: '', third: '' };
+                divFL[div.id] = existing?.fastestLap?.driver || '';
             });
             setDivPositions(divPos);
             setDivSprintPositions(divSprint);
@@ -1199,8 +1205,16 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                         });
                     }
 
+                    // Garantizar que TODOS los pilotos de la división queden en totalPoints
+                    // (aunque no hayan ingresado posición — aparecerán con 0 pts en la tabla)
+                    (div.drivers || []).forEach(driver => {
+                        if (!(driver in totalPoints)) totalPoints[driver] = 0;
+                    });
+
                     divisionResults[divId] = {
-                        racePositions: divPositions[divId] || {},
+                        racePositions: Object.fromEntries(
+                            Object.entries(divPositions[divId] || {}).filter(([, v]) => v !== '')
+                        ),
                         racePoints,
                         ...(selectedTrack.raceType === 'sprint_carrera' ? { sprintPositions: divSprintPositions[divId] || {}, sprintPoints: sprintPtsMap } : {}),
                         ...(ps.qualifying?.enabled ? { qualifying: { top3: divQualyTop3[divId] || {}, points: qualyPoints } } : {}),
@@ -1602,7 +1616,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                         return (
                                             <div key={driver} className="bg-white/5 border border-white/20 rounded-lg p-3">
                                                 <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-white font-medium text-sm">{driver}</span>
+                                                    <span className="text-white font-medium text-sm">{pqDriverGt7Map[driver] || driver}</span>
                                                     {pts !== null && <span className="text-sm text-orange-400 font-bold">= {pts} pts</span>}
                                                 </div>
                                                 <input
@@ -1639,7 +1653,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                             return (
                                                 <div key={driver} className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
                                                     <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-white font-medium text-sm">{driver}</span>
+                                                        <span className="text-white font-medium text-sm">{pqDriverGt7Map[driver] || driver}</span>
                                                         {pts !== null && <span className="text-sm text-purple-400 font-bold">= {pts} pts</span>}
                                                     </div>
                                                     <input
@@ -1701,7 +1715,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                                         className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white"
                                                     >
                                                         <option value="" className="bg-slate-800">Seleccionar piloto</option>
-                                                        {modalDriverNames.map(d => <option key={d} value={d} className="bg-slate-800">{d}</option>)}
+                                                        {modalDriverNames.map(d => <option key={d} value={d} className="bg-slate-800">{pqDriverGt7Map[d] || d}</option>)}
                                                     </select>
                                                 </div>
                                             );
@@ -1733,7 +1747,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                             className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white"
                                         >
                                             <option value="" className="bg-slate-800">Seleccionar piloto</option>
-                                            {modalDriverNames.map(d => <option key={d} value={d} className="bg-slate-800">{d}</option>)}
+                                            {modalDriverNames.map(d => <option key={d} value={d} className="bg-slate-800">{pqDriverGt7Map[d] || d}</option>)}
                                         </select>
                                     </div>
                                 </div>

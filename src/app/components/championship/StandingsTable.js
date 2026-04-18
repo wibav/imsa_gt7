@@ -35,7 +35,8 @@ export default function StandingsTable({
     className = '',
     emptyMessage = 'Sin datos de clasificación',
     promotionZone = 0,
-    relegationZone = 0
+    relegationZone = 0,
+    driverGt7Map = {}
 }) {
     if (standings.length === 0) {
         return (
@@ -181,7 +182,7 @@ export default function StandingsTable({
                                                     />
                                                 )}
                                                 <span className={`font-semibold ${compact ? 'text-sm' : 'text-sm'} truncate max-w-[140px]`}>
-                                                    {entry.name}
+                                                    {driverGt7Map[entry.name] || entry.name}
                                                 </span>
                                             </div>
                                         </td>
