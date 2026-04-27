@@ -486,6 +486,40 @@ export default function ChampionshipDetailPage() {
                                 <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
                                     📅 Calendario de Carreras
                                 </h2>
+
+                                {/* Selector de División para filtrar resultados */}
+                                {championship?.divisionsConfig?.enabled && divisions.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mb-6">
+                                        <button
+                                            onClick={() => setSelectedDivision('all')}
+                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedDivision === 'all'
+                                                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30'
+                                                : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                                                }`}
+                                        >
+                                            🏁 Todas las Salas
+                                        </button>
+                                        {divisions.map(div => (
+                                            <button
+                                                key={div.id}
+                                                onClick={() => setSelectedDivision(div.id)}
+                                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${selectedDivision === div.id
+                                                    ? 'text-white shadow-lg'
+                                                    : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                                                    }`}
+                                                style={selectedDivision === div.id ? {
+                                                    backgroundColor: div.color || '#f97316',
+                                                    boxShadow: `0 10px 15px -3px ${div.color || '#f97316'}40`
+                                                } : {}}
+                                            >
+                                                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: div.color || '#f97316' }} />
+                                                {div.name}
+                                                <span className="text-xs opacity-75">({(div.drivers || []).length})</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
                                 <div className="space-y-4">
                                     {/* Pre-Qualy */}
                                     {championship.preQualy?.enabled && (
@@ -840,31 +874,77 @@ export default function ChampionshipDetailPage() {
                                                 {track.points && Object.keys(track.points).length > 0 && (
                                                     <div className="mt-4 pt-4 border-t border-white/20">
                                                         <h4 className="text-sm font-semibold text-gray-300 mb-3">📊 Resultados</h4>
-                                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                                            {Object.entries(track.points)
-                                                                .sort(([, a], [, b]) => b - a)
-                                                                .map(([driverName, points], idx) => {
-                                                                    const colors = getResultColors(idx);
-                                                                    const medal = getPositionMedal(idx);
+
+                                                        {/* Agrupados por división */}
+                                                        {championship?.divisionsConfig?.enabled && divisions.length > 0 ? (
+                                                            <div className="space-y-4">
+                                                                {(selectedDivision !== 'all'
+                                                                    ? divisions.filter(d => d.id === selectedDivision)
+                                                                    : divisions.slice().sort((a, b) => (a.order || 0) - (b.order || 0))
+                                                                ).map(div => {
+                                                                    const divSet = new Set(div.drivers || []);
+                                                                    const divEntries = Object.entries(track.points)
+                                                                        .filter(([name]) => divSet.has(name))
+                                                                        .sort(([, a], [, b]) => b - a);
+                                                                    if (divEntries.length === 0) return null;
+                                                                    const divColor = div.color || '#f97316';
                                                                     return (
-                                                                        <div
-                                                                            key={driverName}
-                                                                            className={`flex justify-between items-center text-sm px-3 py-2 rounded-lg ${colors.bg}`}
-                                                                        >
-                                                                            <span className="text-gray-300 truncate">
-                                                                                {medal && (
-                                                                                    <span className="mr-1">{medal}</span>
-                                                                                )}
-                                                                                {driverName}
-                                                                            </span>
-                                                                            <span className={`font-bold ml-2 ${colors.text}`}>
-                                                                                {points}
-                                                                            </span>
+                                                                        <div key={div.id}>
+                                                                            <div
+                                                                                className="flex items-center gap-2 mb-2 px-3 py-1.5 rounded-lg text-xs font-bold"
+                                                                                style={{ background: `${divColor}20`, border: `1px solid ${divColor}30`, color: divColor }}
+                                                                            >
+                                                                                <span
+                                                                                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                                                                    style={{ backgroundColor: divColor }}
+                                                                                />
+                                                                                {div.name}
+                                                                            </div>
+                                                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                                                                {divEntries.map(([driverName, points], idx) => {
+                                                                                    const colors = getResultColors(idx);
+                                                                                    const medal = getPositionMedal(idx);
+                                                                                    return (
+                                                                                        <div
+                                                                                            key={driverName}
+                                                                                            className={`flex justify-between items-center text-sm px-3 py-2 rounded-lg ${colors.bg}`}
+                                                                                        >
+                                                                                            <span className="text-gray-300 truncate">
+                                                                                                {medal && <span className="mr-1">{medal}</span>}
+                                                                                                {driverName}
+                                                                                            </span>
+                                                                                            <span className={`font-bold ml-2 ${colors.text}`}>{points}</span>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
                                                                         </div>
                                                                     );
-                                                                })
-                                                            }
-                                                        </div>
+                                                                })}
+                                                            </div>
+                                                        ) : (
+                                                            /* Sin divisiones: mostrar todos */
+                                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                                                {Object.entries(track.points)
+                                                                    .sort(([, a], [, b]) => b - a)
+                                                                    .map(([driverName, points], idx) => {
+                                                                        const colors = getResultColors(idx);
+                                                                        const medal = getPositionMedal(idx);
+                                                                        return (
+                                                                            <div
+                                                                                key={driverName}
+                                                                                className={`flex justify-between items-center text-sm px-3 py-2 rounded-lg ${colors.bg}`}
+                                                                            >
+                                                                                <span className="text-gray-300 truncate">
+                                                                                    {medal && <span className="mr-1">{medal}</span>}
+                                                                                    {driverName}
+                                                                                </span>
+                                                                                <span className={`font-bold ml-2 ${colors.text}`}>{points}</span>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
 

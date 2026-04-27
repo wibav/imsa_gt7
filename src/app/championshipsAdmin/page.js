@@ -1075,6 +1075,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
     const [savingPreQualy, setSavingPreQualy] = useState(false);
     const [newPQRow, setNewPQRow] = useState({ driverName: '', time: '', classified: true });
     const [showAddPQ, setShowAddPQ] = useState(false);
+    const [preQualyCollapsed, setPreQualyCollapsed] = useState(true);
 
     // Obtener todos los pilotos según tipo de campeonato
     const allDrivers = championship?.settings?.isTeamChampionship
@@ -1331,228 +1332,246 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
         <div className="text-white">
             {/* Pre-Qualy info + resultados si está configurada */}
             {championship?.preQualy?.enabled && (
-                <div className="mb-6 bg-purple-900/30 border border-purple-400/40 rounded-xl p-5 space-y-5">
-                    {/* Config */}
-                    <div>
-                        <div className="flex items-center gap-3 mb-3">
+                <div className="mb-6 bg-purple-900/30 border border-purple-400/40 rounded-xl p-5">
+                    {/* Header con toggle */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
                             <span className="text-xl font-bold text-purple-400">🎯</span>
                             <h3 className="text-lg font-bold text-white">Pre-Qualy</h3>
                             <span className="text-xs text-purple-300 bg-purple-500/20 px-2 py-1 rounded-full border border-purple-400/30">Sesión previa</span>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                            {championship.preQualy.date && (
-                                <div className="bg-white/5 rounded-lg p-2">
-                                    <div className="text-gray-400 text-xs mb-1">Fecha</div>
-                                    <div className="text-white">{new Date(championship.preQualy.date).toLocaleDateString('es-ES')}</div>
-                                </div>
-                            )}
-                            {championship.preQualy.track && (
-                                <div className="bg-white/5 rounded-lg p-2">
-                                    <div className="text-gray-400 text-xs mb-1">Circuito</div>
-                                    <div className="text-white">{championship.preQualy.track}</div>
-                                </div>
-                            )}
-                            <div className="bg-white/5 rounded-lg p-2">
-                                <div className="text-gray-400 text-xs mb-1">Duración</div>
-                                <div className="text-white">{championship.preQualy.duration ?? 15} min</div>
-                            </div>
-                            {championship.preQualy.allowedCars?.length > 0 && (
-                                <div className="bg-white/5 rounded-lg p-2">
-                                    <div className="text-gray-400 text-xs mb-1">Autos</div>
-                                    <div className="text-white text-xs">{championship.preQualy.allowedCars.join(', ')}</div>
-                                </div>
+                            {preQualyCollapsed && preQualyResults.length > 0 && (
+                                <span className="text-xs text-gray-400">{preQualyResults.length} pilotos</span>
                             )}
                         </div>
-                        {championship.preQualy.notes && (
-                            <p className="mt-3 text-purple-200 text-sm bg-purple-500/10 rounded-lg p-2">{championship.preQualy.notes}</p>
-                        )}
+                        <button
+                            type="button"
+                            onClick={() => setPreQualyCollapsed(v => !v)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/20 text-gray-300 hover:text-white text-xs rounded-lg transition-all"
+                        >
+                            {preQualyCollapsed ? '▼ Mostrar' : '▲ Minimizar'}
+                        </button>
                     </div>
 
-                    {/* Resultados Pre-Qualy */}
-                    <div className="border-t border-purple-400/20 pt-4">
-                        <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-sm font-bold text-purple-300 flex items-center gap-2">
-                                🏁 Resultados Pre-Qualy
-                                <span className="text-xs font-normal text-gray-400">({preQualyResults.length} pilotos)</span>
-                            </h4>
-                            <div className="flex gap-2">
-                                {editingPreQualy && (
-                                    <button
-                                        onClick={() => { setShowAddPQ(true); setNewPQRow({ driverName: '', time: '', classified: true }); }}
-                                        className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg font-medium"
-                                    >
-                                        + Agregar piloto
-                                    </button>
+                    {!preQualyCollapsed && (
+                        <div className="mt-4 space-y-5">
+                            {/* Config */}
+                            <div>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                    {championship.preQualy.date && (
+                                        <div className="bg-white/5 rounded-lg p-2">
+                                            <div className="text-gray-400 text-xs mb-1">Fecha</div>
+                                            <div className="text-white">{new Date(championship.preQualy.date).toLocaleDateString('es-ES')}</div>
+                                        </div>
+                                    )}
+                                    {championship.preQualy.track && (
+                                        <div className="bg-white/5 rounded-lg p-2">
+                                            <div className="text-gray-400 text-xs mb-1">Circuito</div>
+                                            <div className="text-white">{championship.preQualy.track}</div>
+                                        </div>
+                                    )}
+                                    <div className="bg-white/5 rounded-lg p-2">
+                                        <div className="text-gray-400 text-xs mb-1">Duración</div>
+                                        <div className="text-white">{championship.preQualy.duration ?? 15} min</div>
+                                    </div>
+                                    {championship.preQualy.allowedCars?.length > 0 && (
+                                        <div className="bg-white/5 rounded-lg p-2">
+                                            <div className="text-gray-400 text-xs mb-1">Autos</div>
+                                            <div className="text-white text-xs">{championship.preQualy.allowedCars.join(', ')}</div>
+                                        </div>
+                                    )}
+                                </div>
+                                {championship.preQualy.notes && (
+                                    <p className="mt-3 text-purple-200 text-sm bg-purple-500/10 rounded-lg p-2">{championship.preQualy.notes}</p>
                                 )}
-                                <button
-                                    onClick={async () => {
-                                        if (editingPreQualy) {
-                                            // Guardar
-                                            setSavingPreQualy(true);
-                                            try {
-                                                const sorted = [...preQualyResults].sort((a, b) => parseTimeToMs(a.time) - parseTimeToMs(b.time));
-                                                await FirebaseService.savePreQualyResults(championshipId, sorted);
-                                                setPreQualyResults(sorted);
-                                                onUpdate();
-                                            } catch (e) {
-                                                alert('Error al guardar: ' + e.message);
-                                            } finally {
-                                                setSavingPreQualy(false);
-                                            }
-                                            setEditingPreQualy(false);
-                                        } else {
-                                            setEditingPreQualy(true);
-                                        }
-                                    }}
-                                    disabled={savingPreQualy}
-                                    className={`px-3 py-1.5 text-white text-xs rounded-lg font-medium transition-all disabled:opacity-50 ${editingPreQualy ? 'bg-green-600 hover:bg-green-700' : 'bg-white/10 hover:bg-white/20 border border-white/30'}`}
-                                >
-                                    {savingPreQualy ? '⏳ Guardando...' : editingPreQualy ? '💾 Guardar resultados' : '✏️ Editar resultados'}
-                                </button>
-                                {editingPreQualy && (
-                                    <button
-                                        onClick={() => { setEditingPreQualy(false); setPreQualyResults(championship?.preQualy?.results || []); setShowAddPQ(false); }}
-                                        className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-gray-300 text-xs rounded-lg"
-                                    >
-                                        Cancelar
-                                    </button>
+                            </div>
+
+                            {/* Resultados Pre-Qualy */}
+                            <div className="border-t border-purple-400/20 pt-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h4 className="text-sm font-bold text-purple-300 flex items-center gap-2">
+                                        🏁 Resultados Pre-Qualy
+                                        <span className="text-xs font-normal text-gray-400">({preQualyResults.length} pilotos)</span>
+                                    </h4>
+                                    <div className="flex gap-2">
+                                        {editingPreQualy && (
+                                            <button
+                                                onClick={() => { setShowAddPQ(true); setNewPQRow({ driverName: '', time: '', classified: true }); }}
+                                                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg font-medium"
+                                            >
+                                                + Agregar piloto
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={async () => {
+                                                if (editingPreQualy) {
+                                                    // Guardar
+                                                    setSavingPreQualy(true);
+                                                    try {
+                                                        const sorted = [...preQualyResults].sort((a, b) => parseTimeToMs(a.time) - parseTimeToMs(b.time));
+                                                        await FirebaseService.savePreQualyResults(championshipId, sorted);
+                                                        setPreQualyResults(sorted);
+                                                        onUpdate();
+                                                    } catch (e) {
+                                                        alert('Error al guardar: ' + e.message);
+                                                    } finally {
+                                                        setSavingPreQualy(false);
+                                                    }
+                                                    setEditingPreQualy(false);
+                                                } else {
+                                                    setEditingPreQualy(true);
+                                                }
+                                            }}
+                                            disabled={savingPreQualy}
+                                            className={`px-3 py-1.5 text-white text-xs rounded-lg font-medium transition-all disabled:opacity-50 ${editingPreQualy ? 'bg-green-600 hover:bg-green-700' : 'bg-white/10 hover:bg-white/20 border border-white/30'}`}
+                                        >
+                                            {savingPreQualy ? '⏳ Guardando...' : editingPreQualy ? '💾 Guardar resultados' : '✏️ Editar resultados'}
+                                        </button>
+                                        {editingPreQualy && (
+                                            <button
+                                                onClick={() => { setEditingPreQualy(false); setPreQualyResults(championship?.preQualy?.results || []); setShowAddPQ(false); }}
+                                                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-gray-300 text-xs rounded-lg"
+                                            >
+                                                Cancelar
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Tabla de resultados */}
+                                {preQualyResults.length > 0 ? (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="text-left text-xs text-gray-400 border-b border-white/10">
+                                                    <th className="pb-2 pr-4 w-8">#</th>
+                                                    <th className="pb-2 pr-4">Piloto</th>
+                                                    <th className="pb-2 pr-4">Tiempo</th>
+                                                    <th className="pb-2 pr-4">Estado</th>
+                                                    {editingPreQualy && <th className="pb-2"></th>}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/5">
+                                                {preQualyResults.map((r, idx) => (
+                                                    <tr key={idx} className="hover:bg-white/5">
+                                                        <td className="py-2 pr-4 text-gray-400 font-mono">{idx + 1}</td>
+                                                        <td className="py-2 pr-4 text-white font-medium">
+                                                            {editingPreQualy ? (
+                                                                <select
+                                                                    value={r.driverName}
+                                                                    onChange={e => {
+                                                                        const updated = [...preQualyResults];
+                                                                        updated[idx] = { ...updated[idx], driverName: e.target.value, gt7Id: pqDriverGt7Map[e.target.value] || '' };
+                                                                        setPreQualyResults(updated);
+                                                                    }}
+                                                                    className="bg-gray-800 border border-white/20 rounded px-2 py-1 text-white text-xs w-44"
+                                                                >
+                                                                    <option value="">— Seleccionar piloto —</option>
+                                                                    {pqDriverOptions.map(n => (
+                                                                        <option key={n} value={n}>{n}</option>
+                                                                    ))}
+                                                                </select>
+                                                            ) : r.driverName}
+                                                        </td>
+                                                        <td className="py-2 pr-4 font-mono text-yellow-300">
+                                                            {editingPreQualy ? (
+                                                                <input
+                                                                    type="text"
+                                                                    value={r.time}
+                                                                    placeholder="1:23.456"
+                                                                    onChange={e => {
+                                                                        const updated = [...preQualyResults];
+                                                                        updated[idx] = { ...updated[idx], time: e.target.value };
+                                                                        setPreQualyResults(updated);
+                                                                    }}
+                                                                    className="bg-white/10 border border-white/20 rounded px-2 py-1 text-yellow-200 text-xs w-28 font-mono"
+                                                                />
+                                                            ) : r.time || '—'}
+                                                        </td>
+                                                        <td className="py-2 pr-4">
+                                                            {editingPreQualy ? (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const updated = [...preQualyResults];
+                                                                        updated[idx] = { ...updated[idx], classified: !updated[idx].classified };
+                                                                        setPreQualyResults(updated);
+                                                                    }}
+                                                                    className={`px-2 py-1 rounded text-xs font-medium ${r.classified ? 'bg-green-500/30 text-green-300 border border-green-400/30' : 'bg-red-500/20 text-red-300 border border-red-400/30'}`}
+                                                                >
+                                                                    {r.classified ? '✅ Clasificado' : '❌ No clasificado'}
+                                                                </button>
+                                                            ) : (
+                                                                <span className={`px-2 py-1 rounded text-xs font-medium ${r.classified ? 'bg-green-500/20 text-green-300' : 'bg-red-500/10 text-red-400'}`}>
+                                                                    {r.classified ? '✅ Clasificado' : '❌ No clasificado'}
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        {editingPreQualy && (
+                                                            <td className="py-2">
+                                                                <button
+                                                                    onClick={() => setPreQualyResults(prev => prev.filter((_, i) => i !== idx))}
+                                                                    className="text-red-400 hover:text-red-300 text-xs px-2"
+                                                                >
+                                                                    🗑️
+                                                                </button>
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-6 text-gray-500 text-sm">
+                                        {editingPreQualy ? 'Añade pilotos con el botón "+ Agregar piloto"' : 'Aún no hay resultados cargados. Usa "✏️ Editar resultados".'}
+                                    </div>
+                                )}
+
+                                {/* Formulario para agregar nueva fila */}
+                                {editingPreQualy && showAddPQ && (
+                                    <div className="mt-3 flex flex-wrap items-center gap-2 p-3 bg-purple-500/10 border border-purple-400/30 rounded-lg">
+                                        <select
+                                            value={newPQRow.driverName}
+                                            onChange={e => setNewPQRow(p => ({ ...p, driverName: e.target.value, gt7Id: pqDriverGt7Map[e.target.value] || '' }))}
+                                            className="bg-gray-800 border border-white/20 rounded px-3 py-1.5 text-white text-sm w-44"
+                                        >
+                                            <option value="">— Seleccionar piloto —</option>
+                                            {pqDriverOptions.map(n => (
+                                                <option key={n} value={n}>{n}</option>
+                                            ))}
+                                        </select>
+                                        <input
+                                            type="text"
+                                            placeholder="Tiempo (1:23.456)"
+                                            value={newPQRow.time}
+                                            onChange={e => setNewPQRow(p => ({ ...p, time: e.target.value }))}
+                                            className="bg-white/10 border border-white/20 rounded px-3 py-1.5 text-yellow-200 text-sm w-36 font-mono"
+                                        />
+                                        <button
+                                            onClick={() => setNewPQRow(p => ({ ...p, classified: !p.classified }))}
+                                            className={`px-3 py-1.5 rounded text-xs font-medium ${newPQRow.classified ? 'bg-green-600 text-white' : 'bg-red-700/50 text-red-200'}`}
+                                        >
+                                            {newPQRow.classified ? '✅ Clasificar' : '❌ No clasificar'}
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                if (!newPQRow.driverName.trim()) return;
+                                                setPreQualyResults(prev => [...prev, { ...newPQRow, driverName: newPQRow.driverName.trim() }]);
+                                                setNewPQRow({ driverName: '', time: '', classified: true });
+                                                setShowAddPQ(false);
+                                            }}
+                                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg font-medium"
+                                        >
+                                            ➕ Agregar
+                                        </button>
+                                        <button
+                                            onClick={() => setShowAddPQ(false)}
+                                            className="px-3 py-1.5 text-gray-400 hover:text-white text-xs"
+                                        >Cancelar</button>
+                                    </div>
                                 )}
                             </div>
                         </div>
-
-                        {/* Tabla de resultados */}
-                        {preQualyResults.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="text-left text-xs text-gray-400 border-b border-white/10">
-                                            <th className="pb-2 pr-4 w-8">#</th>
-                                            <th className="pb-2 pr-4">Piloto</th>
-                                            <th className="pb-2 pr-4">Tiempo</th>
-                                            <th className="pb-2 pr-4">Estado</th>
-                                            {editingPreQualy && <th className="pb-2"></th>}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/5">
-                                        {preQualyResults.map((r, idx) => (
-                                            <tr key={idx} className="hover:bg-white/5">
-                                                <td className="py-2 pr-4 text-gray-400 font-mono">{idx + 1}</td>
-                                                <td className="py-2 pr-4 text-white font-medium">
-                                                    {editingPreQualy ? (
-                                                        <select
-                                                            value={r.driverName}
-                                                            onChange={e => {
-                                                                const updated = [...preQualyResults];
-                                                                updated[idx] = { ...updated[idx], driverName: e.target.value, gt7Id: pqDriverGt7Map[e.target.value] || '' };
-                                                                setPreQualyResults(updated);
-                                                            }}
-                                                            className="bg-gray-800 border border-white/20 rounded px-2 py-1 text-white text-xs w-44"
-                                                        >
-                                                            <option value="">— Seleccionar piloto —</option>
-                                                            {pqDriverOptions.map(n => (
-                                                                <option key={n} value={n}>{n}</option>
-                                                            ))}
-                                                        </select>
-                                                    ) : r.driverName}
-                                                </td>
-                                                <td className="py-2 pr-4 font-mono text-yellow-300">
-                                                    {editingPreQualy ? (
-                                                        <input
-                                                            type="text"
-                                                            value={r.time}
-                                                            placeholder="1:23.456"
-                                                            onChange={e => {
-                                                                const updated = [...preQualyResults];
-                                                                updated[idx] = { ...updated[idx], time: e.target.value };
-                                                                setPreQualyResults(updated);
-                                                            }}
-                                                            className="bg-white/10 border border-white/20 rounded px-2 py-1 text-yellow-200 text-xs w-28 font-mono"
-                                                        />
-                                                    ) : r.time || '—'}
-                                                </td>
-                                                <td className="py-2 pr-4">
-                                                    {editingPreQualy ? (
-                                                        <button
-                                                            onClick={() => {
-                                                                const updated = [...preQualyResults];
-                                                                updated[idx] = { ...updated[idx], classified: !updated[idx].classified };
-                                                                setPreQualyResults(updated);
-                                                            }}
-                                                            className={`px-2 py-1 rounded text-xs font-medium ${r.classified ? 'bg-green-500/30 text-green-300 border border-green-400/30' : 'bg-red-500/20 text-red-300 border border-red-400/30'}`}
-                                                        >
-                                                            {r.classified ? '✅ Clasificado' : '❌ No clasificado'}
-                                                        </button>
-                                                    ) : (
-                                                        <span className={`px-2 py-1 rounded text-xs font-medium ${r.classified ? 'bg-green-500/20 text-green-300' : 'bg-red-500/10 text-red-400'}`}>
-                                                            {r.classified ? '✅ Clasificado' : '❌ No clasificado'}
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                {editingPreQualy && (
-                                                    <td className="py-2">
-                                                        <button
-                                                            onClick={() => setPreQualyResults(prev => prev.filter((_, i) => i !== idx))}
-                                                            className="text-red-400 hover:text-red-300 text-xs px-2"
-                                                        >
-                                                            🗑️
-                                                        </button>
-                                                    </td>
-                                                )}
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <div className="text-center py-6 text-gray-500 text-sm">
-                                {editingPreQualy ? 'Añade pilotos con el botón "+ Agregar piloto"' : 'Aún no hay resultados cargados. Usa "✏️ Editar resultados".'}
-                            </div>
-                        )}
-
-                        {/* Formulario para agregar nueva fila */}
-                        {editingPreQualy && showAddPQ && (
-                            <div className="mt-3 flex flex-wrap items-center gap-2 p-3 bg-purple-500/10 border border-purple-400/30 rounded-lg">
-                                <select
-                                    value={newPQRow.driverName}
-                                    onChange={e => setNewPQRow(p => ({ ...p, driverName: e.target.value, gt7Id: pqDriverGt7Map[e.target.value] || '' }))}
-                                    className="bg-gray-800 border border-white/20 rounded px-3 py-1.5 text-white text-sm w-44"
-                                >
-                                    <option value="">— Seleccionar piloto —</option>
-                                    {pqDriverOptions.map(n => (
-                                        <option key={n} value={n}>{n}</option>
-                                    ))}
-                                </select>
-                                <input
-                                    type="text"
-                                    placeholder="Tiempo (1:23.456)"
-                                    value={newPQRow.time}
-                                    onChange={e => setNewPQRow(p => ({ ...p, time: e.target.value }))}
-                                    className="bg-white/10 border border-white/20 rounded px-3 py-1.5 text-yellow-200 text-sm w-36 font-mono"
-                                />
-                                <button
-                                    onClick={() => setNewPQRow(p => ({ ...p, classified: !p.classified }))}
-                                    className={`px-3 py-1.5 rounded text-xs font-medium ${newPQRow.classified ? 'bg-green-600 text-white' : 'bg-red-700/50 text-red-200'}`}
-                                >
-                                    {newPQRow.classified ? '✅ Clasificar' : '❌ No clasificar'}
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        if (!newPQRow.driverName.trim()) return;
-                                        setPreQualyResults(prev => [...prev, { ...newPQRow, driverName: newPQRow.driverName.trim() }]);
-                                        setNewPQRow({ driverName: '', time: '', classified: true });
-                                        setShowAddPQ(false);
-                                    }}
-                                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg font-medium"
-                                >
-                                    ➕ Agregar
-                                </button>
-                                <button
-                                    onClick={() => setShowAddPQ(false)}
-                                    className="px-3 py-1.5 text-gray-400 hover:text-white text-xs"
-                                >Cancelar</button>
-                            </div>
-                        )}
-                    </div>
+                    )}
                 </div>
             )}
 

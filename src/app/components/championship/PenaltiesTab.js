@@ -356,7 +356,7 @@ export default function PenaltiesTab({
                             {/* Umbrales */}
                             <div className="bg-white/5 border border-white/10 rounded-xl p-6">
                                 <h3 className="text-lg font-bold text-white mb-4">🔧 Configuración de Amonestaciones</h3>
-                                <div className="grid sm:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <div>
                                         <label className="text-gray-400 text-sm block mb-1">Umbral de amonestaciones</label>
                                         <input
@@ -426,24 +426,22 @@ export default function PenaltiesTab({
                                                 : 'bg-white/2 border-white/5 opacity-50'
                                                 }`}
                                         >
-                                            <div className="flex items-center justify-between gap-4">
-                                                <div className="flex items-center gap-3 flex-1">
-                                                    <label className="cursor-pointer flex items-center gap-3">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={preset.active}
-                                                            onChange={() => handleTogglePreset(preset.id)}
-                                                            className="w-4 h-4 rounded"
-                                                        />
-                                                        <span className="text-xl">{preset.icon}</span>
-                                                        <div>
-                                                            <span className="text-white font-medium text-sm">{preset.name}</span>
-                                                            <span className="text-gray-500 text-xs block">{preset.description}</span>
-                                                        </div>
-                                                    </label>
-                                                </div>
+                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                                <label className="cursor-pointer flex items-center gap-3 flex-1 min-w-0">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={preset.active}
+                                                        onChange={() => handleTogglePreset(preset.id)}
+                                                        className="w-4 h-4 rounded flex-shrink-0"
+                                                    />
+                                                    <span className="text-xl flex-shrink-0">{preset.icon}</span>
+                                                    <div className="min-w-0">
+                                                        <span className="text-white font-medium text-sm">{preset.name}</span>
+                                                        <span className="text-gray-500 text-xs block truncate">{preset.description}</span>
+                                                    </div>
+                                                </label>
                                                 {preset.active && (
-                                                    <div className="flex items-center gap-3 flex-shrink-0">
+                                                    <div className="flex items-center gap-3 flex-shrink-0 pl-10 sm:pl-0">
                                                         <div className="flex items-center gap-1">
                                                             <span className="text-red-400 text-xs">Pts:</span>
                                                             <input
@@ -529,6 +527,8 @@ export default function PenaltiesTab({
 function ApplyPenaltyModal({ championshipId, allDrivers, tracks, presets, onClose, onSaved }) {
     const [mode, setMode] = useState('preset'); // preset | custom
     const [selectedPreset, setSelectedPreset] = useState(null);
+    const [extraPoints, setExtraPoints] = useState(0);
+    const [extraPointsReason, setExtraPointsReason] = useState('');
     const [form, setForm] = useState({
         driverName: '',
         teamName: '',
@@ -551,6 +551,8 @@ function ApplyPenaltyModal({ championshipId, allDrivers, tracks, presets, onClos
     // Cuando selecciona un preset, rellenar el form
     const handleSelectPreset = (preset) => {
         setSelectedPreset(preset);
+        setExtraPoints(0);
+        setExtraPointsReason('');
         setForm(prev => ({
             ...prev,
             name: preset.name,
@@ -583,11 +585,19 @@ function ApplyPenaltyModal({ championshipId, allDrivers, tracks, presets, onClos
     const handleSubmit = async () => {
         if (!form.driverName) return alert('Selecciona un piloto');
         if (!form.name) return alert('Nombre de sanción requerido');
+        const totalPoints = form.points + (extraPoints || 0);
+        const description = extraPointsReason
+            ? `${form.description || form.name}. Puntos adicionales: ${extraPointsReason}`
+            : form.description;
 
         setSaving(true);
         try {
             await FirebaseService.createPenalty(championshipId, {
                 ...form,
+                points: totalPoints,
+                description,
+                extraPoints: extraPoints || 0,
+                extraPointsReason: extraPointsReason || '',
                 presetId: selectedPreset?.id || null,
                 appliedAt: new Date().toISOString()
             });
@@ -708,6 +718,45 @@ function ApplyPenaltyModal({ championshipId, allDrivers, tracks, presets, onClos
                         </div>
                     )}
 
+                    {/* Puntos adicionales sobre preset */}
+                    {mode === 'preset' && selectedPreset && (
+                        <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-orange-300 font-semibold text-sm">➕ Puntos adicionales</h4>
+                                <span className="text-gray-400 text-xs">Base: <span className="text-red-400 font-bold">-{selectedPreset.points} pts</span></span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-gray-400 text-xs block mb-1">Puntos extra a descontar</label>
+                                    <input
+                                        type="number" min="0" max="100"
+                                        value={extraPoints}
+                                        onChange={e => setExtraPoints(parseInt(e.target.value) || 0)}
+                                        className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm"
+                                        placeholder="0"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-gray-400 text-xs block mb-1">Motivo (opcional)</label>
+                                    <input
+                                        type="text"
+                                        value={extraPointsReason}
+                                        onChange={e => setExtraPointsReason(e.target.value)}
+                                        className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm"
+                                        placeholder="Ej: perdió 3 posiciones"
+                                    />
+                                </div>
+                            </div>
+                            {extraPoints > 0 && (
+                                <div className="text-center">
+                                    <span className="text-gray-400 text-xs">Total: </span>
+                                    <span className="text-red-400 font-bold">-{selectedPreset.points + extraPoints} pts</span>
+                                    <span className="text-gray-500 text-xs"> ({selectedPreset.points} base + {extraPoints} extra)</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Campos comunes */}
                     <div className="border-t border-white/10 pt-4 space-y-3">
                         <div className="grid grid-cols-2 gap-3">
@@ -777,9 +826,15 @@ function ApplyPenaltyModal({ championshipId, allDrivers, tracks, presets, onClos
                                 <div>👤 <strong>{form.driverName}</strong> {form.teamName && `(${form.teamName})`}</div>
                                 <div>⚠️ {form.name}</div>
                                 {form.trackName && <div>🏁 {form.trackName}</div>}
-                                <div className="flex gap-4 mt-1">
-                                    {form.points > 0 && <span className="text-red-400 font-bold">-{form.points} puntos</span>}
+                                <div className="flex flex-wrap gap-4 mt-1">
+                                    {(form.points + (extraPoints || 0)) > 0 && (
+                                        <span className="text-red-400 font-bold">
+                                            -{form.points + (extraPoints || 0)} puntos
+                                            {extraPoints > 0 && <span className="text-red-300 font-normal text-xs ml-1">({form.points}+{extraPoints})</span>}
+                                        </span>
+                                    )}
                                     {form.warningPoints > 0 && <span className="text-yellow-400">+{form.warningPoints} amonestación</span>}
+                                    {extraPointsReason && <span className="text-gray-400 text-xs italic">&ldquo;{extraPointsReason}&rdquo;</span>}
                                 </div>
                             </div>
                         </div>
@@ -963,36 +1018,75 @@ function ResolveClaimModal({ claim, allDrivers, tracks, presets, onClose, onReso
     const [resolution, setResolution] = useState('');
     const [applyPenalty, setApplyPenalty] = useState(false);
     const [selectedPreset, setSelectedPreset] = useState(null);
+    const [customMode, setCustomMode] = useState(false);
+    const [extraPoints, setExtraPoints] = useState(0);
+    const [extraPointsReason, setExtraPointsReason] = useState('');
+    const [customForm, setCustomForm] = useState({ name: '', points: 0, warningPoints: 0, type: 'points', severity: 'moderate' });
     const [saving, setSaving] = useState(false);
 
     // Backward compat: accusedNames[] o legacy accusedName string
     const accusedList = claim.accusedNames?.length > 0 ? claim.accusedNames : (claim.accusedName ? [claim.accusedName] : []);
     const [selectedAccused, setSelectedAccused] = useState(accusedList[0] || '');
 
+    const handleSelectPreset = (preset) => {
+        setSelectedPreset(preset);
+        setCustomMode(false);
+        setExtraPoints(0);
+        setExtraPointsReason('');
+    };
+
     const handleSubmit = async () => {
         if (!resolution) return alert('Escribe una resolución');
         if (applyPenalty && !selectedAccused) return alert('Selecciona el piloto a sancionar');
+        if (applyPenalty && !customMode && !selectedPreset) return alert('Selecciona una sanción');
+        if (applyPenalty && customMode && !customForm.name) return alert('Escribe el nombre de la sanción');
         setSaving(true);
 
         let penaltyData = null;
-        if (applyPenalty && selectedPreset) {
-            penaltyData = {
-                driverName: selectedAccused,
-                teamName: allDrivers.find(d => d.name === selectedAccused)?.team || '',
-                trackId: claim.trackId,
-                trackName: claim.trackName,
-                round: claim.round,
-                name: selectedPreset.name,
-                description: resolution,
-                type: selectedPreset.type,
-                severity: selectedPreset.severity,
-                points: selectedPreset.points || 0,
-                warningPoints: selectedPreset.warningPoints || 0,
-                timeSeconds: selectedPreset.timeSeconds || 0,
-                lap: claim.lap,
-                incident: claim.description,
-                evidence: claim.evidence
-            };
+        if (applyPenalty) {
+            if (customMode) {
+                penaltyData = {
+                    driverName: selectedAccused,
+                    teamName: allDrivers.find(d => d.name === selectedAccused)?.team || '',
+                    trackId: claim.trackId,
+                    trackName: claim.trackName,
+                    round: claim.round,
+                    name: customForm.name,
+                    description: resolution,
+                    type: customForm.type,
+                    severity: customForm.severity,
+                    points: customForm.points || 0,
+                    warningPoints: customForm.warningPoints || 0,
+                    timeSeconds: 0,
+                    lap: claim.lap,
+                    incident: claim.description,
+                    evidence: claim.evidence
+                };
+            } else if (selectedPreset) {
+                const totalPoints = (selectedPreset.points || 0) + (extraPoints || 0);
+                const desc = extraPointsReason
+                    ? `${resolution}. Pts adicionales: ${extraPointsReason}`
+                    : resolution;
+                penaltyData = {
+                    driverName: selectedAccused,
+                    teamName: allDrivers.find(d => d.name === selectedAccused)?.team || '',
+                    trackId: claim.trackId,
+                    trackName: claim.trackName,
+                    round: claim.round,
+                    name: selectedPreset.name,
+                    description: desc,
+                    type: selectedPreset.type,
+                    severity: selectedPreset.severity,
+                    points: totalPoints,
+                    warningPoints: selectedPreset.warningPoints || 0,
+                    timeSeconds: selectedPreset.timeSeconds || 0,
+                    extraPoints: extraPoints || 0,
+                    extraPointsReason: extraPointsReason || '',
+                    lap: claim.lap,
+                    incident: claim.description,
+                    evidence: claim.evidence
+                };
+            }
         }
 
         await onResolve(claim.id, resolution, penaltyData);
@@ -1057,23 +1151,110 @@ function ResolveClaimModal({ claim, allDrivers, tracks, presets, onClose, onReso
                     </label>
 
                     {applyPenalty && (
-                        <div className="grid grid-cols-2 gap-2">
-                            {presets.map(preset => (
+                        <div className="space-y-3">
+                            {/* Grid de presets + opción personalizada */}
+                            <div className="grid grid-cols-2 gap-2">
+                                {presets.map(preset => (
+                                    <button
+                                        key={preset.id}
+                                        onClick={() => handleSelectPreset(preset)}
+                                        className={`p-2 rounded-lg text-left text-xs transition-all border ${!customMode && selectedPreset?.id === preset.id
+                                            ? 'bg-red-600/20 border-red-500/50'
+                                            : 'bg-white/5 border-white/10 hover:bg-white/10'
+                                            }`}
+                                    >
+                                        <span>{preset.icon} {preset.name}</span>
+                                        <div className="text-gray-500 mt-0.5">
+                                            {preset.points > 0 && <span className="text-red-400">-{preset.points}pts </span>}
+                                            {preset.warningPoints > 0 && <span className="text-yellow-400">+{preset.warningPoints}⚠️</span>}
+                                        </div>
+                                    </button>
+                                ))}
+                                {/* Opción personalizada */}
                                 <button
-                                    key={preset.id}
-                                    onClick={() => setSelectedPreset(preset)}
-                                    className={`p-2 rounded-lg text-left text-xs transition-all border ${selectedPreset?.id === preset.id
-                                        ? 'bg-red-600/20 border-red-500/50'
-                                        : 'bg-white/5 border-white/10 hover:bg-white/10'
+                                    onClick={() => { setCustomMode(true); setSelectedPreset(null); setExtraPoints(0); setExtraPointsReason(''); }}
+                                    className={`p-2 rounded-lg text-left text-xs transition-all border border-dashed ${customMode
+                                        ? 'bg-purple-600/20 border-purple-500/50 text-purple-300'
+                                        : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
                                         }`}
                                 >
-                                    <span>{preset.icon} {preset.name}</span>
-                                    <div className="text-gray-500 mt-0.5">
-                                        {preset.points > 0 && <span className="text-red-400">-{preset.points}pts </span>}
-                                        {preset.warningPoints > 0 && <span className="text-yellow-400">+{preset.warningPoints}⚠️</span>}
-                                    </div>
+                                    <span>🎛️ Personalizada</span>
+                                    <div className="text-gray-500 mt-0.5">Sanción libre</div>
                                 </button>
-                            ))}
+                            </div>
+
+                            {/* Puntos adicionales cuando hay preset seleccionado */}
+                            {!customMode && selectedPreset && (
+                                <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-orange-300 text-xs font-semibold">➕ Puntos adicionales</span>
+                                        <span className="text-gray-400 text-xs">Base: <span className="text-red-400 font-bold">-{selectedPreset.points} pts</span></span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="text-gray-400 text-xs block mb-1">Pts extra</label>
+                                            <input
+                                                type="number" min="0" max="100"
+                                                value={extraPoints}
+                                                onChange={e => setExtraPoints(parseInt(e.target.value) || 0)}
+                                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-gray-400 text-xs block mb-1">Motivo</label>
+                                            <input
+                                                type="text"
+                                                value={extraPointsReason}
+                                                onChange={e => setExtraPointsReason(e.target.value)}
+                                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs"
+                                                placeholder="Ej: perdió 3 posiciones"
+                                            />
+                                        </div>
+                                    </div>
+                                    {extraPoints > 0 && (
+                                        <div className="text-center text-xs">
+                                            <span className="text-gray-400">Total: </span>
+                                            <span className="text-red-400 font-bold">-{selectedPreset.points + extraPoints} pts</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Form personalizado */}
+                            {customMode && (
+                                <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 space-y-2">
+                                    <div>
+                                        <label className="text-gray-400 text-xs block mb-1">Nombre de la sanción *</label>
+                                        <input
+                                            type="text"
+                                            value={customForm.name}
+                                            onChange={e => setCustomForm(prev => ({ ...prev, name: e.target.value }))}
+                                            className="w-full bg-white/10 border border-white/20 rounded px-2 py-1.5 text-white text-xs"
+                                            placeholder="Ej: Bloqueo deliberado"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="text-gray-400 text-xs block mb-1">Puntos a deducir</label>
+                                            <input
+                                                type="number" min="0" max="50"
+                                                value={customForm.points}
+                                                onChange={e => setCustomForm(prev => ({ ...prev, points: parseInt(e.target.value) || 0 }))}
+                                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-gray-400 text-xs block mb-1">Pts amonestación</label>
+                                            <input
+                                                type="number" min="0" max="10"
+                                                value={customForm.warningPoints}
+                                                onChange={e => setCustomForm(prev => ({ ...prev, warningPoints: parseInt(e.target.value) || 0 }))}
+                                                className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -1085,7 +1266,7 @@ function ResolveClaimModal({ claim, allDrivers, tracks, presets, onClose, onReso
                     </button>
                     <button
                         onClick={handleSubmit}
-                        disabled={saving || !resolution}
+                        disabled={saving || !resolution || (applyPenalty && !customMode && !selectedPreset) || (applyPenalty && customMode && !customForm.name)}
                         className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold transition-all disabled:opacity-50"
                     >
                         {saving ? '⏳...' : applyPenalty ? '⚠️ Resolver + Sancionar' : '✅ Resolver'}
