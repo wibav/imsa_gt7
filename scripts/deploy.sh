@@ -21,9 +21,9 @@ npm run build
 if [ $? -eq 0 ]; then
     echo "✅ Build completado exitosamente"
     
-    # Deploy a Firebase Hosting
-    echo "📤 Desplegando a Firebase Hosting..."
-    firebase deploy --only hosting
+    # Deploy a Firebase Hosting + Functions
+    echo "📤 Desplegando a Firebase Hosting y Functions..."
+    firebase deploy --only hosting,functions
     
     if [ $? -eq 0 ]; then
         echo "🎉 Deploy completado exitosamente!"

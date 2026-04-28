@@ -1,8 +1,17 @@
 {
+  "functions": {
+    "source": "functions",
+    "runtime": "python312",
+    "ignore": ["venv", "**/__pycache__", "**/*.pyc", "**/*.bak"]
+  },
   "hosting": {
     "public": "out",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
+      {
+        "source": "/api/convert_to_gt_svg",
+        "function": "convert_to_gt_svg"
+      },
       {
         "source": "**",
         "destination": "/index.html"
