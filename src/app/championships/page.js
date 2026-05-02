@@ -42,6 +42,7 @@ export default function ChampionshipDetailPage() {
     const [showRegistration, setShowRegistration] = useState(false);
     const [showClaimForm, setShowClaimForm] = useState(false);
     const [penalties, setPenalties] = useState([]);
+    const [claims, setClaims] = useState([]);
     const [divisions, setDivisions] = useState([]);
     const [selectedDivision, setSelectedDivision] = useState('all');
 
@@ -62,12 +63,13 @@ export default function ChampionshipDetailPage() {
         setTracks([]);
 
         try {
-            const [champData, teamsData, tracksData, penaltiesData, divisionsData] = await Promise.all([
+            const [champData, teamsData, tracksData, penaltiesData, divisionsData, claimsData] = await Promise.all([
                 FirebaseService.getChampionship(championshipId),
                 FirebaseService.getTeamsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getTracksByChampionship(championshipId).catch(() => []),
                 FirebaseService.getPenaltiesByChampionship(championshipId).catch(() => []),
-                FirebaseService.getDivisionsByChampionship(championshipId).catch(() => [])
+                FirebaseService.getDivisionsByChampionship(championshipId).catch(() => []),
+                FirebaseService.getClaimsByChampionship(championshipId).catch(() => [])
             ]);
 
             setChampionship(champData);
@@ -75,6 +77,7 @@ export default function ChampionshipDetailPage() {
             setTracks(tracksData || []);
             setPenalties(penaltiesData || []);
             setDivisions(divisionsData || []);
+            setClaims(claimsData || []);
         } catch (error) {
             console.error("Error loading championship data:", error);
         } finally {
@@ -1421,6 +1424,61 @@ export default function ChampionshipDetailPage() {
                                         </button>
                                     </div>
                                 )}
+
+                                {/* Historial de reclamaciones resueltas */}
+                                {championship.penaltiesConfig?.allowClaims && (() => {
+                                    const resolved = claims.filter(c => c.status === 'accepted' || c.status === 'rejected');
+                                    if (resolved.length === 0) return null;
+                                    return (
+                                        <div className="mt-8">
+                                            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                                📩 Reclamaciones Resueltas
+                                            </h3>
+                                            <div className="space-y-3">
+                                                {resolved
+                                                    .slice()
+                                                    .sort((a, b) => new Date(b.resolvedAt || b.createdAt) - new Date(a.resolvedAt || a.createdAt))
+                                                    .map(claim => (
+                                                        <div
+                                                            key={claim.id}
+                                                            className={`rounded-xl p-4 border ${claim.status === 'accepted'
+                                                                ? 'bg-green-900/20 border-green-400/30'
+                                                                : 'bg-red-900/20 border-red-400/30'
+                                                                }`}
+                                                        >
+                                                            <div className="flex items-start justify-between gap-3">
+                                                                <div className="flex-1">
+                                                                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                                        <span className={`text-xs px-2 py-0.5 rounded font-semibold ${claim.status === 'accepted' ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
+                                                                            {claim.status === 'accepted' ? '✅ Aceptada' : '❌ Rechazada'}
+                                                                        </span>
+                                                                        <span className="text-white font-bold text-sm">
+                                                                            {claim.reporterName} → {(claim.accusedNames?.length > 0 ? claim.accusedNames : [claim.accusedName]).join(', ')}
+                                                                        </span>
+                                                                    </div>
+                                                                    {claim.trackName && (
+                                                                        <div className="text-gray-400 text-xs mb-1">
+                                                                            🏁 R{claim.round} - {claim.trackName}
+                                                                            {claim.lap && ` • Vuelta ${claim.lap}`}
+                                                                        </div>
+                                                                    )}
+                                                                    <p className="text-gray-300 text-sm">{claim.description}</p>
+                                                                    {claim.resolution && (
+                                                                        <div className={`mt-2 p-2 rounded text-xs ${claim.status === 'accepted' ? 'bg-green-500/10 text-green-200' : 'bg-red-500/10 text-red-200'}`}>
+                                                                            💬 <strong>Resolución:</strong> {claim.resolution}
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="text-gray-500 text-xs mt-2">
+                                                                        📅 {new Date(claim.resolvedAt || claim.createdAt).toLocaleDateString('es-ES')}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         )}
 

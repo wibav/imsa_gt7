@@ -864,6 +864,9 @@ function ApplyPenaltyModal({ championshipId, allDrivers, tracks, presets, onClos
 // ═══════════════════════════════════════════════
 function ClaimsSection({ claims, championshipId, allDrivers, tracks, config, onReload, onUpdate }) {
     const [resolveModal, setResolveModal] = useState(null);
+    const [rejectModal, setRejectModal] = useState(null);
+    const [rejectReason, setRejectReason] = useState('');
+    const [rejectSaving, setRejectSaving] = useState(false);
 
     if (!config.allowClaims) {
         return (
@@ -982,7 +985,7 @@ function ClaimsSection({ claims, championshipId, allDrivers, tracks, config, onR
                                                 ✅ Resolver
                                             </button>
                                             <button
-                                                onClick={() => handleResolveClaim(claim.id, 'Rechazada sin méritos', null)}
+                                                onClick={() => { setRejectReason(''); setRejectModal(claim); }}
                                                 className="text-xs px-3 py-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded transition-all"
                                             >
                                                 ❌ Rechazar
@@ -993,6 +996,59 @@ function ClaimsSection({ claims, championshipId, allDrivers, tracks, config, onR
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {/* Modal rechazar reclamación */}
+            {rejectModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setRejectModal(null)}>
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-white/10 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-5 border-b border-white/10">
+                            <h3 className="text-lg font-bold text-white">❌ Rechazar reclamación</h3>
+                            <button onClick={() => setRejectModal(null)} className="text-gray-400 hover:text-white p-1 rounded hover:bg-white/10 transition-colors">✕</button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <div className="bg-red-900/20 border border-red-400/30 rounded-lg p-3 text-sm text-red-200">
+                                <span className="font-bold">{rejectModal.reporterName}</span> → {(rejectModal.accusedNames?.length > 0 ? rejectModal.accusedNames : [rejectModal.accusedName]).join(', ')}
+                                {rejectModal.trackName && <div className="text-red-300 text-xs mt-1">🏁 R{rejectModal.round} - {rejectModal.trackName}</div>}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-300 mb-2">
+                                    Motivo del rechazo <span className="text-red-400">*</span>
+                                </label>
+                                <textarea
+                                    value={rejectReason}
+                                    onChange={e => setRejectReason(e.target.value)}
+                                    rows={3}
+                                    placeholder="Ej: No se aporta evidencia suficiente, el incidente no infringe el reglamento..."
+                                    className="w-full bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-red-400/60 resize-none"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex gap-3 p-5 border-t border-white/10">
+                            <button
+                                onClick={() => setRejectModal(null)}
+                                className="flex-1 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-all"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                disabled={!rejectReason.trim() || rejectSaving}
+                                onClick={async () => {
+                                    setRejectSaving(true);
+                                    try {
+                                        await handleResolveClaim(rejectModal.id, rejectReason.trim(), null);
+                                        setRejectModal(null);
+                                    } finally {
+                                        setRejectSaving(false);
+                                    }
+                                }}
+                                className="flex-1 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm font-bold transition-all"
+                            >
+                                {rejectSaving ? 'Guardando...' : '❌ Confirmar rechazo'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
