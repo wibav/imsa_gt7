@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useChampionship } from '../../context/ChampionshipContext';
 import { Championship } from '../../models/Championship';
 import { FirebaseService } from '../../services/firebaseService';
-import { GT7_TRACKS, TYRE_OPTIONS, DAMAGE_OPTIONS, STREAMING_PLATFORMS, WEATHER_CONDITION_OPTIONS, WEATHER_TRANSITION_OPTIONS, START_TIME_OPTIONS, TIME_MULTIPLIER_OPTIONS, DEFAULT_SPRINT_POINTS, DEFAULT_DIVISIONS_CONFIG } from '../../utils/constants';
+import { GT7_TRACKS, TYRE_OPTIONS, DAMAGE_OPTIONS, STREAMING_PLATFORMS, WEATHER_CONDITION_OPTIONS, WEATHER_TRANSITION_OPTIONS, START_TIME_OPTIONS, TIME_MULTIPLIER_OPTIONS, DEFAULT_SPRINT_POINTS, DEFAULT_DIVISIONS_CONFIG, WEATHER_TIME_OPTIONS } from '../../utils/constants';
 import { DEFAULT_PENALTIES_CONFIG } from '../../models/Penalty';
 import LoadingSkeleton from '../common/LoadingSkeleton';
 import ErrorMessage from '../common/ErrorMessage';
@@ -26,11 +26,7 @@ const WEATHER_OPTIONS = [
     { value: 'variable', label: 'Variable' }
 ];
 
-const TIME_OPTIONS = [
-    { value: 'day', label: 'Día' },
-    { value: 'night', label: 'Noche' },
-    { value: 'dynamic', label: 'Dinámico' }
-];
+const TIME_OPTIONS = WEATHER_TIME_OPTIONS;
 
 const ASSIST_OPTIONS = [
     { value: 'default', label: 'Predeterminado' },
@@ -119,7 +115,7 @@ function getEmptyFormData() {
             notes: '',
             rules: {
                 weather: 'clear',
-                timeOfDay: 'day',
+                timeOfDay: '',
                 timeMultiplier: 1,
                 startTime: '',
                 tireWear: 0,
@@ -152,7 +148,7 @@ function getEmptyTrackData(formData) {
         sprintLaps: 5,
         rules: {
             weather: 'clear',
-            timeOfDay: 'day',
+            timeOfDay: '',
             weatherSlots: [],
             timeMultiplier: 1,
             startTime: '',
@@ -364,7 +360,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                 results: champ.preQualy?.results || [],
                 rules: {
                     weather: champ.preQualy?.rules?.weather || 'clear',
-                    timeOfDay: champ.preQualy?.rules?.timeOfDay || 'day',
+                    timeOfDay: champ.preQualy?.rules?.timeOfDay || '',
                     timeMultiplier: champ.preQualy?.rules?.timeMultiplier ?? 1,
                     startTime: champ.preQualy?.rules?.startTime || '',
                     tireWear: champ.preQualy?.rules?.tireWear ?? 0,
@@ -2671,7 +2667,13 @@ export default function ChampionshipForm({ isEditing = false }) {
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-300 mb-2">🕐 Hora del Día</label>
-                                            {renderSelect(trackFormData.rules.timeOfDay, (e) => handleTrackRuleChange('timeOfDay', e.target.value), TIME_OPTIONS)}
+                                            <select value={trackFormData.rules.timeOfDay || ''} onChange={(e) => handleTrackRuleChange('timeOfDay', e.target.value)}
+                                                className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                                <option value="" className="bg-slate-800">Sin especificar</option>
+                                                {WEATHER_TIME_OPTIONS.map(t => (
+                                                    <option key={t} value={t} className="bg-slate-800">{t}</option>
+                                                ))}
+                                            </select>
                                         </div>
 
                                         {/* Fase 5: Climatología avanzada */}

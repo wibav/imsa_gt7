@@ -12,6 +12,7 @@ import {
     WEATHER_CONDITION_OPTIONS,
     WEATHER_TRANSITION_OPTIONS,
     DEFAULT_SPRINT_POINTS,
+    WEATHER_TIME_OPTIONS,
 } from '../../utils/constants';
 
 // ─── Constantes locales ──────────────────────────────────────────────────────
@@ -27,11 +28,7 @@ const WEATHER_OPTIONS = [
     { value: 'variable', label: 'Variable' },
 ];
 
-const TIME_OPTIONS = [
-    { value: 'day', label: 'Día' },
-    { value: 'night', label: 'Noche' },
-    { value: 'dynamic', label: 'Dinámico' },
-];
+const TIME_OPTIONS = WEATHER_TIME_OPTIONS;
 
 const ASSIST_OPTIONS = [
     { value: 'default', label: 'Predeterminado' },
@@ -72,7 +69,7 @@ export function getEmptyTrackData(tracksCount = 0, firstCategory = '') {
         sprintLaps: 5,
         rules: {
             weather: 'clear',
-            timeOfDay: 'day',
+            timeOfDay: '',
             weatherSlots: [],
             timeMultiplier: 1,
             startTime: '',
@@ -538,11 +535,16 @@ export default function TrackFormModal({ track, championship, onSave, onClose })
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-300 mb-2">🕐 Hora del Día</label>
-                                        <RuleSelect
-                                            value={form.rules.timeOfDay}
+                                        <select
+                                            value={form.rules.timeOfDay || ''}
                                             onChange={e => setRule('timeOfDay', e.target.value)}
-                                            options={TIME_OPTIONS}
-                                        />
+                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                        >
+                                            <option value="" className="bg-slate-800">Sin especificar</option>
+                                            {WEATHER_TIME_OPTIONS.map(t => (
+                                                <option key={t} value={t} className="bg-slate-800">{t}</option>
+                                            ))}
+                                        </select>
                                     </div>
 
                                     <div>
