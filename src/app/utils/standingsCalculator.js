@@ -49,19 +49,33 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
         raceType: t.raceType || 'carrera'
     }));
 
+    // Mapa de aliases de registro: psnId → gt7Id (canónico).
+    // Necesario porque las divisiones almacenan el psnId del piloto, pero championship.drivers
+    // y las sanciones usan el gt7Id. Se construye ANTES del filtro de división.
+    const registrationAliases = {};
+    (championship.registrations || []).forEach(reg => {
+        if (reg.gt7Id && reg.psnId && reg.psnId !== reg.gt7Id) {
+            registrationAliases[reg.psnId] = reg.gt7Id;
+        }
+    });
+
     // Recopilar todos los drivers
     let allDrivers = getAllDrivers(championship, teams);
 
     // Fase 6: Filtrar/agregar pilotos por división si se especifica
     if (options.divisionDrivers && options.divisionDrivers.length > 0) {
-        const divSet = new Set(options.divisionDrivers);
+        // Normalizar los nombres de la división al gt7Id canónico (resuelve psnId → gt7Id)
+        const resolvedDivNames = options.divisionDrivers.map(d => {
+            const rawName = typeof d === 'string' ? d : d.name;
+            return registrationAliases[rawName] || rawName;
+        });
+        const divSet = new Set(resolvedDivNames);
         // Filtrar solo los que pertenecen a la división
         allDrivers = allDrivers.filter(d => divSet.has(d.name));
         // Agregar los pilotos de la división que no estén ya en allDrivers
         // (caso: pilotos en divisiones pero no en championship.drivers ni teams)
         const knownNames = new Set(allDrivers.map(d => d.name));
-        options.divisionDrivers.forEach(driverName => {
-            const name = typeof driverName === 'string' ? driverName : driverName.name;
+        resolvedDivNames.forEach(name => {
             if (name && !knownNames.has(name)) {
                 allDrivers.push({ name, team: '', teamColor: '', category: '' });
             }
@@ -92,6 +106,70 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             warningPoints: 0,     // Puntos de amonestación acumulados
             penalties: []         // Lista de sanciones aplicadas
         };
+    });
+
+    // Construir mapa de aliases: psnId/otrosNombres → nombre canónico en driverStats.
+    // Necesario cuando track.points guarda resultados bajo psnId pero championship.drivers usa gt7Id.
+    // Ejemplo: track.points["A77_tony"] pero championship.drivers tiene {name: "MR-Tony"} (gt7Id).
+    const aliasToCanonical = {};
+    const canonicalToAliases = {};
+    (championship.registrations || []).forEach(reg => {
+        const canonical = [reg.gt7Id, reg.name, reg.psnId].find(n => n && driverStats[n]);
+        if (!canonical) return;
+        [reg.gt7Id, reg.name, reg.psnId].forEach(alias => {
+            if (alias && alias !== canonical) {
+                aliasToCanonical[alias] = canonical;
+                if (!canonicalToAliases[canonical]) canonicalToAliases[canonical] = [];
+                if (!canonicalToAliases[canonical].includes(alias)) {
+                    canonicalToAliases[canonical].push(alias);
+                }
+            }
+        });
+    });
+
+    // Incluir en driverStats todos los pilotos que aparecen en track.points
+    // (cubre pilotos con resultados pero no registrados en championship.drivers / teams)
+    // Se omiten las claves que son alias de un driver ya registrado.
+    // En modo divisiones, solo se incluyen pilotos que pertenezcan a esa división.
+    // divisionSet usa nombres canónicos (gt7Id) para que psnIds alias queden cubiertos
+    // por el check aliasToCanonical anterior.
+    const divisionSet = options.divisionDrivers && options.divisionDrivers.length > 0
+        ? new Set(options.divisionDrivers.map(d => {
+            const rawName = typeof d === 'string' ? d : d.name;
+            return registrationAliases[rawName] || rawName;
+        }))
+        : null;
+
+    sortedTracks.forEach(track => {
+        Object.keys(track.points || {}).forEach(name => {
+            if (!name) return;
+            if (aliasToCanonical[name]) return; // alias conocido → no crear entrada duplicada
+            // En modo divisiones: ignorar pilotos que no pertenecen a esta división
+            if (divisionSet && !divisionSet.has(name)) return;
+            if (!driverStats[name]) {
+                driverStats[name] = {
+                    name,
+                    team: '',
+                    teamColor: '',
+                    category: '',
+                    totalPoints: 0,
+                    wins: 0,
+                    podiums: 0,
+                    poles: 0,
+                    fastestLaps: 0,
+                    dnfs: 0,
+                    races: 0,
+                    bestPosition: null,
+                    racePoints: [],
+                    racePositions: [],
+                    raceFastestLap: [],
+                    racePole: [],
+                    penaltyPoints: 0,
+                    warningPoints: 0,
+                    penalties: []
+                };
+            }
+        });
     });
 
     // Procesar cada track
@@ -131,20 +209,31 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
         // Para cada driver, calcular stats de esta carrera
         Object.keys(driverStats).forEach(driverName => {
             const stat = driverStats[driverName];
+            // Aliases del driver (ej: "A77_tony" para "MR-Tony" cuyo psnId es A77_tony)
+            const aliases = canonicalToAliases[driverName] || [];
+            // Helper: busca en un mapa primero por nombre canónico, luego por aliases
+            const fromMap = (map, fallback) => {
+                if (map[driverName] !== undefined) return map[driverName];
+                for (const alias of aliases) {
+                    if (map[alias] !== undefined) return map[alias];
+                }
+                return fallback;
+            };
 
             // Obtener posición de carrera
-            const positionStr = racePositions[driverName];
+            const positionStr = fromMap(racePositions, null);
             const position = positionStr ? parseInt(positionStr) : null;
-            const racePoints = pointsMap[driverName] || 0;
-            const sprintPts = isSprint ? (sprintPointsMap[driverName] || 0) : 0;
+            const racePoints = fromMap(pointsMap, 0);
+            const sprintPts = isSprint ? fromMap(sprintPointsMap, 0) : 0;
             const points = racePoints + sprintPts;
 
-            const hasFl = fastestLap?.driver === driverName;
-            const hasPole = qualyData?.top3?.first === driverName;
+            const hasFl = fastestLap?.driver === driverName || aliases.includes(fastestLap?.driver);
+            const hasPole = qualyData?.top3?.first === driverName || aliases.includes(qualyData?.top3?.first);
 
             // Si no participó en esta carrera
             // Si el driver está en track.points (aunque con 0), sí participó — no saltar
-            if (!position && points === 0 && !(driverName in pointsMap)) {
+            const isInPointsMap = (driverName in pointsMap) || aliases.some(a => a in pointsMap);
+            if (!position && points === 0 && !isInPointsMap) {
                 stat.racePoints.push(null);
                 stat.racePositions.push(null);
                 stat.raceFastestLap.push(hasFl);
@@ -190,9 +279,34 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
     });
 
     // ── Aplicar sanciones ──
+    // Normaliza caracteres unicode problemáticos para comparar nombres:
+    // guiones variantes (en-dash, em-dash, etc.) → guión normal; espacios invisibles eliminados
+    const normalizeName = (s) =>
+        s.trim()
+            .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-')
+            .replace(/[\u00A0\u200B\uFEFF\u202F]/g, ' ')
+            .toLowerCase();
+
+    // Construir mapa normalizado → clave real en driverStats (para búsqueda rápida)
+    const normalizedStatsKeys = {};
+    Object.keys(driverStats).forEach(k => {
+        normalizedStatsKeys[normalizeName(k)] = k;
+    });
+
     const activePenalties = penalties.filter(p => p.status === 'applied');
+
     activePenalties.forEach(penalty => {
-        const stat = driverStats[penalty.driverName];
+        if (!penalty.driverName) return;
+
+        // 1. Coincidencia exacta
+        let stat = driverStats[penalty.driverName];
+
+        // 2. Coincidencia normalizada (cubre guiones unicode, espacios invisibles, mayúsculas)
+        if (!stat) {
+            const realKey = normalizedStatsKeys[normalizeName(penalty.driverName)];
+            if (realKey) stat = driverStats[realKey];
+        }
+
         if (stat) {
             stat.penaltyPoints += (penalty.points || 0);
             stat.warningPoints += (penalty.warningPoints || 0);
