@@ -873,84 +873,6 @@ export default function ChampionshipDetailPage() {
                                                     </div>
                                                 )}
 
-                                                {/* Mostrar puntajes si existen */}
-                                                {track.points && Object.keys(track.points).length > 0 && (
-                                                    <div className="mt-4 pt-4 border-t border-white/20">
-                                                        <h4 className="text-sm font-semibold text-gray-300 mb-3">📊 Resultados</h4>
-
-                                                        {/* Agrupados por división */}
-                                                        {championship?.divisionsConfig?.enabled && divisions.length > 0 ? (
-                                                            <div className="space-y-4">
-                                                                {(selectedDivision !== 'all'
-                                                                    ? divisions.filter(d => d.id === selectedDivision)
-                                                                    : divisions.slice().sort((a, b) => (a.order || 0) - (b.order || 0))
-                                                                ).map(div => {
-                                                                    const divSet = new Set(div.drivers || []);
-                                                                    const divEntries = Object.entries(track.points)
-                                                                        .filter(([name]) => divSet.has(name))
-                                                                        .sort(([, a], [, b]) => b - a);
-                                                                    if (divEntries.length === 0) return null;
-                                                                    const divColor = div.color || '#f97316';
-                                                                    return (
-                                                                        <div key={div.id}>
-                                                                            <div
-                                                                                className="flex items-center gap-2 mb-2 px-3 py-1.5 rounded-lg text-xs font-bold"
-                                                                                style={{ background: `${divColor}20`, border: `1px solid ${divColor}30`, color: divColor }}
-                                                                            >
-                                                                                <span
-                                                                                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                                                                                    style={{ backgroundColor: divColor }}
-                                                                                />
-                                                                                {div.name}
-                                                                            </div>
-                                                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                                                                {divEntries.map(([driverName, points], idx) => {
-                                                                                    const colors = getResultColors(idx);
-                                                                                    const medal = getPositionMedal(idx);
-                                                                                    return (
-                                                                                        <div
-                                                                                            key={driverName}
-                                                                                            className={`flex justify-between items-center text-sm px-3 py-2 rounded-lg ${colors.bg}`}
-                                                                                        >
-                                                                                            <span className="text-gray-300 truncate">
-                                                                                                {medal && <span className="mr-1">{medal}</span>}
-                                                                                                {driverName}
-                                                                                            </span>
-                                                                                            <span className={`font-bold ml-2 ${colors.text}`}>{points}</span>
-                                                                                        </div>
-                                                                                    );
-                                                                                })}
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        ) : (
-                                                            /* Sin divisiones: mostrar todos */
-                                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                                                                {Object.entries(track.points)
-                                                                    .sort(([, a], [, b]) => b - a)
-                                                                    .map(([driverName, points], idx) => {
-                                                                        const colors = getResultColors(idx);
-                                                                        const medal = getPositionMedal(idx);
-                                                                        return (
-                                                                            <div
-                                                                                key={driverName}
-                                                                                className={`flex justify-between items-center text-sm px-3 py-2 rounded-lg ${colors.bg}`}
-                                                                            >
-                                                                                <span className="text-gray-300 truncate">
-                                                                                    {medal && <span className="mr-1">{medal}</span>}
-                                                                                    {driverName}
-                                                                                </span>
-                                                                                <span className={`font-bold ml-2 ${colors.text}`}>{points}</span>
-                                                                            </div>
-                                                                        );
-                                                                    })}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
                                                 {/* Botón Ver Detalles */}
                                                 <div className="mt-4 pt-4 border-t border-white/10 flex justify-end">
                                                     <button
@@ -2294,6 +2216,90 @@ export default function ChampionshipDetailPage() {
                                     <p className="text-blue-100 text-sm whitespace-pre-line">{selectedTrack.rules.notes}</p>
                                 </div>
                             )}
+
+                            {/* Resultados del circuito */}
+                            {(() => {
+                                const hasDivResults = championship?.divisionsConfig?.enabled && divisions.length > 0 && selectedTrack.results?.divisions;
+                                const hasNonDivResults = !championship?.divisionsConfig?.enabled && selectedTrack.results?.racePositions && Object.keys(selectedTrack.results.racePositions).length > 0;
+                                const hasFallbackPoints = selectedTrack.points && Object.keys(selectedTrack.points).length > 0;
+                                if (!hasDivResults && !hasNonDivResults && !hasFallbackPoints) return null;
+                                return (
+                                    <div className="bg-white/5 rounded-xl p-4">
+                                        <h3 className="text-white font-bold mb-3">📊 Resultados</h3>
+                                        {hasDivResults ? (
+                                            <div className="space-y-4">
+                                                {divisions
+                                                    .slice()
+                                                    .sort((a, b) => (a.order || 0) - (b.order || 0))
+                                                    .map(div => {
+                                                        const divResult = selectedTrack.results.divisions[div.id];
+                                                        if (!divResult?.racePositions || Object.keys(divResult.racePositions).length === 0) return null;
+                                                        const divColor = div.color || '#f97316';
+                                                        const entries = Object.entries(divResult.racePositions).sort(([, a], [, b]) => a - b);
+                                                        return (
+                                                            <div key={div.id}>
+                                                                <div
+                                                                    className="flex items-center gap-2 mb-2 px-3 py-1.5 rounded-lg text-xs font-bold"
+                                                                    style={{ background: `${divColor}20`, border: `1px solid ${divColor}30`, color: divColor }}
+                                                                >
+                                                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: divColor }} />
+                                                                    {div.name}
+                                                                </div>
+                                                                <div className="space-y-1">
+                                                                    {entries.map(([driverName, position], idx) => {
+                                                                        const pts = divResult.racePoints?.[driverName];
+                                                                        const medal = getPositionMedal(idx);
+                                                                        const colors = getResultColors(idx);
+                                                                        return (
+                                                                            <div key={driverName} className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${colors.bg}`}>
+                                                                                <span className="text-gray-400 w-6 text-right font-mono text-xs flex-shrink-0">{position}°</span>
+                                                                                <span className="text-gray-300 flex-1 truncate">{medal && <span className="mr-1">{medal}</span>}{driverName}</span>
+                                                                                {pts != null && <span className={`font-bold text-xs flex-shrink-0 ${colors.text}`}>{pts} pts</span>}
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                            </div>
+                                        ) : hasNonDivResults ? (
+                                            <div className="space-y-1">
+                                                {Object.entries(selectedTrack.results.racePositions)
+                                                    .sort(([, a], [, b]) => a - b)
+                                                    .map(([driverName, position], idx) => {
+                                                        const pts = selectedTrack.results.racePoints?.[driverName];
+                                                        const medal = getPositionMedal(idx);
+                                                        const colors = getResultColors(idx);
+                                                        return (
+                                                            <div key={driverName} className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${colors.bg}`}>
+                                                                <span className="text-gray-400 w-6 text-right font-mono text-xs flex-shrink-0">{position}°</span>
+                                                                <span className="text-gray-300 flex-1 truncate">{medal && <span className="mr-1">{medal}</span>}{driverName}</span>
+                                                                {pts != null && <span className={`font-bold text-xs flex-shrink-0 ${colors.text}`}>{pts} pts</span>}
+                                                            </div>
+                                                        );
+                                                    })}
+                                            </div>
+                                        ) : (
+                                            /* Fallback para circuitos sin datos de posiciones (guardados antes de la actualización) */
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {Object.entries(selectedTrack.points)
+                                                    .sort(([, a], [, b]) => b - a)
+                                                    .map(([driverName, pts], idx) => {
+                                                        const colors = getResultColors(idx);
+                                                        const medal = getPositionMedal(idx);
+                                                        return (
+                                                            <div key={driverName} className={`flex justify-between items-center text-sm px-3 py-2 rounded-lg ${colors.bg}`}>
+                                                                <span className="text-gray-300 truncate">{medal && <span className="mr-1">{medal}</span>}{driverName}</span>
+                                                                <span className={`font-bold ml-2 ${colors.text}`}>{pts}</span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         <div className="px-6 pb-6">

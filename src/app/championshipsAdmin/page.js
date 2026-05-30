@@ -10,6 +10,7 @@ import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import PenaltiesTab from '../components/championship/PenaltiesTab';
 import DivisionsTab from '../components/championship/DivisionsTab';
 import { DEFAULT_SPRINT_POINTS } from '../utils/constants';
+import { notifyResultsSaved, notifyRegistrationUpdated } from '../utils/telegram';
 
 /** Convierte "M:SS.mmm" o "SS.mmm" a milisegundos para sort correcto de tiempos */
 function parseTimeToMs(str) {
@@ -1101,6 +1102,19 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
     const pqDriverGt7Map = Object.fromEntries(
         approvedRegs.map(r => [r.name || r.psnId || r.gt7Id, r.gt7Id || ''])
     );
+    // Mapa psnId → gt7Id: normaliza claves antes de guardar en track.points/racePositions.
+    // Evita que los resultados se guarden bajo el PSN ID cuando el sistema usa el GT7 ID.
+    const psnToGt7 = Object.fromEntries(
+        approvedRegs
+            .filter(r => r.psnId && r.gt7Id && r.psnId !== r.gt7Id)
+            .map(r => [r.psnId, r.gt7Id])
+    );
+    // Resuelve un nombre de driver a su gt7Id canónico (si tiene alias psnId registrado)
+    const resolveDriverKey = (name) => psnToGt7[name] || name;
+    // Normaliza todas las claves de un objeto { driverKey: value }
+    const normalizeDriverKeys = (obj) => Object.fromEntries(
+        Object.entries(obj).map(([k, v]) => [resolveDriverKey(k), v])
+    );
 
     // Calcular puntos según posición usando la tabla del campeonato
     const calculateRacePoints = (position) => {
@@ -1224,8 +1238,17 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                 });
 
                 await FirebaseService.updateTrack(championshipId, selectedTrack.id, {
-                    points: totalPoints,
-                    results: { divisions: divisionResults },
+                    points: normalizeDriverKeys(totalPoints),
+                    results: {
+                        divisions: Object.fromEntries(
+                            Object.entries(divisionResults).map(([divId, res]) => [divId, {
+                                ...res,
+                                racePositions: normalizeDriverKeys(res.racePositions || {}),
+                                racePoints: normalizeDriverKeys(res.racePoints || {}),
+                                ...(res.sprintPositions ? { sprintPositions: normalizeDriverKeys(res.sprintPositions), sprintPoints: normalizeDriverKeys(res.sprintPoints || {}) } : {}),
+                            }])
+                        ),
+                    },
                 });
             } else {
                 // ── Modo sin divisiones (lógica original) ──
@@ -1290,6 +1313,12 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
 
             // Resetear y refrescar
             setShowPositionsModal(false);
+            notifyResultsSaved({
+                championshipName: championship?.name || championshipId,
+                trackName: selectedTrack.name,
+                round: selectedTrack.round,
+                driversCount: championship?.drivers?.length || 0,
+            });
             setSelectedTrack(null);
             setPositions({});
             setSprintPositions({});
@@ -2081,6 +2110,17 @@ function RegistrationsTab({ championshipId, championship, onUpdate }) {
         setSaving(true);
         try {
             await FirebaseService.updateRegistrations(championshipId, [{ id, status }]);
+            if (status === 'approved' || status === 'rejected') {
+                const reg = registrations.find(r => r.id === id);
+                if (reg) {
+                    notifyRegistrationUpdated({
+                        championshipName: championship?.name || championshipId,
+                        driverName: reg.gt7Id || reg.name || id,
+                        psnId: reg.psnId || null,
+                        status,
+                    });
+                }
+            }
             onUpdate();
         } catch (error) {
             console.error('Error updating registration:', error);

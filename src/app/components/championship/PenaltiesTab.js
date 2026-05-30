@@ -5,6 +5,7 @@ import {
     PENALTY_PRESETS, DEFAULT_PENALTIES_CONFIG,
     PENALTY_TYPE_CONFIG, SEVERITY_CONFIG, CLAIM_STATUS_CONFIG
 } from '../../models/Penalty';
+import { notifyPenaltyApplied, notifyClaimResolved } from '../../utils/telegram';
 
 /**
  * Tab de Sanciones para el admin de campeonatos.
@@ -601,6 +602,15 @@ function ApplyPenaltyModal({ championshipId, allDrivers, tracks, presets, onClos
                 presetId: selectedPreset?.id || null,
                 appliedAt: new Date().toISOString()
             });
+            notifyPenaltyApplied({
+                championshipName: championship?.name || championshipId,
+                driverName: form.driverName,
+                penaltyName: form.name,
+                points: totalPoints,
+                severity: form.severity,
+                trackName: form.trackName || null,
+                round: form.round || null,
+            });
             onSaved();
             onClose();
         } catch (error) {
@@ -908,6 +918,15 @@ function ClaimsSection({ claims, championshipId, allDrivers, tracks, config, onR
             }
 
             await FirebaseService.updateClaim(championshipId, claimId, updates);
+            notifyClaimResolved({
+                championshipName: championship?.name || championshipId,
+                status: updates.status,
+                reporterName: resolveModal?.reporterName || '?',
+                accusedNames: resolveModal?.accusedNames || [resolveModal?.accusedName || '?'],
+                trackName: resolveModal?.trackName || null,
+                round: resolveModal?.round || null,
+                resolution,
+            });
             onReload();
             if (onUpdate) onUpdate();
             setResolveModal(null);

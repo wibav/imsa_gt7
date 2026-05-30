@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
+import { sendTelegramNotification } from '../../utils/telegram';
 
 /**
  * Formulario público de inscripción a un campeonato.
@@ -62,6 +63,13 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
             });
 
             await FirebaseService.submitRegistration(championship.id, data);
+            const gt7Id = data.gt7Id || '?';
+            const psnId = data.psnId ? ` (PSN: ${data.psnId})` : '';
+            sendTelegramNotification(
+                `📋 <b>Nueva inscripción</b>\n` +
+                `🏆 ${championship.name}\n` +
+                `🎮 ${gt7Id}${psnId}`
+            );
             setSuccess(true);
             onSuccess?.();
         } catch (err) {
