@@ -1,27 +1,19 @@
 /**
  * Utilidad para enviar notificaciones vía Telegram Bot.
  * Las notificaciones se envían al chat ID configurado (el admin).
+ * El token se gestiona en el servidor (/api/notify) — nunca se expone al cliente.
  */
-
-const BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
-const CHAT_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID;
 
 /**
  * Envía un mensaje de texto al chat del admin.
  * @param {string} text - Texto en formato HTML de Telegram.
  */
 export async function sendTelegramNotification(text) {
-    if (!BOT_TOKEN || !CHAT_ID) return;
     try {
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        await fetch('/api/notify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: CHAT_ID,
-                text,
-                parse_mode: 'HTML',
-                disable_web_page_preview: true,
-            }),
+            body: JSON.stringify({ text }),
         });
     } catch {
         // Las notificaciones son best-effort — no bloquear la operación principal
