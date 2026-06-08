@@ -368,6 +368,16 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
                 }, 0);
             });
 
+            // Desglose de puntos por categoría (para campeonatos multicategoría)
+            const byCategory = {};
+            teamDriverStats.forEach(d => {
+                const cat = d.category || 'Sin categoría';
+                if (!byCategory[cat]) byCategory[cat] = { points: 0, driver: d.name, wins: 0, podiums: 0 };
+                byCategory[cat].points += d.totalPoints;
+                byCategory[cat].wins += d.wins;
+                byCategory[cat].podiums += d.podiums;
+            });
+
             return {
                 name: team.name,
                 color: team.color,
@@ -377,7 +387,8 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
                 wins,
                 podiums,
                 bestPosition,
-                racePoints
+                racePoints,
+                byCategory
             };
         }).sort((a, b) => {
             if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
@@ -512,4 +523,25 @@ export function compareDrivers(driver1, driver2) {
             { label: 'Pts promedio', v1: driver1.races > 0 ? (driver1.totalPoints / driver1.races).toFixed(1) : '0', v2: driver2.races > 0 ? (driver2.totalPoints / driver2.races).toFixed(1) : '0', higher: 'better' }
         ]
     };
+}
+
+/**
+ * Agrupa driverStandings por categoría.
+ * Útil para campeonatos multicategoría: muestra la sub-clasificación Campeón Gr2, Campeón Gr3, etc.
+ *
+ * @param {Array} driverStandings - Output de calculateAdvancedStandings().driverStandings
+ * @returns {Object} { [category]: Array<driverStat> } — cada array ya ordenado por puntos
+ */
+export function getStandingsByCategory(driverStandings) {
+    if (!driverStandings || driverStandings.length === 0) return {};
+
+    const byCat = {};
+    driverStandings.forEach(d => {
+        const cat = d.category || 'Sin categoría';
+        if (!byCat[cat]) byCat[cat] = [];
+        byCat[cat].push(d);
+    });
+
+    // Cada sub-array ya viene ordenado (hereda el orden de driverStandings)
+    return byCat;
 }

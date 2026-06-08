@@ -11,6 +11,7 @@ import PenaltiesTab from '../components/championship/PenaltiesTab';
 import DivisionsTab from '../components/championship/DivisionsTab';
 import { DEFAULT_SPRINT_POINTS } from '../utils/constants';
 import { notifyResultsSaved, notifyRegistrationUpdated } from '../utils/telegram';
+import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary } from '../utils/carUsageCalculator';
 
 /** Convierte "M:SS.mmm" o "SS.mmm" a milisegundos para sort correcto de tiempos */
 function parseTimeToMs(str) {
@@ -339,6 +340,11 @@ export default function ChampionshipDetail() {
         });
     }
 
+    // Panel de autos — solo para admins cuando carUsageTracking está habilitado
+    if (!userIsComisario && championship.carUsageTracking?.enabled) {
+        tabs.push({ id: 'cars', label: '🚗 Autos', icon: '🚗' });
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 p-4 md:p-8">
             <div className="max-w-7xl mx-auto">
@@ -488,6 +494,13 @@ export default function ChampionshipDetail() {
                             penalties={penalties}
                             registrations={championship.registrations || []}
                             onUpdate={loadChampionshipData}
+                        />
+                    )}
+
+                    {activeTab === 'cars' && (
+                        <CarUsageTab
+                            championship={championship}
+                            tracks={tracks}
                         />
                     )}
                 </div>
@@ -1059,6 +1072,8 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
     const [sprintPositions, setSprintPositions] = useState({});
     const [qualyTop3, setQualyTop3] = useState({ first: '', second: '', third: '' });
     const [fastestLapDriver, setFastestLapDriver] = useState('');
+    const [carsUsed, setCarsUsed] = useState({}); // { driverName: carName } — carros usados en esta carrera
+    const [carUsageErrors, setCarUsageErrors] = useState([]); // violaciones detectadas al guardar
     const [savingResults, setSavingResults] = useState(false);
 
     // Estados para modo divisiones en el modal
@@ -1163,6 +1178,10 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
             setFastestLapDriver('');
         }
 
+        // Precargar carros usados existentes (si ya se guardaron antes)
+        setCarsUsed(track.carsUsed || {});
+        setCarUsageErrors([]);
+
         setShowPositionsModal(true);
     };
 
@@ -1237,8 +1256,29 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                     };
                 });
 
+                // ── Validación de uso de autos en modo divisiones ──
+                if (championship?.carUsageTracking?.enabled) {
+                    const otherTracks = tracks.filter(t => t.id !== selectedTrack.id);
+                    const currentUsage = calculateCarUsage(otherTracks, {
+                        resolveAlias: (n) => psnToGt7[n] || n
+                    });
+                    const { valid, violations } = validateRaceCarUsage(
+                        carsUsed,
+                        currentUsage,
+                        championship.carUsageTracking,
+                        championship.registrations || []
+                    );
+                    if (!valid) {
+                        setCarUsageErrors(violations);
+                        setSavingResults(false);
+                        return;
+                    }
+                }
+                setCarUsageErrors([]);
+
                 await FirebaseService.updateTrack(championshipId, selectedTrack.id, {
                     points: normalizeDriverKeys(totalPoints),
+                    carsUsed: normalizeDriverKeys(carsUsed),
                     results: {
                         divisions: Object.fromEntries(
                             Object.entries(divisionResults).map(([divId, res]) => [divId, {
@@ -1294,9 +1334,30 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                     totalPoints[driver] = (totalPoints[driver] || 0) + pts;
                 });
 
+                // ── Validación de uso de autos (enforcement bloqueante) ──
+                if (championship?.carUsageTracking?.enabled) {
+                    const otherTracks = tracks.filter(t => t.id !== selectedTrack.id);
+                    const currentUsage = calculateCarUsage(otherTracks, {
+                        resolveAlias: (n) => psnToGt7[n] || n
+                    });
+                    const { valid, violations } = validateRaceCarUsage(
+                        carsUsed,
+                        currentUsage,
+                        championship.carUsageTracking,
+                        championship.registrations || []
+                    );
+                    if (!valid) {
+                        setCarUsageErrors(violations);
+                        setSavingResults(false);
+                        return;
+                    }
+                }
+                setCarUsageErrors([]);
+
                 const trackUpdate = {
                     points: totalPoints,
-                    results: { racePositions: positions, racePoints }
+                    results: { racePositions: positions, racePoints },
+                    carsUsed: normalizeDriverKeys(carsUsed)
                 };
                 if (selectedTrack.raceType === 'sprint_carrera') {
                     trackUpdate.sprintPoints = sprintPtsMap;
@@ -1324,6 +1385,8 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
             setSprintPositions({});
             setQualyTop3({ first: '', second: '', third: '' });
             setFastestLapDriver('');
+            setCarsUsed({});
+            setCarUsageErrors([]);
             setDivPositions({});
             setDivSprintPositions({});
             setDivQualyTop3({});
@@ -1688,6 +1751,107 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                     })}
                                 </div>
                             </div>
+
+                            {/* Sección Autos Usados — solo cuando carUsageTracking está habilitado */}
+                            {championship?.carUsageTracking?.enabled && (() => {
+                                const cat = championship.carUsageTracking;
+                                const catalog = cat.carCatalog || [];
+                                // Mapa driver → declaredCars para mostrar opciones del piloto
+                                const declaredMap = {};
+                                (championship.registrations || []).forEach(reg => {
+                                    const key = reg.gt7Id || reg.name || reg.psnId;
+                                    if (key && reg.declaredCars?.length > 0) {
+                                        declaredMap[key] = reg.declaredCars;
+                                        if (reg.psnId && reg.psnId !== key) declaredMap[reg.psnId] = reg.declaredCars;
+                                    }
+                                });
+                                // Cómputo de uso previo (excluye esta carrera)
+                                const otherTracks = tracks.filter(t => t.id !== selectedTrack.id);
+                                const prevUsage = calculateCarUsage(otherTracks, {
+                                    resolveAlias: (n) => psnToGt7[n] || n
+                                });
+
+                                return (
+                                    <div className="mb-8 pt-6 border-t border-white/20">
+                                        <h4 className="text-xl font-bold text-white mb-1 flex items-center gap-2">🚗 Auto Usado por Piloto</h4>
+                                        <p className="text-sm text-gray-400 mb-4">
+                                            Máx {cat.maxCarsPerDriver} autos distintos • Máx {cat.maxUsesPerCar} usos por auto
+                                        </p>
+
+                                        {/* Errores de validación */}
+                                        {carUsageErrors.length > 0 && (
+                                            <div className="mb-4 p-4 bg-red-900/40 border border-red-500/50 rounded-lg">
+                                                <p className="text-red-300 font-bold text-sm mb-2">⛔ Violaciones de límite de autos:</p>
+                                                <ul className="space-y-1">
+                                                    {carUsageErrors.map((e, i) => (
+                                                        <li key={i} className="text-red-200 text-sm">• {e}</li>
+                                                    ))}
+                                                </ul>
+                                                <p className="text-red-400 text-xs mt-2">Corrige las asignaciones antes de guardar.</p>
+                                            </div>
+                                        )}
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {modalDriverNames.map(driver => {
+                                                const declared = declaredMap[driver] || [];
+                                                const options = declared.length > 0 ? declared : catalog;
+                                                const driverPrevUsage = prevUsage[driver] || {};
+                                                const selectedCar = carsUsed[driver] || '';
+                                                const usesOfSelected = selectedCar ? (driverPrevUsage[selectedCar] || 0) : 0;
+                                                const nearLimit = usesOfSelected >= (cat.alertThreshold ?? 1);
+                                                const overLimit = usesOfSelected >= (cat.maxUsesPerCar ?? 2);
+
+                                                return (
+                                                    <div key={driver} className={`rounded-lg p-3 border ${overLimit ? 'bg-red-900/20 border-red-500/40' : nearLimit ? 'bg-yellow-900/20 border-yellow-500/40' : 'bg-white/5 border-white/20'}`}>
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <span className="text-white font-medium text-sm">{pqDriverGt7Map[driver] || driver}</span>
+                                                            {selectedCar && (
+                                                                <span className={`text-xs px-2 py-0.5 rounded-full ${overLimit ? 'bg-red-600/40 text-red-300' : nearLimit ? 'bg-yellow-600/40 text-yellow-300' : 'bg-green-600/30 text-green-300'}`}>
+                                                                    {usesOfSelected + 1}/{cat.maxUsesPerCar} usos
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        {options.length > 0 ? (
+                                                            <select
+                                                                value={selectedCar}
+                                                                onChange={e => {
+                                                                    setCarsUsed(prev => ({ ...prev, [driver]: e.target.value }));
+                                                                    setCarUsageErrors([]);
+                                                                }}
+                                                                className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                                            >
+                                                                <option value="" className="bg-slate-800">Sin asignar</option>
+                                                                {options.map(car => {
+                                                                    const uses = driverPrevUsage[car] || 0;
+                                                                    return (
+                                                                        <option key={car} value={car} className="bg-slate-800">
+                                                                            {car} ({uses}/{cat.maxUsesPerCar} usos)
+                                                                        </option>
+                                                                    );
+                                                                })}
+                                                            </select>
+                                                        ) : (
+                                                            <input
+                                                                type="text"
+                                                                value={selectedCar}
+                                                                onChange={e => {
+                                                                    setCarsUsed(prev => ({ ...prev, [driver]: e.target.value }));
+                                                                    setCarUsageErrors([]);
+                                                                }}
+                                                                placeholder="Nombre del auto..."
+                                                                className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                                            />
+                                                        )}
+                                                        {declared.length === 0 && (
+                                                            <p className="text-xs text-gray-500 mt-1">Sin declaración previa</p>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             {/* Sección Sprint */}
                             {selectedTrack.raceType === 'sprint_carrera' && (
@@ -2375,6 +2539,185 @@ function RegistrationsTab({ championshipId, championship, onUpdate }) {
                             </div>
                         );
                     })}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tab: Panel de uso de autos (Fase 4)
+// ─────────────────────────────────────────────────────────────────────────────
+function CarUsageTab({ championship, tracks }) {
+    const cat = championship.carUsageTracking || {};
+    const registrations = championship.registrations || [];
+    const maxUses = cat.maxUsesPerCar ?? 2;
+    const maxCars = cat.maxCarsPerDriver ?? 3;
+    const alertAt = cat.alertThreshold ?? 1;
+
+    const usage = calculateCarUsage(tracks);
+    const summary = buildCarUsageSummary(usage, cat, registrations);
+
+    // Separar en grupos: con violaciones, cerca del límite, OK
+    const withViolations = summary.filter(d => d.hasViolation);
+    const nearLimit = summary.filter(d => !d.hasViolation && d.nearLimit);
+    const ok = summary.filter(d => !d.hasViolation && !d.nearLimit);
+
+    const StatRow = ({ label, value, color = 'text-white' }) => (
+        <div className="flex items-center justify-between py-1 border-b border-white/5 last:border-0">
+            <span className="text-gray-400 text-sm">{label}</span>
+            <span className={`font-semibold text-sm ${color}`}>{value}</span>
+        </div>
+    );
+
+    const DriverCard = ({ entry }) => {
+        const hasDeclared = (entry.declaredCars || []).length > 0;
+        return (
+            <div className={`rounded-lg p-4 border ${entry.hasViolation ? 'bg-red-900/20 border-red-500/40' : entry.nearLimit ? 'bg-yellow-900/15 border-yellow-500/30' : 'bg-white/5 border-white/10'}`}>
+                <div className="flex items-start justify-between mb-3">
+                    <div>
+                        <p className="text-white font-semibold text-sm">{entry.driver}</p>
+                        {hasDeclared ? (
+                            <p className="text-gray-400 text-xs mt-0.5">
+                                Declarados: {entry.declaredCars.join(' · ')}
+                            </p>
+                        ) : (
+                            <p className="text-orange-400 text-xs mt-0.5">⚠️ Sin declaración de autos</p>
+                        )}
+                    </div>
+                    <div className="text-right">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            entry.hasViolation
+                                ? 'bg-red-600/40 text-red-300'
+                                : entry.nearLimit
+                                    ? 'bg-yellow-600/30 text-yellow-300'
+                                    : 'bg-green-600/20 text-green-300'
+                        }`}>
+                            {entry.hasViolation ? '⛔ Violación' : entry.nearLimit ? '⚠️ Cerca del límite' : '✅ OK'}
+                        </span>
+                        <p className="text-gray-400 text-xs mt-1">{entry.distinctCount}/{maxCars} autos distintos</p>
+                    </div>
+                </div>
+
+                {/* Autos usados con barras de progreso */}
+                {entry.usedCars.length > 0 ? (
+                    <div className="space-y-2">
+                        {entry.usedCars.map(({ car, count, overLimit, nearLimit: nl }) => {
+                            const pct = Math.min(100, Math.round((count / maxUses) * 100));
+                            const isDeclared = !hasDeclared || entry.declaredCars.includes(car);
+                            return (
+                                <div key={car}>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-xs text-gray-300 flex items-center gap-1">
+                                            🏎️ {car}
+                                            {!isDeclared && <span className="text-red-400 text-xs">(no declarado)</span>}
+                                        </span>
+                                        <span className={`text-xs font-bold ${overLimit ? 'text-red-400' : nl ? 'text-yellow-400' : 'text-green-400'}`}>
+                                            {count}/{maxUses}
+                                        </span>
+                                    </div>
+                                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full rounded-full transition-all ${overLimit ? 'bg-red-500' : nl ? 'bg-yellow-500' : 'bg-green-500'}`}
+                                            style={{ width: `${pct}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <p className="text-gray-500 text-xs">Sin carros registrados en resultados aún.</p>
+                )}
+
+                {/* Violaciones */}
+                {entry.violations.length > 0 && (
+                    <div className="mt-3 p-2 bg-red-900/30 rounded text-xs text-red-300 space-y-0.5">
+                        {entry.violations.map((v, i) => <p key={i}>• {v}</p>)}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    return (
+        <div className="space-y-6">
+            {/* Resumen global */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                    { label: 'Pilotos con violaciones', value: withViolations.length, color: withViolations.length > 0 ? 'text-red-400' : 'text-green-400', bg: withViolations.length > 0 ? 'border-red-500/30 bg-red-900/10' : 'border-white/10 bg-white/5' },
+                    { label: 'Cerca del límite', value: nearLimit.length, color: nearLimit.length > 0 ? 'text-yellow-400' : 'text-gray-300', bg: nearLimit.length > 0 ? 'border-yellow-500/30 bg-yellow-900/10' : 'border-white/10 bg-white/5' },
+                    { label: 'Sin declaración', value: summary.filter(d => d.declaredCars.length === 0).length, color: 'text-orange-400', bg: 'border-white/10 bg-white/5' },
+                    { label: 'Pilotos con datos', value: summary.filter(d => d.usedCars.length > 0).length, color: 'text-blue-300', bg: 'border-white/10 bg-white/5' },
+                ].map(({ label, value, color, bg }) => (
+                    <div key={label} className={`rounded-xl p-4 border text-center ${bg}`}>
+                        <p className={`text-3xl font-bold ${color}`}>{value}</p>
+                        <p className="text-gray-400 text-xs mt-1">{label}</p>
+                    </div>
+                ))}
+            </div>
+
+            {/* Config del campeonato */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-5">
+                <h3 className="text-white font-bold mb-3">⚙️ Configuración activa</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <StatRow label="Autos distintos por piloto" value={`${maxCars} máx.`} />
+                    <StatRow label="Usos por auto" value={`${maxUses} máx.`} />
+                    <StatRow label="Alerta en uso #" value={alertAt} />
+                    {cat.declarationDeadline && (
+                        <StatRow
+                            label="Plazo de declaración"
+                            value={new Date(cat.declarationDeadline + 'T23:59:59').toLocaleDateString('es-ES')}
+                            color={new Date() > new Date(cat.declarationDeadline + 'T23:59:59') ? 'text-red-400' : 'text-blue-300'}
+                        />
+                    )}
+                    {cat.carCatalog?.length > 0 && (
+                        <StatRow label="Autos en catálogo" value={cat.carCatalog.length} color="text-blue-300" />
+                    )}
+                </div>
+            </div>
+
+            {/* Pilotos con violaciones */}
+            {withViolations.length > 0 && (
+                <div>
+                    <h3 className="text-red-300 font-bold mb-3 flex items-center gap-2">
+                        ⛔ Violaciones detectadas ({withViolations.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {withViolations.map(e => <DriverCard key={e.driver} entry={e} />)}
+                    </div>
+                </div>
+            )}
+
+            {/* Cerca del límite */}
+            {nearLimit.length > 0 && (
+                <div>
+                    <h3 className="text-yellow-300 font-bold mb-3 flex items-center gap-2">
+                        ⚠️ Cerca del límite ({nearLimit.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {nearLimit.map(e => <DriverCard key={e.driver} entry={e} />)}
+                    </div>
+                </div>
+            )}
+
+            {/* Pilotos OK */}
+            {ok.length > 0 && (
+                <div>
+                    <h3 className="text-gray-300 font-bold mb-3">
+                        ✅ Sin problemas ({ok.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {ok.map(e => <DriverCard key={e.driver} entry={e} />)}
+                    </div>
+                </div>
+            )}
+
+            {summary.length === 0 && (
+                <div className="text-center py-12 text-gray-500">
+                    <p className="text-4xl mb-3">🚗</p>
+                    <p>Aún no hay resultados con autos asignados.</p>
+                    <p className="text-sm mt-1">Asigna autos al ingresar los resultados de cada carrera.</p>
                 </div>
             )}
         </div>

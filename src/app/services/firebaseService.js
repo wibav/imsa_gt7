@@ -1157,6 +1157,18 @@ export class FirebaseService {
     }
   }
 
+  /**
+   * Guarda la declaración de autos de un piloto inscrito.
+   * Llama a updateRegistrationData internamente — método semántico para la Fase B.
+   *
+   * @param {string} championshipId
+   * @param {string} registrationId - r.id de la entrada en registrations[]
+   * @param {string[]} declaredCars - Array de nombres de autos declarados
+   */
+  static async saveDeclaredCars(championshipId, registrationId, declaredCars) {
+    return FirebaseService.updateRegistrationData(championshipId, registrationId, { declaredCars });
+  }
+
   // ========================================
   // FIREBASE STORAGE METHODS
   // ========================================

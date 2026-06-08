@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "python3 scripts/generate-og-images.py && node scripts/prepare-og.js && next build && node scripts/inject-meta.js",
+    "build": "python3 scripts/generate-og-images.py && node scripts/prepare-og.js && next build && node scripts/inject-meta.js && node scripts/prerender-content.js",
     "start": "next start",
     "lint": "next lint",
-    "export": "python3 scripts/generate-og-images.py && node scripts/prepare-og.js && next build",
-    "build:firebase": "python3 scripts/generate-og-images.py && node scripts/prepare-og.js && next build",
+    "export": "python3 scripts/generate-og-images.py && node scripts/prepare-og.js && next build && node scripts/inject-meta.js && node scripts/prerender-content.js",
+    "build:firebase": "python3 scripts/generate-og-images.py && node scripts/prepare-og.js && next build && node scripts/inject-meta.js && node scripts/prerender-content.js",
+    "prerender": "node scripts/prerender-content.js",
     "deploy": "./scripts/deploy.sh",
     "setup-env": "./scripts/setup-env.sh",
     "audit:championships": "node scripts/audit-championships.js"

@@ -15,13 +15,15 @@ import {
     getResultColors,
     getPositionMedal,
     calculateAdvancedStandings,
-    getDriverStats
+    getDriverStats,
+    getStandingsByCategory
 } from "../utils";
 import StandingsTable from "../components/championship/StandingsTable";
 import DriverStatsPanel from "../components/championship/DriverStatsPanel";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
 import RegistrationForm from "../components/championship/RegistrationForm";
 import ClaimForm from '../components/championship/ClaimForm';
+import CarDeclarationModal from '../components/championship/CarDeclarationModal';
 import ExportableStandings from '../components/championship/ExportableStandings';
 import RaceBriefing from '../components/championship/RaceBriefing';
 import { STREAMING_PLATFORMS } from '../utils/constants';
@@ -41,6 +43,7 @@ export default function ChampionshipDetailPage() {
     const [selectedTrack, setSelectedTrack] = useState(null);
     const [showRegistration, setShowRegistration] = useState(false);
     const [showClaimForm, setShowClaimForm] = useState(false);
+    const [showCarDeclaration, setShowCarDeclaration] = useState(false);
     const [penalties, setPenalties] = useState([]);
     const [claims, setClaims] = useState([]);
     const [divisions, setDivisions] = useState([]);
@@ -478,6 +481,51 @@ export default function ChampionshipDetailPage() {
                                                 driverGt7Map={driverGt7Map}
                                             />
                                         )}
+
+                                        {/* Sub-tablas por categoría — campeonatos multicategoría */}
+                                        {championship.settings?.isMultiCategory && (() => {
+                                            const requiredCats = championship.settings?.requiredCategoriesPerTeam || [];
+                                            const byCat = getStandingsByCategory(advancedDriverStandings);
+                                            const catsToShow = requiredCats.length > 0
+                                                ? requiredCats
+                                                : Object.keys(byCat).filter(c => c !== 'Sin categoría');
+                                            if (catsToShow.length === 0) return null;
+                                            return (
+                                                <div className="space-y-4">
+                                                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                                        🏁 Clasificación por Categoría
+                                                    </h3>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                        {catsToShow.map(cat => {
+                                                            const catDrivers = byCat[cat] || [];
+                                                            if (catDrivers.length === 0) return null;
+                                                            return (
+                                                                <div key={cat} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                                                                    <h4 className="text-white font-bold mb-3 flex items-center gap-2">
+                                                                        <span className="px-2 py-0.5 bg-orange-600/30 text-orange-300 rounded text-sm">{cat}</span>
+                                                                        Campeones {cat}
+                                                                    </h4>
+                                                                    <div className="space-y-2">
+                                                                        {catDrivers.slice(0, 5).map((d, idx) => (
+                                                                            <div key={d.name} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="text-gray-400 text-sm w-5 text-right">{idx + 1}</span>
+                                                                                    <span className="text-white text-sm">{d.name}</span>
+                                                                                    {d.team && (
+                                                                                        <span className="text-xs text-gray-500">({d.team})</span>
+                                                                                    )}
+                                                                                </div>
+                                                                                <span className="text-orange-400 font-bold text-sm">{d.totalPoints} pts</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
                                     </>
                                 )}
                             </div>
@@ -1599,24 +1647,66 @@ export default function ChampionshipDetailPage() {
                                     )}
 
                                     {/* Tracking de Autos */}
-                                    {championship.carUsageTracking?.enabled && (
-                                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
-                                            <h3 className="text-xl font-bold text-white mb-4">🚗 Uso de Autos</h3>
-                                            <div className="space-y-3">
-                                                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                    <span className="text-gray-300">Máximo usos por auto</span>
-                                                    <span className="text-white font-semibold">{championship.carUsageTracking.maxUsesPerCar} carreras</span>
+                                    {championship.carUsageTracking?.enabled && (() => {
+                                        const cat = championship.carUsageTracking;
+                                        const deadline = cat.declarationDeadline ? new Date(cat.declarationDeadline + 'T23:59:59') : null;
+                                        const deadlinePassed = deadline && new Date() > deadline;
+                                        // Registro aprobado del usuario actual
+                                        const myReg = currentUser
+                                            ? (championship.registrations || []).find(r =>
+                                                (r.gt7Id === currentUser.displayName || r.psnId === currentUser.displayName || r.email === currentUser.email) &&
+                                                (r.status === 'approved' || !championship.registration?.requiresApproval)
+                                              )
+                                            : null;
+                                        const hasDeclared = (myReg?.declaredCars || []).length > 0;
+
+                                        return (
+                                            <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
+                                                <div className="flex items-start justify-between mb-4">
+                                                    <h3 className="text-xl font-bold text-white">🚗 Uso de Autos</h3>
+                                                    {myReg && (
+                                                        <button
+                                                            onClick={() => setShowCarDeclaration(true)}
+                                                            className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${deadlinePassed ? 'bg-gray-600 text-gray-300 cursor-not-allowed' : hasDeclared ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-orange-600 hover:bg-orange-700 text-white'}`}
+                                                        >
+                                                            {deadlinePassed ? '🔒 Ver declaración' : hasDeclared ? '✏️ Editar declaración' : '📋 Declarar mis autos'}
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                    <span className="text-gray-300">Alerta en uso #</span>
-                                                    <span className="text-white font-semibold">{championship.carUsageTracking.alertThreshold ?? 1}</span>
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                                        <span className="text-gray-300">Autos distintos por piloto</span>
+                                                        <span className="text-white font-semibold">{cat.maxCarsPerDriver ?? 3}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                                        <span className="text-gray-300">Máximo usos por auto</span>
+                                                        <span className="text-white font-semibold">{cat.maxUsesPerCar} carreras</span>
+                                                    </div>
+                                                    {deadline && (
+                                                        <div className={`flex items-center justify-between p-3 rounded-lg ${deadlinePassed ? 'bg-red-900/20 border border-red-500/20' : 'bg-blue-900/20 border border-blue-500/20'}`}>
+                                                            <span className="text-gray-300">Plazo de declaración</span>
+                                                            <span className={`font-semibold text-sm ${deadlinePassed ? 'text-red-300' : 'text-blue-300'}`}>
+                                                                {deadlinePassed ? '⛔ Vencido — ' : '📅 '}{deadline.toLocaleDateString('es-ES')}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {myReg && hasDeclared && (
+                                                        <div className="p-3 bg-green-900/20 border border-green-500/20 rounded-lg">
+                                                            <p className="text-green-300 text-sm font-medium mb-1">✅ Tus autos declarados:</p>
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {myReg.declaredCars.map((car, i) => (
+                                                                    <span key={i} className="px-2 py-0.5 bg-green-800/40 text-green-200 text-xs rounded-full">🏎️ {car}</span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    <p className="text-gray-400 text-xs">
+                                                        Cada piloto puede usar el mismo auto un máximo de {cat.maxUsesPerCar} veces durante el campeonato.
+                                                    </p>
                                                 </div>
-                                                <p className="text-gray-400 text-xs">
-                                                    Cada piloto puede usar el mismo auto un máximo de {championship.carUsageTracking.maxUsesPerCar} veces durante el campeonato.
-                                                </p>
                                             </div>
-                                        </div>
-                                    )}
+                                        );
+                                    })()}
 
                                     {/* Pre-Qualy */}
                                     {championship.preQualy?.enabled && (
@@ -1906,6 +1996,25 @@ export default function ChampionshipDetailPage() {
                     onSuccess={() => loadChampionshipData()}
                 />
             )}
+
+            {/* Modal de Declaración de Autos */}
+            {showCarDeclaration && championship?.carUsageTracking?.enabled && (() => {
+                const myReg = currentUser
+                    ? (championship.registrations || []).find(r =>
+                        (r.gt7Id === currentUser.displayName || r.psnId === currentUser.displayName || r.email === currentUser.email) &&
+                        (r.status === 'approved' || !championship.registration?.requiresApproval)
+                      )
+                    : null;
+                if (!myReg) return null;
+                return (
+                    <CarDeclarationModal
+                        championship={championship}
+                        registration={myReg}
+                        onClose={() => setShowCarDeclaration(false)}
+                        onSuccess={() => { loadChampionshipData(); setShowCarDeclaration(false); }}
+                    />
+                );
+            })()}
 
             {/* Modal de Reclamación */}
             {showClaimForm && (
