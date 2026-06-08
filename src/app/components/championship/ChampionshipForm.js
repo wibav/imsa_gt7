@@ -80,7 +80,9 @@ function getEmptyFormData() {
             },
             isTeamChampionship: false,
             maxTeams: 0,
-            maxDriversPerTeam: 0
+            maxDriversPerTeam: 0,
+            isMultiCategory: false,
+            requiredCategoriesPerTeam: []
         },
         teams: [],
         drivers: [],
@@ -104,7 +106,10 @@ function getEmptyFormData() {
         carUsageTracking: {
             enabled: false,
             maxUsesPerCar: 2,
-            alertThreshold: 1
+            alertThreshold: 1,
+            maxCarsPerDriver: 3,
+            declarationDeadline: '',
+            carCatalog: []
         },
         preQualy: {
             enabled: false,
@@ -316,7 +321,9 @@ export default function ChampionshipForm({ isEditing = false }) {
                     },
                 isTeamChampionship: isTeamChamp,
                 maxTeams: champ.settings?.maxTeams || (hasTeams ? 4 : 0),
-                maxDriversPerTeam: champ.settings?.maxDriversPerTeam || (hasTeams ? 4 : 0)
+                maxDriversPerTeam: champ.settings?.maxDriversPerTeam || (hasTeams ? 4 : 0),
+                isMultiCategory: champ.settings?.isMultiCategory ?? false,
+                requiredCategoriesPerTeam: champ.settings?.requiredCategoriesPerTeam || []
             },
             teams: teamsData.length > 0 ? teamsData : (champ.teams || []),
             drivers: champ.drivers || [],
@@ -347,7 +354,10 @@ export default function ChampionshipForm({ isEditing = false }) {
             carUsageTracking: {
                 enabled: champ.carUsageTracking?.enabled || false,
                 maxUsesPerCar: champ.carUsageTracking?.maxUsesPerCar ?? 2,
-                alertThreshold: champ.carUsageTracking?.alertThreshold ?? 1
+                alertThreshold: champ.carUsageTracking?.alertThreshold ?? 1,
+                maxCarsPerDriver: champ.carUsageTracking?.maxCarsPerDriver ?? 3,
+                declarationDeadline: champ.carUsageTracking?.declarationDeadline || '',
+                carCatalog: champ.carUsageTracking?.carCatalog || []
             },
             preQualy: {
                 enabled: champ.preQualy?.enabled || false,
@@ -419,9 +429,36 @@ export default function ChampionshipForm({ isEditing = false }) {
                 ...prev.settings,
                 isTeamChampionship: !prev.settings.isTeamChampionship,
                 maxTeams: !prev.settings.isTeamChampionship ? 0 : prev.settings.maxTeams,
-                maxDriversPerTeam: !prev.settings.isTeamChampionship ? 0 : prev.settings.maxDriversPerTeam
+                maxDriversPerTeam: !prev.settings.isTeamChampionship ? 0 : prev.settings.maxDriversPerTeam,
+                // Deshabilitar multicategoría si se desactiva modo equipos
+                isMultiCategory: !prev.settings.isTeamChampionship ? prev.settings.isMultiCategory : false,
+                requiredCategoriesPerTeam: !prev.settings.isTeamChampionship ? prev.settings.requiredCategoriesPerTeam : []
             }
         }));
+    };
+
+    const handleToggleMultiCategory = () => {
+        setFormData(prev => ({
+            ...prev,
+            settings: {
+                ...prev.settings,
+                isMultiCategory: !prev.settings.isMultiCategory,
+                requiredCategoriesPerTeam: !prev.settings.isMultiCategory ? prev.settings.requiredCategoriesPerTeam : []
+            }
+        }));
+    };
+
+    const handleToggleRequiredCategory = (category) => {
+        setFormData(prev => {
+            const current = prev.settings.requiredCategoriesPerTeam || [];
+            const updated = current.includes(category)
+                ? current.filter(c => c !== category)
+                : [...current, category];
+            return {
+                ...prev,
+                settings: { ...prev.settings, requiredCategoriesPerTeam: updated }
+            };
+        });
     };
 
     const handleCategoryToggle = (category) => {
@@ -707,6 +744,30 @@ export default function ChampionshipForm({ isEditing = false }) {
             case 3:
                 const racePositions = Object.values(formData.settings.pointsSystem.race || {});
                 if (racePositions.some(p => p < 0)) errors.push('Los puntos no pueden ser negativos');
+                break;
+            case 4:
+                if (formData.settings.isTeamChampionship && formData.settings.isMultiCategory) {
+                    const required = formData.settings.requiredCategoriesPerTeam || [];
+                    if (required.length < 2) {
+                        errors.push('Campeonato multicategoría requiere al menos 2 categorías obligatorias por equipo');
+                    }
+                    if (required.length > 0) {
+                        (formData.teams || []).forEach(team => {
+                            const teamCats = (team.drivers || []).map(d => d.category).filter(Boolean);
+                            const missing = required.filter(cat => !teamCats.includes(cat));
+                            if (missing.length > 0) {
+                                errors.push(`Equipo "${team.name}": falta piloto en categoría ${missing.join(', ')}`);
+                            }
+                            // Verificar que no haya dos pilotos de la misma categoría requerida
+                            required.forEach(cat => {
+                                const count = teamCats.filter(c => c === cat).length;
+                                if (count > 1) {
+                                    errors.push(`Equipo "${team.name}": tiene ${count} pilotos en categoría ${cat} (máximo 1)`);
+                                }
+                            });
+                        });
+                    }
+                }
                 break;
         }
         setFormErrors(errors);
@@ -1328,6 +1389,52 @@ export default function ChampionshipForm({ isEditing = false }) {
                                         </div>
                                     )}
 
+                                    {/* Multicategoría — solo visible en modo equipos */}
+                                    {formData.settings.isTeamChampionship && (
+                                        <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div>
+                                                    <h3 className="text-xl font-bold text-white mb-1">🏁 Campeonato Multicategoría</h3>
+                                                    <p className="text-gray-300 text-sm">
+                                                        {formData.settings.isMultiCategory
+                                                            ? 'Cada equipo debe tener un piloto por cada categoría requerida'
+                                                            : 'Los pilotos de un equipo compiten en la misma categoría'}
+                                                    </p>
+                                                </div>
+                                                {renderToggle(formData.settings.isMultiCategory, handleToggleMultiCategory)}
+                                            </div>
+
+                                            {formData.settings.isMultiCategory && (
+                                                <div className="mt-4">
+                                                    <p className="text-sm text-gray-300 mb-3">
+                                                        Selecciona las categorías que cada equipo debe cubrir (una por piloto):
+                                                    </p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {(formData.categories || []).map(cat => {
+                                                            const isRequired = (formData.settings.requiredCategoriesPerTeam || []).includes(cat);
+                                                            return (
+                                                                <button key={cat} type="button"
+                                                                    onClick={() => handleToggleRequiredCategory(cat)}
+                                                                    className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                                                                        isRequired
+                                                                            ? 'bg-orange-600 border-orange-500 text-white'
+                                                                            : 'bg-white/10 border-white/20 text-gray-300 hover:border-orange-400 hover:text-white'
+                                                                    }`}>
+                                                                    {isRequired ? '✓ ' : ''}{cat}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    {(formData.settings.requiredCategoriesPerTeam || []).length > 0 && (
+                                                        <p className="text-xs text-orange-300 mt-3">
+                                                            Cada equipo necesitará 1 piloto en: {formData.settings.requiredCategoriesPerTeam.join(' + ')}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* Gestión de Pilotos/Equipos */}
                                     {formData.settings.isTeamChampionship ? (
                                         /* === EQUIPOS === */
@@ -1364,11 +1471,24 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                 </div>
                                             ) : (
                                                 <div className="space-y-3">
-                                                    {formData.teams.map((team, teamIndex) => (
+                                                    {formData.teams.map((team, teamIndex) => {
+                                                        const required = formData.settings.isMultiCategory
+                                                            ? (formData.settings.requiredCategoriesPerTeam || [])
+                                                            : [];
+                                                        const teamCats = (team.drivers || []).map(d => d.category).filter(Boolean);
+                                                        const missingCats = required.filter(c => !teamCats.includes(c));
+                                                        const extraCats = required.filter(c => teamCats.filter(tc => tc === c).length > 1);
+                                                        const isValid = required.length === 0 || (missingCats.length === 0 && extraCats.length === 0);
+                                                        return (
                                                         <div key={teamIndex} className="bg-white/5 border border-white/10 rounded-lg p-4">
                                                             <div className="flex items-center justify-between mb-3">
                                                                 <h4 className="text-white font-bold text-lg flex items-center gap-2">
                                                                     <span>🏁</span>{team.name}
+                                                                    {required.length > 0 && (
+                                                                        <span className={`text-xs px-2 py-0.5 rounded-full font-normal ${isValid ? 'bg-green-600/30 text-green-300' : 'bg-red-600/30 text-red-300'}`}>
+                                                                            {isValid ? '✓ Composición válida' : `Faltan: ${missingCats.join(', ')}`}
+                                                                        </span>
+                                                                    )}
                                                                 </h4>
                                                                 <button type="button" onClick={() => handleRemoveTeam(teamIndex)}
                                                                     className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors">
@@ -1432,7 +1552,8 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                                 </div>
                                                             )}
                                                         </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             )}
                                         </div>
@@ -2007,7 +2128,9 @@ export default function ChampionshipForm({ isEditing = false }) {
                                     <div className="flex items-center justify-between mb-4">
                                         <div>
                                             <h3 className="text-xl font-bold text-white">🚗 Tracking de Uso de Autos</h3>
-                                            <p className="text-gray-300 text-sm mt-1">Controla cuántas veces cada piloto puede usar el mismo auto</p>
+                                            <p className="text-gray-300 text-sm mt-1">
+                                                Cada piloto declara sus autos antes de una fecha límite y el sistema valida que no exceda los usos permitidos
+                                            </p>
                                         </div>
                                         {renderToggle(formData.carUsageTracking?.enabled ?? false, () => {
                                             setFormData(prev => ({
@@ -2020,34 +2143,125 @@ export default function ChampionshipForm({ isEditing = false }) {
                                         })}
                                     </div>
                                     {formData.carUsageTracking?.enabled && (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/10">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-300 mb-2">Máximo Usos por Auto</label>
-                                                <input type="number" min="1" max="20"
-                                                    value={formData.carUsageTracking?.maxUsesPerCar ?? 2}
-                                                    onChange={(e) => setFormData(prev => ({
-                                                        ...prev,
-                                                        carUsageTracking: {
-                                                            ...prev.carUsageTracking,
-                                                            maxUsesPerCar: parseInt(e.target.value) || 2
-                                                        }
-                                                    }))}
-                                                    className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
-                                                <p className="text-xs text-gray-400 mt-1">Número de carreras que un piloto puede usar el mismo auto</p>
+                                        <div className="space-y-6 mt-4 pt-4 border-t border-white/10">
+                                            {/* Límites */}
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-300 mb-2">Autos distintos por piloto</label>
+                                                    <input type="number" min="1" max="20"
+                                                        value={formData.carUsageTracking?.maxCarsPerDriver ?? 3}
+                                                        onChange={(e) => setFormData(prev => ({
+                                                            ...prev,
+                                                            carUsageTracking: { ...prev.carUsageTracking, maxCarsPerDriver: parseInt(e.target.value) || 3 }
+                                                        }))}
+                                                        className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                                                    <p className="text-xs text-gray-400 mt-1">Cuántos autos diferentes puede declarar cada piloto</p>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-300 mb-2">Máximo usos por auto</label>
+                                                    <input type="number" min="1" max="20"
+                                                        value={formData.carUsageTracking?.maxUsesPerCar ?? 2}
+                                                        onChange={(e) => setFormData(prev => ({
+                                                            ...prev,
+                                                            carUsageTracking: { ...prev.carUsageTracking, maxUsesPerCar: parseInt(e.target.value) || 2 }
+                                                        }))}
+                                                        className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                                                    <p className="text-xs text-gray-400 mt-1">Carreras en las que un piloto puede usar el mismo auto</p>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-300 mb-2">Alerta en uso #</label>
+                                                    <input type="number" min="1" max="20"
+                                                        value={formData.carUsageTracking?.alertThreshold ?? 1}
+                                                        onChange={(e) => setFormData(prev => ({
+                                                            ...prev,
+                                                            carUsageTracking: { ...prev.carUsageTracking, alertThreshold: parseInt(e.target.value) || 1 }
+                                                        }))}
+                                                        className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                                                    <p className="text-xs text-gray-400 mt-1">Aviso visual al piloto al alcanzar este número de usos</p>
+                                                </div>
                                             </div>
+
+                                            {/* Fecha límite de declaración */}
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-300 mb-2">Alerta en Uso #</label>
-                                                <input type="number" min="1" max="20"
-                                                    value={formData.carUsageTracking?.alertThreshold ?? 1}
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Fecha límite de declaración</label>
+                                                <input type="date"
+                                                    value={formData.carUsageTracking?.declarationDeadline || ''}
                                                     onChange={(e) => setFormData(prev => ({
                                                         ...prev,
-                                                        carUsageTracking: {
-                                                            ...prev.carUsageTracking,
-                                                            alertThreshold: parseInt(e.target.value) || 1
-                                                        }
+                                                        carUsageTracking: { ...prev.carUsageTracking, declarationDeadline: e.target.value }
                                                     }))}
-                                                    className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
-                                                <p className="text-xs text-gray-400 mt-1">Mostrará aviso cuando el piloto alcance este número de usos</p>
+                                                    className="px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    Los pilotos inscritos podrán declarar sus autos hasta esta fecha. Después queda en modo lectura.
+                                                </p>
+                                            </div>
+
+                                            {/* Catálogo de autos (opcional) */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                    Catálogo de autos permitidos <span className="text-gray-500 font-normal">(opcional)</span>
+                                                </label>
+                                                <div className="flex gap-2 mb-2">
+                                                    <input type="text" placeholder="Ej: Mazda RX-Vision GT3"
+                                                        id="carCatalogInput"
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                const v = e.target.value.trim();
+                                                                if (v && !(formData.carUsageTracking?.carCatalog || []).includes(v)) {
+                                                                    setFormData(prev => ({
+                                                                        ...prev,
+                                                                        carUsageTracking: {
+                                                                            ...prev.carUsageTracking,
+                                                                            carCatalog: [...(prev.carUsageTracking?.carCatalog || []), v]
+                                                                        }
+                                                                    }));
+                                                                    e.target.value = '';
+                                                                }
+                                                            }
+                                                        }}
+                                                        className="flex-1 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                                                    <button type="button"
+                                                        onClick={() => {
+                                                            const input = document.getElementById('carCatalogInput');
+                                                            const v = input?.value.trim();
+                                                            if (v && !(formData.carUsageTracking?.carCatalog || []).includes(v)) {
+                                                                setFormData(prev => ({
+                                                                    ...prev,
+                                                                    carUsageTracking: {
+                                                                        ...prev.carUsageTracking,
+                                                                        carCatalog: [...(prev.carUsageTracking?.carCatalog || []), v]
+                                                                    }
+                                                                }));
+                                                                if (input) input.value = '';
+                                                            }
+                                                        }}
+                                                        className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors">
+                                                        + Auto
+                                                    </button>
+                                                </div>
+                                                {(formData.carUsageTracking?.carCatalog || []).length > 0 ? (
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {(formData.carUsageTracking.carCatalog).map((car, idx) => (
+                                                            <span key={idx} className="flex items-center gap-1 px-3 py-1 bg-white/10 border border-white/20 rounded-full text-sm text-white">
+                                                                🏎️ {car}
+                                                                <button type="button"
+                                                                    onClick={() => setFormData(prev => ({
+                                                                        ...prev,
+                                                                        carUsageTracking: {
+                                                                            ...prev.carUsageTracking,
+                                                                            carCatalog: prev.carUsageTracking.carCatalog.filter((_, i) => i !== idx)
+                                                                        }
+                                                                    }))}
+                                                                    className="text-gray-400 hover:text-red-400 ml-1 text-xs">✕</button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-xs text-gray-500">
+                                                        Si lo dejas vacío los pilotos podrán escribir cualquier nombre de auto. Agrega autos para restringir la selección.
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     )}

@@ -118,7 +118,9 @@ export default function ChampionshipCard({ championship, tracks = [], onClick, o
                     <div className="bg-white/5 rounded-lg p-3 border border-white/10">
                         <div className="text-gray-400 text-xs mb-1">Tipo</div>
                         <div className="text-white font-semibold text-sm">
-                            {championship.settings?.isTeamChampionship ? '👥 Por Equipos' : '👤 Individual'}
+                            {championship.settings?.isTeamChampionship
+                                ? (championship.settings?.isMultiCategory ? '🏁 Multicategoría' : '👥 Por Equipos')
+                                : '👤 Individual'}
                         </div>
                     </div>
                     <div className="bg-white/5 rounded-lg p-3 border border-white/10">

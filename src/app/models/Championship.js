@@ -22,7 +22,9 @@ export class Championship {
             allowMultipleTeamsPerDriver: data.settings?.allowMultipleTeamsPerDriver ?? false,
             maxTeams: data.settings?.maxTeams || 20,
             maxDriversPerTeam: data.settings?.maxDriversPerTeam || 2,
-            isTeamChampionship: data.settings?.isTeamChampionship ?? false
+            isTeamChampionship: data.settings?.isTeamChampionship ?? false,
+            isMultiCategory: data.settings?.isMultiCategory ?? false,
+            requiredCategoriesPerTeam: data.settings?.requiredCategoriesPerTeam || []
         };
         this.drivers = data.drivers || []; // Array de pilotos para campeonatos individuales
         this.createdAt = data.createdAt || new Date().toISOString();
@@ -35,7 +37,16 @@ export class Championship {
         this.streaming = data.streaming || null;
         this.penaltiesConfig = data.penaltiesConfig || null;
         this.regulations = data.regulations || null;
-        this.carUsageTracking = data.carUsageTracking || null;
+        this.carUsageTracking = data.carUsageTracking
+            ? {
+                enabled: data.carUsageTracking.enabled ?? false,
+                maxUsesPerCar: data.carUsageTracking.maxUsesPerCar ?? 2,
+                alertThreshold: data.carUsageTracking.alertThreshold ?? 1,
+                maxCarsPerDriver: data.carUsageTracking.maxCarsPerDriver ?? 3,
+                declarationDeadline: data.carUsageTracking.declarationDeadline || null,
+                carCatalog: data.carUsageTracking.carCatalog || []
+            }
+            : null;
         this.preQualy = data.preQualy || null;
         this.divisionsConfig = data.divisionsConfig || null;
     }
@@ -264,6 +275,7 @@ export class Track {
         this.allowedCars = data.allowedCars || [];
         this.points = data.points || {}; // Puntajes de pilotos: { "pilotoName": puntos }
         this.results = data.results || {}; // Resultados detallados: { divisions: { divId: { racePositions, racePoints, ... } } }
+        this.carsUsed = data.carsUsed || {}; // Carro usado por piloto en esta carrera: { "pilotoName": "Mazda RX-Vision GT3" }
         this.sprintPoints = data.sprintPoints || {}; // Puntos sprint (formato legado)
         this.status = data.status || 'scheduled'; // 'scheduled' | 'in-progress' | 'completed'
         this.createdAt = data.createdAt || new Date().toISOString();
@@ -312,6 +324,7 @@ export class Track {
             allowedCars: this.allowedCars,
             points: this.points,
             results: this.results,
+            carsUsed: this.carsUsed,
             sprintPoints: this.sprintPoints,
             status: this.status,
             createdAt: this.createdAt,
