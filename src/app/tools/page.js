@@ -6,6 +6,7 @@ import Navbar from '../components/Navbar';
 const SVG_SIZE_LIMIT_BYTES = 15 * 1024;
 
 const DEFAULT_TRACE_OPTIONS = {
+    quantizeColors: 0,
     filterSpeckle: 4,
     colorPrecision: 6,
     layerDifference: 16,
@@ -427,6 +428,16 @@ export default function ToolsPage() {
                                 ) : (
                                     <div className="mt-5 grid gap-4 md:grid-cols-2">
                                         <RangeField
+                                            label="Colores (cuantización)"
+                                            value={traceOptions.quantizeColors}
+                                            min={0}
+                                            max={12}
+                                            step={1}
+                                            suffix={traceOptions.quantizeColors === 0 ? ' (auto)' : ' colores'}
+                                            helper="0 = automático. Para logos con textura/foto de fondo, fija 4-8 colores planos: conserva resolución (no baja a 128px) y mejora la nitidez en GT7."
+                                            onChange={updateTraceOption('quantizeColors')}
+                                        />
+                                        <RangeField
                                             label="Path precision"
                                             value={traceOptions.pathPrecision}
                                             min={1}
@@ -501,7 +512,16 @@ export default function ToolsPage() {
                                     </div>
                                 )}
 
-
+                                {selectedFile && (
+                                    <button
+                                        type="button"
+                                        onClick={() => void convertFile(selectedFile)}
+                                        disabled={isProcessing}
+                                        className="mt-5 w-full rounded-xl border border-orange-400/30 bg-orange-500/15 px-5 py-3 text-sm font-semibold text-orange-100 transition hover:bg-orange-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        🔁 Reconvertir con estos ajustes
+                                    </button>
+                                )}
                             </div>
 
                             {conversionInfo && !isProcessing && (
