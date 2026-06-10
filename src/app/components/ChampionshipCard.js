@@ -28,6 +28,9 @@ export default function ChampionshipCard({ championship, tracks = [], onClick, o
         : 0;
     const maxParticipants = championship.registration?.maxParticipants || 0;
     const isFull = maxParticipants > 0 && approvedCount >= maxParticipants;
+    const deadline = championship.registration?.deadline;
+    const deadlinePassed = deadline ? new Date() > new Date(deadline + 'T23:59:59') : false;
+    const canRegister = registrationEnabled && !isFull && !deadlinePassed;
 
     const handleClick = () => {
         if (onClick) {
@@ -157,10 +160,16 @@ export default function ChampionshipCard({ championship, tracks = [], onClick, o
 
                 {/* Inscripción abierta: conteo de cupos */}
                 {registrationEnabled && (
-                    <div className="flex items-center justify-between bg-green-500/10 border border-green-400/30 rounded-lg px-3 py-2 mb-4">
+                    <div className={`flex items-center justify-between rounded-lg px-3 py-2 mb-4 ${
+                        isFull || deadlinePassed
+                            ? 'bg-red-500/10 border border-red-400/30'
+                            : 'bg-green-500/10 border border-green-400/30'
+                    }`}>
                         <div className="flex items-center gap-2 text-sm">
-                            <span className="text-green-400">📝</span>
-                            <span className="text-green-300 font-semibold">Inscripción abierta</span>
+                            <span className={isFull || deadlinePassed ? 'text-red-400' : 'text-green-400'}>📝</span>
+                            <span className={`font-semibold ${isFull || deadlinePassed ? 'text-red-300' : 'text-green-300'}`}>
+                                {isFull ? 'Inscripción cerrada' : deadlinePassed ? 'Plazo vencido' : 'Inscripción abierta'}
+                            </span>
                         </div>
                         {maxParticipants > 0 && (
                             <div className="flex items-center gap-2 text-sm">
@@ -172,13 +181,13 @@ export default function ChampionshipCard({ championship, tracks = [], onClick, o
                 )}
 
                 {/* Botones de acción */}
-                <div className={`grid gap-3 ${registrationEnabled ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                <div className={`grid gap-3 ${canRegister ? 'grid-cols-2' : 'grid-cols-1'}`}>
                     <button
                         className="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white px-4 py-3 rounded-lg font-bold hover:from-orange-700 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl"
                     >
                         🏆 Ver Campeonato
                     </button>
-                    {registrationEnabled && (
+                    {canRegister && (
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();

@@ -147,9 +147,9 @@ export default function DashboardRenovated() {
 
             {/* Community Banner */}
             <div className="border-b border-white/10">
-                <div className="max-w-7xl mx-auto px-4 py-3 grid grid-cols-2 divide-x divide-white/10">
+                <div className="max-w-7xl mx-auto px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-0 sm:divide-x sm:divide-white/10">
                     {/* WhatsApp */}
-                    <div className="flex items-center justify-between gap-3 pr-4">
+                    <div className="flex items-center justify-between gap-3 sm:pr-4">
                         <p className="text-green-300 text-xs sm:text-sm font-medium hidden sm:block">
                             ¡Únete a la comunidad! Recibe avisos de eventos y novedades.
                         </p>
@@ -167,7 +167,7 @@ export default function DashboardRenovated() {
                     </div>
 
                     {/* Apoyar el proyecto */}
-                    <div className="flex items-center justify-between gap-3 pl-4">
+                    <div className="flex items-center justify-between gap-3 sm:pl-4">
                         <p className="text-yellow-300 text-xs sm:text-sm font-medium hidden sm:block">
                             ¿Te gustan los campeonatos? Ayúdanos a mantener la competición en marcha.
                         </p>

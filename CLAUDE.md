@@ -72,7 +72,7 @@ Copy `.env.local` for development. Required vars:
 - `NEXT_PUBLIC_FIREBASE_*` — Firebase client config (exposed to browser)
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` — server-only, for notifications
 
-Production is deployed to `https://imsa-bd5b6.web.app` (Firebase project `imsa-bd5b6`).
+Production canonical domain is `https://imsa.trenkit.com` (used for all OG/SEO metadata, sitemap, and prerender). Hosted on Firebase project `imsa-bd5b6` (the `imsa-bd5b6.web.app` URL is the underlying Firebase Hosting target, not the canonical domain).
 
 ### Build pipeline
 
