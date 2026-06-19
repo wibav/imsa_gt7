@@ -1656,22 +1656,22 @@ export default function ChampionshipDetailPage() {
                                     {/* Tracking de Autos */}
                                     {championship.carUsageTracking?.enabled && (() => {
                                         const cat = championship.carUsageTracking;
-                                        const deadline = cat.declarationDeadline ? new Date(cat.declarationDeadline + 'T23:59:59') : null;
+                                        const isFixed = cat.mode === 'fixed';
+                                        const deadline = !isFixed && cat.declarationDeadline ? new Date(cat.declarationDeadline + 'T23:59:59') : null;
                                         const deadlinePassed = deadline && new Date() > deadline;
-                                        // Registro aprobado del usuario actual
                                         const myReg = currentUser
-                                            ? (championship.registrations || []).find(r =>
+                                            ? flatRegs.find(r =>
                                                 (r.gt7Id === currentUser.displayName || r.psnId === currentUser.displayName || r.email === currentUser.email) &&
                                                 (r.status === 'approved' || !championship.registration?.requiresApproval)
                                               )
                                             : null;
-                                        const hasDeclared = (myReg?.declaredCars || []).length > 0;
+                                        const hasDeclared = !isFixed && (myReg?.declaredCars || []).length > 0;
 
                                         return (
                                             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
                                                 <div className="flex items-start justify-between mb-4">
                                                     <h3 className="text-xl font-bold text-white">🚗 Uso de Autos</h3>
-                                                    {myReg && (
+                                                    {!isFixed && myReg && (
                                                         <button
                                                             onClick={() => setShowCarDeclaration(true)}
                                                             className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${deadlinePassed ? 'bg-gray-600 text-gray-300 cursor-not-allowed' : hasDeclared ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-orange-600 hover:bg-orange-700 text-white'}`}
@@ -1680,37 +1680,63 @@ export default function ChampionshipDetailPage() {
                                                         </button>
                                                     )}
                                                 </div>
-                                                <div className="space-y-3">
-                                                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                        <span className="text-gray-300">Autos distintos por piloto</span>
-                                                        <span className="text-white font-semibold">{cat.maxCarsPerDriver ?? 3}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                        <span className="text-gray-300">Máximo usos por auto</span>
-                                                        <span className="text-white font-semibold">{cat.maxUsesPerCar} carreras</span>
-                                                    </div>
-                                                    {deadline && (
-                                                        <div className={`flex items-center justify-between p-3 rounded-lg ${deadlinePassed ? 'bg-red-900/20 border border-red-500/20' : 'bg-blue-900/20 border border-blue-500/20'}`}>
-                                                            <span className="text-gray-300">Plazo de declaración</span>
-                                                            <span className={`font-semibold text-sm ${deadlinePassed ? 'text-red-300' : 'text-blue-300'}`}>
-                                                                {deadlinePassed ? '⛔ Vencido — ' : '📅 '}{deadline.toLocaleDateString('es-ES')}
-                                                            </span>
+
+                                                {isFixed ? (
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center gap-2 p-3 bg-blue-900/20 border border-blue-500/20 rounded-lg">
+                                                            <span className="text-blue-300 text-sm">🔒 Catálogo fijo — todos los pilotos usan los autos definidos por el organizador</span>
                                                         </div>
-                                                    )}
-                                                    {myReg && hasDeclared && (
-                                                        <div className="p-3 bg-green-900/20 border border-green-500/20 rounded-lg">
-                                                            <p className="text-green-300 text-sm font-medium mb-1">✅ Tus autos declarados:</p>
-                                                            <div className="flex flex-wrap gap-1">
-                                                                {myReg.declaredCars.map((car, i) => (
-                                                                    <span key={i} className="px-2 py-0.5 bg-green-800/40 text-green-200 text-xs rounded-full">🏎️ {car}</span>
-                                                                ))}
+                                                        <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                                            <span className="text-gray-300">Máximo usos por auto</span>
+                                                            <span className="text-white font-semibold">{cat.maxUsesPerCar} carreras</span>
+                                                        </div>
+                                                        {(cat.carCatalog || []).length > 0 && (
+                                                            <div className="p-3 bg-white/5 rounded-lg">
+                                                                <p className="text-gray-300 text-sm font-medium mb-2">Autos del catálogo:</p>
+                                                                <div className="flex flex-wrap gap-1.5">
+                                                                    {cat.carCatalog.map((car, i) => (
+                                                                        <span key={i} className="px-2 py-0.5 bg-white/10 border border-white/20 text-white text-xs rounded-full">🏎️ {car}</span>
+                                                                    ))}
+                                                                </div>
                                                             </div>
+                                                        )}
+                                                        <p className="text-gray-400 text-xs">
+                                                            Usar un auto fuera del catálogo anula los puntos de esa carrera.
+                                                        </p>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                                            <span className="text-gray-300">Autos distintos por piloto</span>
+                                                            <span className="text-white font-semibold">{cat.maxCarsPerDriver ?? 3}</span>
                                                         </div>
-                                                    )}
-                                                    <p className="text-gray-400 text-xs">
-                                                        Cada piloto puede usar el mismo auto un máximo de {cat.maxUsesPerCar} veces durante el campeonato.
-                                                    </p>
-                                                </div>
+                                                        <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                                            <span className="text-gray-300">Máximo usos por auto</span>
+                                                            <span className="text-white font-semibold">{cat.maxUsesPerCar} carreras</span>
+                                                        </div>
+                                                        {deadline && (
+                                                            <div className={`flex items-center justify-between p-3 rounded-lg ${deadlinePassed ? 'bg-red-900/20 border border-red-500/20' : 'bg-blue-900/20 border border-blue-500/20'}`}>
+                                                                <span className="text-gray-300">Plazo de declaración</span>
+                                                                <span className={`font-semibold text-sm ${deadlinePassed ? 'text-red-300' : 'text-blue-300'}`}>
+                                                                    {deadlinePassed ? '⛔ Vencido — ' : '📅 '}{deadline.toLocaleDateString('es-ES')}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {myReg && hasDeclared && (
+                                                            <div className="p-3 bg-green-900/20 border border-green-500/20 rounded-lg">
+                                                                <p className="text-green-300 text-sm font-medium mb-1">✅ Tus autos declarados:</p>
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {myReg.declaredCars.map((car, i) => (
+                                                                        <span key={i} className="px-2 py-0.5 bg-green-800/40 text-green-200 text-xs rounded-full">🏎️ {car}</span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        <p className="text-gray-400 text-xs">
+                                                            Cada piloto puede usar el mismo auto un máximo de {cat.maxUsesPerCar} veces durante el campeonato.
+                                                        </p>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })()}

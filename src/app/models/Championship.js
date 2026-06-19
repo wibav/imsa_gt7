@@ -40,6 +40,9 @@ export class Championship {
         this.carUsageTracking = data.carUsageTracking
             ? {
                 enabled: data.carUsageTracking.enabled ?? false,
+                // 'declared': pilotos declaran su subconjunto de autos antes del deadline
+                // 'fixed':    el admin define un catálogo fijo; todos usan esos autos sin declarar
+                mode: data.carUsageTracking.mode || 'declared',
                 maxUsesPerCar: data.carUsageTracking.maxUsesPerCar ?? 2,
                 alertThreshold: data.carUsageTracking.alertThreshold ?? 1,
                 maxCarsPerDriver: data.carUsageTracking.maxCarsPerDriver ?? 3,
