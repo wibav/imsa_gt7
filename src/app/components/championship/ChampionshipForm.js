@@ -2787,17 +2787,32 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                 onChange={(e) => setTrackFormData(prev => ({ ...prev, round: parseInt(e.target.value) || 1 }))}
                                                 className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">🏎️ Categoría *</label>
-                                            <select value={trackFormData.category}
-                                                onChange={(e) => setTrackFormData(prev => ({ ...prev, category: e.target.value }))}
-                                                className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
-                                                <option value="" className="bg-slate-800">Seleccionar...</option>
-                                                {formData.categories.map(cat => (
-                                                    <option key={cat} value={cat} className="bg-slate-800">{cat}</option>
-                                                ))}
-                                            </select>
-                                        </div>
+                                        {formData.settings?.isMultiCategory ? (
+                                            /* En multicategoría la carrera agrupa TODAS las categorías */
+                                            <div className="flex items-center gap-2 px-3 py-2 bg-blue-900/20 border border-blue-500/20 rounded-lg">
+                                                <span className="text-blue-300 text-sm">🏁 Multicategoría:</span>
+                                                <div className="flex gap-1 flex-wrap">
+                                                    {(formData.settings?.requiredCategoriesPerTeam?.length > 0
+                                                        ? formData.settings.requiredCategoriesPerTeam
+                                                        : formData.categories
+                                                    ).map(cat => (
+                                                        <span key={cat} className="px-2 py-0.5 bg-blue-600/30 text-blue-200 text-xs rounded-full">{cat}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">🏎️ Categoría</label>
+                                                <select value={trackFormData.category}
+                                                    onChange={(e) => setTrackFormData(prev => ({ ...prev, category: e.target.value }))}
+                                                    className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                                    <option value="" className="bg-slate-800">Seleccionar...</option>
+                                                    {formData.categories.map(cat => (
+                                                        <option key={cat} value={cat} className="bg-slate-800">{cat}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
