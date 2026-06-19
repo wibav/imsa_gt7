@@ -28,7 +28,7 @@ import ExportableStandings from '../components/championship/ExportableStandings'
 import RaceBriefing from '../components/championship/RaceBriefing';
 import { STREAMING_PLATFORMS } from '../utils/constants';
 import { SEVERITY_CONFIG } from '../models/Penalty';
-import { getInvalidatedEntries } from '../utils/carUsageCalculator';
+import { getInvalidatedEntries, flattenRegistrations } from '../utils/carUsageCalculator';
 
 export default function ChampionshipDetailPage() {
     const searchParams = useSearchParams();
@@ -122,8 +122,9 @@ export default function ChampionshipDetailPage() {
     });
 
     // ── Entradas invalidadas por uso de autos ──
+    const flatRegs = flattenRegistrations(championship?.registrations || []);
     const invalidatedEntries = championship?.carUsageTracking?.enabled
-        ? getInvalidatedEntries(tracks, championship.carUsageTracking, championship.registrations || [])
+        ? getInvalidatedEntries(tracks, championship.carUsageTracking, flatRegs)
         : new Set();
 
     // ── Standings Avanzado ──
