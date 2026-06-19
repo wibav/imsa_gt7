@@ -1983,6 +1983,31 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
 
 // Tab de Pilotos con clasificación individual
 function DriversTab({ championshipId, championship, teams, tracks, onUpdate, editMode }) {
+    const [confirmDelete, setConfirmDelete] = useState(null); // nombre del piloto a eliminar
+    const [deleting, setDeleting] = useState(false);
+
+    const handleDeleteDriver = async (driverName, teamId = null) => {
+        setDeleting(true);
+        try {
+            if (teamId) {
+                // Campeonato por equipos: quitar piloto del team
+                const team = teams.find(t => t.id === teamId);
+                if (!team) return;
+                const updatedDrivers = (team.drivers || []).filter(d => d.name !== driverName);
+                await FirebaseService.updateTeam(championshipId, teamId, { drivers: updatedDrivers });
+            } else {
+                // Campeonato individual: quitar de championship.drivers
+                const updatedDrivers = (championship.drivers || []).filter(d => d.name !== driverName);
+                await FirebaseService.updateChampionship(championshipId, { drivers: updatedDrivers });
+            }
+            setConfirmDelete(null);
+            onUpdate();
+        } catch (err) {
+            console.error('Error eliminando piloto:', err);
+        } finally {
+            setDeleting(false);
+        }
+    };
 
     // Extraer todos los pilotos con su equipo y calcular puntos totales
     const driversData = [];
@@ -2017,6 +2042,7 @@ function DriversTab({ championshipId, championship, teams, tracks, onUpdate, edi
 
                 driversData.push({
                     name: driver.name,
+                    teamId: team.id,
                     teamName: team.name,
                     teamColor: team.color,
                     categories: categories,
@@ -2124,8 +2150,8 @@ function DriversTab({ championshipId, championship, teams, tracks, onUpdate, edi
                                     </div>
                                 </div>
 
-                                {/* Stats */}
-                                <div className="flex items-center gap-6">
+                                {/* Stats + Eliminar */}
+                                <div className="flex items-center gap-4">
                                     <div className="text-center">
                                         <div className="text-sm text-gray-400">Carreras</div>
                                         <div className="text-lg font-bold">
@@ -2139,6 +2165,35 @@ function DriversTab({ championshipId, championship, teams, tracks, onUpdate, edi
                                             {driver.totalPoints}
                                         </div>
                                     </div>
+
+                                    {editMode && (
+                                        confirmDelete === driver.name ? (
+                                            <div className="flex items-center gap-2 bg-red-900/40 border border-red-500/50 rounded-lg px-3 py-2">
+                                                <span className="text-red-300 text-xs">¿Eliminar?</span>
+                                                <button
+                                                    onClick={() => handleDeleteDriver(driver.name, driver.teamId || null)}
+                                                    disabled={deleting}
+                                                    className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded font-bold disabled:opacity-50"
+                                                >
+                                                    {deleting ? '...' : 'Sí'}
+                                                </button>
+                                                <button
+                                                    onClick={() => setConfirmDelete(null)}
+                                                    className="px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded"
+                                                >
+                                                    No
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => setConfirmDelete(driver.name)}
+                                                className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-900/30 rounded-lg transition-all"
+                                                title="Eliminar piloto del campeonato"
+                                            >
+                                                🗑️
+                                            </button>
+                                        )
+                                    )}
                                 </div>
                             </div>
 
