@@ -23,10 +23,11 @@
  * @param {Array} [penalties] - Sanciones aplicadas (opcional)
  * @param {Object} [options] - Opciones adicionales
  * @param {Array<string>} [options.divisionDrivers] - Filtrar solo estos pilotos (Fase 6: divisiones)
- * @returns {{ 
- *   driverStandings: Array, 
- *   teamStandings: Array, 
- *   raceColumns: Array<{round, name, trackId}> 
+ * @param {Set<string>} [options.invalidatedEntries] - Set "driver::trackId" con puntos anulados por uso de autos
+ * @returns {{
+ *   driverStandings: Array,
+ *   teamStandings: Array,
+ *   raceColumns: Array<{round, name, trackId}>
  * }}
  */
 export function calculateAdvancedStandings(championship, teams, tracks, penalties = [], options = {}) {
@@ -82,6 +83,9 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
         });
     }
 
+    // Set de entradas invalidadas por uso de autos: "driver::trackId"
+    const invalidatedEntries = options.invalidatedEntries || new Set();
+
     // Inicializar mapa de stats
     const driverStats = {};
     allDrivers.forEach(driver => {
@@ -98,10 +102,11 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             dnfs: 0,
             races: 0,
             bestPosition: null,
-            racePoints: [],      // Array de puntos por carrera (en orden de raceColumns)
+            racePoints: [],       // Array de puntos por carrera (en orden de raceColumns)
             racePositions: [],    // Array de posiciones por carrera
             raceFastestLap: [],   // Array de boolean: tuvo vuelta rápida en esa carrera
             racePole: [],         // Array de boolean: tuvo pole en esa carrera
+            invalidatedRaces: [], // Array de boolean: puntos anulados por uso de autos
             penaltyPoints: 0,     // Puntos deducidos por sanciones
             warningPoints: 0,     // Puntos de amonestación acumulados
             penalties: []         // Lista de sanciones aplicadas
@@ -164,6 +169,7 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
                     racePositions: [],
                     raceFastestLap: [],
                     racePole: [],
+                    invalidatedRaces: [],
                     penaltyPoints: 0,
                     warningPoints: 0,
                     penalties: []
@@ -238,15 +244,23 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
                 stat.racePositions.push(null);
                 stat.raceFastestLap.push(hasFl);
                 stat.racePole.push(hasPole);
+                stat.invalidatedRaces.push(false);
                 return;
             }
 
+            // Verificar si esta entrada está invalidada por uso de autos
+            const entryKey = `${driverName}::${track.id}`;
+            const aliasKey = aliases.map(a => `${a}::${track.id}`).find(k => invalidatedEntries.has(k));
+            const isInvalidated = invalidatedEntries.has(entryKey) || !!aliasKey;
+            const effectivePoints = isInvalidated ? 0 : points;
+
             // Registrar puntos y posición
-            stat.racePoints.push(points);
+            stat.racePoints.push(effectivePoints);
             stat.racePositions.push(position);
             stat.raceFastestLap.push(hasFl);
             stat.racePole.push(hasPole);
-            stat.totalPoints += points;
+            stat.invalidatedRaces.push(isInvalidated);
+            stat.totalPoints += effectivePoints;
             stat.races += 1;
 
             if (position) {

@@ -118,6 +118,60 @@ export function validateRaceCarUsage(newCarsUsed, currentUsage, config, registra
 }
 
 /**
+ * Determina qué entradas (driver, trackId) deben tener sus puntos anulados
+ * por violaciones de uso de autos. Se usa en standingsCalculator para invalidar
+ * automáticamente los puntos de esa carrera sin bloquear el guardado.
+ *
+ * @param {Array} tracks - Pistas del campeonato (con track.carsUsed y track.id)
+ * @param {Object} config - championship.carUsageTracking
+ * @param {Array} registrations - championship.registrations[]
+ * @returns {Set<string>} Set de claves "driverId::trackId" con puntos invalidados
+ */
+export function getInvalidatedEntries(tracks, config, registrations = []) {
+    if (!config?.enabled) return new Set();
+
+    const invalidated = new Set();
+
+    // Construir mapa driver → declaredCars
+    const declaredMap = {};
+    (registrations || []).forEach(reg => {
+        const key = reg.gt7Id || reg.name || reg.psnId;
+        if (key) {
+            declaredMap[key] = reg.declaredCars || [];
+            if (reg.psnId && reg.psnId !== key) declaredMap[reg.psnId] = reg.declaredCars || [];
+        }
+    });
+
+    // Recorrer carreras en orden (round asc) para acumular uso progresivo
+    const sorted = [...(tracks || [])].sort((a, b) => (a.round || 0) - (b.round || 0));
+    const cumulativeUsage = {}; // { driver: { car: count } } — estado ANTES de cada carrera
+
+    sorted.forEach(track => {
+        const carsUsed = track.carsUsed || {};
+
+        Object.entries(carsUsed).forEach(([driver, car]) => {
+            if (!driver || !car) return;
+
+            const driverUsage = cumulativeUsage[driver] || {};
+            const declaredCars = declaredMap[driver] || [];
+            const { violations } = validateCarUsage(driver, car, cumulativeUsage, config, declaredCars);
+
+            if (violations.length > 0) {
+                invalidated.add(`${driver}::${track.id}`);
+            }
+
+            // Actualizar uso acumulado (se cuenta aunque sea inválido para detectar futuras violaciones)
+            if (!cumulativeUsage[driver]) cumulativeUsage[driver] = {};
+            cumulativeUsage[driver][car] = (cumulativeUsage[driver][car] || 0) + 1;
+        });
+
+        // Pilotos sin auto asignado en esta carrera no se acumulan
+    });
+
+    return invalidated;
+}
+
+/**
  * Genera un resumen de estado de uso por piloto para mostrar en UI.
  *
  * @param {Object} usage - Salida de calculateCarUsage()

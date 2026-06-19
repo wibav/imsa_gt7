@@ -217,21 +217,26 @@ export default function StandingsTable({
                                             const pos = entry.racePositions?.[raceIdx];
                                             const isFl = entry.raceFastestLap?.[raceIdx];
                                             const isPole = entry.racePole?.[raceIdx];
+                                            const isInvalidated = entry.invalidatedRaces?.[raceIdx];
                                             const tooltipParts = [race.name];
-                                            if (pts !== null && pts !== undefined) tooltipParts.push(`P${pos || '?'} → ${pts} pts`);
+                                            if (isInvalidated) tooltipParts.push(`⚠️ Pts anulados (uso de auto)`);
+                                            else if (pts !== null && pts !== undefined) tooltipParts.push(`P${pos || '?'} → ${pts} pts`);
                                             else tooltipParts.push('No participó');
                                             if (isFl) tooltipParts.push('⚡ Vuelta Rápida');
                                             if (isPole) tooltipParts.push('🎯 Pole');
                                             return (
                                                 <td key={race.trackId || raceIdx}
-                                                    className={`${cellPx} text-center`}
+                                                    className={`${cellPx} text-center ${isInvalidated ? 'bg-red-950/30' : ''}`}
                                                     title={tooltipParts.join(' | ')}
                                                 >
                                                     <div className="flex flex-col items-center gap-0">
-                                                        <span className={`text-xs ${getRacePointsStyle(pts, pos)}`}>
+                                                        <span className={`text-xs ${isInvalidated ? 'text-red-400 line-through' : getRacePointsStyle(pts, pos)}`}>
                                                             {pts !== null && pts !== undefined ? pts : '-'}
                                                         </span>
-                                                        {(isFl || isPole) && (
+                                                        {isInvalidated && (
+                                                            <span className="text-red-400" style={{ fontSize: '9px' }} title="Puntos anulados por uso de auto">⚠️</span>
+                                                        )}
+                                                        {!isInvalidated && (isFl || isPole) && (
                                                             <div className="flex gap-0.5 mt-0.5">
                                                                 {isPole && <span className="text-purple-400" style={{ fontSize: '9px' }}>🎯</span>}
                                                                 {isFl && <span className="text-yellow-400" style={{ fontSize: '9px' }}>⚡</span>}

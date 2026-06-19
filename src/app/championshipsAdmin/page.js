@@ -1262,19 +1262,15 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                     const currentUsage = calculateCarUsage(otherTracks, {
                         resolveAlias: (n) => psnToGt7[n] || n
                     });
-                    const { valid, violations } = validateRaceCarUsage(
+                    const { violations } = validateRaceCarUsage(
                         carsUsed,
                         currentUsage,
                         championship.carUsageTracking,
                         championship.registrations || []
                     );
-                    if (!valid) {
-                        setCarUsageErrors(violations);
-                        setSavingResults(false);
-                        return;
-                    }
+                    // No bloquear: avisar y guardar de todas formas (los puntos se invalidan en standings)
+                    setCarUsageErrors(violations);
                 }
-                setCarUsageErrors([]);
 
                 await FirebaseService.updateTrack(championshipId, selectedTrack.id, {
                     points: normalizeDriverKeys(totalPoints),
@@ -1334,25 +1330,20 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                     totalPoints[driver] = (totalPoints[driver] || 0) + pts;
                 });
 
-                // ── Validación de uso de autos (enforcement bloqueante) ──
+                // ── Validación de uso de autos (aviso no bloqueante — puntos se invalidan en standings) ──
                 if (championship?.carUsageTracking?.enabled) {
                     const otherTracks = tracks.filter(t => t.id !== selectedTrack.id);
                     const currentUsage = calculateCarUsage(otherTracks, {
                         resolveAlias: (n) => psnToGt7[n] || n
                     });
-                    const { valid, violations } = validateRaceCarUsage(
+                    const { violations } = validateRaceCarUsage(
                         carsUsed,
                         currentUsage,
                         championship.carUsageTracking,
                         championship.registrations || []
                     );
-                    if (!valid) {
-                        setCarUsageErrors(violations);
-                        setSavingResults(false);
-                        return;
-                    }
+                    setCarUsageErrors(violations);
                 }
-                setCarUsageErrors([]);
 
                 const trackUpdate = {
                     points: totalPoints,
@@ -1778,16 +1769,16 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                             Máx {cat.maxCarsPerDriver} autos distintos • Máx {cat.maxUsesPerCar} usos por auto
                                         </p>
 
-                                        {/* Errores de validación */}
+                                        {/* Aviso de violaciones (no bloqueante) */}
                                         {carUsageErrors.length > 0 && (
-                                            <div className="mb-4 p-4 bg-red-900/40 border border-red-500/50 rounded-lg">
-                                                <p className="text-red-300 font-bold text-sm mb-2">⛔ Violaciones de límite de autos:</p>
+                                            <div className="mb-4 p-4 bg-orange-900/40 border border-orange-500/50 rounded-lg">
+                                                <p className="text-orange-300 font-bold text-sm mb-2">⚠️ Violaciones de uso de autos detectadas:</p>
                                                 <ul className="space-y-1">
                                                     {carUsageErrors.map((e, i) => (
-                                                        <li key={i} className="text-red-200 text-sm">• {e}</li>
+                                                        <li key={i} className="text-orange-200 text-sm">• {e}</li>
                                                     ))}
                                                 </ul>
-                                                <p className="text-red-400 text-xs mt-2">Corrige las asignaciones antes de guardar.</p>
+                                                <p className="text-orange-400 text-xs mt-2">Los resultados se guardarán, pero los puntos de los pilotos infractores quedarán <strong>anulados automáticamente</strong> en la clasificación.</p>
                                             </div>
                                         )}
 
