@@ -105,6 +105,7 @@ function getEmptyFormData() {
         regulations: '',
         carUsageTracking: {
             enabled: false,
+            mode: 'declared',
             maxUsesPerCar: 2,
             alertThreshold: 1,
             maxCarsPerDriver: 3,
@@ -353,6 +354,7 @@ export default function ChampionshipForm({ isEditing = false }) {
             regulations: champ.regulations || '',
             carUsageTracking: {
                 enabled: champ.carUsageTracking?.enabled || false,
+                mode: champ.carUsageTracking?.mode || 'declared',
                 maxUsesPerCar: champ.carUsageTracking?.maxUsesPerCar ?? 2,
                 alertThreshold: champ.carUsageTracking?.alertThreshold ?? 1,
                 maxCarsPerDriver: champ.carUsageTracking?.maxCarsPerDriver ?? 3,
@@ -2129,7 +2131,9 @@ export default function ChampionshipForm({ isEditing = false }) {
                                         <div>
                                             <h3 className="text-xl font-bold text-white">🚗 Tracking de Uso de Autos</h3>
                                             <p className="text-gray-300 text-sm mt-1">
-                                                Cada piloto declara sus autos antes de una fecha límite y el sistema valida que no exceda los usos permitidos
+                                                {formData.carUsageTracking?.mode === 'fixed'
+                                                    ? 'El admin define un catálogo fijo de autos; todos los pilotos usan esos autos sin necesidad de declarar'
+                                                    : 'Cada piloto declara sus autos antes de una fecha límite y el sistema valida que no exceda los usos permitidos'}
                                             </p>
                                         </div>
                                         {renderToggle(formData.carUsageTracking?.enabled ?? false, () => {
@@ -2144,6 +2148,41 @@ export default function ChampionshipForm({ isEditing = false }) {
                                     </div>
                                     {formData.carUsageTracking?.enabled && (
                                         <div className="space-y-6 mt-4 pt-4 border-t border-white/10">
+                                            {/* Modo: Declarado vs Fijo */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-3">Modo de selección de autos</label>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    {[
+                                                        {
+                                                            value: 'declared',
+                                                            icon: '📋',
+                                                            title: 'Declarado por piloto',
+                                                            desc: 'Cada piloto elige su subconjunto de autos antes del deadline'
+                                                        },
+                                                        {
+                                                            value: 'fixed',
+                                                            icon: '🔒',
+                                                            title: 'Catálogo fijo (admin)',
+                                                            desc: 'El admin define los autos permitidos; los pilotos no declaran'
+                                                        }
+                                                    ].map(opt => {
+                                                        const isSelected = (formData.carUsageTracking?.mode || 'declared') === opt.value;
+                                                        return (
+                                                            <button key={opt.value} type="button"
+                                                                onClick={() => setFormData(prev => ({
+                                                                    ...prev,
+                                                                    carUsageTracking: { ...prev.carUsageTracking, mode: opt.value }
+                                                                }))}
+                                                                className={`text-left p-4 rounded-xl border-2 transition-all ${isSelected ? 'border-orange-500 bg-orange-500/10' : 'border-white/20 bg-white/5 hover:border-white/40'}`}>
+                                                                <div className="text-2xl mb-1">{opt.icon}</div>
+                                                                <div className={`font-semibold text-sm ${isSelected ? 'text-orange-300' : 'text-white'}`}>{opt.title}</div>
+                                                                <div className="text-xs text-gray-400 mt-0.5">{opt.desc}</div>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
                                             {/* Límites */}
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                                 <div>
@@ -2181,8 +2220,8 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                 </div>
                                             </div>
 
-                                            {/* Fecha límite de declaración */}
-                                            <div>
+                                            {/* Fecha límite de declaración — solo en modo 'declared' */}
+                                            {(formData.carUsageTracking?.mode || 'declared') === 'declared' && <div>
                                                 <label className="block text-sm font-medium text-gray-300 mb-2">Fecha límite de declaración</label>
                                                 <input type="date"
                                                     value={formData.carUsageTracking?.declarationDeadline || ''}
@@ -2194,12 +2233,15 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                 <p className="text-xs text-gray-400 mt-1">
                                                     Los pilotos inscritos podrán declarar sus autos hasta esta fecha. Después queda en modo lectura.
                                                 </p>
-                                            </div>
+                                            </div>}
 
-                                            {/* Catálogo de autos (opcional) */}
+                                            {/* Catálogo de autos — en modo 'fixed' es obligatorio; en 'declared' es lista blanca opcional */}
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                    Catálogo de autos permitidos <span className="text-gray-500 font-normal">(opcional)</span>
+                                                    {(formData.carUsageTracking?.mode || 'declared') === 'fixed'
+                                                        ? 'Catálogo de autos (fijo para todos los pilotos)'
+                                                        : <>Catálogo de autos permitidos <span className="text-gray-500 font-normal">(opcional — lista blanca)</span></>
+                                                    }
                                                 </label>
                                                 <div className="flex gap-2 mb-2">
                                                     <input type="text" placeholder="Ej: Mazda RX-Vision GT3"

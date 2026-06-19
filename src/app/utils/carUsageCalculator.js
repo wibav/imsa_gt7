@@ -88,9 +88,10 @@ export function validateCarUsage(driver, car, currentUsage, config, declaredCars
     const violations = [];
     const driverUsage = currentUsage[driver] || {};
 
-    // 1. El auto debe haber sido declarado por el piloto (si hay declaración)
+    // 1. El auto debe estar permitido (declarado por el piloto o en catálogo fijo)
     if (declaredCars.length > 0 && !declaredCars.includes(car)) {
-        violations.push(`"${car}" no fue declarado por ${driver}`);
+        const label = config.mode === 'fixed' ? 'no está en el catálogo fijo' : `no fue declarado por ${driver}`;
+        violations.push(`"${car}" ${label}`);
     }
 
     // 2. No superar el límite de usos de este auto en particular
@@ -164,13 +165,20 @@ export function getInvalidatedEntries(tracks, config, registrations = []) {
 
     const invalidated = new Set();
 
-    // Construir mapa driver → declaredCars
+    const isFixed = config.mode === 'fixed';
+    const fixedCatalog = isFixed ? (config.carCatalog || []) : null;
+
+    // Construir mapa driver → lista permitida de autos
+    // En modo 'fixed': todos los pilotos comparten el catálogo del admin
+    // En modo 'declared': cada piloto tiene su propia declaración
     const declaredMap = {};
     (registrations || []).forEach(reg => {
         const key = reg.gt7Id || reg.name || reg.psnId;
         if (key) {
-            declaredMap[key] = reg.declaredCars || [];
-            if (reg.psnId && reg.psnId !== key) declaredMap[reg.psnId] = reg.declaredCars || [];
+            declaredMap[key] = isFixed ? fixedCatalog : (reg.declaredCars || []);
+            if (reg.psnId && reg.psnId !== key) {
+                declaredMap[reg.psnId] = isFixed ? fixedCatalog : (reg.declaredCars || []);
+            }
         }
     });
 
