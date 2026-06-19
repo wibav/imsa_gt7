@@ -11,7 +11,7 @@ import PenaltiesTab from '../components/championship/PenaltiesTab';
 import DivisionsTab from '../components/championship/DivisionsTab';
 import { DEFAULT_SPRINT_POINTS } from '../utils/constants';
 import { notifyResultsSaved, notifyRegistrationUpdated } from '../utils/telegram';
-import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary } from '../utils/carUsageCalculator';
+import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations } from '../utils/carUsageCalculator';
 
 /** Convierte "M:SS.mmm" o "SS.mmm" a milisegundos para sort correcto de tiempos */
 function parseTimeToMs(str) {
@@ -1110,15 +1110,16 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
     const sortedDivisions = [...divisions].sort((a, b) => (a.order || 0) - (b.order || 0));
     const hasDivisions = championship?.divisionsConfig?.enabled && sortedDivisions.length > 0;
 
-    // Pilotos inscritos aprobados (para PreQualy — misma fuente que DivisionsTab)
-    const approvedRegs = (championship?.registrations || []).filter(r => r.status === 'approved');
+    // Pilotos inscritos aprobados — flattenRegistrations expande equipos a entradas por piloto
+    const approvedRegs = flattenRegistrations(
+        (championship?.registrations || []).filter(r => r.status === 'approved')
+    );
     const pqDriverOptions = approvedRegs.map(r => r.name || r.psnId || r.gt7Id).filter(Boolean);
     // Mapa nombre → gt7Id para auto-poblar al seleccionar piloto
     const pqDriverGt7Map = Object.fromEntries(
         approvedRegs.map(r => [r.name || r.psnId || r.gt7Id, r.gt7Id || ''])
     );
     // Mapa psnId → gt7Id: normaliza claves antes de guardar en track.points/racePositions.
-    // Evita que los resultados se guarden bajo el PSN ID cuando el sistema usa el GT7 ID.
     const psnToGt7 = Object.fromEntries(
         approvedRegs
             .filter(r => r.psnId && r.gt7Id && r.psnId !== r.gt7Id)
@@ -2476,20 +2477,41 @@ function RegistrationsTab({ championshipId, championship, onUpdate }) {
                                             <>
                                                 <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mb-1">
                                                     <span className="text-white font-bold text-base">
-                                                        🎮 {r.gt7Id || r.psnId || r.name || '(sin ID)'}
+                                                        {r.teamName
+                                                            ? `👥 ${r.teamName}`
+                                                            : `🎮 ${r.gt7Id || r.psnId || r.name || '(sin ID)'}`
+                                                        }
                                                     </span>
                                                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
                                                         {style.label}
                                                     </span>
                                                 </div>
-                                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-300">
-                                                    {r.gt7Id && r.psnId && <span>🕹️ PSN: {r.psnId}</span>}
-                                                    {!r.gt7Id && r.psnId && <span>🕹️ PSN: {r.psnId}</span>}
-                                                    {r.country && <span>🌍 {r.country}</span>}
-                                                    {r.experience && <span>⭐ {r.experience}</span>}
-                                                    {r.preferredCar && <span>🚗 {r.preferredCar}</span>}
-                                                    <span className="text-gray-500 text-xs">📅 {new Date(r.createdAt).toLocaleDateString('es-ES')}</span>
-                                                    {r.reviewedAt && <span className="text-gray-500 text-xs">✏️ {new Date(r.reviewedAt).toLocaleDateString('es-ES')}</span>}
+                                                {/* Inscripción de equipo: lista de pilotos */}
+                                                {r.teamName && Array.isArray(r.drivers) && (
+                                                    <div className="mt-1 mb-1 space-y-0.5">
+                                                        {r.drivers.map((d, di) => (
+                                                            <div key={di} className="flex items-center gap-2 text-sm text-gray-300">
+                                                                <span className="text-gray-500">P{di + 1}</span>
+                                                                <span className="text-white">🎮 {d.gt7Id || d.psnId}</span>
+                                                                {d.psnId && d.gt7Id !== d.psnId && <span className="text-gray-400">🕹️ {d.psnId}</span>}
+                                                                {d.category && <span className="px-1.5 py-0.5 bg-blue-600/30 text-blue-300 text-xs rounded">{d.category}</span>}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {/* Inscripción individual */}
+                                                {!r.teamName && (
+                                                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-300">
+                                                        {r.gt7Id && r.psnId && <span>🕹️ PSN: {r.psnId}</span>}
+                                                        {!r.gt7Id && r.psnId && <span>🕹️ PSN: {r.psnId}</span>}
+                                                        {r.country && <span>🌍 {r.country}</span>}
+                                                        {r.experience && <span>⭐ {r.experience}</span>}
+                                                        {r.preferredCar && <span>🚗 {r.preferredCar}</span>}
+                                                    </div>
+                                                )}
+                                                <div className="flex flex-wrap gap-x-4 text-xs text-gray-500 mt-1">
+                                                    <span>📅 {new Date(r.createdAt).toLocaleDateString('es-ES')}</span>
+                                                    {r.reviewedAt && <span>✏️ {new Date(r.reviewedAt).toLocaleDateString('es-ES')}</span>}
                                                 </div>
                                             </>
                                         )}

@@ -1023,14 +1023,33 @@ export class FirebaseService {
         throw new Error('No hay cupos disponibles');
       }
 
-      // Duplicado (mismo gt7Id o psnId)
-      const gt7Id = data.gt7Id?.trim().toLowerCase();
-      const psnId = data.psnId?.trim().toLowerCase();
-      const isDuplicate = existing.some(r =>
-        (gt7Id && r.gt7Id?.toLowerCase() === gt7Id) ||
-        (psnId && r.psnId?.toLowerCase() === psnId)
-      );
-      if (isDuplicate) throw new Error('Ya tienes una inscripción enviada para este campeonato');
+      const isTeamReg = Array.isArray(data.drivers) && data.drivers.length > 0;
+
+      if (isTeamReg) {
+        // Duplicado en inscripción de equipo: verificar cada piloto individualmente
+        const existingGt7Ids = new Set(
+          existing.flatMap(r =>
+            Array.isArray(r.drivers)
+              ? r.drivers.map(d => d.gt7Id?.toLowerCase()).filter(Boolean)
+              : [r.gt7Id?.toLowerCase()].filter(Boolean)
+          )
+        );
+        for (const driver of data.drivers) {
+          const dId = driver.gt7Id?.trim().toLowerCase();
+          if (dId && existingGt7Ids.has(dId)) {
+            throw new Error(`El piloto "${driver.gt7Id}" ya tiene una inscripción en este campeonato`);
+          }
+        }
+      } else {
+        // Duplicado (mismo gt7Id o psnId)
+        const gt7Id = data.gt7Id?.trim().toLowerCase();
+        const psnId = data.psnId?.trim().toLowerCase();
+        const isDuplicate = existing.some(r =>
+          (gt7Id && r.gt7Id?.toLowerCase() === gt7Id) ||
+          (psnId && r.psnId?.toLowerCase() === psnId)
+        );
+        if (isDuplicate) throw new Error('Ya tienes una inscripción enviada para este campeonato');
+      }
 
       const regData = {
         id: `reg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -1041,17 +1060,29 @@ export class FirebaseService {
 
       await updateDoc(docRef, { registrations: arrayUnion(regData) });
 
-      // Si es auto-approve y campeonato individual, agregar piloto directamente
-      if (!reg.requiresApproval && !champ.settings?.isTeamChampionship) {
-        const driverName = data.gt7Id || data.psnId || data.name || 'Piloto';
-        const existingDrivers = champ.drivers || [];
-        const alreadyDriver = existingDrivers.some(
-          d => d.name?.toLowerCase() === driverName.toLowerCase()
-        );
-        if (!alreadyDriver) {
-          await updateDoc(docRef, {
-            drivers: arrayUnion({ name: driverName, category: data.category || '' })
-          });
+      // Si es auto-approve, agregar pilotos directamente
+      if (!reg.requiresApproval) {
+        if (isTeamReg) {
+          // Equipo: agregar cada piloto a championship.drivers
+          const existingDrivers = champ.drivers || [];
+          const existingNames = new Set(existingDrivers.map(d => d.name?.toLowerCase()));
+          const toAdd = data.drivers
+            .map(d => ({ name: d.gt7Id || d.psnId, category: d.category || '' }))
+            .filter(d => d.name && !existingNames.has(d.name.toLowerCase()));
+          if (toAdd.length > 0) {
+            await updateDoc(docRef, { drivers: [...existingDrivers, ...toAdd] });
+          }
+        } else if (!champ.settings?.isTeamChampionship) {
+          const driverName = data.gt7Id || data.psnId || data.name || 'Piloto';
+          const existingDrivers = champ.drivers || [];
+          const alreadyDriver = existingDrivers.some(
+            d => d.name?.toLowerCase() === driverName.toLowerCase()
+          );
+          if (!alreadyDriver) {
+            await updateDoc(docRef, {
+              drivers: arrayUnion({ name: driverName, category: data.category || '' })
+            });
+          }
         }
       }
 
@@ -1082,24 +1113,34 @@ export class FirebaseService {
         updMap[r.id] ? { ...r, status: updMap[r.id], reviewedAt } : r
       );
 
-      // Para campeonatos individuales: auto-agregar como piloto cuando se aprueba
+      // Al aprobar: agregar pilotos a championship.drivers
       let driversToAdd = [];
-      if (!champ.settings?.isTeamChampionship) {
-        const existingDriverNames = new Set(
-          (champ.drivers || []).map(d => d.name?.toLowerCase())
-        );
-        updates
-          .filter(u => u.status === 'approved')
-          .forEach(u => {
-            const reg = registrations.find(r => r.id === u.id);
-            if (!reg) return;
+      const existingDriverNames = new Set(
+        (champ.drivers || []).map(d => d.name?.toLowerCase())
+      );
+      updates
+        .filter(u => u.status === 'approved')
+        .forEach(u => {
+          const reg = registrations.find(r => r.id === u.id);
+          if (!reg) return;
+          if (Array.isArray(reg.drivers) && reg.drivers.length > 0) {
+            // Inscripción de equipo: agregar cada piloto
+            reg.drivers.forEach(d => {
+              const name = d.gt7Id || d.psnId;
+              if (name && !existingDriverNames.has(name.toLowerCase())) {
+                driversToAdd.push({ name, category: d.category || '' });
+                existingDriverNames.add(name.toLowerCase());
+              }
+            });
+          } else if (!champ.settings?.isTeamChampionship) {
+            // Inscripción individual
             const driverName = reg.name || reg.psnId || reg.gt7Id;
             if (driverName && !existingDriverNames.has(driverName.toLowerCase())) {
               driversToAdd.push({ name: driverName, category: reg.category || '' });
               existingDriverNames.add(driverName.toLowerCase());
             }
-          });
-      }
+          }
+        });
 
       const updatePayload = { registrations: updatedRegistrations };
       if (driversToAdd.length > 0) {

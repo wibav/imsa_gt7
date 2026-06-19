@@ -1,4 +1,36 @@
 /**
+ * Convierte registrations de equipo en entradas planas por piloto.
+ * Permite que standings y carUsage sigan funcionando sin cambios cuando
+ * la inscripción es de equipo (drivers[]).
+ *
+ * Para registros individuales (sin drivers[]) devuelve el registro tal cual.
+ *
+ * @param {Array} registrations - championship.registrations[]
+ * @returns {Array} Array de registros planos, uno por piloto
+ */
+export function flattenRegistrations(registrations = []) {
+    const flat = [];
+    for (const reg of registrations) {
+        if (Array.isArray(reg.drivers) && reg.drivers.length > 0) {
+            // Registro de equipo: expandir a un entry por piloto
+            reg.drivers.forEach(driver => {
+                flat.push({
+                    ...driver,                  // gt7Id, psnId, category, declaredCars
+                    id: `${reg.id}_${driver.gt7Id || driver.psnId}`,
+                    teamName: reg.teamName,
+                    teamRegistrationId: reg.id,
+                    status: reg.status,
+                    createdAt: reg.createdAt
+                });
+            });
+        } else {
+            flat.push(reg);
+        }
+    }
+    return flat;
+}
+
+/**
  * Motor de cómputo y validación del uso de autos por piloto.
  *
  * Trabaja sobre track.carsUsed (guardado al ingresar resultados)
