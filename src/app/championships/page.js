@@ -28,6 +28,7 @@ import ExportableStandings from '../components/championship/ExportableStandings'
 import RaceBriefing from '../components/championship/RaceBriefing';
 import { STREAMING_PLATFORMS } from '../utils/constants';
 import { SEVERITY_CONFIG } from '../models/Penalty';
+import { getInvalidatedEntries } from '../utils/carUsageCalculator';
 
 export default function ChampionshipDetailPage() {
     const searchParams = useSearchParams();
@@ -120,11 +121,16 @@ export default function ChampionshipDetailPage() {
         if (key && r.gt7Id) driverGt7Map[key] = r.gt7Id;
     });
 
+    // ── Entradas invalidadas por uso de autos ──
+    const invalidatedEntries = championship?.carUsageTracking?.enabled
+        ? getInvalidatedEntries(tracks, championship.carUsageTracking, championship.registrations || [])
+        : new Set();
+
     // ── Standings Avanzado ──
     const activeDivision = divisions.find(d => d.id === selectedDivision);
     const divisionOptions = selectedDivision !== 'all' && activeDivision
-        ? { divisionDrivers: activeDivision.drivers || [] }
-        : {};
+        ? { divisionDrivers: activeDivision.drivers || [], invalidatedEntries }
+        : { invalidatedEntries };
     const { driverStandings: advancedDriverStandings, teamStandings: advancedTeamStandings, raceColumns } =
         calculateAdvancedStandings(championship, teams, tracks, penalties, divisionOptions);
     const driverStats = getDriverStats(advancedDriverStandings);
@@ -143,7 +149,7 @@ export default function ChampionshipDetailPage() {
             .slice()
             .sort((a, b) => (a.order || 0) - (b.order || 0))
             .map(div => {
-                const opts = { divisionDrivers: div.drivers || [] };
+                const opts = { divisionDrivers: div.drivers || [], invalidatedEntries };
                 const { driverStandings, teamStandings, raceColumns: rc } =
                     calculateAdvancedStandings(championship, teams, tracks, penalties, opts);
                 return {
