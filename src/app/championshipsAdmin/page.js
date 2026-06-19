@@ -439,6 +439,7 @@ export default function ChampionshipDetail() {
                             tracks={tracks}
                             editMode={editMode}
                             onUpdate={loadChampionshipData}
+                            championship={championship}
                         />
                     )}
 
@@ -657,7 +658,17 @@ function InfoTab({ championship, editMode, onUpdate }) {
                         <ConfigCard label="Nombre Corto" value={championship.shortName} icon="🔖" />
                         <ConfigCard label="Temporada" value={championship.season} icon="📅" />
                         <ConfigCard label="Estado" value={<StatusBadge status={championship.status} />} icon="🔵" />
-                        <ConfigCard label="Tipo" value={championship.settings?.isTeamChampionship ? '👥 Por Equipos' : '👤 Individual'} icon="🎮" />
+                        <ConfigCard
+                            label="Tipo"
+                            value={
+                                championship.settings?.isTeamChampionship
+                                    ? championship.settings?.isMultiCategory
+                                        ? `👥 Equipos Multicategoría (${(championship.settings?.requiredCategoriesPerTeam || []).join(' + ') || '?'})`
+                                        : '👥 Por Equipos'
+                                    : '👤 Individual'
+                            }
+                            icon="🎮"
+                        />
                         <ConfigCard label="Categorías" value={(championship.categories || []).join(', ') || '—'} icon="🏎️" />
                         {championship.startDate && (
                             <ConfigCard label="Fecha Inicio" value={new Date(championship.startDate).toLocaleDateString('es-ES')} icon="🟢" />
@@ -767,11 +778,12 @@ function ConfigCard({ label, value, icon }) {
 }
 
 // Tab de Equipos con puntajes ordenados y edición
-function TeamsTab({ championshipId, teams, tracks, editMode, onUpdate }) {
+function TeamsTab({ championshipId, teams, tracks, editMode, onUpdate, championship }) {
     const [editingTeamId, setEditingTeamId] = useState(null);
     const [teamFormData, setTeamFormData] = useState(null);
     const [showAddDriverModal, setShowAddDriverModal] = useState(false);
-    const [newDriver, setNewDriver] = useState({ name: '', category: 'Gr1' });
+    const champCategories = championship?.categories || [];
+    const [newDriver, setNewDriver] = useState({ name: '', category: champCategories[0] || '' });
 
     // Calcular puntaje total de cada equipo sumando los puntos de todos sus pilotos
     const teamsWithScores = teams.map(team => {
@@ -830,7 +842,7 @@ function TeamsTab({ championshipId, teams, tracks, editMode, onUpdate }) {
                 ...teamFormData,
                 drivers: [...teamFormData.drivers, { ...newDriver }]
             });
-            setNewDriver({ name: '', category: 'Gr1' });
+            setNewDriver({ name: '', category: champCategories[0] || '' });
             setShowAddDriverModal(false);
         }
     };
@@ -919,12 +931,13 @@ function TeamsTab({ championshipId, teams, tracks, editMode, onUpdate }) {
                                                                     onChange={(e) => handleUpdateDriverCategory(driverIndex, e.target.value)}
                                                                     className="bg-blue-500/30 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/50 text-xs"
                                                                 >
-                                                                    <option value="Gr1">Gr1</option>
-                                                                    <option value="Gr2">Gr2</option>
-                                                                    <option value="Gr3">Gr3</option>
-                                                                    <option value="Gr4">Gr4</option>
-                                                                    <option value="GrB">GrB</option>
-                                                                    <option value="Street">Street</option>
+                                                                    <option value="" className="bg-slate-800">Sin categoría</option>
+                                                                    {(champCategories.length > 0
+                                                                        ? champCategories
+                                                                        : ['Gr1', 'Gr2', 'Gr3', 'Gr4', 'GrB', 'Street']
+                                                                    ).map(cat => (
+                                                                        <option key={cat} value={cat} className="bg-slate-800">{cat}</option>
+                                                                    ))}
                                                                 </select>
                                                                 <button
                                                                     onClick={() => handleRemoveDriver(driverIndex)}
@@ -1028,12 +1041,13 @@ function TeamsTab({ championshipId, teams, tracks, editMode, onUpdate }) {
                                     onChange={(e) => setNewDriver({ ...newDriver, category: e.target.value })}
                                     className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white"
                                 >
-                                    <option value="Gr1">Gr1</option>
-                                    <option value="Gr2">Gr2</option>
-                                    <option value="Gr3">Gr3</option>
-                                    <option value="Gr4">Gr4</option>
-                                    <option value="GrB">GrB</option>
-                                    <option value="Street">Street</option>
+                                    <option value="" className="bg-slate-800">Sin categoría</option>
+                                    {(champCategories.length > 0
+                                        ? champCategories
+                                        : ['Gr1', 'Gr2', 'Gr3', 'Gr4', 'GrB', 'Street']
+                                    ).map(cat => (
+                                        <option key={cat} value={cat} className="bg-slate-800">{cat}</option>
+                                    ))}
                                 </select>
                             </div>
 
