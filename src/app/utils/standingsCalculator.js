@@ -107,6 +107,8 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             raceFastestLap: [],   // Array de boolean: tuvo vuelta rápida en esa carrera
             racePole: [],         // Array de boolean: tuvo pole en esa carrera
             invalidatedRaces: [], // Array de boolean: puntos anulados por uso de autos
+            categoryWins: 0,      // Victorias dentro de la categoría (multicategoría)
+            categoryPodiums: 0,   // Podiums dentro de la categoría (multicategoría)
             penaltyPoints: 0,     // Puntos deducidos por sanciones
             warningPoints: 0,     // Puntos de amonestación acumulados
             penalties: []         // Lista de sanciones aplicadas
@@ -170,6 +172,8 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
                     raceFastestLap: [],
                     racePole: [],
                     invalidatedRaces: [],
+                    categoryWins: 0,
+                    categoryPodiums: 0,
                     penaltyPoints: 0,
                     warningPoints: 0,
                     penalties: []
@@ -177,6 +181,9 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             }
         });
     });
+
+    const isMultiCategory = !!championship.settings?.isMultiCategory;
+    const basePointsSystem = championship.settings?.pointsSystem || {};
 
     // Procesar cada track
     sortedTracks.forEach((track) => {
@@ -212,6 +219,39 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
 
         const isSprint = track.raceType === 'sprint_carrera';
 
+        // ── Puntos por categoría separada (campeonatos multicategoría) ──
+        // Cuando isMultiCategory, los puntos se calculan por ranking intra-categoría:
+        // el 1º de GR1 y el 1º de Gr3 reciben los mismos puntos del pointsSystem,
+        // independientemente de su posición global de llegada.
+        // Esto se aplica SOLO a los racePoints; las posiciones globales se conservan
+        // para estadísticas (wins, podiums, bestPosition) con base en orden de llegada real.
+        let effectivePointsMap = pointsMap;
+        if (isMultiCategory && Object.keys(racePositions).length > 0) {
+            // Agrupar drivers participantes por categoría, resolviendo aliases
+            const byCategory = {};
+            Object.entries(racePositions).forEach(([nameOrAlias, posStr]) => {
+                if (!posStr) return;
+                const canonical = aliasToCanonical[nameOrAlias] || nameOrAlias;
+                const cat = driverStats[canonical]?.category || 'Sin categoría';
+                const pos = parseInt(posStr);
+                if (isNaN(pos)) return; // DNF/DSQ sin número no participan en el ranking intra-cat
+                if (!byCategory[cat]) byCategory[cat] = [];
+                byCategory[cat].push({ canonical, pos });
+            });
+
+            // Por cada categoría, ordenar por posición global y asignar puntos del sistema
+            const catPointsMap = {};
+            Object.values(byCategory).forEach(entries => {
+                entries
+                    .sort((a, b) => a.pos - b.pos)
+                    .forEach(({ canonical }, rankIdx) => {
+                        const rank = rankIdx + 1; // 1-based
+                        catPointsMap[canonical] = basePointsSystem[rank] ?? 0;
+                    });
+            });
+            effectivePointsMap = catPointsMap;
+        }
+
         // Para cada driver, calcular stats de esta carrera
         Object.keys(driverStats).forEach(driverName => {
             const stat = driverStats[driverName];
@@ -229,7 +269,8 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             // Obtener posición de carrera
             const positionStr = fromMap(racePositions, null);
             const position = positionStr ? parseInt(positionStr) : null;
-            const racePoints = fromMap(pointsMap, 0);
+            // En multicategoría usar puntos del ranking intra-categoría; en modo normal usar track.points
+            const racePoints = fromMap(effectivePointsMap, 0);
             const sprintPts = isSprint ? fromMap(sprintPointsMap, 0) : 0;
             const points = racePoints + sprintPts;
 
@@ -238,7 +279,9 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
 
             // Si no participó en esta carrera
             // Si el driver está en track.points (aunque con 0), sí participó — no saltar
-            const isInPointsMap = (driverName in pointsMap) || aliases.some(a => a in pointsMap);
+            // En multicategoría, usar también racePositions para detectar participación
+            const isInPointsMap = (driverName in pointsMap) || aliases.some(a => a in pointsMap)
+                || (isMultiCategory && ((driverName in racePositions) || aliases.some(a => a in racePositions)));
             if (!position && points === 0 && !isInPointsMap) {
                 stat.racePoints.push(null);
                 stat.racePositions.push(null);
@@ -264,14 +307,22 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             stat.races += 1;
 
             if (position) {
-                // Estadísticas basadas en posición
+                // Estadísticas basadas en posición global
                 if (position === 1) stat.wins += 1;
                 if (position <= 3) stat.podiums += 1;
 
-                // Mejor posición
+                // Mejor posición global
                 if (stat.bestPosition === null || position < stat.bestPosition) {
                     stat.bestPosition = position;
                 }
+            }
+
+            // En multicategoría: victorias/podiums dentro de la categoría (por racePoints intra-cat)
+            if (isMultiCategory && !isInvalidated) {
+                const p1 = basePointsSystem[1] ?? 25;
+                const p3 = basePointsSystem[3] ?? 15;
+                if (effectivePoints >= p1) stat.categoryWins += 1;
+                else if (effectivePoints >= p3) stat.categoryPodiums += 1;
             }
 
             // DNF: posición "DNF", "DSQ", o posición > 90
@@ -383,13 +434,27 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             });
 
             // Desglose de puntos por categoría (para campeonatos multicategoría)
+            // En isMultiCategory, wins/podiums se calculan por ranking intra-cat (no global):
+            // una "victoria de categoría" es ser el 1° de tu categoría en esa carrera.
             const byCategory = {};
             teamDriverStats.forEach(d => {
                 const cat = d.category || 'Sin categoría';
                 if (!byCategory[cat]) byCategory[cat] = { points: 0, driver: d.name, wins: 0, podiums: 0 };
                 byCategory[cat].points += d.totalPoints;
-                byCategory[cat].wins += d.wins;
-                byCategory[cat].podiums += d.podiums;
+                if (isMultiCategory) {
+                    // Contar victorias/podiums dentro de categoría según racePoints
+                    // (1° de cat recibe pointsSystem[1], 2° recibe pointsSystem[2], etc.)
+                    const p1 = basePointsSystem[1] ?? 25;
+                    const p3 = basePointsSystem[3] ?? 15;
+                    d.racePoints.forEach(pts => {
+                        if (pts === null) return;
+                        if (pts >= p1) byCategory[cat].wins += 1;
+                        else if (pts >= p3) byCategory[cat].podiums += 1;
+                    });
+                } else {
+                    byCategory[cat].wins += d.wins;
+                    byCategory[cat].podiums += d.podiums;
+                }
             });
 
             return {
