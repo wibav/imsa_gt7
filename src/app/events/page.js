@@ -392,6 +392,12 @@ function EventDetailContent() {
                                     {event.rules.bop !== undefined && (
                                         <RulePill label="BOP" value={event.rules.bop === 'SI' || event.rules.bop === true ? "Sí" : "No"} />
                                     )}
+                                    {(event.rules.bop === 'NO' || event.rules.bop === false) && event.rules.maxPR != null && (
+                                        <RulePill label="Máx. PR" value={event.rules.maxPR} />
+                                    )}
+                                    {(event.rules.bop === 'NO' || event.rules.bop === false) && event.rules.maxCV != null && (
+                                        <RulePill label="Máx. CV" value={event.rules.maxCV} />
+                                    )}
                                     {event.rules.damage && (
                                         <RulePill
                                             label="Daños"

@@ -15,7 +15,7 @@ import {
 
 const DEFAULT_RULES = {
     duration: '', laps: '',
-    bop: 'SI', adjustments: 'NO', engineSwap: 'NO',
+    bop: 'SI', maxPR: null, maxCV: null, adjustments: 'NO', engineSwap: 'NO',
     damage: 'Graves', penalties: 'SI', shortcutPenalty: 'NO', ghostCar: 'NO',
     tyreWear: 5, fuelWear: 0, fuelRefillRate: 10, mandatoryTyres: [],
     mandatoryTyreChange: 'NO', mandatoryPitstops: 0
@@ -648,6 +648,37 @@ function EventForm({ event, onSave, onCancel, saving }) {
                         </div>
                     ))}
                 </div>
+
+                {/* Límites de coche cuando el BoP está desactivado */}
+                {form.rules?.bop === 'NO' && (
+                    <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+                        <p className="text-sm font-semibold text-orange-300 mb-1">🏎️ Límites del coche (BoP desactivado)</p>
+                        <p className="text-xs text-gray-400 mb-3">Define el tope de rendimiento permitido. Deja vacío para no limitar.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className={labelCls}>Límite de PR (Puntos de Rendimiento)</label>
+                                <input
+                                    type="number" min={0} step={1}
+                                    className={`${inputCls} text-sm`}
+                                    placeholder="Sin límite"
+                                    value={form.rules?.maxPR ?? ''}
+                                    onChange={(e) => updateRules('maxPR', e.target.value === '' ? null : Number(e.target.value))}
+                                />
+                            </div>
+                            <div>
+                                <label className={labelCls}>Límite de CV (Caballos)</label>
+                                <input
+                                    type="number" min={0} step={1}
+                                    className={`${inputCls} text-sm`}
+                                    placeholder="Sin límite"
+                                    value={form.rules?.maxCV ?? ''}
+                                    onChange={(e) => updateRules('maxCV', e.target.value === '' ? null : Number(e.target.value))}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div>
                     <label className={labelCls}>Daños</label>
                     <div className="flex gap-2">

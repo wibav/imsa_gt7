@@ -2212,6 +2212,18 @@ export default function ChampionshipDetailPage() {
                                                 <div className="text-white font-semibold">{selectedTrack.rules.bop === 'yes' ? '✅ Activo' : '❌ Desactivado'}</div>
                                             </div>
                                         )}
+                                        {selectedTrack.rules.bop === 'no' && selectedTrack.rules.maxPR != null && (
+                                            <div>
+                                                <div className="text-gray-400 mb-1">🏎️ Límite de PR</div>
+                                                <div className="text-white font-semibold">{selectedTrack.rules.maxPR} PR máx.</div>
+                                            </div>
+                                        )}
+                                        {selectedTrack.rules.bop === 'no' && selectedTrack.rules.maxCV != null && (
+                                            <div>
+                                                <div className="text-gray-400 mb-1">🐎 Límite de CV</div>
+                                                <div className="text-white font-semibold">{selectedTrack.rules.maxCV} CV máx.</div>
+                                            </div>
+                                        )}
                                         {selectedTrack.rules.adjustments && (
                                             <div>
                                                 <div className="text-gray-400 mb-1">🔧 Ajustes de Auto</div>

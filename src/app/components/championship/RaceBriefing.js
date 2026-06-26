@@ -256,6 +256,8 @@ export default function RaceBriefing({ nextRace, championship, progress }) {
                                                 title="Configuración"
                                                 items={[
                                                     bopEnabled ? 'BOP: Activado' : bopDisabled ? 'BOP: Desactivado' : null,
+                                                    bopDisabled && rules.maxPR != null ? `Límite PR: ${rules.maxPR}` : null,
+                                                    bopDisabled && rules.maxCV != null ? `Límite CV: ${rules.maxCV}` : null,
                                                     adjustmentsDisabled ? 'Ajustes: Prohibidos' : adjustmentsEnabled ? 'Ajustes: Permitidos' : null
                                                 ].filter(Boolean)}
                                             />
