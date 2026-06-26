@@ -166,6 +166,8 @@ function getEmptyTrackData(formData) {
             mandatoryCompoundChanges: false,
             mechanicalDamage: 'No',
             bop: 'yes',
+            maxPR: null,
+            maxCV: null,
             adjustments: 'no',
             engineSwap: 'no',
             penalties: 'yes',
@@ -3118,6 +3120,37 @@ export default function ChampionshipForm({ isEditing = false }) {
                                             <label className="block text-sm font-medium text-gray-300 mb-2">⚖️ Balance de Prestaciones (BoP)</label>
                                             {renderSelect(trackFormData.rules.bop, (e) => handleTrackRuleChange('bop', e.target.value), YES_NO)}
                                         </div>
+
+                                        {/* Límites de coche cuando el BoP está desactivado */}
+                                        {trackFormData.rules.bop === 'no' && (
+                                            <div className="md:col-span-2 bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+                                                <p className="text-sm font-semibold text-orange-300 mb-1">🏎️ Límites del coche (BoP desactivado)</p>
+                                                <p className="text-xs text-gray-400 mb-3">Define el tope de rendimiento permitido. Deja vacío para no limitar.</p>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-300 mb-1">Límite de PR (Puntos de Rendimiento)</label>
+                                                        <input
+                                                            type="number" min="0" step="1"
+                                                            value={trackFormData.rules.maxPR ?? ''}
+                                                            onChange={(e) => handleTrackRuleChange('maxPR', e.target.value === '' ? null : Number(e.target.value))}
+                                                            placeholder="Sin límite"
+                                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-gray-300 mb-1">Límite de CV (Caballos)</label>
+                                                        <input
+                                                            type="number" min="0" step="1"
+                                                            value={trackFormData.rules.maxCV ?? ''}
+                                                            onChange={(e) => handleTrackRuleChange('maxCV', e.target.value === '' ? null : Number(e.target.value))}
+                                                            placeholder="Sin límite"
+                                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div>
                                             <label className="block text-sm font-medium text-gray-300 mb-2">🔧 Ajustes del Vehículo</label>
                                             {renderSelect(trackFormData.rules.adjustments, (e) => handleTrackRuleChange('adjustments', e.target.value), YES_NO)}
