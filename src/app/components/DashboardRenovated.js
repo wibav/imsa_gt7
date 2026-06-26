@@ -7,7 +7,6 @@ import Navbar from './Navbar';
 import ChampionshipCard from './ChampionshipCard';
 import EventCard from './EventCard';
 import RegistrationModal from './RegistrationModal';
-import { isInCurrentWeek } from '../utils/dateUtils';
 import { BannerAd } from './ads';
 import LoadingSkeleton from './common/LoadingSkeleton';
 
@@ -62,17 +61,18 @@ export default function DashboardRenovated() {
         }
     };
 
-    // Obtener eventos de la semana actual (usa isInCurrentWeek de utils)
-    // Se filtran los que ya pasaron o están finalizados ("completed")
-    const getWeeklyEvents = () => {
+    // Obtener los próximos eventos (sin importar la semana)
+    // Se excluyen los ya pasados o finalizados ("completed"); se ordenan por fecha ascendente
+    const getUpcomingEvents = () => {
         if (!events || events.length === 0) return [];
         return events
             .filter(ev => {
                 const eventDate = new Date(ev.date + 'T23:59:59'); // final del día
                 const now = new Date();
-                return isInCurrentWeek(ev.date) && ev.status !== 'completed' && eventDate >= now;
+                return ev.status !== 'completed' && eventDate >= now;
             })
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
+            .sort((a, b) => new Date(a.date) - new Date(b.date))
+            .slice(0, 6); // Mostrar los próximos 6 eventos
     };
 
     // Obtener campeonatos visibles (excluir borradores)
@@ -137,7 +137,7 @@ export default function DashboardRenovated() {
         return <LoadingSkeleton variant="page" message="Cargando Dashboard..." />;
     }
 
-    const weeklyEvents = getWeeklyEvents();
+    const upcomingEvents = getUpcomingEvents();
     const activeChampionships = getAllChampionships();
 
     return (
@@ -195,19 +195,19 @@ export default function DashboardRenovated() {
                 {/* Main Content - Full Width */}
                 <div className="space-y-12">
 
-                    {/* SECCIÓN 1: EVENTOS ÚNICOS DE LA SEMANA (solo si hay eventos) */}
-                    {weeklyEvents.length > 0 && (
+                    {/* SECCIÓN 1: PRÓXIMOS EVENTOS (solo si hay eventos) */}
+                    {upcomingEvents.length > 0 && (
                         <>
                             <section>
                                 <div className="flex items-center justify-between mb-6">
                                     <h2 className="text-3xl sm:text-4xl font-bold text-white flex items-center gap-3">
                                         <span className="text-4xl">🎉</span>
-                                        Eventos Únicos de la Semana
+                                        Próximos Eventos
                                     </h2>
                                 </div>
 
                                 <div className="grid md:grid-cols-2 gap-6">
-                                    {weeklyEvents.map(event => (
+                                    {upcomingEvents.map(event => (
                                         <EventCard
                                             key={event.id}
                                             event={event}
@@ -293,7 +293,7 @@ export default function DashboardRenovated() {
                     )}
 
                     {/* Info adicional */}
-                    {(weeklyEvents.length > 0 || activeChampionships.length > 0) && (
+                    {(upcomingEvents.length > 0 || activeChampionships.length > 0) && (
                         <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-400/30 rounded-xl p-6">
                             <div className="flex items-start gap-4">
                                 <div className="text-4xl">ℹ️</div>
