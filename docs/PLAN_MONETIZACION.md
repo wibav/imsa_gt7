@@ -183,9 +183,11 @@ carga**. Requisito: controlar el peso de cada imagen. Enfoques (combinables):
 
 1. **Compresión en el cliente antes de subir** (recomendado, más simple con
    export estático): redimensionar a un ancho máx. (p.ej. 1600px) y recomprimir
-   a JPEG/WebP con calidad ~0.8 usando `<canvas>` o una librería ligera
+   a JPEG/WebP usando `<canvas>` o una librería ligera
    (`browser-image-compression`). El usuario sube "pesado", pero se guarda
-   liviano (típicamente 200–500 KB). Ya se usa un patrón de subida en
+   liviano. **Objetivo de peso final: entre 500 KB y 800 KB** (buen equilibrio
+   entre calidad visual del banner y consumo de Storage/ancho de banda); se ajusta
+   iterando la calidad hasta caer en ese rango. Ya se usa un patrón de subida en
    `TrackFormModal`/`eventsAdmin`; se centraliza en un helper `compressImage()`.
 2. **Límite duro de tamaño**: rechazar > N MB antes de subir (hoy ya hay checks
    de 5 MB en algunos formularios; unificarlos y bajarlos).
@@ -201,9 +203,10 @@ carga**. Requisito: controlar el peso de cada imagen. Enfoques (combinables):
 
 ## 3. Cobro y suscripciones
 
-- **Stripe** (recomendado): Checkout + Billing (suscripciones) + Customer Portal
-  (el cliente gestiona su tarjeta/plan). **Webhook** (Cloud Function
-  `stripeWebhook`) actualiza `organizations/{id}.status` y límites.
+### 3.1 Mecánica técnica
+- **Stripe**: Checkout + Billing (suscripciones) + Customer Portal (el cliente
+  gestiona su tarjeta/plan). **Webhook** (Cloud Function `stripeWebhook`)
+  actualiza `organizations/{id}.status` y límites.
 - Estados que el webhook debe manejar: alta, pago exitoso, fallo de pago
   (dunning → `past_due`), cancelación → `suspended` (datos en solo lectura, no
   se borran de inmediato).
@@ -211,9 +214,42 @@ carga**. Requisito: controlar el peso de cada imagen. Enfoques (combinables):
   prueba consumible. Se marca en la organización (`freeTrialUsed: true`) al crear
   su primer campeonato/evento; para crear más o volver a activar, hay que
   suscribirse a un plan de pago.
-- **LATAM**: Mercado Pago como pasarela alterna (tarjeta local, OXXO, etc.).
 - **Enforcement de límites**: doble capa — UI (ocultar/avisar) + Security Rules /
   Functions (impedir crear por encima del plan).
+
+### 3.2 Situación fiscal/legal (Portugal, sin empresa) — importante
+> Nota: orientación general, **no es asesoría fiscal**. Confirmar con un
+> *contabilista certificado* en Portugal.
+
+**¿Necesitas una empresa para usar Stripe? No.** Stripe opera en Portugal y
+acepta **cuentas de particular / trabajador independiente** (no exige sociedad).
+Te registras con tu **NIF** e **IBAN**. Pero hay dos capas distintas:
+
+1. **Cobrar** (Stripe): puede hacerlo un particular. Fácil.
+2. **Facturar y declarar legalmente** ese ingreso en Portugal: como particular
+   necesitarías **"abrir atividade"** como *trabalhador independente* (categoria
+   B) para emitir facturas/recibos, y gestionar **IVA**. Vender un SaaS digital a
+   clientes de otros países de la UE activa obligaciones de **IVA transfronterizo
+   (régimen OSS)** aunque debajo de cierto umbral haya exenciones internas. Aquí
+   es donde la carga administrativa crece para un solo dev.
+
+**Recomendación pragmática — Merchant of Record (MoR):** para empezar en solitario
+y sin empresa, una pasarela tipo **Merchant of Record** simplifica enormemente lo
+fiscal. El MoR es *el vendedor legal* ante tu cliente: **cobra, calcula y remite
+el IVA/impuestos de cada país por ti, emite las facturas** y te paga a ti como
+proveedor. Opciones:
+- **Lemon Squeezy** (hoy parte de Stripe) — MoR, ideal para SaaS indie.
+- **Paddle** — MoR consolidado para software/SaaS.
+- Coste: comisión mayor que Stripe puro (~5% + fees vs ~2.9% + €0,25), a cambio
+  de **quitarte el IVA internacional y la facturación de encima**.
+
+**Camino sugerido:**
+- **Fase inicial (solo, sin empresa):** usar un **MoR (Lemon Squeezy/Paddle)** →
+  cobras global sin lidiar con IVA-OSS ni facturación multi-país. Igual conviene
+  "abrir atividade" para declarar en Portugal el ingreso que el MoR te paga.
+- **Más adelante (con volumen/empresa):** migrar a **Stripe directo** para bajar
+  comisiones, ya con contabilista y estructura (particular con atividade o
+  sociedad unipessoal, según recomiende el contabilista).
 
 ---
 
@@ -279,26 +315,36 @@ suspender/reactivar, métricas (MRR, churn, activación).
 
 ## 8. Decisiones ya tomadas y pendientes
 
-**Ya decidido (esta iteración):**
+**Ya decidido:**
 - Planes: **Free (prueba única, 1 campeonato/evento, 15 pilotos)**, **Starter**,
   **Pro (logo/colores + URL propia por path)**. **Elite descartado.**
 - Routing: **URL por path** `imsa.trenkit.com/mi-liga` (viable en static export,
   con lista de palabras reservadas). Sin subdominios ni SSR por ahora.
 - Fase 0 incluye **Firebase Admin en Cloud Functions** y **control de peso de
-  banners**.
+  banners** (objetivo **500–800 KB**).
+- Pasarela: **Stripe** como preferencia; se evaluará **Merchant of Record**
+  (Lemon Squeezy/Paddle) para arrancar en solitario sin empresa (ver §3.2).
 
-**Pendiente de definir:**
-1. **¿Vender ya o validar primero?** ¿Fase 0–2 + piloto manual con 1–2 ligas
-   conocidas, o directo al SaaS completo con billing?
-2. **Pasarela**: ¿Stripe, Mercado Pago, o ambas? ¿Moneda y precios finales
-   (rangos: Starter $9–15, Pro $29–39)?
-3. **Formato de URL propia**: ¿raíz `imsa.trenkit.com/mi-liga` (más limpia, exige
-   palabras reservadas) o con prefijo `imsa.trenkit.com/l/mi-liga` (más segura)?
-4. **Slug del path**: ¿libre por el cliente, sujeto a aprobación, o derivado del
-   nombre de la liga?
+**Pendiente de definir** (respuestas para cerrar el plan):
+1. **Estrategia de lanzamiento**: ¿validar primero (Fase 0–2 + piloto manual con
+   1–2 ligas conocidas) o ir directo al SaaS con billing self-service?
+2. **Pasarela definitiva**: ¿arrancamos con **MoR (Lemon Squeezy/Paddle)** por lo
+   fiscal, o **Stripe directo** asumiendo abrir atividade + IVA desde el inicio?
+3. **Formato de URL propia**: ¿raíz `/mi-liga` (limpia, exige palabras
+   reservadas) o prefijo `/l/mi-liga` (más segura de implementar)?
+4. **Asignación del slug**: ¿libre por el cliente, con aprobación tuya, o
+   derivado automáticamente del nombre de la liga?
+5. **¿Mantener el plan Starter**, o simplificar a solo **Free + Pro**?
+6. **Precios y moneda finales**: rangos actuales Starter €/$9–15, Pro €/$29–39;
+   ¿EUR (resides en Portugal) o USD? ¿Cobro mensual, anual, o ambos?
+7. **Roles**: ¿los nombres Owner / Admin / Comisario / Piloto te sirven, o
+   quieres otra nomenclatura (p.ej. "Organizador", "Director de liga")?
+8. **Marca del producto**: ¿nombre propio para el SaaS (separado de "IMSA GT7")
+   o se comercializa bajo "trenkit"?
+9. **Alcance de un solo juego**: ¿GT7 únicamente por ahora, o el modelo de datos
+   debe dejar la puerta abierta a otros juegos (ACC, iRacing) desde el diseño?
 
-> Mi recomendación: **empezar por la Fase 0** cuanto antes —`firestore.rules`,
-> Firebase Admin para roles/claims (reemplazando `ADMIN_EMAILS`), y el control de
-> peso de banners—. Es la base de todo, reduce el riesgo actual de tu propia
-> comunidad, y es prerrequisito ineludible para cobrarle a cualquiera. El control
-> de banners además puedes aprovecharlo ya mismo aunque no monetices.
+> Recomendación de arranque: **Fase 0** ya —`firestore.rules`, Firebase Admin
+> para roles/claims (reemplazando `ADMIN_EMAILS`) y control de peso de banners—.
+> Es la base de todo y el control de banners lo aprovechas hoy mismo aunque aún
+> no monetices.
