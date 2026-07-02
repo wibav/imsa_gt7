@@ -13,6 +13,10 @@
         "function": "convert_to_gt_svg"
       },
       {
+        "source": "/api/notify",
+        "function": "notify"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

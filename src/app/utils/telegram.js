@@ -56,6 +56,19 @@ export function notifyClaimResolved({ championshipName, status, reporterName, ac
     );
 }
 
+export function notifyEventRegistration({ eventTitle, gt7Id, psnId, name, waitlisted, position }) {
+    const driver = gt7Id || name || psnId || 'Piloto';
+    const psnInfo = psnId && psnId !== driver ? ` (PSN: ${psnId})` : '';
+    const header = waitlisted
+        ? `⏳ <b>Reserva en evento</b> (lista de espera #${position})`
+        : `🎉 <b>Nueva inscripción a evento</b>`;
+    return sendTelegramNotification(
+        `${header}\n` +
+        `📅 ${eventTitle}\n` +
+        `🎮 ${driver}${psnInfo}`
+    );
+}
+
 export function notifyRegistrationUpdated({ championshipName, driverName, psnId, status }) {
     const statusEmoji = status === 'approved' ? '✅' : status === 'rejected' ? '❌' : '⏳';
     const statusLabel = status === 'approved' ? 'Aprobado' : status === 'rejected' ? 'Rechazado' : 'Pendiente';

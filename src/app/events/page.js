@@ -7,6 +7,7 @@ import Navbar from "../components/Navbar";
 import RegistrationModal from "../components/RegistrationModal";
 import DynamicOGTags from "../components/DynamicOGTags";
 import ExportableEventResults from "../components/ExportableEventResults";
+import { notifyEventRegistration } from "../utils/telegram";
 import {
     EVENT_STATUSES,
     EVENT_CATEGORIES,
@@ -69,6 +70,16 @@ function EventDetailContent() {
             } else {
                 setRegistrationMessage("✅ ¡Inscripción exitosa! Bienvenido al evento.");
             }
+
+            // Notificar al admin vía Telegram (best-effort)
+            notifyEventRegistration({
+                eventTitle: event?.title || 'Evento',
+                gt7Id: participantData.gt7Id,
+                psnId: participantData.psnId,
+                name: participantData.name,
+                waitlisted: result.waitlisted,
+                position: result.position,
+            });
         } catch (error) {
             const errorMessage = error.message || "Error al inscribirse. Intenta de nuevo.";
             setRegistrationMessage(`❌ ${errorMessage}`);

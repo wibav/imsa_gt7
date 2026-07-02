@@ -9,6 +9,7 @@ import EventCard from './EventCard';
 import RegistrationModal from './RegistrationModal';
 import { BannerAd } from './ads';
 import LoadingSkeleton from './common/LoadingSkeleton';
+import { notifyEventRegistration } from '../utils/telegram';
 
 export default function DashboardRenovated() {
     const [events, setEvents] = useState([]);
@@ -115,6 +116,16 @@ export default function DashboardRenovated() {
             } else {
                 setRegistrationMessage("✅ ¡Inscripción exitosa! Bienvenido al evento.");
             }
+
+            // Notificar al admin vía Telegram (best-effort)
+            notifyEventRegistration({
+                eventTitle: selectedEvent?.title || 'Evento',
+                gt7Id: participantData.gt7Id,
+                psnId: participantData.psnId,
+                name: participantData.name,
+                waitlisted: result.waitlisted,
+                position: result.position,
+            });
 
             // Recargar eventos para actualizar la lista de participantes
             await fetchData();

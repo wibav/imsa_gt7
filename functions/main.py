@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import traceback as tb
+import urllib.error
+import urllib.request
 from io import BytesIO
 
 from firebase_functions import https_fn
@@ -275,6 +278,75 @@ def convert_to_gt_svg(req: https_fn.Request) -> https_fn.Response:
             {'error': f'Unhandled exception: {exc}', 'traceback': tb.format_exc()},
             status_code=500,
         )
+
+
+# ─── Notificaciones de Telegram ──────────────────────────────────────────────
+# El token vive como secreto del servidor (Secret Manager) y NUNCA se expone al
+# cliente ni al bundle estático. El sitio (export estático) llama a /api/notify,
+# que Firebase Hosting reescribe a esta función.
+
+_TELEGRAM_API = 'https://api.telegram.org'
+_DEFAULT_CHAT_ID = '49018768'   # destino no sensible; el token es lo secreto
+
+_NOTIFY_CORS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+
+def _notify_json(payload: dict, status_code: int = 200) -> https_fn.Response:
+    return https_fn.Response(
+        json.dumps(payload),
+        status=status_code,
+        headers={**_NOTIFY_CORS, 'Content-Type': 'application/json'},
+    )
+
+
+@https_fn.on_request(region='us-central1', secrets=['TELEGRAM_BOT_TOKEN'])
+def notify(req: https_fn.Request) -> https_fn.Response:
+    if req.method == 'OPTIONS':
+        return https_fn.Response('', status=204, headers=_NOTIFY_CORS)
+
+    if req.method != 'POST':
+        return _notify_json({'ok': False, 'error': 'Method not allowed'}, 405)
+
+    token = os.environ.get('TELEGRAM_BOT_TOKEN')
+    chat_id = os.environ.get('TELEGRAM_CHAT_ID', _DEFAULT_CHAT_ID)
+    if not token:
+        return _notify_json({'ok': False, 'error': 'Telegram not configured'}, 500)
+
+    body = req.get_json(silent=True) or {}
+    text = body.get('text')
+    if not text or not isinstance(text, str):
+        return _notify_json({'ok': False, 'error': 'Missing or invalid text field'}, 400)
+
+    payload = json.dumps({
+        'chat_id': chat_id,
+        'text': text,
+        'parse_mode': 'HTML',
+        'disable_web_page_preview': True,
+    }).encode('utf-8')
+
+    tg_req = urllib.request.Request(
+        f'{_TELEGRAM_API}/bot{token}/sendMessage',
+        data=payload,
+        headers={'Content-Type': 'application/json'},
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(tg_req, timeout=10) as resp:
+            ok = 200 <= resp.status < 300
+        return _notify_json({'ok': ok}, 200 if ok else 502)
+    except urllib.error.HTTPError as exc:
+        # Telegram respondió con un error (p.ej. 400 "chat not found", 401 token inválido)
+        try:
+            detail = json.loads(exc.read().decode('utf-8')).get('description', str(exc))
+        except Exception:
+            detail = str(exc)
+        return _notify_json({'ok': False, 'error': f'Telegram: {detail}'}, 502)
+    except urllib.error.URLError:
+        return _notify_json({'ok': False, 'error': 'Failed to reach Telegram'}, 502)
 
 
 def _handle_request(req: https_fn.Request) -> https_fn.Response:
