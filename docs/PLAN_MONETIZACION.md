@@ -46,11 +46,14 @@ campeonatos activos, pilotos, admins, comisarios, branding) definen el precio.
 
 ### 1.4 Planes sugeridos
 
-| Plan | Precio ref. (USD/mes) | Campeonatos/eventos | Pilotos | Admins | Comisarios | Branding | URL propia |
+| Plan | Precio ref. (EUR/mes) | Campeonatos/eventos | Pilotos | Admins | Comisarios | Branding | URL propia |
 |------|----------------------|---------------------|---------|--------|-----------|----------|-----------|
-| **Free (prueba única)** | 0 — **una sola vez** | **1 campeonato O 1 evento** | **15** (máx.) | 1 | 1 | "Powered by" visible | No |
-| **Starter** | 9–15 | 3 activos | 60 | 3 | 5 | "Powered by" visible | No |
-| **Pro** | 29–39 | Ilimitados | 200 | 10 | 15 | **Logo + colores propios** | **Sí: `imsa.trenkit.com/mi-liga`** |
+| **Free (prueba única)** | 0 € — **una sola vez** | **1 campeonato O 1 evento** | **15** (máx.) | 1 | 1 | "Powered by" visible | No |
+| **Starter** | 9–15 € | 3 activos | 60 | 3 | 5 | "Powered by" visible | No |
+| **Pro** | 29–39 € | Ilimitados | 200 | 10 | 15 | **Logo + colores propios** | **Sí: `trenkit.com/l/mi-liga`** |
+
+- **Moneda: EUR** (resides en Portugal). **Ciclos: mensual y anual** (anual con
+  descuento, ~2 meses gratis).
 
 **Notas de diseño de planes:**
 - **Free = prueba única, no recurrente.** Cada cuenta/organización puede usar el
@@ -110,12 +113,22 @@ pasa a `memberships`.
 ### 2.3 Identidad y roles — org-scoped con Custom Claims
 Hoy: `isAdmin` = email en lista hardcodeada; `comisario` en `userRoles` global.
 
-Nuevo modelo de roles **por organización**:
-- **Platform Owner** (tú): super-admin global, gestiona todas las orgs y billing.
-- **Org Owner**: dueño de la liga (quien paga). Gestiona su org y su equipo.
-- **Org Admin**: administra campeonatos/eventos de su org.
+**Nomenclatura de roles (definida):**
+
+- **Administrador de Plataforma** (👑 *tú, dueño de la web*): super-admin global,
+  **por encima de todas las organizaciones**. Gestiona las orgs, el billing, y
+  puede suspender/reactivar. Es un rol de plataforma, no pertenece a ninguna org.
+
+Dentro de cada organización (liga/club):
+- **Organizador**: dueño de la liga/club (quien paga la suscripción). Gestiona su
+  organización, su branding, su facturación y a su equipo.
+- **Director de liga**: administra campeonatos/eventos dentro de la org (equivale
+  al "admin" actual, pero acotado a su organización).
 - **Comisario**: revisa resultados, sanciones y reclamaciones de su org.
 - **Piloto / usuario**: se inscribe y consulta.
+
+> Jerarquía: **Administrador de Plataforma (tú)** › Organizador › Director de liga
+> › Comisario › Piloto.
 
 Implementación: `memberships/{uid}_{orgId}` con `{ uid, orgId, role }` + **Firebase
 Custom Claims** (`{ orgId, role }`) inyectados por Cloud Function al invitar/loguear.
@@ -155,16 +168,19 @@ cliente:
 2. Lo resuelva contra `organizations` (buscar por `slug`).
 3. Cargue esa organización como tenant activo (y aplique su branding).
 
-**Caveat clave — palabras reservadas**: como el slug va en la raíz, colisiona con
-las rutas del sistema (`/pilots`, `/events`, `/championships`, `/reglamento`,
-`/tools`, `/admin`, `/login`, `/equipamiento`, `/api`, …). Solución: mantener una
-**lista de rutas reservadas**; si el primer segmento está en la lista, es una
-ruta del sistema; si no, se trata como slug de organización. Al crear una org se
-**valida el slug contra esa lista** (y unicidad) para evitar choques.
+**Decisión: URL con prefijo** — `trenkit.com/l/hispania-game-team`.
+Se usa un prefijo (`/l/`) para que el slug **nunca colisione** con las rutas del
+sistema (`/pilots`, `/events`, `/championships`, `/admin`, `/api`, …). Es la
+opción más segura de implementar sobre el export estático: un rewrite del tipo
+`/l/** → /index.html` y el cliente lee el slug tras `/l/` y resuelve la
+organización. (El prefijo exacto `/l/` es cosmético y ajustable.)
 
-**Alternativa más segura de implementar**: usar un prefijo, ej.
-`imsa.trenkit.com/l/hispania-game-team` (o `/liga/...`), que elimina el riesgo de
-colisión con rutas del sistema a cambio de una URL un poco menos limpia.
+**Slug elegido por el cliente** (decidido): al crear su organización, el
+Organizador escribe su propio slug (típicamente el nombre de su equipo/club, ej.
+`hispania-game-team`). Validaciones al crear:
+- **Unicidad** global (no puede haber dos orgs con el mismo slug).
+- **Formato**: minúsculas, números y guiones; sin espacios ni acentos.
+- **Longitud** mínima/máxima y lista de slugs prohibidos (marca, insultos, etc.).
 
 > A futuro, si se quisieran **subdominios** (`hispania.trenkit.com`) o **dominios
 > propios**, ahí sí convendría evaluar migrar a **SSR (Firebase App Hosting /
@@ -251,6 +267,12 @@ proveedor. Opciones:
   comisiones, ya con contabilista y estructura (particular con atividade o
   sociedad unipessoal, según recomiende el contabilista).
 
+> **Estado (a resolver por ti):** revisar los requisitos de registro de
+> **Lemon Squeezy** y **Paddle** (qué datos/entidad piden a un residente en
+> Portugal sin empresa) para elegir. Como el lanzamiento es **validar primero**
+> (ver §6), el billing self-service no es urgente: se puede cobrar el piloto de
+> forma **manual** (link de pago) mientras se decide la pasarela definitiva.
+
 ---
 
 ## 4. Onboarding self-service
@@ -267,7 +289,7 @@ suspender/reactivar, métricas (MRR, churn, activación).
 
 ## 5. Branding (plan Pro)
 - **Pro**: logo y colores propios, nombre, favicon, imágenes OG dinámicas, y
-  **URL propia por path** (`imsa.trenkit.com/mi-liga`, ver §2.5).
+  **URL propia por path** (`trenkit.com/l/mi-liga`, ver §2.5).
 - **Free/Starter**: mantienen el "Powered by" y la URL genérica.
 - El generador de OG (ya existe pipeline) se parametriza por org.
 - Dominio propio / subdominio: **fuera de alcance** (Elite descartado).
@@ -285,9 +307,14 @@ suspender/reactivar, métricas (MRR, churn, activación).
 | **4. Billing** | Cobrar | Stripe Checkout + Portal + `stripeWebhook`, planes y límites aplicados (incl. Free de un solo uso) | Medio-Alto |
 | **5. Onboarding self-service** | Escalar sin ti | Registro→crea org→prueba→asistente, panel Platform Owner | Medio |
 
-> Se puede **vender antes de la Fase 5**: con 0–4 ya tienes un SaaS cobrando.
-> Incluso se puede hacer un **piloto "manual"** (onboarding a mano) tras Fase 2–3
-> para validar demanda antes de construir billing self-service.
+> **Estrategia decidida: VALIDAR PRIMERO.** No construir billing self-service de
+> entrada. Secuencia:
+> 1. **Fase 0** (blindaje: rules, Firebase Admin, banners) — base y beneficio hoy.
+> 2. **Fase 1–2** (modelo de Org + auth aislada) — poder tener varias ligas.
+> 3. **Piloto manual** con 1–2 ligas conocidas: onboarding a mano y **cobro
+>    manual** (link de pago), para validar que pagan y que el aislamiento aguanta.
+> 4. Solo si el piloto valida: **Fase 3 (branding/URL)**, luego **Fase 4 (billing
+>    self-service)** y **Fase 5 (onboarding self-service)**.
 
 ---
 
@@ -309,42 +336,36 @@ suspender/reactivar, métricas (MRR, churn, activación).
   personales (emails/PSN IDs), y procesamiento de pagos (PCI lo cubre Stripe).
 - **Soporte y SLA**: definir canal y expectativas por plan; el soporte es el
   costo humano real del SaaS.
-- **Marca / IP**: nombre del producto propio, separado de "IMSA GT7".
+- **Marca / IP**: el producto se comercializa **bajo "trenkit"** (decidido). La
+  comunidad actual (IMSA) pasa a ser la **organización #1** dentro de trenkit.
+- **Alcance de juego**: **solo GT7** por ahora (decidido). No se invierte en
+  soportar otros juegos, aunque el modelo de datos no debería impedirlo a futuro.
 
 ---
 
 ## 8. Decisiones ya tomadas y pendientes
 
-**Ya decidido:**
-- Planes: **Free (prueba única, 1 campeonato/evento, 15 pilotos)**, **Starter**,
-  **Pro (logo/colores + URL propia por path)**. **Elite descartado.**
-- Routing: **URL por path** `imsa.trenkit.com/mi-liga` (viable en static export,
-  con lista de palabras reservadas). Sin subdominios ni SSR por ahora.
-- Fase 0 incluye **Firebase Admin en Cloud Functions** y **control de peso de
-  banners** (objetivo **500–800 KB**).
-- Pasarela: **Stripe** como preferencia; se evaluará **Merchant of Record**
-  (Lemon Squeezy/Paddle) para arrancar en solitario sin empresa (ver §3.2).
+**Todo decidido:**
+1. **Estrategia: validar primero** (Fase 0–2 → piloto manual con 1–2 ligas →
+   luego billing/self-service). Ver §6.
+2. **Planes: Free (prueba única, 1 campeonato/evento, 15 pilotos) + Starter +
+   Pro.** Elite descartado. Se mantiene Starter.
+3. **Moneda EUR**, ciclos **mensual y anual**.
+4. **Routing: URL con prefijo** `trenkit.com/l/mi-liga`. **Slug elegido por el
+   cliente** (su equipo/club), validado (único, formato, prohibidos).
+5. **Roles: Administrador de Plataforma (tú) › Organizador › Director de liga ›
+   Comisario › Piloto.**
+6. **Marca: trenkit.** IMSA será la organización #1.
+7. **Solo GT7** por ahora.
+8. **Fase 0** incluye `firestore.rules` + **Firebase Admin** (claims/roles,
+   reemplaza `ADMIN_EMAILS`) + **compresión de banners a 500–800 KB**.
 
-**Pendiente de definir** (respuestas para cerrar el plan):
-1. **Estrategia de lanzamiento**: ¿validar primero (Fase 0–2 + piloto manual con
-   1–2 ligas conocidas) o ir directo al SaaS con billing self-service?
-2. **Pasarela definitiva**: ¿arrancamos con **MoR (Lemon Squeezy/Paddle)** por lo
-   fiscal, o **Stripe directo** asumiendo abrir atividade + IVA desde el inicio?
-3. **Formato de URL propia**: ¿raíz `/mi-liga` (limpia, exige palabras
-   reservadas) o prefijo `/l/mi-liga` (más segura de implementar)?
-4. **Asignación del slug**: ¿libre por el cliente, con aprobación tuya, o
-   derivado automáticamente del nombre de la liga?
-5. **¿Mantener el plan Starter**, o simplificar a solo **Free + Pro**?
-6. **Precios y moneda finales**: rangos actuales Starter €/$9–15, Pro €/$29–39;
-   ¿EUR (resides en Portugal) o USD? ¿Cobro mensual, anual, o ambos?
-7. **Roles**: ¿los nombres Owner / Admin / Comisario / Piloto te sirven, o
-   quieres otra nomenclatura (p.ej. "Organizador", "Director de liga")?
-8. **Marca del producto**: ¿nombre propio para el SaaS (separado de "IMSA GT7")
-   o se comercializa bajo "trenkit"?
-9. **Alcance de un solo juego**: ¿GT7 únicamente por ahora, o el modelo de datos
-   debe dejar la puerta abierta a otros juegos (ACC, iRacing) desde el diseño?
+**Único punto abierto (lo investigas tú):**
+- **Pasarela definitiva**: revisar requisitos de registro de **Lemon Squeezy** y
+  **Paddle** (MoR) para un residente en Portugal sin empresa, y elegir. No
+  bloquea el arranque: el piloto se cobra manualmente (link de pago) mientras
+  tanto.
 
-> Recomendación de arranque: **Fase 0** ya —`firestore.rules`, Firebase Admin
-> para roles/claims (reemplazando `ADMIN_EMAILS`) y control de peso de banners—.
-> Es la base de todo y el control de banners lo aprovechas hoy mismo aunque aún
-> no monetices.
+> Siguiente paso técnico recomendado: arrancar **Fase 0**, empezando por el
+> **control de peso de banners (500–800 KB)** —bajo riesgo y útil desde hoy— y
+> luego `firestore.rules` + Firebase Admin para roles.
