@@ -1,10 +1,11 @@
 /**
  * Test de las Firestore Security Rules (firestore.rules) contra el emulador.
+ * Fase 2: roles org-scoped ({ orgs: { [orgId]: role } }, platformOwner).
  *
  * Uso: firebase emulators:exec --only firestore "node scripts/test-firestore-rules.mjs"
  *
  * No requiere credenciales de producción — corre 100% contra el emulador local.
- * Ver: Notas/Proyectos/GT7 Championships/03-PLAN-PRUEBAS-REGRESION.md (F)
+ * Ver: Notas/Proyectos/GT7 Championships/03-PLAN-PRUEBAS-REGRESION.md (F, G)
  */
 import { readFileSync } from 'fs';
 import {
@@ -40,13 +41,22 @@ async function main() {
         },
     });
 
-    // Sembrar datos base (sin pasar por rules, como admin) para tener algo que leer/actualizar
+    // Sembrar datos base (sin pasar por rules, como admin) — dos
+    // organizaciones distintas para probar aislamiento real.
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
         const db = ctx.firestore();
         await db.doc('championships/champ1').set({
             orgId: 'gt7-esp',
-            name: 'Test Championship',
+            name: 'Test Championship GT7 ESP',
             categories: ['Gr1'],
+            settings: { pointsSystem: {} },
+            drivers: [],
+            registrations: [],
+        });
+        await db.doc('championships/champOtraOrg').set({
+            orgId: 'otra-org',
+            name: 'Test Championship Otra Org',
+            categories: ['Gr3'],
             settings: { pointsSystem: {} },
             drivers: [],
             registrations: [],
@@ -59,26 +69,33 @@ async function main() {
             maxParticipants: 2,
         });
         await db.doc('teams/team1').set({ orgId: 'gt7-esp', name: 'Equipo Semilla' });
-        await db.doc('userRoles/admin__at__test_com').set({ email: 'admin@test.com', role: 'admin' });
         await db.doc('organizations/gt7-esp').set({
             name: 'GT7 ESP',
             slug: 'gt7-esp',
             reglamento: { sections: [{ id: 'conducta', title: 'Conducta' }] },
         });
+        await db.doc('organizations/otra-org').set({ name: 'Otra Org', slug: 'otra-org' });
+        await db.doc('memberships/uidComisario_gt7-esp').set({
+            uid: 'uidComisario', orgId: 'gt7-esp', role: 'comisario', email: 'c@test.com',
+        });
     });
 
     const anon = testEnv.unauthenticatedContext().firestore();
     const noClaim = testEnv.authenticatedContext('user1').firestore();
-    const admin = testEnv.authenticatedContext('adminUser', { admin: true }).firestore();
-    const comisario = testEnv.authenticatedContext('comisarioUser', { comisario: true }).firestore();
-    const platformOwner = testEnv.authenticatedContext('platformOwnerUser', { admin: true, platformOwner: true }).firestore();
+    // Roles org-scoped para GT7 ESP:
+    const dirLiga = testEnv.authenticatedContext('dirLigaUser', { orgs: { 'gt7-esp': 'director_liga' } }).firestore();
+    const organizador = testEnv.authenticatedContext('organizadorUser', { orgs: { 'gt7-esp': 'organizador' } }).firestore();
+    const comisario = testEnv.authenticatedContext('uidComisario', { orgs: { 'gt7-esp': 'comisario' } }).firestore();
+    // Un admin de OTRA organización — no debe poder tocar nada de gt7-esp.
+    const dirLigaOtraOrg = testEnv.authenticatedContext('dirLigaOtraOrgUser', { orgs: { 'otra-org': 'director_liga' } }).firestore();
+    const platformOwner = testEnv.authenticatedContext('platformOwnerUser', { platformOwner: true }).firestore();
 
-    // ── championships ──
+    // ── championships (org-scoped) ──
     await check('Anónimo puede LEER championships', () =>
         assertSucceeds(anon.doc('championships/champ1').get()));
 
     await check('Anónimo NO puede crear un championship', () =>
-        assertFails(anon.doc('championships/champ2').set({ name: 'Hack' })));
+        assertFails(anon.doc('championships/champ2').set({ orgId: 'gt7-esp', name: 'Hack' })));
 
     await check('Anónimo puede actualizar SOLO el campo registrations (inscripción pública)', () =>
         assertSucceeds(anon.doc('championships/champ1').update({ registrations: [{ gt7Id: 'x' }] })));
@@ -89,39 +106,58 @@ async function main() {
             drivers: [{ name: 'hack' }],
         })));
 
-    await check('Admin puede actualizar cualquier campo de championships', () =>
-        assertSucceeds(admin.doc('championships/champ1').update({ name: 'Actualizado por admin' })));
+    await check('director_liga de GT7 ESP puede actualizar campeonatos de GT7 ESP', () =>
+        assertSucceeds(dirLiga.doc('championships/champ1').update({ name: 'Actualizado' })));
 
-    await check('Comisario (sin admin) NO puede editar campos generales del championship', () =>
+    await check('organizador de GT7 ESP puede actualizar campeonatos de GT7 ESP', () =>
+        assertSucceeds(organizador.doc('championships/champ1').update({ name: 'Actualizado 2' })));
+
+    await check('comisario (sin director_liga/organizador) NO puede editar campos generales', () =>
         assertFails(comisario.doc('championships/champ1').update({ name: 'Hack comisario' })));
 
     await check('Usuario sin claim NO puede editar championships', () =>
         assertFails(noClaim.doc('championships/champ1').update({ name: 'Hack user' })));
 
-    await check('Admin NO puede crear un championship con orgId de otra organización', () =>
-        assertFails(admin.doc('championships/champWrongOrg').set({ orgId: 'otra-org', name: 'X' })));
+    await check('director_liga NO puede crear un championship con orgId de otra organización', () =>
+        assertFails(dirLiga.doc('championships/champWrongOrg').set({ orgId: 'otra-org', name: 'X' })));
 
-    await check('Admin NO puede reasignar el orgId de un championship existente', () =>
-        assertFails(admin.doc('championships/champ1').update({ orgId: 'otra-org' })));
+    await check('director_liga NO puede reasignar el orgId de un championship existente', () =>
+        assertFails(dirLiga.doc('championships/champ1').update({ orgId: 'otra-org' })));
 
-    // ── penalties / claims (subcolecciones) ──
-    await check('Comisario puede crear una sanción (penalties)', () =>
+    // ── AISLAMIENTO REAL ENTRE ORGANIZACIONES (el caso que motivó Fase 2) ──
+    await check('director_liga de OTRA organización NO puede editar campeonatos de GT7 ESP', () =>
+        assertFails(dirLigaOtraOrg.doc('championships/champ1').update({ name: 'Hack cross-org' })));
+
+    await check('director_liga de GT7 ESP NO puede editar campeonatos de OTRA organización', () =>
+        assertFails(dirLiga.doc('championships/champOtraOrg').update({ name: 'Hack cross-org 2' })));
+
+    await check('director_liga de OTRA organización SÍ puede editar sus propios campeonatos', () =>
+        assertSucceeds(dirLigaOtraOrg.doc('championships/champOtraOrg').update({ name: 'Editado por su dueño' })));
+
+    // ── penalties / claims (subcolecciones, heredan orgId del padre) ──
+    await check('comisario de GT7 ESP puede crear una sanción en un campeonato de GT7 ESP', () =>
         assertSucceeds(comisario.doc('championships/champ1/penalties/p1').set({ driver: 'x', points: 5 })));
 
-    await check('Admin puede crear una reclamación (claims)', () =>
-        assertSucceeds(admin.doc('championships/champ1/claims/c1').set({ status: 'pending' })));
+    await check('director_liga de GT7 ESP puede crear una reclamación en GT7 ESP', () =>
+        assertSucceeds(dirLiga.doc('championships/champ1/claims/c1').set({ status: 'pending' })));
 
     await check('Usuario sin claim NO puede crear una sanción', () =>
         assertFails(noClaim.doc('championships/champ1/penalties/p2').set({ driver: 'y' })));
 
-    // ── teams / tracks subcolecciones ──
+    await check('comisario de OTRA organización NO puede crear sanción en GT7 ESP (herencia de orgId del padre)', () =>
+        assertFails(dirLigaOtraOrg.doc('championships/champ1/penalties/p3').set({ driver: 'z' })));
+
+    // ── teams / tracks subcolecciones (heredan orgId del padre) ──
     await check('Anónimo NO puede escribir en championships/{id}/teams', () =>
         assertFails(anon.doc('championships/champ1/teams/t1').set({ name: 'Equipo Hack' })));
 
-    await check('Admin puede escribir en championships/{id}/teams', () =>
-        assertSucceeds(admin.doc('championships/champ1/teams/t1').set({ name: 'Equipo OK' })));
+    await check('director_liga de GT7 ESP puede escribir en championships/{id}/teams de GT7 ESP', () =>
+        assertSucceeds(dirLiga.doc('championships/champ1/teams/t1').set({ name: 'Equipo OK' })));
 
-    // ── events ──
+    await check('director_liga de OTRA organización NO puede escribir en teams de GT7 ESP', () =>
+        assertFails(dirLigaOtraOrg.doc('championships/champ1/teams/t2').set({ name: 'Hack team' })));
+
+    // ── events (org-scoped) ──
     await check('Anónimo puede LEER events', () =>
         assertSucceeds(anon.doc('events/event1').get()));
 
@@ -137,11 +173,14 @@ async function main() {
     await check('Anónimo NO puede eliminar un evento', () =>
         assertFails(anon.doc('events/event1').delete()));
 
-    await check('Admin NO puede crear un evento con orgId de otra organización', () =>
-        assertFails(admin.doc('events/eventWrongOrg').set({ orgId: 'otra-org', title: 'X' })));
+    await check('director_liga NO puede crear un evento con orgId de otra organización', () =>
+        assertFails(dirLiga.doc('events/eventWrongOrg').set({ orgId: 'otra-org', title: 'X' })));
 
-    await check('Admin NO puede reasignar el orgId de un evento existente', () =>
-        assertFails(admin.doc('events/event1').update({ orgId: 'otra-org' })));
+    await check('director_liga NO puede reasignar el orgId de un evento existente', () =>
+        assertFails(dirLiga.doc('events/event1').update({ orgId: 'otra-org' })));
+
+    await check('director_liga de OTRA organización NO puede editar eventos de GT7 ESP', () =>
+        assertFails(dirLigaOtraOrg.doc('events/event1').update({ title: 'Hack cross-org' })));
 
     // ── teams (catálogo raíz, scopeado por orgId) / tracks (catálogo global compartido) ──
     await check('Anónimo puede LEER el catálogo de teams', () =>
@@ -150,11 +189,11 @@ async function main() {
     await check('Anónimo NO puede escribir en el catálogo de teams', () =>
         assertFails(anon.doc('teams/team1').set({ orgId: 'gt7-esp', name: 'Hack' })));
 
-    await check('Admin NO puede crear un team con orgId de otra organización', () =>
-        assertFails(admin.doc('teams/teamWrongOrg').set({ orgId: 'otra-org', name: 'X' })));
+    await check('director_liga NO puede crear un team con orgId de otra organización', () =>
+        assertFails(dirLiga.doc('teams/teamWrongOrg').set({ orgId: 'otra-org', name: 'X' })));
 
-    await check('Admin puede crear un team con el orgId correcto', () =>
-        assertSucceeds(admin.doc('teams/team2').set({ orgId: 'gt7-esp', name: 'Equipo Nuevo' })));
+    await check('director_liga puede crear un team con el orgId correcto', () =>
+        assertSucceeds(dirLiga.doc('teams/team2').set({ orgId: 'gt7-esp', name: 'Equipo Nuevo' })));
 
     await check('Anónimo puede LEER el catálogo global de tracks', () =>
         assertSucceeds(anon.doc('tracks/t1').get()));
@@ -162,31 +201,49 @@ async function main() {
     await check('Anónimo NO puede escribir en el catálogo global de tracks', () =>
         assertFails(anon.doc('tracks/t1').set({ name: 'Hack' })));
 
-    await check('Admin puede escribir en el catálogo global de tracks (sin orgId, es compartido)', () =>
-        assertSucceeds(admin.doc('tracks/t1').set({ name: 'Spa' })));
+    await check('director_liga de GT7 ESP puede escribir en el catálogo global de tracks (carve-out actual)', () =>
+        assertSucceeds(dirLiga.doc('tracks/t1').set({ name: 'Spa' })));
 
-    // ── userRoles ──
-    await check('Admin puede LEER userRoles', () =>
-        assertSucceeds(admin.doc('userRoles/admin__at__test_com').get()));
+    await check('director_liga de OTRA organización NO puede escribir en tracks (carve-out limitado a gt7-esp hoy)', () =>
+        assertFails(dirLigaOtraOrg.doc('tracks/t2').set({ name: 'Otro' })));
 
-    await check('Usuario sin claim NO puede LEER userRoles', () =>
-        assertFails(noClaim.doc('userRoles/admin__at__test_com').get()));
-
-    await check('NADIE puede escribir userRoles desde el cliente (ni admin)', () =>
-        assertFails(admin.doc('userRoles/otro').set({ role: 'admin' })));
-
-    // ── organizations (reglamento/branding por org, Fase 1) ──
+    // ── organizations ──
     await check('Anónimo puede LEER una organización (branding/reglamento públicos)', () =>
         assertSucceeds(anon.doc('organizations/gt7-esp').get()));
 
     await check('Anónimo NO puede escribir el reglamento de una organización', () =>
         assertFails(anon.doc('organizations/gt7-esp').update({ reglamento: { sections: [] } })));
 
-    await check('Admin global (sin platformOwner) NO puede escribir organizations', () =>
-        assertFails(admin.doc('organizations/gt7-esp').update({ reglamento: { sections: [] } })));
+    await check('director_liga (sin organizador ni platformOwner) NO puede escribir organizations', () =>
+        assertFails(dirLiga.doc('organizations/gt7-esp').update({ reglamento: { sections: [] } })));
 
-    await check('Platform Owner puede escribir el reglamento de una organización', () =>
+    await check('Platform Owner puede escribir el reglamento de cualquier organización', () =>
         assertSucceeds(platformOwner.doc('organizations/gt7-esp').update({ reglamento: { sections: [] } })));
+
+    await check('organizador de GT7 ESP puede editar el branding/reglamento de SU organización', () =>
+        assertSucceeds(organizador.doc('organizations/gt7-esp').update({ reglamento: { sections: [{ id: 'x' }] } })));
+
+    await check('organizador de GT7 ESP NO puede editar plan/billing (fuera de branding/reglamento)', () =>
+        assertFails(organizador.doc('organizations/gt7-esp').update({ plan: 'pro' })));
+
+    await check('organizador de OTRA organización NO puede editar organizations/gt7-esp', () =>
+        assertFails(dirLigaOtraOrg.doc('organizations/gt7-esp').update({ reglamento: { sections: [] } })));
+
+    // ── memberships ──
+    await check('Platform Owner puede LEER memberships', () =>
+        assertSucceeds(platformOwner.doc('memberships/uidComisario_gt7-esp').get()));
+
+    await check('director_liga de GT7 ESP puede LEER memberships de su organización', () =>
+        assertSucceeds(dirLiga.doc('memberships/uidComisario_gt7-esp').get()));
+
+    await check('El propio usuario puede LEER su membership', () =>
+        assertSucceeds(comisario.doc('memberships/uidComisario_gt7-esp').get()));
+
+    await check('director_liga de OTRA organización NO puede LEER memberships de GT7 ESP', () =>
+        assertFails(dirLigaOtraOrg.doc('memberships/uidComisario_gt7-esp').get()));
+
+    await check('NADIE puede escribir memberships desde el cliente (ni platformOwner)', () =>
+        assertFails(platformOwner.doc('memberships/otro_gt7-esp').set({ role: 'comisario' })));
 
     // ── catch-all ──
     await check('Colección no declarada: lectura denegada por defecto', () =>

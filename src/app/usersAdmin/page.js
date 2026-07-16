@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
+import { useOrganization } from '../context/OrganizationContext';
 import { FirebaseService } from '../services/firebaseService';
 
 export default function UsersAdmin() {
     const router = useRouter();
     const { currentUser, isAdmin, loading: authLoading } = useAuth();
+    const { orgId } = useOrganization();
 
     // Estado para gestión de admins
     const [admins, setAdmins] = useState([]);
@@ -35,19 +37,19 @@ export default function UsersAdmin() {
         }
     }, [currentUser, authLoading, router]);
 
-    // Cargar datos al montar
+    // Cargar datos al montar (y si cambia la organización activa)
     useEffect(() => {
         if (!authLoading && currentUser && isAdmin()) {
             loadAdmins();
             loadComisarios();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [authLoading, currentUser]);
+    }, [authLoading, currentUser, orgId]);
 
     const loadAdmins = async () => {
         setAdminsLoading(true);
         try {
-            const data = await FirebaseService.getAdmins();
+            const data = await FirebaseService.getAdmins(orgId);
             setAdmins(data);
         } catch {
             setAdmins([]);
@@ -59,7 +61,7 @@ export default function UsersAdmin() {
     const loadComisarios = async () => {
         setComisariosLoading(true);
         try {
-            const data = await FirebaseService.getComisarios();
+            const data = await FirebaseService.getComisarios(orgId);
             setComisarios(data);
         } catch {
             setComisarios([]);
@@ -77,7 +79,10 @@ export default function UsersAdmin() {
         }
         setAdminSaving(true);
         try {
-            await FirebaseService.setUserRole(email, 'admin', newAdminName.trim());
+            // Nuevos admins se agregan como "director_liga" — "organizador"
+            // (dueño de la organización) es un rol especial, no se otorga
+            // desde este formulario genérico.
+            await FirebaseService.setUserRole(email, orgId, 'director_liga', newAdminName.trim());
             setNewAdminEmail('');
             setNewAdminName('');
             await loadAdmins();
@@ -95,17 +100,17 @@ export default function UsersAdmin() {
         }
         if (!window.confirm(`¿Quitar el rol de admin a ${email}?`)) return;
         try {
-            await FirebaseService.removeUserRole(email);
+            await FirebaseService.removeUserRole(email, orgId);
             await loadAdmins();
         } catch (err) {
             alert('Error al eliminar: ' + err.message);
         }
     };
 
-    const handleSaveAdminName = async (email) => {
+    const handleSaveAdminName = async (email, role) => {
         setAdminNameSaving(true);
         try {
-            await FirebaseService.setUserRole(email, 'admin', adminNameDraft.trim());
+            await FirebaseService.setUserRole(email, orgId, role, adminNameDraft.trim());
             setEditingAdminName(null);
             await loadAdmins();
         } catch (err) {
@@ -124,7 +129,7 @@ export default function UsersAdmin() {
         }
         setComisarioSaving(true);
         try {
-            await FirebaseService.setUserRole(email, 'comisario', newComisarioName.trim());
+            await FirebaseService.setUserRole(email, orgId, 'comisario', newComisarioName.trim());
             setNewComisarioEmail('');
             setNewComisarioName('');
             await loadComisarios();
@@ -138,7 +143,7 @@ export default function UsersAdmin() {
     const handleRemoveComisario = async (email) => {
         if (!window.confirm(`¿Quitar el rol de comisario a ${email}?`)) return;
         try {
-            await FirebaseService.removeUserRole(email);
+            await FirebaseService.removeUserRole(email, orgId);
             await loadComisarios();
         } catch (err) {
             alert('Error al eliminar: ' + err.message);
@@ -213,14 +218,14 @@ export default function UsersAdmin() {
                                                     value={adminNameDraft}
                                                     onChange={e => setAdminNameDraft(e.target.value)}
                                                     onKeyDown={e => {
-                                                        if (e.key === 'Enter') handleSaveAdminName(a.email);
+                                                        if (e.key === 'Enter') handleSaveAdminName(a.email, a.role);
                                                         if (e.key === 'Escape') setEditingAdminName(null);
                                                     }}
                                                     placeholder="Nombre del admin"
                                                     className="flex-1 px-3 py-1 bg-white/10 border border-white/30 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-orange-400"
                                                 />
                                                 <button
-                                                    onClick={() => handleSaveAdminName(a.email)}
+                                                    onClick={() => handleSaveAdminName(a.email, a.role)}
                                                     disabled={adminNameSaving}
                                                     className="px-3 py-1 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white text-sm rounded-lg transition-all"
                                                 >
@@ -242,7 +247,9 @@ export default function UsersAdmin() {
                                     </div>
                                     {editingAdminName !== a.email && (
                                         <div className="flex items-center gap-2 shrink-0">
-                                            <span className="px-2 py-0.5 bg-orange-500/20 text-orange-300 text-xs rounded-full font-medium">Admin</span>
+                                            <span className="px-2 py-0.5 bg-orange-500/20 text-orange-300 text-xs rounded-full font-medium">
+                                                {a.role === 'organizador' ? 'Organizador' : 'Director de liga'}
+                                            </span>
                                             <button
                                                 onClick={() => {
                                                     setEditingAdminName(a.email);

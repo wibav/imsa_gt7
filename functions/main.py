@@ -419,12 +419,18 @@ def _handle_request(req: https_fn.Request) -> https_fn.Response:
     return _json_response(payload)
 
 
-# ─── Gestión de roles (Custom Claims) — Fase 0 ───────────────────────────────
+# ─── Gestión de roles (Custom Claims) — Fase 0/2, org-scoped ────────────────
 # Reemplaza ADMIN_EMAILS hardcodeado en el cliente. La única forma de otorgar
-# o revocar el claim admin/comisario es esta función (Admin SDK), nunca el
+# o revocar un rol por-organización es esta función (Admin SDK), nunca el
 # cliente directamente contra Firestore/Auth.
 #
+# Claims: { platformOwner?: true, orgs?: { [orgId]: role } }
+# role ∈ 'organizador' | 'director_liga' | 'comisario'. Jerarquía:
+# organizador > director_liga > comisario (un rol superior implica los
+# permisos de los inferiores dentro de su misma organización).
+#
 # Ver: Notas/Proyectos/GT7 Championships/ADR/ADR-003-roles-permisos.md
+#      Notas/Proyectos/GT7 Championships/ADR/ADR-006-diferir-claims-por-organizacion.md
 
 _ROLE_CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -432,7 +438,9 @@ _ROLE_CORS = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
 
-_VALID_ROLES = {'admin', 'comisario'}
+_VALID_ROLES = {'organizador', 'director_liga', 'comisario'}
+_ROLE_RANK = {'comisario': 1, 'director_liga': 2, 'organizador': 3}
+_MIN_RANK_TO_MANAGE_ROLES = _ROLE_RANK['director_liga']  # director_liga+ puede gestionar roles de su org
 
 
 def _role_json(payload: dict, status_code: int = 200) -> https_fn.Response:
@@ -443,11 +451,6 @@ def _role_json(payload: dict, status_code: int = 200) -> https_fn.Response:
     )
 
 
-def _email_to_doc_id(email: str) -> str:
-    """Debe coincidir exactamente con FirebaseService._emailToDocId (JS)."""
-    return email.lower().replace('.', '_').replace('@', '__at__')
-
-
 @https_fn.on_request(region='us-central1')
 def manage_user_role(req: https_fn.Request) -> https_fn.Response:
     if req.method == 'OPTIONS':
@@ -456,7 +459,7 @@ def manage_user_role(req: https_fn.Request) -> https_fn.Response:
     if req.method != 'POST':
         return _role_json({'ok': False, 'error': 'Method not allowed'}, 405)
 
-    # ── Verificar que quien llama es un admin autenticado ──
+    # ── Verificar que quien llama está autenticado ──
     auth_header = req.headers.get('Authorization', '')
     if not auth_header.startswith('Bearer '):
         return _role_json({'ok': False, 'error': 'Falta token de autorización'}, 401)
@@ -467,19 +470,25 @@ def manage_user_role(req: https_fn.Request) -> https_fn.Response:
     except Exception:
         return _role_json({'ok': False, 'error': 'Token inválido o expirado'}, 401)
 
-    if not caller_claims.get('admin'):
-        return _role_json({'ok': False, 'error': 'Requiere permisos de administrador'}, 403)
-
     # ── Validar body ──
     body = req.get_json(silent=True) or {}
     target_email = (body.get('targetEmail') or '').strip().lower()
-    role = body.get('role')  # 'admin' | 'comisario' | None (limpiar)
+    org_id = (body.get('orgId') or '').strip()
+    role = body.get('role')  # 'organizador' | 'director_liga' | 'comisario' | None (limpiar)
     display_name = (body.get('displayName') or '').strip()
 
     if not target_email or '@' not in target_email:
         return _role_json({'ok': False, 'error': 'Email inválido'}, 400)
+    if not org_id:
+        return _role_json({'ok': False, 'error': 'Falta orgId'}, 400)
     if role is not None and role not in _VALID_ROLES:
         return _role_json({'ok': False, 'error': f'Rol inválido: {role}'}, 400)
+
+    # ── Verificar que quien llama puede gestionar roles de ESTA organización ──
+    caller_org_role = (caller_claims.get('orgs') or {}).get(org_id)
+    caller_rank = _ROLE_RANK.get(caller_org_role, 0)
+    if not caller_claims.get('platformOwner') and caller_rank < _MIN_RANK_TO_MANAGE_ROLES:
+        return _role_json({'ok': False, 'error': 'Requiere rol de Director de liga u Organizador en esta organización'}, 403)
 
     # ── Buscar el usuario en Firebase Auth ──
     try:
@@ -490,16 +499,25 @@ def manage_user_role(req: https_fn.Request) -> https_fn.Response:
             'error': 'No existe una cuenta con ese email. El usuario debe haber iniciado sesión al menos una vez.',
         }, 404)
 
-    # ── Asignar o limpiar el custom claim ──
-    new_claims = {role: True} if role else {}
+    # ── Asignar o limpiar el rol dentro del mapa orgs, preservando el resto ──
+    existing_claims = target_user.custom_claims or {}
+    existing_orgs = dict(existing_claims.get('orgs') or {})
+    if role:
+        existing_orgs[org_id] = role
+    else:
+        existing_orgs.pop(org_id, None)
+
+    new_claims = {**existing_claims, 'orgs': existing_orgs}
     fb_auth.set_custom_user_claims(target_user.uid, new_claims)
 
     # ── Espejo en Firestore para la UI de /usersAdmin (Admin SDK, bypassa rules) ──
     db = fb_firestore.client()
-    doc_ref = db.collection('userRoles').document(_email_to_doc_id(target_email))
+    doc_ref = db.collection('memberships').document(f'{target_user.uid}_{org_id}')
     if role:
         doc_ref.set({
+            'uid': target_user.uid,
             'email': target_email,
+            'orgId': org_id,
             'role': role,
             'displayName': display_name,
             'updatedAt': fb_firestore.SERVER_TIMESTAMP,

@@ -1307,7 +1307,7 @@ export class FirebaseService {
    * Reemplaza la escritura directa a Firestore: las rules ahora bloquean
    * escrituras de cliente a userRoles — solo el Admin SDK (esta función) puede.
    */
-  static async _callManageUserRole(targetEmail, role, displayName = '') {
+  static async _callManageUserRole(targetEmail, orgId, role, displayName = '') {
     if (!auth.currentUser) throw new Error('Debes iniciar sesión');
     const idToken = await auth.currentUser.getIdToken();
     const res = await fetch('/api/manage-user-role', {
@@ -1316,7 +1316,7 @@ export class FirebaseService {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${idToken}`,
       },
-      body: JSON.stringify({ targetEmail, role, displayName }),
+      body: JSON.stringify({ targetEmail, orgId, role, displayName }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) {
@@ -1325,20 +1325,25 @@ export class FirebaseService {
     return data;
   }
 
-  /** Asignar o actualizar el rol de un usuario: 'admin' | 'comisario' */
-  static async setUserRole(email, role, displayName = '') {
-    return FirebaseService._callManageUserRole(email, role, displayName);
+  /** Asignar o actualizar el rol de un usuario en una organización:
+   *  'organizador' | 'director_liga' | 'comisario' */
+  static async setUserRole(email, orgId, role, displayName = '') {
+    return FirebaseService._callManageUserRole(email, orgId, role, displayName);
   }
 
-  /** Eliminar el rol de un usuario (vuelve a ser usuario normal) */
-  static async removeUserRole(email) {
-    return FirebaseService._callManageUserRole(email, null);
+  /** Quitar el rol de un usuario en una organización (vuelve a ser usuario normal ahí) */
+  static async removeUserRole(email, orgId) {
+    return FirebaseService._callManageUserRole(email, orgId, null);
   }
 
-  /** Obtener todos los comisarios activos */
-  static async getComisarios() {
+  /** Obtener los comisarios de una organización (mirror de custom claims) */
+  static async getComisarios(orgId) {
     try {
-      const q = query(collection(db, 'userRoles'), where('role', '==', 'comisario'));
+      const q = query(
+        collection(db, 'memberships'),
+        where('orgId', '==', orgId),
+        where('role', '==', 'comisario')
+      );
       const snap = await getDocs(q);
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     } catch (error) {
@@ -1347,10 +1352,14 @@ export class FirebaseService {
     }
   }
 
-  /** Obtener todos los admins (mirror de custom claims en Firestore) */
-  static async getAdmins() {
+  /** Obtener los directores de liga + organizador de una organización */
+  static async getAdmins(orgId) {
     try {
-      const q = query(collection(db, 'userRoles'), where('role', '==', 'admin'));
+      const q = query(
+        collection(db, 'memberships'),
+        where('orgId', '==', orgId),
+        where('role', 'in', ['organizador', 'director_liga'])
+      );
       const snap = await getDocs(q);
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     } catch (error) {

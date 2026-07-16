@@ -1,25 +1,26 @@
 rules_version = '2';
 
 // ─────────────────────────────────────────────────────────────────────────
-// Reglas de seguridad — Fase 0 (roles) + Fase 1 (orgId, un solo tenant hoy)
+// Reglas de seguridad — Fase 0 (blindaje) + Fase 1 (orgId) + Fase 2 (roles
+// org-scoped, ADR-006 resuelto).
 //
 // Reemplaza la ausencia total de reglas (antes, la única protección era
 // JavaScript en el cliente: ADMIN_EMAILS hardcodeado). La fuente de verdad de
-// los roles pasa a ser el Custom Claim del token de Firebase Auth
-// (`admin: true` / `comisario: true`), asignado exclusivamente por la Cloud
-// Function `manage_user_role` vía Admin SDK — nunca escrito directo por el
-// cliente.
+// los roles es el Custom Claim del token de Firebase Auth:
+//   { platformOwner?: true, orgs?: { [orgId]: role } }
+//   role ∈ 'organizador' | 'director_liga' | 'comisario'
+// asignado exclusivamente por la Cloud Function `manage_user_role` (Admin
+// SDK) — nunca escrito directo por el cliente.
 //
-// Fase 1: los documentos de championships/events/teams(catálogo) llevan
-// `orgId`, validado en create/update (inmutable tras crearse). Hoy solo
-// existe una organización (`gt7-esp`, ver currentOrgId()) y los claims
-// admin/comisario siguen siendo globales, no por-organización — eso es
-// Fase 2 (memberships + claims org-scoped), deliberadamente diferida hasta
-// que exista un segundo tenant real contra el cual validarla.
+// Jerarquía dentro de una organización: organizador > director_liga >
+// comisario (un rol superior incluye los permisos de los inferiores en esa
+// misma organización). `platformOwner` es un rol de plataforma, por encima
+// de todas las organizaciones, independiente de `orgs`.
 //
-// Ver: Notas/Proyectos/GT7 Championships/02-ESPECIFICACIONES.md (SPEC-2, SPEC-5)
+// Ver: Notas/Proyectos/GT7 Championships/02-ESPECIFICACIONES.md (SPEC-2, SPEC-4, SPEC-5)
 //      Notas/Proyectos/GT7 Championships/ADR/ADR-001-modelo-datos-multi-tenant.md
 //      Notas/Proyectos/GT7 Championships/ADR/ADR-003-roles-permisos.md
+//      Notas/Proyectos/GT7 Championships/ADR/ADR-006-diferir-claims-por-organizacion.md
 // ─────────────────────────────────────────────────────────────────────────
 
 service cloud.firestore {
@@ -30,151 +31,179 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isAdmin() {
-      return isSignedIn() && request.auth.token.admin == true;
+    // Administrador de Plataforma (dueño de trenkit) — por encima de todas
+    // las organizaciones. Solo se otorga una vez, vía script, nunca por el
+    // flujo normal de gestión de roles.
+    function isPlatformOwner() {
+      return isSignedIn() && request.auth.token.platformOwner == true;
     }
 
-    // Un admin siempre cuenta como comisario también (mismo criterio que
-    // hoy en AuthContext.isComisario()).
-    function isComisario() {
-      return isSignedIn() &&
-        (request.auth.token.admin == true || request.auth.token.comisario == true);
+    function orgRole(orgId) {
+      return isSignedIn()
+        ? request.auth.token.get('orgs', {}).get(orgId, null)
+        : null;
+    }
+
+    // director_liga u organizador de esa organización específica.
+    function isOrgAdmin(orgId) {
+      let role = orgRole(orgId);
+      return role == 'organizador' || role == 'director_liga';
+    }
+
+    // comisario, director_liga, u organizador de esa organización específica
+    // (un rol superior siempre incluye los permisos de comisario).
+    function isOrgComisario(orgId) {
+      let role = orgRole(orgId);
+      return role == 'organizador' || role == 'director_liga' || role == 'comisario';
+    }
+
+    // orgId del documento padre championships/{champId}, para las
+    // subcolecciones que heredan su aislamiento (no llevan orgId propio).
+    function parentChampOrgId(champId) {
+      return get(/databases/$(database)/documents/championships/$(champId)).data.orgId;
+    }
+
+    // orgId del documento padre events/{eventId}.
+    function parentEventOrgId(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId)).data.orgId;
     }
 
     function onlyAffects(fields) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
-    // Administrador de Plataforma (dueño de trenkit) — por encima de todas
-    // las organizaciones. Distinto de isAdmin() (admin global de GT7 ESP).
-    // Solo se otorga una vez, vía script, nunca por el flujo normal de roles.
-    function isPlatformOwner() {
-      return isSignedIn() && request.auth.token.platformOwner == true;
-    }
-
-    // Fase 1 (multi-tenant, sin tenant routing todavía — ver ADR-001,
-    // 02-ESPECIFICACIONES.md SPEC-2). Única organización hoy. Cuando exista
-    // un segundo tenant real, esto se generaliza a validar contra
-    // request.auth.token.orgs[orgId] en vez de una constante.
-    function currentOrgId() {
-      return 'gt7-esp';
-    }
-
     // ── championships/{id} ───────────────────────────────────────────────
     // Documento principal: nombre, categorías, settings, drivers[],
     // registrations[], carUsageTracking, preQualy, divisionsConfig, etc.
     // Lectura pública (clasificaciones/calendario son páginas públicas).
-    // Escritura de administración: solo admin.
+    // Escritura: director_liga/organizador DE ESA ORGANIZACIÓN específica.
     // Excepción: inscripción pública (RegistrationForm) solo puede tocar el
     // campo `registrations` — nunca settings, drivers, pointsSystem, etc.
     match /championships/{champId} {
       allow read: if true;
-      allow create: if isAdmin() && request.resource.data.orgId == currentOrgId();
-      // orgId es inmutable una vez creado: un admin puede editar cualquier
-      // otro campo, pero no reasignar el documento a otra organización.
-      allow update: if (isAdmin() && request.resource.data.orgId == resource.data.orgId)
+      allow create: if isOrgAdmin(request.resource.data.orgId);
+      // orgId es inmutable una vez creado.
+      allow update: if (isOrgAdmin(resource.data.orgId) && request.resource.data.orgId == resource.data.orgId)
         || onlyAffects(['registrations']);
-      allow delete: if isAdmin();
+      allow delete: if isOrgAdmin(resource.data.orgId);
 
-      // Equipos, pistas, divisiones: gestión exclusiva de admin.
+      // Equipos, pistas, divisiones, eventos internos: heredan el orgId del
+      // campeonato padre — gestión exclusiva de director_liga/organizador
+      // de esa organización.
       match /teams/{teamId} {
         allow read: if true;
-        allow write: if isAdmin();
+        allow write: if isOrgAdmin(parentChampOrgId(champId));
       }
       match /tracks/{trackId} {
         allow read: if true;
-        allow write: if isAdmin();
+        allow write: if isOrgAdmin(parentChampOrgId(champId));
       }
       match /divisions/{divId} {
         allow read: if true;
-        allow write: if isAdmin();
+        allow write: if isOrgAdmin(parentChampOrgId(champId));
       }
       match /events/{subEventId} {
         allow read: if true;
-        allow write: if isAdmin();
+        allow write: if isOrgAdmin(parentChampOrgId(champId));
       }
 
-      // Sanciones y reclamaciones: gestionadas por admin o comisario.
+      // Sanciones y reclamaciones: comisario+ de esa organización.
       match /penalties/{penaltyId} {
         allow read: if true;
-        allow write: if isComisario();
+        allow write: if isOrgComisario(parentChampOrgId(champId));
       }
       match /claims/{claimId} {
         allow read: if true;
-        allow write: if isComisario();
+        allow write: if isOrgComisario(parentChampOrgId(champId));
       }
     }
 
     // ── events/{id} (eventos únicos, no ligados a un campeonato) ─────────
-    // Lectura pública. Escritura de administración: solo admin.
+    // Lectura pública. Escritura: director_liga/organizador de esa org.
     // Excepción: el flujo público de inscripción actualiza `waitlistCount`
     // y `updatedAt` en el doc principal, además de crear en las
     // subcolecciones `participants`/`waitlist` (sin sesión iniciada).
     match /events/{eventId} {
       allow read: if true;
-      allow create: if isAdmin() && request.resource.data.orgId == currentOrgId();
-      allow update: if (isAdmin() && request.resource.data.orgId == resource.data.orgId)
+      allow create: if isOrgAdmin(request.resource.data.orgId);
+      allow update: if (isOrgAdmin(resource.data.orgId) && request.resource.data.orgId == resource.data.orgId)
         || onlyAffects(['waitlistCount', 'updatedAt']);
-      allow delete: if isAdmin();
+      allow delete: if isOrgAdmin(resource.data.orgId);
 
       match /participants/{participantId} {
         allow read: if true;
         allow create: if true;
-        allow update, delete: if isAdmin();
+        allow update, delete: if isOrgAdmin(parentEventOrgId(eventId));
       }
       match /waitlist/{entryId} {
         allow read: if true;
         allow create: if true;
-        allow update, delete: if isAdmin();
+        allow update, delete: if isOrgAdmin(parentEventOrgId(eventId));
       }
       match /results/{resultId} {
         allow read: if true;
-        allow write: if isAdmin();
+        allow write: if isOrgAdmin(parentEventOrgId(eventId));
       }
       match /rounds/{roundId} {
         allow read: if true;
-        allow write: if isAdmin();
+        allow write: if isOrgAdmin(parentEventOrgId(eventId));
       }
     }
 
-    // ── teams/{id} y tracks/{id} (catálogos globales, legacy) ────────────
-    // Colecciones raíz independientes de los campeonatos: catálogo global de
-    // equipos (`teamsAdmin`) y catálogo de circuitos con imagen reutilizable
-    // entre campeonatos (`FirebaseService.getTracks()`, usado por
-    // TrackFormModal). Lectura pública, escritura solo admin.
+    // ── teams/{id} (catálogo raíz, scopeado por orgId) ───────────────────
     match /teams/{teamId} {
       allow read: if true;
-      allow create: if isAdmin() && request.resource.data.orgId == currentOrgId();
-      allow update: if isAdmin() && request.resource.data.orgId == resource.data.orgId;
-      allow delete: if isAdmin();
+      allow create: if isOrgAdmin(request.resource.data.orgId);
+      allow update: if isOrgAdmin(resource.data.orgId) && request.resource.data.orgId == resource.data.orgId;
+      allow delete: if isOrgAdmin(resource.data.orgId);
     }
-    // tracks NO se scopea por orgId a propósito — catálogo compartido entre
-    // todas las organizaciones (ver 02-ESPECIFICACIONES.md SPEC-2).
+
+    // ── tracks/{id} (catálogo GLOBAL, compartido entre organizaciones) ───
+    // No lleva orgId a propósito (ver 02-ESPECIFICACIONES.md SPEC-2): son
+    // imágenes/layouts de circuitos reales de GT7, reutilizables por
+    // cualquier organización. Carve-out pragmático: hoy solo GT7 ESP lo
+    // gestiona en la práctica (vía TrackFormModal/tracksAdmin); se gatea a
+    // sus director_liga+ para no romper ese flujo ya en uso. Revisar cuándo
+    // una segunda organización necesite aportar al catálogo compartido.
     match /tracks/{trackId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isOrgAdmin('gt7-esp');
     }
 
     // ── organizations/{orgId} ────────────────────────────────────────────
-    // Fase 1: entidad de organización (nombre, slug, branding, reglamento
-    // propio, plan/límites, billing). Lectura pública (branding/reglamento
-    // se muestran en páginas públicas). Escritura: solo el Administrador de
-    // Plataforma — no cualquier admin global, para que un admin de GT7 ESP
-    // no pueda tocar plan/billing/branding de otra organización. Cuando
-    // exista el rol "Organizador" por-org (Fase 2), se sumará esa excepción
-    // acotada a los campos de branding/reglamento de su propia organización.
+    // Entidad de organización (nombre, slug, branding, reglamento, plan,
+    // límites, billing). Lectura pública (branding/reglamento se muestran
+    // en páginas públicas).
+    // Escritura de campos sensibles (plan, billing, límites, status): solo
+    // el Administrador de Plataforma.
+    // Excepción acotada: el "organizador" de ESA organización puede editar
+    // únicamente su propio branding y reglamento — nunca su plan/billing.
     match /organizations/{orgId} {
       allow read: if true;
-      allow write: if isPlatformOwner();
+      allow write: if isPlatformOwner()
+        || (orgRole(orgId) == 'organizador' && onlyAffects(['branding', 'reglamento', 'updatedAt']));
+    }
+
+    // ── memberships/{uid}_{orgId} ────────────────────────────────────────
+    // Documento espejo (para UI de gestión de equipo por organización) de
+    // los custom claims org-scoped. La fuente de verdad real son los claims
+    // del token, asignados solo por la Cloud Function `manage_user_role`
+    // (Admin SDK, ignora estas reglas). El cliente NUNCA escribe aquí
+    // directamente.
+    match /memberships/{membershipId} {
+      allow read: if isPlatformOwner()
+        || (resource.data.orgId != null && isOrgAdmin(resource.data.orgId))
+        || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow write: if false;
     }
 
     // ── userRoles/{emailDocId} ───────────────────────────────────────────
-    // Documento espejo (para UI de /usersAdmin) de los custom claims.
-    // La fuente de verdad real son los claims del token, asignados solo por
-    // la Cloud Function `manage_user_role` (Admin SDK, ignora estas reglas).
-    // El cliente NUNCA escribe aquí directamente — solo lectura por admin.
+    // LEGACY (pre-Fase 2): mirror de los claims globales admin/comisario,
+    // reemplazado por `memberships` (org-scoped). Ya no se escribe, se deja
+    // por compatibilidad de lectura de datos históricos. Candidato a
+    // eliminar en una limpieza futura.
     match /userRoles/{docId} {
-      allow read: if isAdmin();
+      allow read: if isPlatformOwner();
       allow write: if false;
     }
 
