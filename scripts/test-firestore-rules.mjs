@@ -44,6 +44,7 @@ async function main() {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
         const db = ctx.firestore();
         await db.doc('championships/champ1').set({
+            orgId: 'gt7-esp',
             name: 'Test Championship',
             categories: ['Gr1'],
             settings: { pointsSystem: {} },
@@ -51,11 +52,13 @@ async function main() {
             registrations: [],
         });
         await db.doc('events/event1').set({
+            orgId: 'gt7-esp',
             title: 'Test Event',
             waitlistCount: 0,
             updatedAt: 'x',
             maxParticipants: 2,
         });
+        await db.doc('teams/team1').set({ orgId: 'gt7-esp', name: 'Equipo Semilla' });
         await db.doc('userRoles/admin__at__test_com').set({ email: 'admin@test.com', role: 'admin' });
         await db.doc('organizations/gt7-esp').set({
             name: 'GT7 ESP',
@@ -94,6 +97,12 @@ async function main() {
     await check('Usuario sin claim NO puede editar championships', () =>
         assertFails(noClaim.doc('championships/champ1').update({ name: 'Hack user' })));
 
+    await check('Admin NO puede crear un championship con orgId de otra organización', () =>
+        assertFails(admin.doc('championships/champWrongOrg').set({ orgId: 'otra-org', name: 'X' })));
+
+    await check('Admin NO puede reasignar el orgId de un championship existente', () =>
+        assertFails(admin.doc('championships/champ1').update({ orgId: 'otra-org' })));
+
     // ── penalties / claims (subcolecciones) ──
     await check('Comisario puede crear una sanción (penalties)', () =>
         assertSucceeds(comisario.doc('championships/champ1/penalties/p1').set({ driver: 'x', points: 5 })));
@@ -127,14 +136,32 @@ async function main() {
     await check('Anónimo NO puede eliminar un evento', () =>
         assertFails(anon.doc('events/event1').delete()));
 
-    // ── teams / tracks (catálogos globales raíz) ──
+    await check('Admin NO puede crear un evento con orgId de otra organización', () =>
+        assertFails(admin.doc('events/eventWrongOrg').set({ orgId: 'otra-org', title: 'X' })));
+
+    await check('Admin NO puede reasignar el orgId de un evento existente', () =>
+        assertFails(admin.doc('events/event1').update({ orgId: 'otra-org' })));
+
+    // ── teams (catálogo raíz, scopeado por orgId) / tracks (catálogo global compartido) ──
+    await check('Anónimo puede LEER el catálogo de teams', () =>
+        assertSucceeds(anon.doc('teams/team1').get()));
+
+    await check('Anónimo NO puede escribir en el catálogo de teams', () =>
+        assertFails(anon.doc('teams/team1').set({ orgId: 'gt7-esp', name: 'Hack' })));
+
+    await check('Admin NO puede crear un team con orgId de otra organización', () =>
+        assertFails(admin.doc('teams/teamWrongOrg').set({ orgId: 'otra-org', name: 'X' })));
+
+    await check('Admin puede crear un team con el orgId correcto', () =>
+        assertSucceeds(admin.doc('teams/team2').set({ orgId: 'gt7-esp', name: 'Equipo Nuevo' })));
+
     await check('Anónimo puede LEER el catálogo global de tracks', () =>
         assertSucceeds(anon.doc('tracks/t1').get()));
 
     await check('Anónimo NO puede escribir en el catálogo global de tracks', () =>
         assertFails(anon.doc('tracks/t1').set({ name: 'Hack' })));
 
-    await check('Admin puede escribir en el catálogo global de tracks', () =>
+    await check('Admin puede escribir en el catálogo global de tracks (sin orgId, es compartido)', () =>
         assertSucceeds(admin.doc('tracks/t1').set({ name: 'Spa' })));
 
     // ── userRoles ──

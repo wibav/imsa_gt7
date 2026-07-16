@@ -7,6 +7,7 @@ import { STATUS_SEMANTIC_COLORS, STATUS_LABELS } from '../utils/constants';
 export class Championship {
     constructor(data = {}) {
         this.id = data.id || null;
+        this.orgId = data.orgId || null; // Fase 1 multi-tenant — ver ADR-001
         this.name = data.name || '';
         this.shortName = data.shortName || '';
         this.description = data.description || '';
@@ -117,6 +118,7 @@ export class Championship {
      */
     toFirestore() {
         return {
+            orgId: this.orgId,
             name: this.name,
             shortName: this.shortName,
             description: this.description,

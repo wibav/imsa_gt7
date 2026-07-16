@@ -27,12 +27,18 @@ import { Penalty, Claim } from "../models/Penalty";
 const db = getFirestore(app);
 const storage = getStorage(app);
 
+// Fase 1 (multi-tenant, ver ADR-001/02-ESPECIFICACIONES SPEC-2): todavía no
+// existe tenant routing (Fase 3), así que la organización activa es fija.
+// Cuando exista OrganizationContext resolviendo el tenant por URL, este
+// valor deja de ser una constante y pasa a inyectarse en tiempo de ejecución.
+const CURRENT_ORG_ID = 'gt7-esp';
+
 export class FirebaseService {
-  // Obtener todos los equipos
+  // Obtener todos los equipos (catálogo de la organización activa)
   static async getTeams() {
     try {
-      const teamsCol = collection(db, "teams");
-      const teamSnapshot = await getDocs(teamsCol);
+      const q = query(collection(db, "teams"), where("orgId", "==", CURRENT_ORG_ID));
+      const teamSnapshot = await getDocs(q);
       const teams = teamSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -44,11 +50,12 @@ export class FirebaseService {
     }
   }
 
-  // Guardar equipos
+  // Guardar equipos (estampa siempre orgId, sin depender de que el estado
+  // de la UI lo preserve — saveTeams hace un reemplazo completo del doc)
   static async saveTeams(teams) {
     try {
       const promises = teams.map(team =>
-        setDoc(doc(collection(db, "teams"), String(team.id)), team)
+        setDoc(doc(collection(db, "teams"), String(team.id)), { ...team, orgId: CURRENT_ORG_ID })
       );
       await Promise.all(promises);
       return { success: true };
@@ -181,8 +188,8 @@ export class FirebaseService {
   // Obtener todos los eventos especiales - SIN CARGAR DATOS ANIDADOS (más rápido)
   static async getEvents() {
     try {
-      const eventsCol = collection(db, "events");
-      const eventsSnapshot = await getDocs(eventsCol);
+      const q = query(collection(db, "events"), where("orgId", "==", CURRENT_ORG_ID));
+      const eventsSnapshot = await getDocs(q);
 
       // Cargar datos completos (incluyendo subcollections) para todos los eventos en paralelo
       const events = await Promise.all(
@@ -233,9 +240,11 @@ export class FirebaseService {
       // Separar datos grandes que irán en subcollections
       const { participants, waitlist, results, rounds, ...baseEventData } = event;
 
-      // Agregar timestamp
+      // Agregar timestamp — orgId siempre se estampa aquí (no se confía en
+      // que el estado de la UI lo preserve; saveEvent reemplaza el doc completo)
       const eventData = {
         ...baseEventData,
+        orgId: CURRENT_ORG_ID,
         updatedAt: new Date().toISOString(),
         participantCount: (participants || []).length,
         waitlistCount: (waitlist || []).length,
@@ -454,9 +463,15 @@ export class FirebaseService {
       const q = query(championshipsCol, orderBy("createdAt", "desc"));
       const snapshot = await getDocs(q);
 
-      return snapshot.docs.map(doc =>
-        Championship.fromFirestore(doc.id, doc.data())
-      );
+      // Filtro por orgId en cliente (no en la query): combinar where(orgId)
+      // con el orderBy(createdAt) existente exigiría un índice compuesto
+      // nuevo en Firestore. Con el volumen actual (unos pocos campeonatos)
+      // filtrar aquí es más seguro que desplegar un índice sin poder
+      // validarlo antes. Reevaluar si el volumen de datos crece (ver
+      // 02-ESPECIFICACIONES.md SPEC-2).
+      return snapshot.docs
+        .map(doc => Championship.fromFirestore(doc.id, doc.data()))
+        .filter(c => c.orgId === CURRENT_ORG_ID);
     } catch (error) {
       console.error("Error fetching championships:", error);
       throw error;
@@ -494,9 +509,10 @@ export class FirebaseService {
       );
       const snapshot = await getDocs(q);
 
-      return snapshot.docs.map(doc =>
-        Championship.fromFirestore(doc.id, doc.data())
-      );
+      // Filtro por orgId en cliente — mismo motivo que getChampionships().
+      return snapshot.docs
+        .map(doc => Championship.fromFirestore(doc.id, doc.data()))
+        .filter(c => c.orgId === CURRENT_ORG_ID);
     } catch (error) {
       console.error("Error fetching active championships:", error);
       throw error;
@@ -508,7 +524,7 @@ export class FirebaseService {
    */
   static async createChampionship(championshipData) {
     try {
-      const championship = new Championship(championshipData);
+      const championship = new Championship({ ...championshipData, orgId: CURRENT_ORG_ID });
       const validation = championship.validate();
 
       if (!validation.isValid) {

@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // ─────────────────────────────────────────────────────────────────────────
-// Reglas de seguridad — Fase 0 (single-tenant, previa al modelo multi-tenant)
+// Reglas de seguridad — Fase 0 (roles) + Fase 1 (orgId, un solo tenant hoy)
 //
 // Reemplaza la ausencia total de reglas (antes, la única protección era
 // JavaScript en el cliente: ADMIN_EMAILS hardcodeado). La fuente de verdad de
@@ -10,11 +10,16 @@ rules_version = '2';
 // Function `manage_user_role` vía Admin SDK — nunca escrito directo por el
 // cliente.
 //
-// Ver: Notas/Proyectos/GT7 Championships/02-ESPECIFICACIONES.md (SPEC-5)
-//      Notas/Proyectos/GT7 Championships/ADR/ADR-003-roles-permisos.md
+// Fase 1: los documentos de championships/events/teams(catálogo) llevan
+// `orgId`, validado en create/update (inmutable tras crearse). Hoy solo
+// existe una organización (`gt7-esp`, ver currentOrgId()) y los claims
+// admin/comisario siguen siendo globales, no por-organización — eso es
+// Fase 2 (memberships + claims org-scoped), deliberadamente diferida hasta
+// que exista un segundo tenant real contra el cual validarla.
 //
-// Nota: `orgId` / aislamiento multi-tenant llega en Fase 1. Estas reglas
-// protegen el modelo de datos actual (una sola comunidad).
+// Ver: Notas/Proyectos/GT7 Championships/02-ESPECIFICACIONES.md (SPEC-2, SPEC-5)
+//      Notas/Proyectos/GT7 Championships/ADR/ADR-001-modelo-datos-multi-tenant.md
+//      Notas/Proyectos/GT7 Championships/ADR/ADR-003-roles-permisos.md
 // ─────────────────────────────────────────────────────────────────────────
 
 service cloud.firestore {
@@ -40,6 +45,14 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
+    // Fase 1 (multi-tenant, sin tenant routing todavía — ver ADR-001,
+    // 02-ESPECIFICACIONES.md SPEC-2). Única organización hoy. Cuando exista
+    // un segundo tenant real, esto se generaliza a validar contra
+    // request.auth.token.orgs[orgId] en vez de una constante.
+    function currentOrgId() {
+      return 'gt7-esp';
+    }
+
     // ── championships/{id} ───────────────────────────────────────────────
     // Documento principal: nombre, categorías, settings, drivers[],
     // registrations[], carUsageTracking, preQualy, divisionsConfig, etc.
@@ -49,8 +62,11 @@ service cloud.firestore {
     // campo `registrations` — nunca settings, drivers, pointsSystem, etc.
     match /championships/{champId} {
       allow read: if true;
-      allow create: if isAdmin();
-      allow update: if isAdmin() || onlyAffects(['registrations']);
+      allow create: if isAdmin() && request.resource.data.orgId == currentOrgId();
+      // orgId es inmutable una vez creado: un admin puede editar cualquier
+      // otro campo, pero no reasignar el documento a otra organización.
+      allow update: if (isAdmin() && request.resource.data.orgId == resource.data.orgId)
+        || onlyAffects(['registrations']);
       allow delete: if isAdmin();
 
       // Equipos, pistas, divisiones: gestión exclusiva de admin.
@@ -89,8 +105,9 @@ service cloud.firestore {
     // subcolecciones `participants`/`waitlist` (sin sesión iniciada).
     match /events/{eventId} {
       allow read: if true;
-      allow create: if isAdmin();
-      allow update: if isAdmin() || onlyAffects(['waitlistCount', 'updatedAt']);
+      allow create: if isAdmin() && request.resource.data.orgId == currentOrgId();
+      allow update: if (isAdmin() && request.resource.data.orgId == resource.data.orgId)
+        || onlyAffects(['waitlistCount', 'updatedAt']);
       allow delete: if isAdmin();
 
       match /participants/{participantId} {
@@ -120,8 +137,12 @@ service cloud.firestore {
     // TrackFormModal). Lectura pública, escritura solo admin.
     match /teams/{teamId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.orgId == currentOrgId();
+      allow update: if isAdmin() && request.resource.data.orgId == resource.data.orgId;
+      allow delete: if isAdmin();
     }
+    // tracks NO se scopea por orgId a propósito — catálogo compartido entre
+    // todas las organizaciones (ver 02-ESPECIFICACIONES.md SPEC-2).
     match /tracks/{trackId} {
       allow read: if true;
       allow write: if isAdmin();
