@@ -197,17 +197,9 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // ── userRoles/{emailDocId} ───────────────────────────────────────────
-    // LEGACY (pre-Fase 2): mirror de los claims globales admin/comisario,
-    // reemplazado por `memberships` (org-scoped). Ya no se escribe, se deja
-    // por compatibilidad de lectura de datos históricos. Candidato a
-    // eliminar en una limpieza futura.
-    match /userRoles/{docId} {
-      allow read: if isPlatformOwner();
-      allow write: if false;
-    }
-
     // Cualquier otra colección no contemplada explícitamente: denegada.
+    // (incluye `userRoles`, legacy pre-Fase 2, ya vaciada y reemplazada por
+    // `memberships` — ver scripts/cleanup-legacy-roles.js).
     match /{document=**} {
       allow read, write: if false;
     }
