@@ -8,6 +8,9 @@ serviceAccountKey.json
 service-account-key.json
 *-firebase-adminsdk-*.json
 
+# Backups locales de Firestore (contienen datos personales de pilotos — nunca a git)
+backups/
+
 # Logs
 logs
 *.log
