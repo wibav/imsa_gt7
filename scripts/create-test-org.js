@@ -17,7 +17,7 @@ const serviceAccount = require('../serviceAccountKey.json');
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
-const TEST_ORG_ID = 'test-liga';
+const TEST_ORG_ID = 'test-liga-2';
 
 async function cleanup() {
     console.log(`Eliminando organización de prueba "${TEST_ORG_ID}" y su data...`);

@@ -197,9 +197,13 @@ export class FirebaseService {
   }
 
   // Obtener todos los eventos especiales - SIN CARGAR DATOS ANIDADOS (más rápido)
-  static async getEvents() {
+  // allOrgs: true → sin filtro de orgId (solo para la vista agregada de la
+  // URL raíz, que muestra eventos de todas las organizaciones — ver SPEC-3).
+  static async getEvents({ allOrgs = false } = {}) {
     try {
-      const q = query(collection(db, "events"), where("orgId", "==", currentOrgId));
+      const q = allOrgs
+        ? collection(db, "events")
+        : query(collection(db, "events"), where("orgId", "==", currentOrgId));
       const eventsSnapshot = await getDocs(q);
 
       // Cargar datos completos (incluyendo subcollections) para todos los eventos en paralelo
@@ -468,7 +472,8 @@ export class FirebaseService {
   /**
    * Obtener todos los campeonatos
    */
-  static async getChampionships() {
+  // allOrgs: true → sin filtro de orgId (vista agregada de la URL raíz).
+  static async getChampionships({ allOrgs = false } = {}) {
     try {
       const championshipsCol = collection(db, "championships");
       const q = query(championshipsCol, orderBy("createdAt", "desc"));
@@ -480,9 +485,8 @@ export class FirebaseService {
       // filtrar aquí es más seguro que desplegar un índice sin poder
       // validarlo antes. Reevaluar si el volumen de datos crece (ver
       // 02-ESPECIFICACIONES.md SPEC-2).
-      return snapshot.docs
-        .map(doc => Championship.fromFirestore(doc.id, doc.data()))
-        .filter(c => c.orgId === currentOrgId);
+      const all = snapshot.docs.map(doc => Championship.fromFirestore(doc.id, doc.data()));
+      return allOrgs ? all : all.filter(c => c.orgId === currentOrgId);
     } catch (error) {
       console.error("Error fetching championships:", error);
       throw error;

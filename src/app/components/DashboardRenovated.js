@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { FirebaseService } from "../services/firebaseService";
 import { useChampionship } from "../context/ChampionshipContext";
 import { useAuth } from '../context/AuthContext';
+import { useOrganization, DEFAULT_ORG_ID } from '../context/OrganizationContext';
 import Navbar from './Navbar';
 import ChampionshipCard from './ChampionshipCard';
 import EventCard from './EventCard';
@@ -10,6 +11,18 @@ import RegistrationModal from './RegistrationModal';
 import { BannerAd } from './ads';
 import LoadingSkeleton from './common/LoadingSkeleton';
 import { notifyEventRegistration } from '../utils/telegram';
+
+// Ordena priorizando los items de GT7 ESP primero (Array.sort es estable en
+// motores modernos, así que el orden relativo dentro de cada grupo se
+// conserva). Solo se usa en la vista agregada de la URL raíz.
+function prioritizeDefaultOrg(items) {
+    return [...items].sort((a, b) => {
+        const aIsDefault = a.orgId === DEFAULT_ORG_ID;
+        const bIsDefault = b.orgId === DEFAULT_ORG_ID;
+        if (aIsDefault === bIsDefault) return 0;
+        return aIsDefault ? -1 : 1;
+    });
+}
 
 export default function DashboardRenovated() {
     const [events, setEvents] = useState([]);
@@ -19,12 +32,30 @@ export default function DashboardRenovated() {
     const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
     const [isRegistering, setIsRegistering] = useState(false);
     const [registrationMessage, setRegistrationMessage] = useState("");
-    const { championships, loading: championshipsLoading } = useChampionship();
+    const { isRootView } = useOrganization();
+    // Vista agregada (URL raíz, sin /l/{slug}): todas las organizaciones,
+    // priorizando GT7 ESP. Vista de una org específica (/l/{slug}): solo la
+    // suya, ya scopeada por ChampionshipContext/getEvents().
+    const { championships: orgChampionships, loading: orgChampionshipsLoading } = useChampionship();
+    const [allOrgsChampionships, setAllOrgsChampionships] = useState([]);
+    const [allOrgsChampionshipsLoading, setAllOrgsChampionshipsLoading] = useState(false);
+    const championships = isRootView ? allOrgsChampionships : orgChampionships;
+    const championshipsLoading = isRootView ? allOrgsChampionshipsLoading : orgChampionshipsLoading;
     const { currentUser, isAdmin } = useAuth();
 
     useEffect(() => {
         fetchData();
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isRootView]);
+
+    useEffect(() => {
+        if (!isRootView) return;
+        setAllOrgsChampionshipsLoading(true);
+        FirebaseService.getChampionships({ allOrgs: true })
+            .then(list => setAllOrgsChampionships(prioritizeDefaultOrg(list)))
+            .catch(() => setAllOrgsChampionships([]))
+            .finally(() => setAllOrgsChampionshipsLoading(false));
+    }, [isRootView]);
 
     // Cargar tracks de cada campeonato para calcular progreso
     useEffect(() => {
@@ -37,8 +68,9 @@ export default function DashboardRenovated() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            // Cargar eventos únicos (colección global)
-            const eventsResponse = await FirebaseService.getEvents().catch(() => []);
+            // Cargar eventos únicos. En la vista agregada (raíz) se traen de
+            // todas las organizaciones y GT7 ESP se prioriza en el orden.
+            const eventsResponse = await FirebaseService.getEvents({ allOrgs: isRootView }).catch(() => []);
             setEvents(eventsResponse || []);
         } catch (error) {
             console.error("Error fetching data:", error);
@@ -63,20 +95,24 @@ export default function DashboardRenovated() {
     };
 
     // Obtener los próximos eventos (sin importar la semana)
-    // Se excluyen los ya pasados o finalizados ("completed"); se ordenan por fecha ascendente
+    // Se excluyen los ya pasados o finalizados ("completed"); se ordenan por
+    // fecha ascendente y, en la vista agregada, con GT7 ESP como grupo
+    // prioritario (sort estable: dentro de cada grupo se conserva el orden
+    // por fecha ya aplicado).
     const getUpcomingEvents = () => {
         if (!events || events.length === 0) return [];
-        return events
+        const sorted = events
             .filter(ev => {
                 const eventDate = new Date(ev.date + 'T23:59:59'); // final del día
                 const now = new Date();
                 return ev.status !== 'completed' && eventDate >= now;
             })
-            .sort((a, b) => new Date(a.date) - new Date(b.date))
-            .slice(0, 6); // Mostrar los próximos 6 eventos
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+        return (isRootView ? prioritizeDefaultOrg(sorted) : sorted).slice(0, 6);
     };
 
-    // Obtener campeonatos visibles (excluir borradores)
+    // Obtener campeonatos visibles (excluir borradores). En la vista agregada,
+    // GT7 ESP aparece primero (ya viene ordenado así desde el fetch).
     const getAllChampionships = () => {
         if (!championships || championships.length === 0) return [];
         return championships.filter(c => c.status !== 'draft');
@@ -85,15 +121,15 @@ export default function DashboardRenovated() {
     // Obtener eventos pasados
     const getPastEvents = () => {
         if (!events || events.length === 0) return [];
-        return events
+        const sorted = events
             .filter(ev => {
                 const isCompleted = ev.status === 'completed';
                 const eventDate = new Date(ev.date + 'T23:59:59');
                 const isPast = eventDate < new Date();
                 return isCompleted || isPast;
             })
-            .sort((a, b) => new Date(b.date) - new Date(a.date))
-            .slice(0, 6); // Mostrar últimos 6 eventos pasados
+            .sort((a, b) => new Date(b.date) - new Date(a.date));
+        return (isRootView ? prioritizeDefaultOrg(sorted) : sorted).slice(0, 6);
     };
 
     const handleViewEventDetails = (event) => {

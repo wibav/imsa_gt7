@@ -71,6 +71,7 @@ async function main() {
     const noClaim = testEnv.authenticatedContext('user1').firestore();
     const admin = testEnv.authenticatedContext('adminUser', { admin: true }).firestore();
     const comisario = testEnv.authenticatedContext('comisarioUser', { comisario: true }).firestore();
+    const platformOwner = testEnv.authenticatedContext('platformOwnerUser', { admin: true, platformOwner: true }).firestore();
 
     // ── championships ──
     await check('Anónimo puede LEER championships', () =>
@@ -181,8 +182,11 @@ async function main() {
     await check('Anónimo NO puede escribir el reglamento de una organización', () =>
         assertFails(anon.doc('organizations/gt7-esp').update({ reglamento: { sections: [] } })));
 
-    await check('Admin puede escribir el reglamento de una organización', () =>
-        assertSucceeds(admin.doc('organizations/gt7-esp').update({ reglamento: { sections: [] } })));
+    await check('Admin global (sin platformOwner) NO puede escribir organizations', () =>
+        assertFails(admin.doc('organizations/gt7-esp').update({ reglamento: { sections: [] } })));
+
+    await check('Platform Owner puede escribir el reglamento de una organización', () =>
+        assertSucceeds(platformOwner.doc('organizations/gt7-esp').update({ reglamento: { sections: [] } })));
 
     // ── catch-all ──
     await check('Colección no declarada: lectura denegada por defecto', () =>

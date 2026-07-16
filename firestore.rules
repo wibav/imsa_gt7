@@ -45,6 +45,13 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
+    // Administrador de Plataforma (dueño de trenkit) — por encima de todas
+    // las organizaciones. Distinto de isAdmin() (admin global de GT7 ESP).
+    // Solo se otorga una vez, vía script, nunca por el flujo normal de roles.
+    function isPlatformOwner() {
+      return isSignedIn() && request.auth.token.platformOwner == true;
+    }
+
     // Fase 1 (multi-tenant, sin tenant routing todavía — ver ADR-001,
     // 02-ESPECIFICACIONES.md SPEC-2). Única organización hoy. Cuando exista
     // un segundo tenant real, esto se generaliza a validar contra
@@ -150,12 +157,15 @@ service cloud.firestore {
 
     // ── organizations/{orgId} ────────────────────────────────────────────
     // Fase 1: entidad de organización (nombre, slug, branding, reglamento
-    // propio, plan/límites). Lectura pública (branding/reglamento se muestran
-    // en páginas públicas). Escritura: por ahora solo admin (single-tenant;
-    // en Fase 2 se reemplaza por rol "organizador" de esa org específica).
+    // propio, plan/límites, billing). Lectura pública (branding/reglamento
+    // se muestran en páginas públicas). Escritura: solo el Administrador de
+    // Plataforma — no cualquier admin global, para que un admin de GT7 ESP
+    // no pueda tocar plan/billing/branding de otra organización. Cuando
+    // exista el rol "Organizador" por-org (Fase 2), se sumará esa excepción
+    // acotada a los campos de branding/reglamento de su propia organización.
     match /organizations/{orgId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isPlatformOwner();
     }
 
     // ── userRoles/{emailDocId} ───────────────────────────────────────────

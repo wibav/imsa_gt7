@@ -68,7 +68,18 @@ export function OrganizationProvider({ children }) {
         return () => { cancelled = true; };
     }, [pathname]);
 
-    const value = { org, orgId: org?.id || DEFAULT_ORG_ID, loading, notFound };
+    // isRootView: true cuando la URL NO usa el prefijo /l/{slug} (la raíz y
+    // todas las demás rutas del sistema). En ese caso el Dashboard muestra
+    // una vista agregada de todas las organizaciones (ver DashboardRenovated),
+    // mientras que /l/{slug} muestra únicamente los datos de esa organización.
+    const value = {
+        org,
+        orgId: org?.id || DEFAULT_ORG_ID,
+        slug: parseOrgSlugFromPath(pathname),
+        isRootView: !parseOrgSlugFromPath(pathname),
+        loading,
+        notFound,
+    };
 
     // Crítico para el aislamiento multi-tenant: no montar nada por debajo
     // (ChampionshipProvider, DashboardRenovated, etc.) hasta que se resuelva

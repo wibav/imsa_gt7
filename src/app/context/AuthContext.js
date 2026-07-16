@@ -51,6 +51,15 @@ export function AuthProvider({ children }) {
         return !!(claims.admin || claims.comisario);
     };
 
+    // Administrador de Plataforma (dueño de trenkit) — rol de plataforma,
+    // por encima de todas las organizaciones. Distinto de isAdmin(), que hoy
+    // es el admin global de GT7 ESP. Solo wolcutor@gmail.com lo tiene
+    // (otorgado una única vez, no vía el flujo normal de gestión de roles —
+    // ver ADR-006 y scripts/bootstrap-roles.js).
+    const isPlatformOwner = () => {
+        return !!(currentUser && claims.platformOwner);
+    };
+
     // Fuerza refrescar el token para tomar cambios de rol recientes
     // (los custom claims solo viajan en el ID token tras un refresh).
     const refreshClaims = async () => {
@@ -89,6 +98,7 @@ export function AuthProvider({ children }) {
         logout,
         isAdmin,
         isComisario,
+        isPlatformOwner,
         refreshClaims,
         loading
     };
