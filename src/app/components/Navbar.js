@@ -1,11 +1,20 @@
 "use client";
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useOrganization } from '../context/OrganizationContext';
 import Image from 'next/image';
 
 export default function Navbar() {
     const [menuOpen, setMenuOpen] = useState(false);
     const { currentUser, logout, isAdmin } = useAuth();
+    const { org } = useOrganization();
+
+    // Branding por organización (plan Pro, ver SPEC-1/SPEC-3): solo se
+    // sustituye el logo/nombre por defecto de trenkit cuando la org tiene
+    // branding.logoUrl configurado explícitamente. GT7 ESP no lo tiene hoy,
+    // así que el sitio se ve exactamente igual que antes de esta feature.
+    const customLogoUrl = org?.branding?.logoUrl || null;
+    const displayName = customLogoUrl ? (org?.name || 'GT7 Championships') : 'GT7 Championships';
 
     const handleLogout = async () => {
         try {
@@ -31,21 +40,30 @@ export default function Navbar() {
                     <div className="cursor-pointer group" onClick={() => window.location.href = '/'}>
                         <div className="flex items-center gap-3 sm:gap-4">
                             <div className="relative">
-                                <Image
-                                    src="/logo_gt7.png"
-                                    alt="GT7 Championships"
-                                    width={56}
-                                    height={56}
-                                    className="w-12 h-12 sm:w-14 sm:h-14 object-contain transition-transform duration-300 group-hover:scale-110"
-                                    onError={(e) => {
-                                        e.target.style.display = 'none';
-                                    }}
-                                />
+                                {customLogoUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                        src={customLogoUrl}
+                                        alt={displayName}
+                                        className="w-12 h-12 sm:w-14 sm:h-14 object-contain rounded-full transition-transform duration-300 group-hover:scale-110"
+                                    />
+                                ) : (
+                                    <Image
+                                        src="/logo_gt7.png"
+                                        alt={displayName}
+                                        width={56}
+                                        height={56}
+                                        className="w-12 h-12 sm:w-14 sm:h-14 object-contain transition-transform duration-300 group-hover:scale-110"
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                        }}
+                                    />
+                                )}
                                 <div className="absolute inset-0 bg-orange-500/20 rounded-full blur-xl group-hover:bg-orange-500/40 transition-all duration-300"></div>
                             </div>
                             <div>
                                 <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2 group-hover:text-orange-400 transition-colors duration-300">
-                                    GT7 Championships
+                                    {displayName}
                                     <span className="text-orange-500">🏆</span>
                                 </h1>
                                 <p className="text-gray-400 text-sm sm:text-base">Campeonatos y Eventos</p>

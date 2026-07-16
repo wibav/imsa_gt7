@@ -27,17 +27,28 @@ import { Penalty, Claim } from "../models/Penalty";
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// Fase 1 (multi-tenant, ver ADR-001/02-ESPECIFICACIONES SPEC-2): todavía no
-// existe tenant routing (Fase 3), así que la organización activa es fija.
-// Cuando exista OrganizationContext resolviendo el tenant por URL, este
-// valor deja de ser una constante y pasa a inyectarse en tiempo de ejecución.
-const CURRENT_ORG_ID = 'gt7-esp';
+// Fase 3 (routing por organización, ver ADR-002/SPEC-3): FirebaseService es
+// una clase estática, no un componente React, así que no puede leer
+// OrganizationContext directamente. OrganizationProvider llama a
+// FirebaseService.setCurrentOrgId(orgId) apenas resuelve el tenant desde la
+// URL, y todas las queries de abajo leen esta variable de módulo. Por
+// defecto es 'gt7-esp' (comportamiento idéntico al de antes de Fase 3, para
+// cualquier ruta que no use el prefijo /l/{slug}).
+let currentOrgId = 'gt7-esp';
 
 export class FirebaseService {
+  static setCurrentOrgId(orgId) {
+    currentOrgId = orgId;
+  }
+
+  static getCurrentOrgId() {
+    return currentOrgId;
+  }
+
   // Obtener todos los equipos (catálogo de la organización activa)
   static async getTeams() {
     try {
-      const q = query(collection(db, "teams"), where("orgId", "==", CURRENT_ORG_ID));
+      const q = query(collection(db, "teams"), where("orgId", "==", currentOrgId));
       const teamSnapshot = await getDocs(q);
       const teams = teamSnapshot.docs.map(doc => ({
         id: doc.id,
@@ -55,7 +66,7 @@ export class FirebaseService {
   static async saveTeams(teams) {
     try {
       const promises = teams.map(team =>
-        setDoc(doc(collection(db, "teams"), String(team.id)), { ...team, orgId: CURRENT_ORG_ID })
+        setDoc(doc(collection(db, "teams"), String(team.id)), { ...team, orgId: currentOrgId })
       );
       await Promise.all(promises);
       return { success: true };
@@ -188,7 +199,7 @@ export class FirebaseService {
   // Obtener todos los eventos especiales - SIN CARGAR DATOS ANIDADOS (más rápido)
   static async getEvents() {
     try {
-      const q = query(collection(db, "events"), where("orgId", "==", CURRENT_ORG_ID));
+      const q = query(collection(db, "events"), where("orgId", "==", currentOrgId));
       const eventsSnapshot = await getDocs(q);
 
       // Cargar datos completos (incluyendo subcollections) para todos los eventos en paralelo
@@ -244,7 +255,7 @@ export class FirebaseService {
       // que el estado de la UI lo preserve; saveEvent reemplaza el doc completo)
       const eventData = {
         ...baseEventData,
-        orgId: CURRENT_ORG_ID,
+        orgId: currentOrgId,
         updatedAt: new Date().toISOString(),
         participantCount: (participants || []).length,
         waitlistCount: (waitlist || []).length,
@@ -471,7 +482,7 @@ export class FirebaseService {
       // 02-ESPECIFICACIONES.md SPEC-2).
       return snapshot.docs
         .map(doc => Championship.fromFirestore(doc.id, doc.data()))
-        .filter(c => c.orgId === CURRENT_ORG_ID);
+        .filter(c => c.orgId === currentOrgId);
     } catch (error) {
       console.error("Error fetching championships:", error);
       throw error;
@@ -512,7 +523,7 @@ export class FirebaseService {
       // Filtro por orgId en cliente — mismo motivo que getChampionships().
       return snapshot.docs
         .map(doc => Championship.fromFirestore(doc.id, doc.data()))
-        .filter(c => c.orgId === CURRENT_ORG_ID);
+        .filter(c => c.orgId === currentOrgId);
     } catch (error) {
       console.error("Error fetching active championships:", error);
       throw error;
@@ -524,7 +535,7 @@ export class FirebaseService {
    */
   static async createChampionship(championshipData) {
     try {
-      const championship = new Championship({ ...championshipData, orgId: CURRENT_ORG_ID });
+      const championship = new Championship({ ...championshipData, orgId: currentOrgId });
       const validation = championship.validate();
 
       if (!validation.isValid) {

@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 import { AuthProvider } from "./context/AuthContext";
 import { ChampionshipProvider } from "./context/ChampionshipContext";
+import { OrganizationProvider } from "./context/OrganizationContext";
 import ClientLayout from "./components/ClientLayout";
 import Analytics from "../components/Analytics";
 import AnalyticsDebugger from "../components/AnalyticsDebugger";
@@ -83,11 +84,13 @@ export default function RootLayout({ children }) {
         />
         <Analytics />
         <AnalyticsDebugger />
-        <AuthProvider>
-          <ChampionshipProvider>
-            <ClientLayout>{children}</ClientLayout>
-          </ChampionshipProvider>
-        </AuthProvider>
+        <OrganizationProvider>
+          <AuthProvider>
+            <ChampionshipProvider>
+              <ClientLayout>{children}</ClientLayout>
+            </ChampionshipProvider>
+          </AuthProvider>
+        </OrganizationProvider>
       </body>
     </html>
   );

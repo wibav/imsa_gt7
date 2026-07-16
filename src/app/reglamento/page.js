@@ -1,12 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
-import { FirebaseService } from "../services/firebaseService";
-
-// ID de la organización activa. Sin tenant routing todavía (llega en Fase 3),
-// así que por ahora es fijo — cuando exista resolución de org por URL
-// (trenkit.com/l/{slug}), esto pasa a venir de OrganizationContext.
-const CURRENT_ORG_ID = "gt7-esp";
+import { useOrganization } from "../context/OrganizationContext";
 
 // ============================
 // DATOS DEL REGLAMENTO (fallback)
@@ -605,22 +600,21 @@ function fromFirestoreSafe(sections) {
 }
 
 export default function ReglamentoPage() {
+    const { org } = useOrganization();
     const [sections, setSections] = useState(DEFAULT_SECTIONS);
     const [activeSection, setActiveSection] = useState(DEFAULT_SECTIONS[0].id);
 
-    // Carga el reglamento propio de la organización activa. Si no existe
-    // (org sin reglamento configurado, o error de red), se mantiene el
-    // fallback DEFAULT_SECTIONS ya mostrado.
+    // Usa el reglamento de la organización ya resuelta por OrganizationContext
+    // (Fase 3). Si la org no tiene reglamento propio configurado, se mantiene
+    // el fallback DEFAULT_SECTIONS ya mostrado.
     useEffect(() => {
-        FirebaseService.getOrganization(CURRENT_ORG_ID).then(org => {
-            const orgSections = org?.reglamento?.sections;
-            if (Array.isArray(orgSections) && orgSections.length > 0) {
-                const normalized = fromFirestoreSafe(orgSections);
-                setSections(normalized);
-                setActiveSection(normalized[0].id);
-            }
-        }).catch(() => { /* se mantiene el fallback */ });
-    }, []);
+        const orgSections = org?.reglamento?.sections;
+        if (Array.isArray(orgSections) && orgSections.length > 0) {
+            const normalized = fromFirestoreSafe(orgSections);
+            setSections(normalized);
+            setActiveSection(normalized[0].id);
+        }
+    }, [org]);
 
     const handleSelectSection = (id) => {
         setActiveSection(id);
