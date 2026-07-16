@@ -207,6 +207,19 @@ async function main() {
     await check('director_liga de OTRA organización NO puede escribir en tracks (carve-out limitado a gt7-esp hoy)', () =>
         assertFails(dirLigaOtraOrg.doc('tracks/t2').set({ name: 'Otro' })));
 
+    // ── equipment (catálogo global, solo editable por platformOwner) ──
+    await check('Anónimo puede LEER el catálogo de equipment', () =>
+        assertSucceeds(anon.doc('equipment/e1').get()));
+
+    await check('Anónimo NO puede escribir en equipment', () =>
+        assertFails(anon.doc('equipment/e1').set({ title: 'Hack' })));
+
+    await check('director_liga (organizador de GT7 ESP) NO puede escribir en equipment', () =>
+        assertFails(organizador.doc('equipment/e1').set({ title: 'Hack' })));
+
+    await check('Platform Owner puede escribir en equipment', () =>
+        assertSucceeds(platformOwner.doc('equipment/e1').set({ title: 'Volante X', order: 0 })));
+
     // ── organizations ──
     await check('Anónimo puede LEER una organización (branding/reglamento públicos)', () =>
         assertSucceeds(anon.doc('organizations/gt7-esp').get()));

@@ -170,6 +170,16 @@ service cloud.firestore {
       allow write: if isOrgAdmin('gt7-esp');
     }
 
+    // ── equipment/{id} (catálogo GLOBAL, "Equipamiento recomendado") ─────
+    // No lleva orgId: es contenido editorial (afiliación Amazon) del propio
+    // dueño de la plataforma, no un recurso de ninguna organización.
+    // Lectura pública; escritura exclusiva del Administrador de Plataforma
+    // (petición explícita de producto: "solo administrado por mi usuario").
+    match /equipment/{itemId} {
+      allow read: if true;
+      allow write: if isPlatformOwner();
+    }
+
     // ── organizations/{orgId} ────────────────────────────────────────────
     // Entidad de organización (nombre, slug, branding, reglamento, plan,
     // límites, billing). Lectura pública (branding/reglamento se muestran

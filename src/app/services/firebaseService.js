@@ -1382,4 +1382,62 @@ export class FirebaseService {
       return null;
     }
   }
+
+  // ══════════════════════════════════════════
+  // Equipamiento (catálogo GLOBAL, gestión exclusiva del Administrador de
+  // Plataforma — ver firestore.rules)
+  // ══════════════════════════════════════════
+
+  /** Listar productos de equipamiento, ordenados por `order` */
+  static async getEquipmentItems() {
+    try {
+      const q = query(collection(db, 'equipment'), orderBy('order', 'asc'));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (error) {
+      console.error('Error getting equipment items:', error);
+      return [];
+    }
+  }
+
+  /** Crear un producto de equipamiento */
+  static async createEquipmentItem(item, order) {
+    try {
+      const docRef = await addDoc(collection(db, 'equipment'), {
+        ...item,
+        order,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      return { success: true, id: docRef.id };
+    } catch (error) {
+      console.error('Error creating equipment item:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /** Editar un producto de equipamiento existente */
+  static async updateEquipmentItem(itemId, updates) {
+    try {
+      await updateDoc(doc(db, 'equipment', itemId), {
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating equipment item:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /** Eliminar un producto de equipamiento */
+  static async deleteEquipmentItem(itemId) {
+    try {
+      await deleteDoc(doc(db, 'equipment', itemId));
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting equipment item:', error);
+      return { success: false, error: error.message };
+    }
+  }
 }

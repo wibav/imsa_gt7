@@ -8,7 +8,7 @@ export default function AdminLayout({ children }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const { currentUser, logout, isAdmin } = useAuth();
+    const { currentUser, logout, isAdmin, isPlatformOwner } = useAuth();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
 
@@ -57,6 +57,7 @@ export default function AdminLayout({ children }) {
             icon: '⚙️',
             items: [
                 { name: 'Creador de Vinilos', path: '/tools', icon: '🎨' },
+                ...(isPlatformOwner() ? [{ name: 'Equipamiento', path: '/equipamientoAdmin', icon: '🛒' }] : []),
             ]
         }
     ];
