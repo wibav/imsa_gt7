@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { FirebaseService } from "../services/firebaseService";
 import { GT7_TRACKS } from "../utils/constants";
+import { validateImageFile, compressImage } from "../utils/imageCompression";
 import Image from "next/image";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
 
@@ -105,23 +106,14 @@ export default function TracksAdminPage() {
         const file = e.target.files[0];
         if (!file) return;
 
-        if (!file.type.startsWith('image/')) {
-            alert('Por favor selecciona un archivo de imagen');
-            return;
-        }
-
-        if (file.size > 5 * 1024 * 1024) {
-            alert('La imagen es muy grande. Máximo 5MB');
-            return;
-        }
-
         try {
+            validateImageFile(file);
             setUploadingImage(true);
+            const compressed = await compressImage(file);
             const timestamp = Date.now();
-            const fileName = `${file.name.replace(/\s/g, '_')}`;
-            const path = `tracks/${timestamp}_${fileName}`;
+            const path = `tracks/${timestamp}_${compressed.name.replace(/\s/g, '_')}`;
 
-            const downloadURL = await FirebaseService.uploadImage(file, path);
+            const downloadURL = await FirebaseService.uploadImage(compressed, path);
             setTrackForm(prev => ({ ...prev, layoutImage: downloadURL }));
             alert('✅ Imagen subida correctamente');
         } catch (error) {

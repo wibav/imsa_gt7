@@ -14,6 +14,7 @@ import {
     DEFAULT_SPRINT_POINTS,
     WEATHER_TIME_OPTIONS,
 } from '../../utils/constants';
+import { validateImageFile, compressImage } from '../../utils/imageCompression';
 
 // ─── Constantes locales ──────────────────────────────────────────────────────
 
@@ -206,12 +207,12 @@ export default function TrackFormModal({ track, championship, onSave, onClose })
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        if (!file.type.startsWith('image/')) { alert('Por favor selecciona una imagen'); return; }
-        if (file.size > 5 * 1024 * 1024) { alert('La imagen supera el máximo de 5 MB'); return; }
         try {
+            validateImageFile(file);
             setUploadingImage(true);
-            const path = `tracks/${Date.now()}_${file.name.replace(/\s/g, '_')}`;
-            const url = await FirebaseService.uploadImage(file, path);
+            const compressed = await compressImage(file);
+            const path = `tracks/${Date.now()}_${compressed.name.replace(/\s/g, '_')}`;
+            const url = await FirebaseService.uploadImage(compressed, path);
             setForm(prev => ({ ...prev, layoutImage: url }));
         } catch (err) {
             alert('Error al subir imagen: ' + err.message);

@@ -8,6 +8,7 @@ import { Championship } from '../../models/Championship';
 import { FirebaseService } from '../../services/firebaseService';
 import { GT7_TRACKS, TYRE_OPTIONS, DAMAGE_OPTIONS, STREAMING_PLATFORMS, WEATHER_CONDITION_OPTIONS, WEATHER_TRANSITION_OPTIONS, START_TIME_OPTIONS, TIME_MULTIPLIER_OPTIONS, DEFAULT_SPRINT_POINTS, DEFAULT_DIVISIONS_CONFIG, WEATHER_TIME_OPTIONS } from '../../utils/constants';
 import { DEFAULT_PENALTIES_CONFIG } from '../../models/Penalty';
+import { validateImageFile, compressImage } from '../../utils/imageCompression';
 import LoadingSkeleton from '../common/LoadingSkeleton';
 import ErrorMessage from '../common/ErrorMessage';
 
@@ -224,6 +225,7 @@ export default function ChampionshipForm({ isEditing = false }) {
     const [loading, setLoading] = useState(isEditing);
     const [bannerFile, setBannerFile] = useState(null);
     const [bannerPreview, setBannerPreview] = useState(null);
+    const [compressingBanner, setCompressingBanner] = useState(false);
 
     // Estado de circuitos
     const [loadingTracks, setLoadingTracks] = useState(isEditing);
@@ -474,13 +476,21 @@ export default function ChampionshipForm({ isEditing = false }) {
         }));
     };
 
-    const handleBannerChange = (e) => {
+    const handleBannerChange = async (e) => {
         const file = e.target.files[0];
-        if (file) {
-            setBannerFile(file);
+        if (!file) return;
+        try {
+            validateImageFile(file);
+            setCompressingBanner(true);
+            const compressed = await compressImage(file);
+            setBannerFile(compressed);
             const reader = new FileReader();
             reader.onloadend = () => setBannerPreview(reader.result);
-            reader.readAsDataURL(file);
+            reader.readAsDataURL(compressed);
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            setCompressingBanner(false);
         }
     };
 
@@ -1206,8 +1216,9 @@ export default function ChampionshipForm({ isEditing = false }) {
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">Banner del Campeonato</label>
-                                    <input type="file" accept="image/*" onChange={handleBannerChange}
-                                        className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-orange-600 file:text-white hover:file:bg-orange-700" />
+                                    <input type="file" accept="image/*" onChange={handleBannerChange} disabled={compressingBanner}
+                                        className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-orange-600 file:text-white hover:file:bg-orange-700 disabled:opacity-50" />
+                                    {compressingBanner && <p className="text-sm text-orange-400 mt-2">⏳ Comprimiendo imagen...</p>}
                                     {bannerPreview && (
                                         <div className="mt-4">
                                             {/* eslint-disable-next-line @next/next/no-img-element */}

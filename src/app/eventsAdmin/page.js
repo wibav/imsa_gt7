@@ -8,6 +8,7 @@ import {
     STREAMING_PLATFORMS, TYRE_OPTIONS, DAMAGE_OPTIONS, WEATHER_TIME_OPTIONS,
     EVENT_TYPES, getDefaultRounds
 } from "../utils";
+import { validateImageFile, compressImage } from "../utils/imageCompression";
 
 // ============================
 // DEFAULTS
@@ -366,11 +367,17 @@ function EventForm({ event, onSave, onCancel, saving }) {
     const handleBannerFile = async (file) => {
         if (!file) return;
         try {
+            validateImageFile(file);
+            const compressed = await compressImage(file);
             const path = `events/${form.id || 'new'}/banner_${Date.now()}`;
-            const url = await FirebaseService.uploadImage(file, path);
+            const url = await FirebaseService.uploadImage(compressed, path);
             updateField('banner', url);
-        } catch {
-            // Fallback: data URL
+        } catch (err) {
+            if (err.message?.includes('imagen') || err.message?.includes('MB')) {
+                alert(err.message);
+                return;
+            }
+            // Fallback: data URL (solo si falla la subida, no la validación)
             const reader = new FileReader();
             reader.onload = () => updateField('banner', reader.result);
             reader.readAsDataURL(file);
