@@ -110,6 +110,33 @@ Colecciones a scopear: `championships`, `events`, `teams`, `tracks`,
 `registrations` (viven dentro de championship), `penalties`, `userRoles` →
 pasa a `memberships`.
 
+### 2.2bis Migración de la data actual — garantía de cero pérdida
+
+**Requisito no negociable**: nada de lo que existe hoy (campeonatos, eventos,
+equipos, pistas, inscripciones, sanciones, reclamaciones, roles) puede perderse,
+corromperse ni quedar huérfano al introducir `orgId`.
+
+**Enfoque de migración (script de backfill, no reescritura manual):**
+1. Se crea la organización `IMSA` (o el nombre que definas) como **org #1**,
+   con `wolcutor@gmail.com` como su Organizador.
+2. Un script (Cloud Function o script one-off con Admin SDK) recorre **todas**
+   las colecciones existentes y les añade `orgId: "imsa"` a cada documento,
+   **sin tocar ningún otro campo** — es un `update` aditivo, no una migración
+   destructiva.
+3. Antes de correrlo en producción: **backup completo de Firestore** (export a
+   Cloud Storage) — reversible en minutos si algo sale mal.
+4. Se corre primero contra un **proyecto/entorno de prueba** (o export local)
+   para validar que el conteo de documentos migrados coincide exactamente con
+   el conteo previo, y que ninguna query del frontend rompe (smoke test manual
+   de: ver campeonatos, ver standings, entrar al admin, ver inscripciones).
+5. Solo después de validar, se aplica en producción y se despliegan las
+   `firestore.rules` que ya exigen `orgId`. Hasta ese punto, la app sigue
+   funcionando exactamente igual que hoy (nada rompe a mitad de camino).
+
+> Este script y su validación son el primer entregable técnico de la Fase 1 —
+> antes de tocar rules ni roles, la prioridad es que la migración sea
+> **verificablemente completa y reversible**.
+
 ### 2.3 Identidad y roles — org-scoped con Custom Claims
 Hoy: `isAdmin` = email en lista hardcodeada; `comisario` en `userRoles` global.
 
@@ -129,6 +156,25 @@ Dentro de cada organización (liga/club):
 
 > Jerarquía: **Administrador de Plataforma (tú)** › Organizador › Director de liga
 > › Comisario › Piloto.
+
+**Tu doble rol (`wolcutor@gmail.com`)**: eres **Administrador de Plataforma**
+(único, con visibilidad y control sobre todas las organizaciones incluidas las
+de clientes) **Y ADEMÁS** Organizador de tu propia organización (`IMSA`, la
+comunidad actual). Es decir, con el mismo email tienes el claim de plataforma
+más la membresía de Organizador en `org #1`. Técnicamente: el custom claim
+`platformOwner: true` es independiente y adicional a tu `membership` en `IMSA`.
+
+**Tu equipo actual (admins y comisarios de IMSA) queda fuera del modelo
+comercial**: no son "invitados" a través del flujo de onboarding self-service
+de un cliente que paga — son directamente **miembros de la organización IMSA**
+(tu propia liga), migrados 1:1 desde `userRoles` a `memberships` con
+`orgId: "imsa"` en el mismo script de la Fase 1 (§2.2bis). Conservan
+exactamente los mismos permisos que tienen hoy (Director de liga / Comisario),
+solo que ahora acotados formalmente a `orgId: "imsa"` en vez de ser globales.
+No pagan suscripción ni pasan por Stripe/MoR — `IMSA` puede marcarse
+internamente como organización exenta de facturación (un flag
+`billingExempt: true` o plan especial "house", visible solo para ti como
+Administrador de Plataforma).
 
 Implementación: `memberships/{uid}_{orgId}` con `{ uid, orgId, role }` + **Firebase
 Custom Claims** (`{ orgId, role }`) inyectados por Cloud Function al invitar/loguear.
@@ -301,7 +347,7 @@ suspender/reactivar, métricas (MRR, churn, activación).
 | Fase | Objetivo | Entregable clave | Esfuerzo aprox. |
 |------|----------|------------------|-----------------|
 | **0. Blindaje** *(obligatorio)* | Cerrar el hueco de seguridad actual | `firestore.rules` + índices + **Firebase Admin en Cloud Functions** (claims/roles) + quitar `ADMIN_EMAILS` del cliente + **compresión/límite de banners** | Alto |
-| **1. Modelo de Org** | Introducir tenant | Entidad `organizations`, `orgId` en todas las colecciones, migrar tu comunidad actual como "org #1" | Alto |
+| **1. Modelo de Org** | Introducir tenant sin perder data | Entidad `organizations`, script de backfill `orgId` verificado contra backup (§2.2bis), tu comunidad migrada como "org #1" con tu equipo actual intacto | Alto |
 | **2. Auth org-scoped** | Permisos aislados | `memberships`, custom claims, rules que validan `orgId`+rol, invitaciones | Alto |
 | **3. Routing + Branding** | Cada liga se ve como suya | Resolución de tenant por path (`/mi-liga` con palabras reservadas), branding por org (logo+colores, plan Pro), OG dinámico | Medio |
 | **4. Billing** | Cobrar | Stripe Checkout + Portal + `stripeWebhook`, planes y límites aplicados (incl. Free de un solo uso) | Medio-Alto |
@@ -326,8 +372,11 @@ suspender/reactivar, métricas (MRR, churn, activación).
 - **Costo Firebase a escala**: el patrón client-side actual multiplica lecturas.
   Optimizar (paginación, caché, documentos agregados de standings) antes de
   crecer, o el margen se erosiona.
-- **Migración sin romper tu comunidad**: tu liga actual debe seguir funcionando;
-  se migra como la primera organización con un script de backfill de `orgId`.
+- **Migración sin romper tu comunidad**: tu liga actual debe seguir funcionando
+  y **sin perder ni un dato**; se migra como la primera organización (`IMSA`) con
+  un script de backfill de `orgId` validado contra backup antes de aplicarse
+  (ver §2.2bis). Tus admins/comisarios actuales pasan a ser miembros de esa org
+  con los mismos permisos, sin pasar por el flujo comercial ni facturación.
 - **Static export es suficiente**: la URL por path (`/mi-liga`) funciona con el
   export estático actual (§2.5), así que **no hace falta migrar a SSR** para el
   alcance acordado. Solo se reconsideraría si en el futuro se quisieran
@@ -359,6 +408,12 @@ suspender/reactivar, métricas (MRR, churn, activación).
 7. **Solo GT7** por ahora.
 8. **Fase 0** incluye `firestore.rules` + **Firebase Admin** (claims/roles,
    reemplaza `ADMIN_EMAILS`) + **compresión de banners a 500–800 KB**.
+9. **Continuidad de datos garantizada**: la migración a multi-tenant se hace
+   con backfill aditivo + backup + validación previa, **cero pérdida de data**
+   (§2.2bis). Tus admins/comisarios actuales de IMSA se migran como miembros de
+   la organización `IMSA` (`org #1`), fuera del flujo comercial, sin facturación.
+10. **`wolcutor@gmail.com` es propietario de todo**: Administrador de Plataforma
+    (control global) y además Organizador de `IMSA` (§2.3).
 
 **Único punto abierto (lo investigas tú):**
 - **Pasarela definitiva**: revisar requisitos de registro de **Lemon Squeezy** y
