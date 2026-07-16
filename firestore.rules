@@ -1,0 +1,145 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────────
+// Reglas de seguridad — Fase 0 (single-tenant, previa al modelo multi-tenant)
+//
+// Reemplaza la ausencia total de reglas (antes, la única protección era
+// JavaScript en el cliente: ADMIN_EMAILS hardcodeado). La fuente de verdad de
+// los roles pasa a ser el Custom Claim del token de Firebase Auth
+// (`admin: true` / `comisario: true`), asignado exclusivamente por la Cloud
+// Function `manage_user_role` vía Admin SDK — nunca escrito directo por el
+// cliente.
+//
+// Ver: Notas/Proyectos/GT7 Championships/02-ESPECIFICACIONES.md (SPEC-5)
+//      Notas/Proyectos/GT7 Championships/ADR/ADR-003-roles-permisos.md
+//
+// Nota: `orgId` / aislamiento multi-tenant llega en Fase 1. Estas reglas
+// protegen el modelo de datos actual (una sola comunidad).
+// ─────────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    // Un admin siempre cuenta como comisario también (mismo criterio que
+    // hoy en AuthContext.isComisario()).
+    function isComisario() {
+      return isSignedIn() &&
+        (request.auth.token.admin == true || request.auth.token.comisario == true);
+    }
+
+    function onlyAffects(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    // ── championships/{id} ───────────────────────────────────────────────
+    // Documento principal: nombre, categorías, settings, drivers[],
+    // registrations[], carUsageTracking, preQualy, divisionsConfig, etc.
+    // Lectura pública (clasificaciones/calendario son páginas públicas).
+    // Escritura de administración: solo admin.
+    // Excepción: inscripción pública (RegistrationForm) solo puede tocar el
+    // campo `registrations` — nunca settings, drivers, pointsSystem, etc.
+    match /championships/{champId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() || onlyAffects(['registrations']);
+      allow delete: if isAdmin();
+
+      // Equipos, pistas, divisiones: gestión exclusiva de admin.
+      match /teams/{teamId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+      match /tracks/{trackId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+      match /divisions/{divId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+      match /events/{subEventId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+
+      // Sanciones y reclamaciones: gestionadas por admin o comisario.
+      match /penalties/{penaltyId} {
+        allow read: if true;
+        allow write: if isComisario();
+      }
+      match /claims/{claimId} {
+        allow read: if true;
+        allow write: if isComisario();
+      }
+    }
+
+    // ── events/{id} (eventos únicos, no ligados a un campeonato) ─────────
+    // Lectura pública. Escritura de administración: solo admin.
+    // Excepción: el flujo público de inscripción actualiza `waitlistCount`
+    // y `updatedAt` en el doc principal, además de crear en las
+    // subcolecciones `participants`/`waitlist` (sin sesión iniciada).
+    match /events/{eventId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() || onlyAffects(['waitlistCount', 'updatedAt']);
+      allow delete: if isAdmin();
+
+      match /participants/{participantId} {
+        allow read: if true;
+        allow create: if true;
+        allow update, delete: if isAdmin();
+      }
+      match /waitlist/{entryId} {
+        allow read: if true;
+        allow create: if true;
+        allow update, delete: if isAdmin();
+      }
+      match /results/{resultId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+      match /rounds/{roundId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    // ── teams/{id} y tracks/{id} (catálogos globales, legacy) ────────────
+    // Colecciones raíz independientes de los campeonatos: catálogo global de
+    // equipos (`teamsAdmin`) y catálogo de circuitos con imagen reutilizable
+    // entre campeonatos (`FirebaseService.getTracks()`, usado por
+    // TrackFormModal). Lectura pública, escritura solo admin.
+    match /teams/{teamId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /tracks/{trackId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── userRoles/{emailDocId} ───────────────────────────────────────────
+    // Documento espejo (para UI de /usersAdmin) de los custom claims.
+    // La fuente de verdad real son los claims del token, asignados solo por
+    // la Cloud Function `manage_user_role` (Admin SDK, ignora estas reglas).
+    // El cliente NUNCA escribe aquí directamente — solo lectura por admin.
+    match /userRoles/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Cualquier otra colección no contemplada explícitamente: denegada.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

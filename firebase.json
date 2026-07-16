@@ -17,6 +17,10 @@
         "function": "notify"
       },
       {
+        "source": "/api/manage-user-role",
+        "function": "manage_user_role"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
@@ -24,5 +28,19 @@
   },
   "storage": {
     "rules": "storage.rules"
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 8080
+    },
+    "auth": {
+      "port": 9099
+    },
+    "ui": {
+      "enabled": true
+    }
   }
 }

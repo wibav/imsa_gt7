@@ -12,6 +12,12 @@ from firebase_functions import https_fn
 from PIL import Image, ImageEnhance, ImageFilter, UnidentifiedImageError
 import vtracer
 
+import firebase_admin
+from firebase_admin import auth as fb_auth, firestore as fb_firestore
+
+if not firebase_admin._apps:
+    firebase_admin.initialize_app()
+
 
 SVG_SIZE_LIMIT_BYTES = 15 * 1024
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024   # Guard anti-abuso: rechaza subidas > 10 MB
@@ -411,3 +417,94 @@ def _handle_request(req: https_fn.Request) -> https_fn.Response:
     })
 
     return _json_response(payload)
+
+
+# ─── Gestión de roles (Custom Claims) — Fase 0 ───────────────────────────────
+# Reemplaza ADMIN_EMAILS hardcodeado en el cliente. La única forma de otorgar
+# o revocar el claim admin/comisario es esta función (Admin SDK), nunca el
+# cliente directamente contra Firestore/Auth.
+#
+# Ver: Notas/Proyectos/GT7 Championships/ADR/ADR-003-roles-permisos.md
+
+_ROLE_CORS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
+_VALID_ROLES = {'admin', 'comisario'}
+
+
+def _role_json(payload: dict, status_code: int = 200) -> https_fn.Response:
+    return https_fn.Response(
+        json.dumps(payload),
+        status=status_code,
+        headers={**_ROLE_CORS, 'Content-Type': 'application/json'},
+    )
+
+
+def _email_to_doc_id(email: str) -> str:
+    """Debe coincidir exactamente con FirebaseService._emailToDocId (JS)."""
+    return email.lower().replace('.', '_').replace('@', '__at__')
+
+
+@https_fn.on_request(region='us-central1')
+def manage_user_role(req: https_fn.Request) -> https_fn.Response:
+    if req.method == 'OPTIONS':
+        return https_fn.Response('', status=204, headers=_ROLE_CORS)
+
+    if req.method != 'POST':
+        return _role_json({'ok': False, 'error': 'Method not allowed'}, 405)
+
+    # ── Verificar que quien llama es un admin autenticado ──
+    auth_header = req.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return _role_json({'ok': False, 'error': 'Falta token de autorización'}, 401)
+
+    id_token = auth_header.split(' ', 1)[1]
+    try:
+        caller_claims = fb_auth.verify_id_token(id_token)
+    except Exception:
+        return _role_json({'ok': False, 'error': 'Token inválido o expirado'}, 401)
+
+    if not caller_claims.get('admin'):
+        return _role_json({'ok': False, 'error': 'Requiere permisos de administrador'}, 403)
+
+    # ── Validar body ──
+    body = req.get_json(silent=True) or {}
+    target_email = (body.get('targetEmail') or '').strip().lower()
+    role = body.get('role')  # 'admin' | 'comisario' | None (limpiar)
+    display_name = (body.get('displayName') or '').strip()
+
+    if not target_email or '@' not in target_email:
+        return _role_json({'ok': False, 'error': 'Email inválido'}, 400)
+    if role is not None and role not in _VALID_ROLES:
+        return _role_json({'ok': False, 'error': f'Rol inválido: {role}'}, 400)
+
+    # ── Buscar el usuario en Firebase Auth ──
+    try:
+        target_user = fb_auth.get_user_by_email(target_email)
+    except fb_auth.UserNotFoundError:
+        return _role_json({
+            'ok': False,
+            'error': 'No existe una cuenta con ese email. El usuario debe haber iniciado sesión al menos una vez.',
+        }, 404)
+
+    # ── Asignar o limpiar el custom claim ──
+    new_claims = {role: True} if role else {}
+    fb_auth.set_custom_user_claims(target_user.uid, new_claims)
+
+    # ── Espejo en Firestore para la UI de /usersAdmin (Admin SDK, bypassa rules) ──
+    db = fb_firestore.client()
+    doc_ref = db.collection('userRoles').document(_email_to_doc_id(target_email))
+    if role:
+        doc_ref.set({
+            'email': target_email,
+            'role': role,
+            'displayName': display_name,
+            'updatedAt': fb_firestore.SERVER_TIMESTAMP,
+        }, merge=True)
+    else:
+        doc_ref.delete()
+
+    return _role_json({'ok': True})

@@ -2,12 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, ADMIN_EMAILS } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { FirebaseService } from '../services/firebaseService';
 
 export default function UsersAdmin() {
     const router = useRouter();
     const { currentUser, isAdmin, loading: authLoading } = useAuth();
+
+    // Estado para gestión de admins
+    const [admins, setAdmins] = useState([]);
+    const [adminsLoading, setAdminsLoading] = useState(false);
+    const [newAdminEmail, setNewAdminEmail] = useState('');
+    const [newAdminName, setNewAdminName] = useState('');
+    const [adminSaving, setAdminSaving] = useState(false);
+    const [adminError, setAdminError] = useState('');
+    const [editingAdminName, setEditingAdminName] = useState(null);
+    const [adminNameDraft, setAdminNameDraft] = useState('');
+    const [adminNameSaving, setAdminNameSaving] = useState(false);
 
     // Estado para gestión de comisarios
     const [comisarios, setComisarios] = useState([]);
@@ -16,12 +27,6 @@ export default function UsersAdmin() {
     const [newComisarioName, setNewComisarioName] = useState('');
     const [comisarioSaving, setComisarioSaving] = useState(false);
     const [comisarioError, setComisarioError] = useState('');
-
-    // Estado para nombres de admins
-    const [adminNames, setAdminNames] = useState({});
-    const [editingAdminName, setEditingAdminName] = useState(null);
-    const [adminNameDraft, setAdminNameDraft] = useState('');
-    const [adminNameSaving, setAdminNameSaving] = useState(false);
 
     // Redirigir si no está autenticado
     useEffect(() => {
@@ -33,11 +38,23 @@ export default function UsersAdmin() {
     // Cargar datos al montar
     useEffect(() => {
         if (!authLoading && currentUser && isAdmin()) {
+            loadAdmins();
             loadComisarios();
-            FirebaseService.getAdminNames(ADMIN_EMAILS).then(setAdminNames).catch(() => { });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authLoading, currentUser]);
+
+    const loadAdmins = async () => {
+        setAdminsLoading(true);
+        try {
+            const data = await FirebaseService.getAdmins();
+            setAdmins(data);
+        } catch {
+            setAdmins([]);
+        } finally {
+            setAdminsLoading(false);
+        }
+    };
 
     const loadComisarios = async () => {
         setComisariosLoading(true);
@@ -48,6 +65,53 @@ export default function UsersAdmin() {
             setComisarios([]);
         } finally {
             setComisariosLoading(false);
+        }
+    };
+
+    const handleAddAdmin = async () => {
+        setAdminError('');
+        const email = newAdminEmail.trim().toLowerCase();
+        if (!email || !email.includes('@')) {
+            setAdminError('Ingresa un email válido.');
+            return;
+        }
+        setAdminSaving(true);
+        try {
+            await FirebaseService.setUserRole(email, 'admin', newAdminName.trim());
+            setNewAdminEmail('');
+            setNewAdminName('');
+            await loadAdmins();
+        } catch (err) {
+            setAdminError('Error al guardar: ' + err.message);
+        } finally {
+            setAdminSaving(false);
+        }
+    };
+
+    const handleRemoveAdmin = async (email) => {
+        if (email === currentUser.email) {
+            alert('No puedes quitarte el rol de admin a ti mismo.');
+            return;
+        }
+        if (!window.confirm(`¿Quitar el rol de admin a ${email}?`)) return;
+        try {
+            await FirebaseService.removeUserRole(email);
+            await loadAdmins();
+        } catch (err) {
+            alert('Error al eliminar: ' + err.message);
+        }
+    };
+
+    const handleSaveAdminName = async (email) => {
+        setAdminNameSaving(true);
+        try {
+            await FirebaseService.setUserRole(email, 'admin', adminNameDraft.trim());
+            setEditingAdminName(null);
+            await loadAdmins();
+        } catch (err) {
+            alert('Error al guardar: ' + err.message);
+        } finally {
+            setAdminNameSaving(false);
         }
     };
 
@@ -81,19 +145,6 @@ export default function UsersAdmin() {
         }
     };
 
-    const handleSaveAdminName = async (email) => {
-        setAdminNameSaving(true);
-        try {
-            await FirebaseService.setUserRole(email, 'admin', adminNameDraft.trim());
-            setAdminNames(prev => ({ ...prev, [email]: adminNameDraft.trim() }));
-            setEditingAdminName(null);
-        } catch (err) {
-            alert('Error al guardar: ' + err.message);
-        } finally {
-            setAdminNameSaving(false);
-        }
-    };
-
     if (authLoading) {
         return (
             <div className="p-8 text-gray-400 text-sm">Cargando…</div>
@@ -111,70 +162,110 @@ export default function UsersAdmin() {
             <h1 className="text-3xl font-bold text-white mb-1">👥 Usuarios</h1>
             <p className="text-gray-400 text-sm mb-8">
                 Los admins tienen acceso total. Los comisarios pueden ver las pistas y gestionar sanciones/reclamaciones, pero no la configuración del sistema.
+                El usuario debe haber iniciado sesión al menos una vez antes de poder asignarle un rol.
             </p>
 
             {/* Admins */}
             <div className="mb-8 max-w-2xl">
                 <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">🔒 Administradores</h2>
-                <div className="space-y-2">
-                    {ADMIN_EMAILS.map(email => (
-                        <div key={email} className="bg-white/10 border border-white/10 rounded-lg px-4 py-3">
-                            <div className="flex items-center justify-between">
-                                <div className="min-w-0 flex-1 mr-3">
-                                    {editingAdminName === email ? (
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                autoFocus
-                                                type="text"
-                                                value={adminNameDraft}
-                                                onChange={e => setAdminNameDraft(e.target.value)}
-                                                onKeyDown={e => {
-                                                    if (e.key === 'Enter') handleSaveAdminName(email);
-                                                    if (e.key === 'Escape') setEditingAdminName(null);
-                                                }}
-                                                placeholder="Nombre del admin"
-                                                className="flex-1 px-3 py-1 bg-white/10 border border-white/30 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-orange-400"
-                                            />
+
+                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                    <input
+                        type="email"
+                        placeholder="Email del nuevo admin"
+                        value={newAdminEmail}
+                        onChange={e => setNewAdminEmail(e.target.value)}
+                        className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-orange-400"
+                        onKeyDown={e => e.key === 'Enter' && handleAddAdmin()}
+                    />
+                    <input
+                        type="text"
+                        placeholder="Nombre (opcional)"
+                        value={newAdminName}
+                        onChange={e => setNewAdminName(e.target.value)}
+                        className="sm:w-44 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-orange-400"
+                    />
+                    <button
+                        onClick={handleAddAdmin}
+                        disabled={adminSaving}
+                        className="px-5 py-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white font-semibold rounded-lg transition-all"
+                    >
+                        {adminSaving ? 'Guardando…' : '+ Agregar'}
+                    </button>
+                </div>
+                {adminError && <p className="text-red-400 text-sm mb-4">{adminError}</p>}
+
+                {adminsLoading ? (
+                    <p className="text-gray-400 text-sm">Cargando…</p>
+                ) : admins.length === 0 ? (
+                    <p className="text-gray-500 text-sm">No hay administradores asignados.</p>
+                ) : (
+                    <div className="space-y-2">
+                        {admins.map(a => (
+                            <div key={a.id} className="bg-white/10 border border-white/10 rounded-lg px-4 py-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="min-w-0 flex-1 mr-3">
+                                        {editingAdminName === a.email ? (
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    autoFocus
+                                                    type="text"
+                                                    value={adminNameDraft}
+                                                    onChange={e => setAdminNameDraft(e.target.value)}
+                                                    onKeyDown={e => {
+                                                        if (e.key === 'Enter') handleSaveAdminName(a.email);
+                                                        if (e.key === 'Escape') setEditingAdminName(null);
+                                                    }}
+                                                    placeholder="Nombre del admin"
+                                                    className="flex-1 px-3 py-1 bg-white/10 border border-white/30 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-orange-400"
+                                                />
+                                                <button
+                                                    onClick={() => handleSaveAdminName(a.email)}
+                                                    disabled={adminNameSaving}
+                                                    className="px-3 py-1 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white text-sm rounded-lg transition-all"
+                                                >
+                                                    {adminNameSaving ? '…' : 'Guardar'}
+                                                </button>
+                                                <button
+                                                    onClick={() => setEditingAdminName(null)}
+                                                    className="px-2 py-1 text-gray-400 hover:text-white text-sm"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {a.displayName && <p className="text-white font-medium">{a.displayName}</p>}
+                                                <p className={a.displayName ? 'text-gray-400 text-sm' : 'text-white font-medium'}>{a.email}</p>
+                                            </>
+                                        )}
+                                    </div>
+                                    {editingAdminName !== a.email && (
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <span className="px-2 py-0.5 bg-orange-500/20 text-orange-300 text-xs rounded-full font-medium">Admin</span>
                                             <button
-                                                onClick={() => handleSaveAdminName(email)}
-                                                disabled={adminNameSaving}
-                                                className="px-3 py-1 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white text-sm rounded-lg transition-all"
+                                                onClick={() => {
+                                                    setEditingAdminName(a.email);
+                                                    setAdminNameDraft(a.displayName || '');
+                                                }}
+                                                className="p-1 text-gray-500 hover:text-white transition-all"
+                                                title="Editar nombre"
                                             >
-                                                {adminNameSaving ? '…' : 'Guardar'}
+                                                ✏️
                                             </button>
                                             <button
-                                                onClick={() => setEditingAdminName(null)}
-                                                className="px-2 py-1 text-gray-400 hover:text-white text-sm"
+                                                onClick={() => handleRemoveAdmin(a.email)}
+                                                className="px-3 py-1 bg-red-600/30 hover:bg-red-600/60 text-red-300 hover:text-white rounded-lg text-sm transition-all"
                                             >
-                                                ✕
+                                                Quitar rol
                                             </button>
                                         </div>
-                                    ) : (
-                                        <>
-                                            {adminNames[email] && <p className="text-white font-medium">{adminNames[email]}</p>}
-                                            <p className={adminNames[email] ? 'text-gray-400 text-sm' : 'text-white font-medium'}>{email}</p>
-                                        </>
                                     )}
                                 </div>
-                                {editingAdminName !== email && (
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <span className="px-2 py-0.5 bg-orange-500/20 text-orange-300 text-xs rounded-full font-medium">Admin</span>
-                                        <button
-                                            onClick={() => {
-                                                setEditingAdminName(email);
-                                                setAdminNameDraft(adminNames[email] || '');
-                                            }}
-                                            className="p-1 text-gray-500 hover:text-white transition-all"
-                                            title="Editar nombre"
-                                        >
-                                            ✏️
-                                        </button>
-                                    </div>
-                                )}
                             </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Comisarios */}

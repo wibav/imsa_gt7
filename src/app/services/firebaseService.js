@@ -11,8 +11,7 @@ import {
   orderBy,
   addDoc,
   updateDoc,
-  arrayUnion,
-  Timestamp
+  arrayUnion
 } from "firebase/firestore";
 import {
   getStorage,
@@ -21,7 +20,7 @@ import {
   getDownloadURL,
   deleteObject
 } from "firebase/storage";
-import { app } from "../api/firebase/firebaseConfig";
+import { app, auth } from "../api/firebase/firebaseConfig";
 import { Championship, Team, Track, Event } from "../models/Championship";
 import { Penalty, Claim } from "../models/Penalty";
 
@@ -1265,54 +1264,44 @@ export class FirebaseService {
   }
 
   // ══════════════════════════════════════════
-  // Gestión de roles de usuario (comisarios)
-  // Colección: userRoles / doc id = email (reemplazar . por _)
+  // Gestión de roles de usuario (admins / comisarios)
+  // Fuente de verdad: Custom Claims del token (asignados por la Cloud
+  // Function manage_user_role, Admin SDK). Colección userRoles = espejo de
+  // solo lectura para la UI de /usersAdmin (doc id = email, ver
+  // functions/main.py:_email_to_doc_id).
   // ══════════════════════════════════════════
 
-  /** Convierte email en id de documento seguro */
-  static _emailToDocId(email) {
-    return email.toLowerCase().replace(/\./g, '_').replace(/@/g, '__at__');
-  }
-
-  /** Obtener el rol de un usuario por email. Devuelve null si no existe. */
-  static async getUserRoleByEmail(email) {
-    try {
-      const docRef = doc(db, 'userRoles', FirebaseService._emailToDocId(email));
-      const snap = await getDoc(docRef);
-      return snap.exists() ? snap.data() : null;
-    } catch (error) {
-      console.error('Error getting user role:', error);
-      return null;
+  /**
+   * Llama a la Cloud Function manage_user_role (requiere ser admin autenticado).
+   * Reemplaza la escritura directa a Firestore: las rules ahora bloquean
+   * escrituras de cliente a userRoles — solo el Admin SDK (esta función) puede.
+   */
+  static async _callManageUserRole(targetEmail, role, displayName = '') {
+    if (!auth.currentUser) throw new Error('Debes iniciar sesión');
+    const idToken = await auth.currentUser.getIdToken();
+    const res = await fetch('/api/manage-user-role', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ targetEmail, role, displayName }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'Error al gestionar el rol del usuario');
     }
+    return data;
   }
 
-  /** Asignar o actualizar el rol de un usuario. role: 'comisario' */
+  /** Asignar o actualizar el rol de un usuario: 'admin' | 'comisario' */
   static async setUserRole(email, role, displayName = '') {
-    try {
-      const docRef = doc(db, 'userRoles', FirebaseService._emailToDocId(email));
-      await setDoc(docRef, {
-        email: email.toLowerCase(),
-        role,
-        displayName,
-        updatedAt: Timestamp.now()
-      }, { merge: true });
-      return { success: true };
-    } catch (error) {
-      console.error('Error setting user role:', error);
-      throw error;
-    }
+    return FirebaseService._callManageUserRole(email, role, displayName);
   }
 
   /** Eliminar el rol de un usuario (vuelve a ser usuario normal) */
   static async removeUserRole(email) {
-    try {
-      const docRef = doc(db, 'userRoles', FirebaseService._emailToDocId(email));
-      await deleteDoc(docRef);
-      return { success: true };
-    } catch (error) {
-      console.error('Error removing user role:', error);
-      throw error;
-    }
+    return FirebaseService._callManageUserRole(email, null);
   }
 
   /** Obtener todos los comisarios activos */
@@ -1327,20 +1316,16 @@ export class FirebaseService {
     }
   }
 
-  /** Obtener nombres almacenados para una lista de emails de admin */
-  static async getAdminNames(emails) {
+  /** Obtener todos los admins (mirror de custom claims en Firestore) */
+  static async getAdmins() {
     try {
-      const snaps = await Promise.all(
-        emails.map(email => getDoc(doc(db, 'userRoles', FirebaseService._emailToDocId(email))))
-      );
-      const result = {};
-      snaps.forEach((snap, i) => {
-        result[emails[i]] = snap.exists() ? (snap.data().displayName || '') : '';
-      });
-      return result;
+      const q = query(collection(db, 'userRoles'), where('role', '==', 'admin'));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     } catch (error) {
-      console.error('Error getting admin names:', error);
-      return {};
+      console.error('Error getting admins:', error);
+      return [];
     }
   }
+
 }
