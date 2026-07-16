@@ -8,7 +8,7 @@ import urllib.error
 import urllib.request
 from io import BytesIO
 
-from firebase_functions import https_fn
+from firebase_functions import firestore_fn, https_fn
 from PIL import Image, ImageEnhance, ImageFilter, UnidentifiedImageError
 import vtracer
 
@@ -526,3 +526,61 @@ def manage_user_role(req: https_fn.Request) -> https_fn.Response:
         doc_ref.delete()
 
     return _role_json({'ok': True})
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Límites de plan (SPEC-6 / docs/PLAN_MONETIZACION.md §1.4)
+#
+# El plan Free es de uso único (1 campeonato O 1 evento). El cliente no
+# puede marcar `freeTrialUsed` él mismo (firestore.rules bloquea escritura de
+# ese campo salvo platformOwner) — lo hace esta Cloud Function, con Admin
+# SDK, al detectar la creación del primer campeonato/evento de una
+# organización en plan Free. `firestore.rules` ya deniega una segunda
+# creación una vez `freeTrialUsed == true`.
+# ══════════════════════════════════════════════════════════════════════════
+
+def _mark_free_trial_used_if_needed(org_id: str | None) -> None:
+    if not org_id:
+        return
+    db = fb_firestore.client()
+    org_ref = db.collection('organizations').document(org_id)
+    org_snap = org_ref.get()
+    if not org_snap.exists:
+        return
+    org = org_snap.to_dict() or {}
+    if org.get('plan') == 'free' and not org.get('freeTrialUsed'):
+        org_ref.update({'freeTrialUsed': True, 'updatedAt': fb_firestore.SERVER_TIMESTAMP})
+
+
+@firestore_fn.on_document_created(document='championships/{champId}')
+def on_championship_created(event: firestore_fn.Event) -> None:
+    data = event.data.to_dict() if event.data else {}
+    _mark_free_trial_used_if_needed(data.get('orgId'))
+
+
+@firestore_fn.on_document_created(document='events/{eventId}')
+def on_event_created(event: firestore_fn.Event) -> None:
+    data = event.data.to_dict() if event.data else {}
+    _mark_free_trial_used_if_needed(data.get('orgId'))
+
+
+# `events/{eventId}.participantsCount` es un contador cacheado, mantenido
+# aquí (Admin SDK) para que firestore.rules pueda topar el límite de pilotos
+# del plan al momento de la inscripción pública sin necesitar una query de
+# conteo (no soportada en el lenguaje de las security rules).
+@firestore_fn.on_document_created(document='events/{eventId}/participants/{participantId}')
+def on_event_participant_created(event: firestore_fn.Event) -> None:
+    event_id = event.params['eventId']
+    db = fb_firestore.client()
+    db.collection('events').document(event_id).update({
+        'participantsCount': fb_firestore.Increment(1),
+    })
+
+
+@firestore_fn.on_document_deleted(document='events/{eventId}/participants/{participantId}')
+def on_event_participant_deleted(event: firestore_fn.Event) -> None:
+    event_id = event.params['eventId']
+    db = fb_firestore.client()
+    db.collection('events').document(event_id).update({
+        'participantsCount': fb_firestore.Increment(-1),
+    })

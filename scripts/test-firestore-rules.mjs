@@ -78,6 +78,18 @@ async function main() {
         await db.doc('memberships/uidComisario_gt7-esp').set({
             uid: 'uidComisario', orgId: 'gt7-esp', role: 'comisario', email: 'c@test.com',
         });
+
+        // Orgs para probar límites de plan (SPEC-6).
+        await db.doc('organizations/free-org-used').set({ name: 'Free Usado', slug: 'free-org-used', plan: 'free', freeTrialUsed: true });
+        await db.doc('organizations/free-org-fresh').set({ name: 'Free Sin Usar', slug: 'free-org-fresh', plan: 'free', freeTrialUsed: false });
+        await db.doc('organizations/limited-org').set({ name: 'Org Limitada', slug: 'limited-org', plan: 'pro', limits: { maxDrivers: 2 } });
+        await db.doc('championships/champLimited').set({
+            orgId: 'limited-org', name: 'Champ Limitado', categories: ['Gr1'],
+            settings: { pointsSystem: {} }, drivers: [], registrations: [],
+        });
+        await db.doc('events/eventLimited').set({
+            orgId: 'limited-org', title: 'Evento Limitado', waitlistCount: 0, updatedAt: 'x', participantsCount: 2,
+        });
     });
 
     const anon = testEnv.unauthenticatedContext().firestore();
@@ -88,6 +100,10 @@ async function main() {
     const comisario = testEnv.authenticatedContext('uidComisario', { orgs: { 'gt7-esp': 'comisario' } }).firestore();
     // Un admin de OTRA organización — no debe poder tocar nada de gt7-esp.
     const dirLigaOtraOrg = testEnv.authenticatedContext('dirLigaOtraOrgUser', { orgs: { 'otra-org': 'director_liga' } }).firestore();
+    // Roles para probar límites de plan (SPEC-6).
+    const dirLigaFreeUsed = testEnv.authenticatedContext('dirLigaFreeUsedUser', { orgs: { 'free-org-used': 'director_liga' } }).firestore();
+    const dirLigaFreeFresh = testEnv.authenticatedContext('dirLigaFreeFreshUser', { orgs: { 'free-org-fresh': 'director_liga' } }).firestore();
+    const dirLigaLimited = testEnv.authenticatedContext('dirLigaLimitedUser', { orgs: { 'limited-org': 'director_liga' } }).firestore();
     const platformOwner = testEnv.authenticatedContext('platformOwnerUser', { platformOwner: true }).firestore();
 
     // ── championships (org-scoped) ──
@@ -257,6 +273,42 @@ async function main() {
 
     await check('NADIE puede escribir memberships desde el cliente (ni platformOwner)', () =>
         assertFails(platformOwner.doc('memberships/otro_gt7-esp').set({ role: 'comisario' })));
+
+    // ── límites de plan (SPEC-6) ──
+    await check('Free con freeTrialUsed=true NO puede crear un campeonato', () =>
+        assertFails(dirLigaFreeUsed.doc('championships/champFreeUsed').set({
+            orgId: 'free-org-used', name: 'X', categories: [], settings: { pointsSystem: {} }, drivers: [], registrations: [],
+        })));
+
+    await check('Free con freeTrialUsed=false SÍ puede crear su primer campeonato', () =>
+        assertSucceeds(dirLigaFreeFresh.doc('championships/champFreeFresh').set({
+            orgId: 'free-org-fresh', name: 'X', categories: [], settings: { pointsSystem: {} }, drivers: [], registrations: [],
+        })));
+
+    await check('Free con freeTrialUsed=true NO puede crear un evento', () =>
+        assertFails(dirLigaFreeUsed.doc('events/eventFreeUsed').set({
+            orgId: 'free-org-used', title: 'X', waitlistCount: 0, updatedAt: 'x',
+        })));
+
+    await check('Inscripción pública respeta el límite de pilotos (maxDrivers=2): dentro del límite', () =>
+        assertSucceeds(anon.doc('championships/champLimited').set({
+            orgId: 'limited-org', name: 'Champ Limitado', categories: ['Gr1'],
+            settings: { pointsSystem: {} }, drivers: [], registrations: ['p1', 'p2'],
+        })));
+
+    await check('Inscripción pública respeta el límite de pilotos (maxDrivers=2): excede el límite', () =>
+        assertFails(anon.doc('championships/champLimited').set({
+            orgId: 'limited-org', name: 'Champ Limitado', categories: ['Gr1'],
+            settings: { pointsSystem: {} }, drivers: [], registrations: ['p1', 'p2', 'p3'],
+        })));
+
+    await check('Inscripción a evento respeta participantsCount vs. maxDrivers (ya en el límite)', () =>
+        assertFails(anon.doc('events/eventLimited/participants/p3').set({ name: 'Piloto 3' })));
+
+    await check('director_liga de org limitada puede editar el evento sin tocar participantsCount (sin límite de admin)', () =>
+        assertSucceeds(dirLigaLimited.doc('events/eventLimited').set({
+            orgId: 'limited-org', title: 'Evento Limitado editado', waitlistCount: 0, updatedAt: 'x', participantsCount: 2,
+        })));
 
     // ── catch-all ──
     await check('Colección no declarada: lectura denegada por defecto', () =>

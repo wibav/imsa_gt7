@@ -65,11 +65,41 @@ service cloud.firestore {
 
     // orgId del documento padre events/{eventId}.
     function parentEventOrgId(eventId) {
-      return get(/databases/$(database)/documents/events/$(eventId)).data.orgId;
+      return parentEventDoc(eventId).orgId;
+    }
+
+    function parentEventDoc(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId)).data;
     }
 
     function onlyAffects(fields) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    // ── Límites de plan (SPEC-6 / docs/PLAN_MONETIZACION.md §1.4) ────────
+    // `organizations/{orgId}.limits`/`plan`/`freeTrialUsed` son la fuente de
+    // verdad. Defaults conservadores si faltan (orgs antiguas sin el campo):
+    // plan 'pro' (sin restricción) y sin límite de pilotos, para no bloquear
+    // datos existentes que aún no tengan estos campos.
+    function orgDoc(orgId) {
+      return get(/databases/$(database)/documents/organizations/$(orgId)).data;
+    }
+
+    function orgPlan(orgId) {
+      return orgDoc(orgId).get('plan', 'pro');
+    }
+
+    // Plan Free = prueba única: una sola organización puede usarlo una sola
+    // vez (1 campeonato O 1 evento). `freeTrialUsed` lo marca la Cloud
+    // Function al crear ese primer campeonato/evento (ver functions/main.py).
+    function canCreateInOrg(orgId) {
+      return !(orgPlan(orgId) == 'free' && orgDoc(orgId).get('freeTrialUsed', false) == true);
+    }
+
+    // null/ausente = sin límite (planes de pago hoy no tienen tope real).
+    function withinDriverLimit(orgId, count) {
+      let maxDrivers = orgDoc(orgId).get('limits', {}).get('maxDrivers', null);
+      return maxDrivers == null || count <= maxDrivers;
     }
 
     // ── championships/{id} ───────────────────────────────────────────────
@@ -81,10 +111,13 @@ service cloud.firestore {
     // campo `registrations` — nunca settings, drivers, pointsSystem, etc.
     match /championships/{champId} {
       allow read: if true;
-      allow create: if isOrgAdmin(request.resource.data.orgId);
-      // orgId es inmutable una vez creado.
+      // canCreateInOrg(): plan Free ya consumido su único uso, denegado.
+      allow create: if isOrgAdmin(request.resource.data.orgId) && canCreateInOrg(request.resource.data.orgId);
+      // orgId es inmutable una vez creado. La inscripción pública (solo
+      // toca `registrations`) además debe respetar el límite de pilotos
+      // del plan de esa organización (ej. 15 en Free).
       allow update: if (isOrgAdmin(resource.data.orgId) && request.resource.data.orgId == resource.data.orgId)
-        || onlyAffects(['registrations']);
+        || (onlyAffects(['registrations']) && withinDriverLimit(resource.data.orgId, request.resource.data.registrations.size()));
       allow delete: if isOrgAdmin(resource.data.orgId);
 
       // Equipos, pistas, divisiones, eventos internos: heredan el orgId del
@@ -125,14 +158,18 @@ service cloud.firestore {
     // subcolecciones `participants`/`waitlist` (sin sesión iniciada).
     match /events/{eventId} {
       allow read: if true;
-      allow create: if isOrgAdmin(request.resource.data.orgId);
+      allow create: if isOrgAdmin(request.resource.data.orgId) && canCreateInOrg(request.resource.data.orgId);
       allow update: if (isOrgAdmin(resource.data.orgId) && request.resource.data.orgId == resource.data.orgId)
         || onlyAffects(['waitlistCount', 'updatedAt']);
       allow delete: if isOrgAdmin(resource.data.orgId);
 
+      // `participantsCount` en el doc padre es mantenido por una Cloud
+      // Function (Admin SDK, ignora estas reglas) al crear/borrar un
+      // participante — se usa aquí solo para topar el límite de pilotos
+      // del plan al momento de la inscripción pública.
       match /participants/{participantId} {
         allow read: if true;
-        allow create: if true;
+        allow create: if withinDriverLimit(parentEventOrgId(eventId), parentEventDoc(eventId).get('participantsCount', 0) + 1);
         allow update, delete: if isOrgAdmin(parentEventOrgId(eventId));
       }
       match /waitlist/{entryId} {
