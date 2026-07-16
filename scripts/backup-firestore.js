@@ -22,7 +22,7 @@ const db = admin.firestore();
 // Subcolecciones conocidas por documento padre (ver 01-CONTEXTO.md)
 const CHAMPIONSHIP_SUBCOLLECTIONS = ['teams', 'tracks', 'divisions', 'events', 'penalties', 'claims'];
 const EVENT_SUBCOLLECTIONS = ['participants', 'waitlist', 'results', 'rounds'];
-const TOP_LEVEL_COLLECTIONS = ['championships', 'events', 'teams', 'tracks', 'userRoles'];
+const TOP_LEVEL_COLLECTIONS = ['championships', 'events', 'teams', 'tracks', 'userRoles', 'organizations'];
 
 /** Convierte tipos especiales de Firestore (Timestamp) a algo serializable en JSON */
 function serializeValue(value) {
