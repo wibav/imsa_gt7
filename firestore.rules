@@ -127,6 +127,16 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ── organizations/{orgId} ────────────────────────────────────────────
+    // Fase 1: entidad de organización (nombre, slug, branding, reglamento
+    // propio, plan/límites). Lectura pública (branding/reglamento se muestran
+    // en páginas públicas). Escritura: por ahora solo admin (single-tenant;
+    // en Fase 2 se reemplaza por rol "organizador" de esa org específica).
+    match /organizations/{orgId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // ── userRoles/{emailDocId} ───────────────────────────────────────────
     // Documento espejo (para UI de /usersAdmin) de los custom claims.
     // La fuente de verdad real son los claims del token, asignados solo por

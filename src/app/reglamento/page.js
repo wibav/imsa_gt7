@@ -1,12 +1,23 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
+import { FirebaseService } from "../services/firebaseService";
+
+// ID de la organización activa. Sin tenant routing todavía (llega en Fase 3),
+// así que por ahora es fijo — cuando exista resolución de org por URL
+// (trenkit.com/l/{slug}), esto pasa a venir de OrganizationContext.
+const CURRENT_ORG_ID = "gt7-esp";
 
 // ============================
-// DATOS DEL REGLAMENTO UNIFICADO
+// DATOS DEL REGLAMENTO (fallback)
 // ============================
+// Cada organización tiene su propio reglamento en Firestore
+// (organizations/{orgId}.reglamento.sections). Este array es el respaldo
+// mostrado mientras carga o si la organización no tiene reglamento propio
+// todavía — y es exactamente el contenido migrado a GT7 ESP (ver
+// scripts/migrate-reglamento-to-org.js).
 
-const SECTIONS = [
+const DEFAULT_SECTIONS = [
     // ─────────────────────────────────────────────
     // 1. CONDUCTA GENERAL Y DEPORTIVIDAD
     // ─────────────────────────────────────────────
@@ -579,8 +590,37 @@ function SectionCard({ section }) {
 // MAIN PAGE
 // ============================
 
+// Firestore no admite arrays anidados dentro de arrays: las filas de tabla
+// (`rows`) se guardan como { cells: [...] } (ver migrate-reglamento-to-org.js).
+// Se revierte aquí a array-of-arrays para que el render no tenga que saber
+// de esta limitación de Firestore.
+function fromFirestoreSafe(sections) {
+    return sections.map(section => ({
+        ...section,
+        content: section.content.map(block => {
+            if (!Array.isArray(block.rows)) return block;
+            return { ...block, rows: block.rows.map(r => (Array.isArray(r) ? r : r.cells)) };
+        }),
+    }));
+}
+
 export default function ReglamentoPage() {
-    const [activeSection, setActiveSection] = useState(SECTIONS[0].id);
+    const [sections, setSections] = useState(DEFAULT_SECTIONS);
+    const [activeSection, setActiveSection] = useState(DEFAULT_SECTIONS[0].id);
+
+    // Carga el reglamento propio de la organización activa. Si no existe
+    // (org sin reglamento configurado, o error de red), se mantiene el
+    // fallback DEFAULT_SECTIONS ya mostrado.
+    useEffect(() => {
+        FirebaseService.getOrganization(CURRENT_ORG_ID).then(org => {
+            const orgSections = org?.reglamento?.sections;
+            if (Array.isArray(orgSections) && orgSections.length > 0) {
+                const normalized = fromFirestoreSafe(orgSections);
+                setSections(normalized);
+                setActiveSection(normalized[0].id);
+            }
+        }).catch(() => { /* se mantiene el fallback */ });
+    }, []);
 
     const handleSelectSection = (id) => {
         setActiveSection(id);
@@ -607,7 +647,7 @@ export default function ReglamentoPage() {
                     <div className="mt-4 flex items-center justify-center gap-4 text-xs text-gray-500">
                         <span>📅 Última actualización: 1 de marzo de 2026</span>
                         <span>•</span>
-                        <span>{SECTIONS.length} secciones</span>
+                        <span>{sections.length} secciones</span>
                     </div>
                 </div>
             </div>
@@ -619,7 +659,7 @@ export default function ReglamentoPage() {
                     onChange={(e) => handleSelectSection(e.target.value)}
                     className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm focus:border-orange-500 outline-none"
                 >
-                    {SECTIONS.map((s) => (
+                    {sections.map((s) => (
                         <option key={s.id} value={s.id} className="bg-slate-800 text-white">
                             {s.icon} {s.title}
                         </option>
@@ -632,14 +672,14 @@ export default function ReglamentoPage() {
 
                 {/* Sidebar Nav (desktop) */}
                 <SectionNav
-                    sections={SECTIONS}
+                    sections={sections}
                     activeSection={activeSection}
                     onSelect={handleSelectSection}
                 />
 
                 {/* Main Content */}
                 <div className="flex-1 space-y-6 min-w-0">
-                    {SECTIONS.map((section) => (
+                    {sections.map((section) => (
                         <SectionCard key={section.id} section={section} />
                     ))}
 

@@ -57,6 +57,11 @@ async function main() {
             maxParticipants: 2,
         });
         await db.doc('userRoles/admin__at__test_com').set({ email: 'admin@test.com', role: 'admin' });
+        await db.doc('organizations/gt7-esp').set({
+            name: 'GT7 ESP',
+            slug: 'gt7-esp',
+            reglamento: { sections: [{ id: 'conducta', title: 'Conducta' }] },
+        });
     });
 
     const anon = testEnv.unauthenticatedContext().firestore();
@@ -141,6 +146,16 @@ async function main() {
 
     await check('NADIE puede escribir userRoles desde el cliente (ni admin)', () =>
         assertFails(admin.doc('userRoles/otro').set({ role: 'admin' })));
+
+    // ── organizations (reglamento/branding por org, Fase 1) ──
+    await check('Anónimo puede LEER una organización (branding/reglamento públicos)', () =>
+        assertSucceeds(anon.doc('organizations/gt7-esp').get()));
+
+    await check('Anónimo NO puede escribir el reglamento de una organización', () =>
+        assertFails(anon.doc('organizations/gt7-esp').update({ reglamento: { sections: [] } })));
+
+    await check('Admin puede escribir el reglamento de una organización', () =>
+        assertSucceeds(admin.doc('organizations/gt7-esp').update({ reglamento: { sections: [] } })));
 
     // ── catch-all ──
     await check('Colección no declarada: lectura denegada por defecto', () =>

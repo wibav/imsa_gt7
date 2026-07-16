@@ -1328,4 +1328,18 @@ export class FirebaseService {
     }
   }
 
+  // ══════════════════════════════════════════
+  // Organizaciones (Fase 1 — multi-tenant)
+  // ══════════════════════════════════════════
+
+  /** Obtener una organización por id (branding, reglamento, plan, etc.) */
+  static async getOrganization(orgId) {
+    try {
+      const snap = await getDoc(doc(db, 'organizations', orgId));
+      return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    } catch (error) {
+      console.error('Error getting organization:', error);
+      return null;
+    }
+  }
 }
