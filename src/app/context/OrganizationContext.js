@@ -47,6 +47,12 @@ export function OrganizationProvider({ children }) {
             if (cancelled) return;
 
             if (!data) {
+                // orgId inexistente: se fija igual. Ningún documento real
+                // tendrá jamás ese orgId, así que cualquier query de un
+                // provider hijo (aunque ClientLayout ya muestre el 404 en
+                // vez de children) devuelve vacío de forma segura, nunca
+                // datos de otra organización.
+                FirebaseService.setCurrentOrgId(orgId);
                 setNotFound(true);
                 setOrg(null);
                 setLoading(false);
@@ -64,9 +70,16 @@ export function OrganizationProvider({ children }) {
 
     const value = { org, orgId: org?.id || DEFAULT_ORG_ID, loading, notFound };
 
+    // Crítico para el aislamiento multi-tenant: no montar nada por debajo
+    // (ChampionshipProvider, DashboardRenovated, etc.) hasta que se resuelva
+    // la organización y FirebaseService.setCurrentOrgId() ya se haya
+    // llamado. Sin este gate, los efectos de fetch de los providers hijos
+    // corren en paralelo con esta resolución async y pueden alcanzar a leer
+    // el orgId por defecto anterior — se detectó como fuga real de datos
+    // entre organizaciones al probar con una segunda org real.
     return (
         <OrganizationContext.Provider value={value}>
-            {children}
+            {!loading && children}
         </OrganizationContext.Provider>
     );
 }
