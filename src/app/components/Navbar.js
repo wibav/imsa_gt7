@@ -7,7 +7,7 @@ import Image from 'next/image';
 export default function Navbar() {
     const [menuOpen, setMenuOpen] = useState(false);
     const { currentUser, logout, isAdmin } = useAuth();
-    const { org } = useOrganization();
+    const { org, isRootView } = useOrganization();
 
     // Branding por organización (plan Pro, ver SPEC-1/SPEC-3): solo se
     // sustituye el logo/nombre por defecto de trenkit cuando la org tiene
@@ -131,6 +131,17 @@ export default function Navbar() {
                             className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 text-sm"
                         >
                             ⚙️ Admin
+                        </button>
+                    )}
+
+                    {/* CTA de alta self-service: solo en la vista raíz agregada
+                        (trenkit), no dentro de la liga de un cliente (/l/{slug}) */}
+                    {isRootView && !currentUser && (
+                        <button
+                            onClick={() => window.location.href = '/signup'}
+                            className="bg-white text-orange-600 px-5 py-2.5 rounded-lg font-bold hover:bg-gray-100 transition-all duration-200 text-sm"
+                        >
+                            🏆 Crea tu liga
                         </button>
                     )}
                 </div>

@@ -13,8 +13,9 @@ export const ORG_PATH_PREFIX = '/l';
 // propio prefijo.
 export const RESERVED_SLUGS = [
     'l', 'api', 'championships', 'championshipsadmin', 'equipamiento',
-    'events', 'eventsadmin', 'login', 'pilots', 'reglamento', 'teamsadmin',
-    'tools', 'tracksadmin', 'usersadmin', 'admin', 'www', 'app',
+    'equipamientoadmin', 'events', 'eventsadmin', 'login', 'pilots',
+    'reglamento', 'teamsadmin', 'tools', 'tracksadmin', 'usersadmin',
+    'admin', 'www', 'app', 'signup',
 ];
 
 /**

@@ -584,3 +584,122 @@ def on_event_participant_deleted(event: firestore_fn.Event) -> None:
     db.collection('events').document(event_id).update({
         'participantsCount': fb_firestore.Increment(-1),
     })
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Alta de organización self-service (Fase 4 — sin esto, la única forma de
+# crear una organización era un script manual; bloqueante para vender la
+# plataforma a un cliente real).
+#
+# firestore.rules NO permite al cliente crear organizations/{orgId}
+# directamente (create exige platformOwner u organizador de ESA org, que
+# todavía no existe) — es intencional: la creación pasa exclusivamente por
+# esta Cloud Function (Admin SDK), que además de escribir el documento
+# asigna el custom claim `orgs.{slug} = 'organizador'` al creador, algo que
+# el cliente nunca puede hacer por sí mismo.
+# ══════════════════════════════════════════════════════════════════════════
+
+_RESERVED_SLUGS = {
+    'l', 'api', 'championships', 'championshipsadmin', 'equipamiento',
+    'events', 'eventsadmin', 'login', 'pilots', 'reglamento', 'teamsadmin',
+    'tools', 'tracksadmin', 'usersadmin', 'admin', 'www', 'app', 'signup',
+    'equipamientoadmin',
+}
+
+_SLUG_RE = re.compile(r'^[a-z0-9-]+$')
+
+_FREE_PLAN_LIMITS = {
+    'maxActiveChampionshipsOrEvents': 1,
+    'maxDrivers': 15,
+    'maxAdmins': 1,
+    'maxComisarios': 1,
+}
+
+
+def _validate_org_slug(slug: str) -> str | None:
+    """Devuelve un mensaje de error, o None si el slug es válido."""
+    if not slug or len(slug) < 3 or len(slug) > 40:
+        return 'El slug debe tener entre 3 y 40 caracteres'
+    if not _SLUG_RE.match(slug):
+        return 'El slug solo puede tener minúsculas, números y guiones'
+    if slug.startswith('-') or slug.endswith('-'):
+        return 'El slug no puede empezar ni terminar con guion'
+    if slug in _RESERVED_SLUGS:
+        return f'"{slug}" es una palabra reservada'
+    return None
+
+
+@https_fn.on_request(region='us-central1')
+def create_organization(req: https_fn.Request) -> https_fn.Response:
+    if req.method == 'OPTIONS':
+        return https_fn.Response('', status=204, headers=_ROLE_CORS)
+
+    if req.method != 'POST':
+        return _role_json({'ok': False, 'error': 'Method not allowed'}, 405)
+
+    auth_header = req.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return _role_json({'ok': False, 'error': 'Falta token de autorización'}, 401)
+
+    id_token = auth_header.split(' ', 1)[1]
+    try:
+        caller_claims = fb_auth.verify_id_token(id_token)
+    except Exception:
+        return _role_json({'ok': False, 'error': 'Token inválido o expirado'}, 401)
+
+    uid = caller_claims['uid']
+    body = req.get_json(silent=True) or {}
+    name = (body.get('name') or '').strip()
+    slug = (body.get('slug') or '').strip().lower()
+
+    if not name:
+        return _role_json({'ok': False, 'error': 'El nombre de la organización es obligatorio'}, 400)
+
+    slug_error = _validate_org_slug(slug)
+    if slug_error:
+        return _role_json({'ok': False, 'error': slug_error}, 400)
+
+    db = fb_firestore.client()
+    org_ref = db.collection('organizations').document(slug)
+    if org_ref.get().exists:
+        return _role_json({'ok': False, 'error': 'Ese slug ya está en uso, prueba con otro'}, 409)
+
+    # Anti-abuso: una sola organización propia por usuario vía este flujo
+    # self-service (evita spam de organizaciones Free). El Administrador de
+    # Plataforma sigue pudiendo crear organizaciones adicionales manualmente.
+    existing_owned = db.collection('organizations').where('ownerUid', '==', uid).limit(1).get()
+    if len(existing_owned) > 0:
+        return _role_json({'ok': False, 'error': 'Ya tienes una organización creada con esta cuenta'}, 409)
+
+    org_ref.set({
+        'name': name,
+        'slug': slug,
+        'plan': 'free',
+        'status': 'active',
+        'freeTrialUsed': False,
+        'billingExempt': False,
+        'ownerUid': uid,
+        'branding': {'logoUrl': None, 'colorPrimary': None, 'colorSecondary': None},
+        'limits': _FREE_PLAN_LIMITS,
+        'subscription': {'provider': None, 'externalId': None, 'currentPeriodEnd': None, 'cycle': None},
+        'createdAt': fb_firestore.SERVER_TIMESTAMP,
+        'updatedAt': fb_firestore.SERVER_TIMESTAMP,
+    })
+
+    # ── Otorgar 'organizador' de la organización recién creada ──
+    target_user = fb_auth.get_user(uid)
+    existing_claims = target_user.custom_claims or {}
+    existing_orgs = dict(existing_claims.get('orgs') or {})
+    existing_orgs[slug] = 'organizador'
+    fb_auth.set_custom_user_claims(uid, {**existing_claims, 'orgs': existing_orgs})
+
+    db.collection('memberships').document(f'{uid}_{slug}').set({
+        'uid': uid,
+        'email': (caller_claims.get('email') or '').lower(),
+        'orgId': slug,
+        'role': 'organizador',
+        'displayName': name,
+        'updatedAt': fb_firestore.SERVER_TIMESTAMP,
+    })
+
+    return _role_json({'ok': True, 'orgId': slug})

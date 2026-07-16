@@ -21,6 +21,10 @@
         "function": "manage_user_role"
       },
       {
+        "source": "/api/create-organization",
+        "function": "create_organization"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
     signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
     signOut,
     onIdTokenChanged
 } from 'firebase/auth';
@@ -33,6 +34,18 @@ export function AuthProvider({ children }) {
     const login = async (email, password) => {
         try {
             const result = await signInWithEmailAndPassword(auth, email, password);
+            return result;
+        } catch (error) {
+            throw error;
+        }
+    };
+
+    // Crear cuenta nueva (flujo self-service de alta de organización —
+    // ver /signup). No asigna ningún rol por sí sola: la Cloud Function
+    // create_organization es quien otorga 'organizador' tras crear la org.
+    const signup = async (email, password) => {
+        try {
+            const result = await createUserWithEmailAndPassword(auth, email, password);
             return result;
         } catch (error) {
             throw error;
@@ -109,6 +122,7 @@ export function AuthProvider({ children }) {
     const value = {
         currentUser,
         login,
+        signup,
         logout,
         isAdmin,
         isComisario,

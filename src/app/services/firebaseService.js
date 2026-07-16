@@ -1440,4 +1440,28 @@ export class FirebaseService {
       return { success: false, error: error.message };
     }
   }
+
+  // ══════════════════════════════════════════
+  // Alta de organización self-service (Fase 4)
+  // ══════════════════════════════════════════
+
+  /** Crear una organización nueva (plan Free) y asignarse 'organizador'.
+   *  Requiere sesión iniciada. Ver functions/main.py: create_organization. */
+  static async createOrganization(name, slug) {
+    if (!auth.currentUser) throw new Error('Debes iniciar sesión');
+    const idToken = await auth.currentUser.getIdToken();
+    const res = await fetch('/api/create-organization', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ name, slug }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'Error al crear la organización');
+    }
+    return data;
+  }
 }
