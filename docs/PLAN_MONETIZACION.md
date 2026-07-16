@@ -117,10 +117,10 @@ equipos, pistas, inscripciones, sanciones, reclamaciones, roles) puede perderse,
 corromperse ni quedar huérfano al introducir `orgId`.
 
 **Enfoque de migración (script de backfill, no reescritura manual):**
-1. Se crea la organización `IMSA` (o el nombre que definas) como **org #1**,
-   con `wolcutor@gmail.com` como su Organizador.
+1. Se crea la organización `GT7 ESP` como **org #1**, con `wolcutor@gmail.com`
+   como su Organizador.
 2. Un script (Cloud Function o script one-off con Admin SDK) recorre **todas**
-   las colecciones existentes y les añade `orgId: "imsa"` a cada documento,
+   las colecciones existentes y les añade `orgId: "gt7-esp"` a cada documento,
    **sin tocar ningún otro campo** — es un `update` aditivo, no una migración
    destructiva.
 3. Antes de correrlo en producción: **backup completo de Firestore** (export a
@@ -159,19 +159,19 @@ Dentro de cada organización (liga/club):
 
 **Tu doble rol (`wolcutor@gmail.com`)**: eres **Administrador de Plataforma**
 (único, con visibilidad y control sobre todas las organizaciones incluidas las
-de clientes) **Y ADEMÁS** Organizador de tu propia organización (`IMSA`, la
+de clientes) **Y ADEMÁS** Organizador de tu propia organización (`GT7 ESP`, la
 comunidad actual). Es decir, con el mismo email tienes el claim de plataforma
 más la membresía de Organizador en `org #1`. Técnicamente: el custom claim
-`platformOwner: true` es independiente y adicional a tu `membership` en `IMSA`.
+`platformOwner: true` es independiente y adicional a tu `membership` en `GT7 ESP`.
 
-**Tu equipo actual (admins y comisarios de IMSA) queda fuera del modelo
+**Tu equipo actual (admins y comisarios de GT7 ESP) queda fuera del modelo
 comercial**: no son "invitados" a través del flujo de onboarding self-service
-de un cliente que paga — son directamente **miembros de la organización IMSA**
+de un cliente que paga — son directamente **miembros de la organización GT7 ESP**
 (tu propia liga), migrados 1:1 desde `userRoles` a `memberships` con
-`orgId: "imsa"` en el mismo script de la Fase 1 (§2.2bis). Conservan
+`orgId: "gt7-esp"` en el mismo script de la Fase 1 (§2.2bis). Conservan
 exactamente los mismos permisos que tienen hoy (Director de liga / Comisario),
-solo que ahora acotados formalmente a `orgId: "imsa"` en vez de ser globales.
-No pagan suscripción ni pasan por Stripe/MoR — `IMSA` puede marcarse
+solo que ahora acotados formalmente a `orgId: "gt7-esp"` en vez de ser globales.
+No pagan suscripción ni pasan por Stripe/MoR — `GT7 ESP` puede marcarse
 internamente como organización exenta de facturación (un flag
 `billingExempt: true` o plan especial "house", visible solo para ti como
 Administrador de Plataforma).
@@ -373,7 +373,7 @@ suspender/reactivar, métricas (MRR, churn, activación).
   Optimizar (paginación, caché, documentos agregados de standings) antes de
   crecer, o el margen se erosiona.
 - **Migración sin romper tu comunidad**: tu liga actual debe seguir funcionando
-  y **sin perder ni un dato**; se migra como la primera organización (`IMSA`) con
+  y **sin perder ni un dato**; se migra como la primera organización (`GT7 ESP`) con
   un script de backfill de `orgId` validado contra backup antes de aplicarse
   (ver §2.2bis). Tus admins/comisarios actuales pasan a ser miembros de esa org
   con los mismos permisos, sin pasar por el flujo comercial ni facturación.
@@ -386,7 +386,7 @@ suspender/reactivar, métricas (MRR, churn, activación).
 - **Soporte y SLA**: definir canal y expectativas por plan; el soporte es el
   costo humano real del SaaS.
 - **Marca / IP**: el producto se comercializa **bajo "trenkit"** (decidido). La
-  comunidad actual (IMSA) pasa a ser la **organización #1** dentro de trenkit.
+  comunidad actual (GT7 ESP) pasa a ser la **organización #1** dentro de trenkit.
 - **Alcance de juego**: **solo GT7** por ahora (decidido). No se invierte en
   soportar otros juegos, aunque el modelo de datos no debería impedirlo a futuro.
 
@@ -404,16 +404,16 @@ suspender/reactivar, métricas (MRR, churn, activación).
    cliente** (su equipo/club), validado (único, formato, prohibidos).
 5. **Roles: Administrador de Plataforma (tú) › Organizador › Director de liga ›
    Comisario › Piloto.**
-6. **Marca: trenkit.** IMSA será la organización #1.
+6. **Marca: trenkit.** GT7 ESP será la organización #1.
 7. **Solo GT7** por ahora.
 8. **Fase 0** incluye `firestore.rules` + **Firebase Admin** (claims/roles,
    reemplaza `ADMIN_EMAILS`) + **compresión de banners a 500–800 KB**.
 9. **Continuidad de datos garantizada**: la migración a multi-tenant se hace
    con backfill aditivo + backup + validación previa, **cero pérdida de data**
-   (§2.2bis). Tus admins/comisarios actuales de IMSA se migran como miembros de
-   la organización `IMSA` (`org #1`), fuera del flujo comercial, sin facturación.
+   (§2.2bis). Tus admins/comisarios actuales de GT7 ESP se migran como miembros de
+   la organización `GT7 ESP` (`org #1`), fuera del flujo comercial, sin facturación.
 10. **`wolcutor@gmail.com` es propietario de todo**: Administrador de Plataforma
-    (control global) y además Organizador de `IMSA` (§2.3).
+    (control global) y además Organizador de `GT7 ESP` (§2.3).
 
 **Único punto abierto (lo investigas tú):**
 - **Pasarela definitiva**: revisar requisitos de registro de **Lemon Squeezy** y
