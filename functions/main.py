@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -615,6 +617,13 @@ _FREE_PLAN_LIMITS = {
     'maxComisarios': 1,
 }
 
+_PRO_PLAN_LIMITS = {
+    'maxActiveChampionshipsOrEvents': None,  # ilimitado
+    'maxDrivers': 200,
+    'maxAdmins': 10,
+    'maxComisarios': 15,
+}
+
 
 def _validate_org_slug(slug: str) -> str | None:
     """Devuelve un mensaje de error, o None si el slug es válido."""
@@ -703,3 +712,85 @@ def create_organization(req: https_fn.Request) -> https_fn.Response:
     })
 
     return _role_json({'ok': True, 'orgId': slug})
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Billing — Paddle (Merchant of Record, ADR-005) webhook.
+#
+# Fuente de verdad de la suscripción: el webhook de Paddle, nunca el cliente
+# (el checkout en sí ocurre client-side vía Paddle.js — ver src/app/
+# facturacion/page.js — pero solo este webhook, con el body firmado por
+# Paddle y verificado con PADDLE_WEBHOOK_SECRET, puede promover una
+# organización a plan 'pro'). El checkout pasa `customData: { orgId }` para
+# que este webhook sepa a qué organización aplicar el cambio.
+#
+# PADDLE_WEBHOOK_SECRET vive en Secret Manager (mismo patrón que
+# TELEGRAM_BOT_TOKEN) — configurar con:
+#   firebase functions:secrets:set PADDLE_WEBHOOK_SECRET
+# (ejecutar en tu propia terminal; el valor nunca debe pegarse en el chat).
+# ══════════════════════════════════════════════════════════════════════════
+
+def _verify_paddle_signature(signature_header: str, raw_body: bytes, secret: str) -> bool:
+    if not signature_header or not secret:
+        return False
+    try:
+        parts = dict(p.split('=', 1) for p in signature_header.split(';') if '=' in p)
+    except ValueError:
+        return False
+    ts = parts.get('ts')
+    h1 = parts.get('h1')
+    if not ts or not h1:
+        return False
+    signed_payload = f'{ts}:'.encode('utf-8') + raw_body
+    computed = hmac.new(secret.encode('utf-8'), signed_payload, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(computed, h1)
+
+
+@https_fn.on_request(region='us-central1', secrets=['PADDLE_WEBHOOK_SECRET'])
+def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
+    if req.method != 'POST':
+        return https_fn.Response('Method not allowed', status=405)
+
+    secret = os.environ.get('PADDLE_WEBHOOK_SECRET', '')
+    if not _verify_paddle_signature(req.headers.get('Paddle-Signature', ''), req.get_data(), secret):
+        return https_fn.Response('Invalid signature', status=401)
+
+    payload = req.get_json(silent=True) or {}
+    event_type = payload.get('event_type', '')
+    data = payload.get('data') or {}
+    org_id = (data.get('custom_data') or {}).get('orgId')
+
+    if not org_id:
+        # Evento de Paddle sin orgId asociado (no debería pasar si el
+        # checkout siempre manda customData) — no es un error, solo no hay
+        # nada que actualizar.
+        return https_fn.Response('ok', status=200)
+
+    db = fb_firestore.client()
+    org_ref = db.collection('organizations').document(org_id)
+
+    if event_type in ('subscription.created', 'subscription.updated', 'subscription.activated', 'subscription.resumed'):
+        billing_period = data.get('current_billing_period') or {}
+        billing_cycle = data.get('billing_cycle') or {}
+        org_ref.set({
+            'plan': 'pro',
+            'status': 'active',
+            'limits': _PRO_PLAN_LIMITS,
+            'subscription': {
+                'provider': 'paddle',
+                'externalId': data.get('id'),
+                'currentPeriodEnd': billing_period.get('ends_at'),
+                'cycle': billing_cycle.get('interval'),
+            },
+            'updatedAt': fb_firestore.SERVER_TIMESTAMP,
+        }, merge=True)
+    elif event_type in ('subscription.canceled', 'subscription.paused'):
+        # No se revierten los límites automáticamente (evita cortar en
+        # caliente antes de fin de periodo ya pagado) — solo se marca el
+        # estado para que el Administrador de Plataforma revise el caso.
+        org_ref.set({
+            'status': 'canceled',
+            'updatedAt': fb_firestore.SERVER_TIMESTAMP,
+        }, merge=True)
+
+    return https_fn.Response('ok', status=200)

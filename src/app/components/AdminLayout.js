@@ -36,6 +36,7 @@ export default function AdminLayout({ children }) {
                 { name: 'Campeonatos', path: '/championshipsAdmin', icon: '🏁' },
                 { name: 'Crear Campeonato', path: '/championshipsAdmin/new', icon: '➕' },
                 ...(isAdmin() ? [{ name: 'Usuarios', path: '/usersAdmin', icon: '👥' }] : []),
+                ...(isAdmin() ? [{ name: 'Facturación', path: '/facturacion', icon: '💳' }] : []),
             ]
         },
         {

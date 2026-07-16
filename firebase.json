@@ -25,6 +25,10 @@
         "function": "create_organization"
       },
       {
+        "source": "/api/paddle-webhook",
+        "function": "paddle_webhook"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
