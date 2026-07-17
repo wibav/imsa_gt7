@@ -5,6 +5,7 @@ import hmac
 import json
 import os
 import re
+import secrets
 import time
 import traceback as tb
 import urllib.error
@@ -493,14 +494,22 @@ def manage_user_role(req: https_fn.Request) -> https_fn.Response:
     if not caller_claims.get('platformOwner') and caller_rank < _MIN_RANK_TO_MANAGE_ROLES:
         return _role_json({'ok': False, 'error': 'Requiere rol de Director de liga u Organizador en esta organización'}, 403)
 
-    # ── Buscar el usuario en Firebase Auth ──
+    # ── Buscar el usuario en Firebase Auth, o crearlo si se le está
+    # asignando un rol por primera vez (antes esto se rechazaba pidiendo que
+    # el usuario ya hubiera iniciado sesión — ahora se crea la cuenta con una
+    # contraseña aleatoria que nunca se expone, y el cliente le manda un
+    # correo de restablecimiento para que la defina él mismo en su primer
+    # acceso, ver src/app/usersAdmin/page.js). Al limpiar un rol (role=None)
+    # sobre un email inexistente no tiene sentido crear la cuenta.
+    created = False
     try:
         target_user = fb_auth.get_user_by_email(target_email)
     except fb_auth.UserNotFoundError:
-        return _role_json({
-            'ok': False,
-            'error': 'No existe una cuenta con ese email. El usuario debe haber iniciado sesión al menos una vez.',
-        }, 404)
+        if not role:
+            return _role_json({'ok': False, 'error': 'No existe una cuenta con ese email'}, 404)
+        random_password = secrets.token_urlsafe(24)
+        target_user = fb_auth.create_user(email=target_email, password=random_password, email_verified=False)
+        created = True
 
     # ── Asignar o limpiar el rol dentro del mapa orgs, preservando el resto ──
     existing_claims = target_user.custom_claims or {}
@@ -528,7 +537,7 @@ def manage_user_role(req: https_fn.Request) -> https_fn.Response:
     else:
         doc_ref.delete()
 
-    return _role_json({'ok': True})
+    return _role_json({'ok': True, 'created': created})
 
 
 # ══════════════════════════════════════════════════════════════════════════

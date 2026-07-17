@@ -8,7 +8,7 @@ import { FirebaseService } from '../services/firebaseService';
 
 export default function UsersAdmin() {
     const router = useRouter();
-    const { currentUser, isAdmin, loading: authLoading } = useAuth();
+    const { currentUser, isAdmin, resetPassword, loading: authLoading } = useAuth();
     const { orgId } = useOrganization();
 
     // Estado para gestión de admins
@@ -29,6 +29,9 @@ export default function UsersAdmin() {
     const [newComisarioName, setNewComisarioName] = useState('');
     const [comisarioSaving, setComisarioSaving] = useState(false);
     const [comisarioError, setComisarioError] = useState('');
+
+    // Feedback de "cuenta nueva creada, se envió correo de restablecimiento"
+    const [accountCreatedNotice, setAccountCreatedNotice] = useState('');
 
     // Redirigir si no está autenticado
     useEffect(() => {
@@ -78,11 +81,19 @@ export default function UsersAdmin() {
             return;
         }
         setAdminSaving(true);
+        setAccountCreatedNotice('');
         try {
             // Nuevos admins se agregan como "director_liga" — "organizador"
             // (dueño de la organización) es un rol especial, no se otorga
             // desde este formulario genérico.
-            await FirebaseService.setUserRole(email, orgId, 'director_liga', newAdminName.trim());
+            const result = await FirebaseService.setUserRole(email, orgId, 'director_liga', newAdminName.trim());
+            if (result.created) {
+                // La Cloud Function creó la cuenta con una contraseña
+                // aleatoria que nunca se expone — el usuario la define él
+                // mismo al abrir el enlace de este correo.
+                await resetPassword(email).catch(() => {});
+                setAccountCreatedNotice(`Se creó una cuenta nueva para ${email} y se le envió un correo para que defina su contraseña.`);
+            }
             setNewAdminEmail('');
             setNewAdminName('');
             await loadAdmins();
@@ -128,8 +139,13 @@ export default function UsersAdmin() {
             return;
         }
         setComisarioSaving(true);
+        setAccountCreatedNotice('');
         try {
-            await FirebaseService.setUserRole(email, orgId, 'comisario', newComisarioName.trim());
+            const result = await FirebaseService.setUserRole(email, orgId, 'comisario', newComisarioName.trim());
+            if (result.created) {
+                await resetPassword(email).catch(() => {});
+                setAccountCreatedNotice(`Se creó una cuenta nueva para ${email} y se le envió un correo para que defina su contraseña.`);
+            }
             setNewComisarioEmail('');
             setNewComisarioName('');
             await loadComisarios();
@@ -167,8 +183,14 @@ export default function UsersAdmin() {
             <h1 className="text-3xl font-bold text-white mb-1">👥 Usuarios</h1>
             <p className="text-gray-400 text-sm mb-8">
                 Los admins tienen acceso total. Los comisarios pueden ver las pistas y gestionar sanciones/reclamaciones, pero no la configuración del sistema.
-                El usuario debe haber iniciado sesión al menos una vez antes de poder asignarle un rol.
+                Si el email no tiene cuenta todavía, se crea automáticamente y se le envía un correo para que defina su contraseña.
             </p>
+
+            {accountCreatedNotice && (
+                <p className="mb-6 max-w-2xl text-green-300 text-sm bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3">
+                    ✅ {accountCreatedNotice}
+                </p>
+            )}
 
             {/* Admins */}
             <div className="mb-8 max-w-2xl">
