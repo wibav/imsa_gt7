@@ -5,6 +5,7 @@ import hmac
 import json
 import os
 import re
+import time
 import traceback as tb
 import urllib.error
 import urllib.request
@@ -670,46 +671,66 @@ def create_organization(req: https_fn.Request) -> https_fn.Response:
 
     db = fb_firestore.client()
     org_ref = db.collection('organizations').document(slug)
-    if org_ref.get().exists:
-        return _role_json({'ok': False, 'error': 'Ese slug ya está en uso, prueba con otro'}, 409)
+    membership_ref = db.collection('memberships').document(f'{uid}_{slug}')
 
-    # Anti-abuso: una sola organización propia por usuario vía este flujo
-    # self-service (evita spam de organizaciones Free). El Administrador de
-    # Plataforma sigue pudiendo crear organizaciones adicionales manualmente.
-    existing_owned = db.collection('organizations').where('ownerUid', '==', uid).limit(1).get()
-    if len(existing_owned) > 0:
-        return _role_json({'ok': False, 'error': 'Ya tienes una organización creada con esta cuenta'}, 409)
+    # Transacción: la comprobación de slug único y de "una sola organización
+    # por usuario" tiene que ser atómica con la escritura, si no dos
+    # requests casi simultáneas (doble click, reintento de red) podrían
+    # pasar ambos el check-then-write y uno pisar silenciosamente al otro.
+    transaction = db.transaction()
 
-    org_ref.set({
-        'name': name,
-        'slug': slug,
-        'plan': 'free',
-        'status': 'active',
-        'freeTrialUsed': False,
-        'billingExempt': False,
-        'ownerUid': uid,
-        'branding': {'logoUrl': None, 'colorPrimary': None, 'colorSecondary': None},
-        'limits': _FREE_PLAN_LIMITS,
-        'subscription': {'provider': None, 'externalId': None, 'currentPeriodEnd': None, 'cycle': None},
-        'createdAt': fb_firestore.SERVER_TIMESTAMP,
-        'updatedAt': fb_firestore.SERVER_TIMESTAMP,
-    })
+    @fb_firestore.transactional
+    def _create_org_tx(transaction):
+        existing_owned = list(
+            db.collection('organizations').where('ownerUid', '==', uid).limit(1).stream(transaction=transaction)
+        )
+        if existing_owned:
+            raise ValueError('ALREADY_OWNS_ORG')
+
+        if org_ref.get(transaction=transaction).exists:
+            raise ValueError('SLUG_TAKEN')
+
+        transaction.set(org_ref, {
+            'name': name,
+            'slug': slug,
+            'plan': 'free',
+            'status': 'active',
+            'freeTrialUsed': False,
+            'billingExempt': False,
+            'ownerUid': uid,
+            'branding': {'logoUrl': None, 'colorPrimary': None, 'colorSecondary': None},
+            'limits': _FREE_PLAN_LIMITS,
+            'subscription': {'provider': None, 'externalId': None, 'currentPeriodEnd': None, 'cycle': None},
+            'createdAt': fb_firestore.SERVER_TIMESTAMP,
+            'updatedAt': fb_firestore.SERVER_TIMESTAMP,
+        })
+        transaction.set(membership_ref, {
+            'uid': uid,
+            'email': (caller_claims.get('email') or '').lower(),
+            'orgId': slug,
+            'role': 'organizador',
+            'displayName': name,
+            'updatedAt': fb_firestore.SERVER_TIMESTAMP,
+        })
+
+    try:
+        _create_org_tx(transaction)
+    except ValueError as err:
+        if str(err) == 'ALREADY_OWNS_ORG':
+            return _role_json({'ok': False, 'error': 'Ya tienes una organización creada con esta cuenta'}, 409)
+        if str(err) == 'SLUG_TAKEN':
+            return _role_json({'ok': False, 'error': 'Ese slug ya está en uso, prueba con otro'}, 409)
+        raise
 
     # ── Otorgar 'organizador' de la organización recién creada ──
+    # (Firebase Auth, no Firestore — no puede formar parte de la transacción
+    # de arriba, pero va después de que esta ya confirmó ser la única
+    # escritora del slug/uid, así que no hay condición de carrera real aquí.)
     target_user = fb_auth.get_user(uid)
     existing_claims = target_user.custom_claims or {}
     existing_orgs = dict(existing_claims.get('orgs') or {})
     existing_orgs[slug] = 'organizador'
     fb_auth.set_custom_user_claims(uid, {**existing_claims, 'orgs': existing_orgs})
-
-    db.collection('memberships').document(f'{uid}_{slug}').set({
-        'uid': uid,
-        'email': (caller_claims.get('email') or '').lower(),
-        'orgId': slug,
-        'role': 'organizador',
-        'displayName': name,
-        'updatedAt': fb_firestore.SERVER_TIMESTAMP,
-    })
 
     return _role_json({'ok': True, 'orgId': slug})
 
@@ -730,6 +751,9 @@ def create_organization(req: https_fn.Request) -> https_fn.Response:
 # (ejecutar en tu propia terminal; el valor nunca debe pegarse en el chat).
 # ══════════════════════════════════════════════════════════════════════════
 
+_PADDLE_MAX_SIGNATURE_AGE_SECONDS = 300  # 5 min — evita repetir un payload capturado/filtrado
+
+
 def _verify_paddle_signature(signature_header: str, raw_body: bytes, secret: str) -> bool:
     if not signature_header or not secret:
         return False
@@ -740,6 +764,12 @@ def _verify_paddle_signature(signature_header: str, raw_body: bytes, secret: str
     ts = parts.get('ts')
     h1 = parts.get('h1')
     if not ts or not h1:
+        return False
+    try:
+        age = abs(time.time() - int(ts))
+    except ValueError:
+        return False
+    if age > _PADDLE_MAX_SIGNATURE_AGE_SECONDS:
         return False
     signed_payload = f'{ts}:'.encode('utf-8') + raw_body
     computed = hmac.new(secret.encode('utf-8'), signed_payload, hashlib.sha256).hexdigest()
@@ -768,6 +798,15 @@ def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
 
     db = fb_firestore.client()
     org_ref = db.collection('organizations').document(org_id)
+
+    if not org_ref.get().exists:
+        # orgId del checkout no corresponde a ninguna organización real (org
+        # borrada, dato corrupto, o un customData desactualizado) — no crear
+        # un documento a medias, solo registrar y devolver 200 para que
+        # Paddle no reintente indefinidamente un evento que nunca va a poder
+        # aplicarse.
+        print(f'paddle_webhook: orgId "{org_id}" no existe, evento {event_type} ignorado')
+        return https_fn.Response('ok', status=200)
 
     if event_type in ('subscription.created', 'subscription.updated', 'subscription.activated', 'subscription.resumed'):
         billing_period = data.get('current_billing_period') or {}
