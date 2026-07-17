@@ -847,6 +847,10 @@ def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
     data = payload.get('data') or {}
     org_id = (data.get('custom_data') or {}).get('orgId')
 
+    # Log de diagnóstico: qué evento llegó y si trae orgId — visible en
+    # Cloud Logging (gcloud logging read ... service_name="paddle-webhook").
+    print(f'paddle_webhook: event_type={event_type!r} orgId={org_id!r} custom_data={data.get("custom_data")!r}')
+
     if not org_id:
         # Evento de Paddle sin orgId asociado (no debería pasar si el
         # checkout siempre manda customData) — no es un error, solo no hay

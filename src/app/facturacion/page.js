@@ -15,6 +15,12 @@ const PADDLE_ENV = process.env.NEXT_PUBLIC_PADDLE_ENV || 'sandbox';
 
 const PLAN_LABELS = { free: 'Free (prueba única)', starter: 'Starter', pro: 'Pro' };
 
+// Pausa deliberada del checkout mientras se replantean los planes/paquetes
+// (integración con Paddle ya probada de punta a punta — checkout, webhook y
+// Firestore funcionando; solo se oculta el botón). Volver a `true` cuando
+// los precios/planes estén definidos.
+const UPGRADE_ENABLED = false;
+
 export default function FacturacionPage() {
     const router = useRouter();
     const { currentUser, isAdmin, currentOrgRole, loading: authLoading } = useAuth();
@@ -32,7 +38,7 @@ export default function FacturacionPage() {
     }, [currentUser, authLoading, router]);
 
     useEffect(() => {
-        if (!configured || typeof window === 'undefined' || window.Paddle) {
+        if (!UPGRADE_ENABLED || !configured || typeof window === 'undefined' || window.Paddle) {
             if (window?.Paddle) setPaddleReady(true);
             return;
         }
@@ -120,7 +126,11 @@ export default function FacturacionPage() {
                         Campeonatos/eventos ilimitados, hasta 200 pilotos, branding propio (logo + colores)
                         y URL personalizada.
                     </p>
-                    {!configured ? (
+                    {!UPGRADE_ENABLED ? (
+                        <p className="text-gray-500 text-sm italic">
+                            Muy pronto. Estamos terminando de definir los planes — vuelve a revisar en unos días.
+                        </p>
+                    ) : !configured ? (
                         <p className="text-gray-500 text-sm italic">
                             La pasarela de pago todavía no está configurada. Contacta al Administrador de Plataforma.
                         </p>
