@@ -18,7 +18,7 @@ function slugify(text) {
 }
 
 export default function SignupPage() {
-    const { currentUser, login, signup, loading: authLoading } = useAuth();
+    const { currentUser, login, signup, refreshClaims, loading: authLoading } = useAuth();
 
     // Paso 1: cuenta
     const [mode, setMode] = useState('signup'); // 'signup' | 'login'
@@ -74,6 +74,12 @@ export default function SignupPage() {
         setOrgSaving(true);
         try {
             const result = await FirebaseService.createOrganization(orgName.trim(), orgSlug);
+            // create_organization otorga el claim orgs.{slug}='organizador' en
+            // el servidor, pero el ID token ya cacheado en el cliente no lo
+            // trae — sin este refresh forzado, el panel admin de la org
+            // recién creada mostraría "Acceso denegado" hasta el próximo
+            // refresh automático del token (hasta 1h).
+            await refreshClaims();
             setCreated(result.orgId);
             setTimeout(() => {
                 window.location.href = `/l/${result.orgId}`;
