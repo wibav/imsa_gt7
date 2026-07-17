@@ -18,7 +18,7 @@ export const DEFAULT_ORG_ID = 'gt7-esp';
 // del usuario en vez de la URL.
 const ADMIN_ROUTE_PREFIXES = [
     '/usersAdmin', '/championshipsAdmin', '/eventsAdmin', '/tracksAdmin',
-    '/teamsAdmin', '/facturacion', '/equipamientoAdmin',
+    '/teamsAdmin', '/facturacion', '/equipamientoAdmin', '/organizacionesAdmin',
 ];
 
 function isAdminRoute(pathname) {

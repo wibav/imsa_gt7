@@ -1417,6 +1417,27 @@ export class FirebaseService {
     }
   }
 
+  /** Todas las organizaciones + su organizador (email), para el panel del
+   *  Administrador de Plataforma (/organizacionesAdmin). El email del
+   *  organizador sale de `memberships` (no de Firebase Auth — el cliente no
+   *  tiene acceso al Admin SDK), que ya guarda el email en texto plano ahí. */
+  static async getAllOrganizations() {
+    try {
+      const [orgsSnap, ownersSnap] = await Promise.all([
+        getDocs(collection(db, 'organizations')),
+        getDocs(query(collection(db, 'memberships'), where('role', '==', 'organizador'))),
+      ]);
+      const ownerEmailByOrgId = {};
+      ownersSnap.docs.forEach(d => { ownerEmailByOrgId[d.data().orgId] = d.data().email; });
+      return orgsSnap.docs
+        .map(d => ({ id: d.id, ...d.data(), ownerEmail: ownerEmailByOrgId[d.id] || null }))
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    } catch (error) {
+      console.error('Error getting all organizations:', error);
+      return [];
+    }
+  }
+
   // ══════════════════════════════════════════
   // Equipamiento (catálogo GLOBAL, gestión exclusiva del Administrador de
   // Plataforma — ver firestore.rules)

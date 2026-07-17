@@ -36,6 +36,16 @@ export default function AdminLayout({ children }) {
                 { name: 'Volver al Dashboard', path: dashboardPath, icon: '🏠' },
             ]
         },
+        // Vista global de todas las organizaciones: exclusiva del
+        // Administrador de Plataforma (antes solo se podía ver por consola
+        // de Firestore).
+        ...(isPlatformOwner() ? [{
+            title: 'Plataforma',
+            icon: '🌐',
+            items: [
+                { name: 'Organizaciones', path: '/organizacionesAdmin', icon: '🏢' },
+            ]
+        }] : []),
         {
             title: 'Gestión de Campeonatos',
             icon: '🏆',
