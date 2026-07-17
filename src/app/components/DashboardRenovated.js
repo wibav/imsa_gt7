@@ -173,7 +173,9 @@ export default function DashboardRenovated() {
                 setRegistrationMessage("✅ ¡Inscripción exitosa! Bienvenido al evento.");
             }
 
-            // Notificar al admin vía Telegram (best-effort)
+            // Notificar al admin vía Telegram (best-effort). orgNamesById ya
+            // está resuelto (ver badge de organización en la vista raíz);
+            // fuera de isRootView, no hace falta (siempre es la misma org).
             notifyEventRegistration({
                 eventTitle: selectedEvent?.title || 'Evento',
                 gt7Id: participantData.gt7Id,
@@ -181,6 +183,7 @@ export default function DashboardRenovated() {
                 name: participantData.name,
                 waitlisted: result.waitlisted,
                 position: result.position,
+                orgName: isRootView ? orgNamesById[selectedEvent?.orgId] : null,
             });
 
             // Recargar eventos para actualizar la lista de participantes

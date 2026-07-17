@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useChampionship } from '../context/ChampionshipContext';
+import { useOrganization } from '../context/OrganizationContext';
 import { FirebaseService } from '../services/firebaseService';
 import TracksManager from '../components/TracksManager';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
@@ -33,6 +34,7 @@ export default function ChampionshipDetail() {
 
     const { currentUser, isAdmin, isComisario, loading: authLoading } = useAuth();
     const { championships, updateChampionship, deleteChampionship, loading: championshipsLoading } = useChampionship();
+    const { org } = useOrganization();
 
     const [championship, setChampionship] = useState(null);
     const [teams, setTeams] = useState([]);
@@ -1385,6 +1387,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                 trackName: selectedTrack.name,
                 round: selectedTrack.round,
                 driversCount: championship?.drivers?.length || 0,
+                orgName: org?.name,
             });
             setSelectedTrack(null);
             setPositions({});
@@ -2343,6 +2346,7 @@ function RegistrationsTab({ championshipId, championship, onUpdate }) {
                         driverName: reg.gt7Id || reg.name || id,
                         psnId: reg.psnId || null,
                         status,
+                        orgName: org?.name,
                     });
                 }
             }

@@ -313,6 +313,34 @@ def _notify_json(payload: dict, status_code: int = 200) -> https_fn.Response:
     )
 
 
+def _send_telegram_message(text: str) -> bool:
+    """Helper interno reusable por cualquier Cloud Function que declare el
+    secreto TELEGRAM_BOT_TOKEN — a diferencia de `notify` (endpoint HTTP para
+    el cliente), esto se llama directo desde Python, sin round-trip HTTP.
+    Best-effort: nunca lanza, solo devuelve si se pudo enviar o no."""
+    token = os.environ.get('TELEGRAM_BOT_TOKEN')
+    chat_id = os.environ.get('TELEGRAM_CHAT_ID', _DEFAULT_CHAT_ID)
+    if not token:
+        return False
+    payload = json.dumps({
+        'chat_id': chat_id,
+        'text': text,
+        'parse_mode': 'HTML',
+        'disable_web_page_preview': True,
+    }).encode('utf-8')
+    tg_req = urllib.request.Request(
+        f'{_TELEGRAM_API}/bot{token}/sendMessage',
+        data=payload,
+        headers={'Content-Type': 'application/json'},
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(tg_req, timeout=10) as resp:
+            return 200 <= resp.status < 300
+    except Exception:
+        return False
+
+
 @https_fn.on_request(region='us-central1', secrets=['TELEGRAM_BOT_TOKEN'])
 def notify(req: https_fn.Request) -> https_fn.Response:
     if req.method == 'OPTIONS':
@@ -455,7 +483,7 @@ def _role_json(payload: dict, status_code: int = 200) -> https_fn.Response:
     )
 
 
-@https_fn.on_request(region='us-central1')
+@https_fn.on_request(region='us-central1', secrets=['TELEGRAM_BOT_TOKEN'])
 def manage_user_role(req: https_fn.Request) -> https_fn.Response:
     if req.method == 'OPTIONS':
         return https_fn.Response('', status=204, headers=_ROLE_CORS)
@@ -536,6 +564,18 @@ def manage_user_role(req: https_fn.Request) -> https_fn.Response:
         }, merge=True)
     else:
         doc_ref.delete()
+
+    if created:
+        org_snap = db.collection('organizations').document(org_id).get()
+        org_name = org_snap.to_dict().get('name', org_id) if org_snap.exists else org_id
+        role_labels = {'organizador': 'Organizador', 'director_liga': 'Director de liga', 'comisario': 'Comisario'}
+        _send_telegram_message(
+            f'👤 <b>Cuenta nueva creada</b>\n'
+            f'🏢 {org_name}\n'
+            f'✉️ {target_email}\n'
+            f'🔖 Rol: {role_labels.get(role, role)}\n'
+            f'📧 Se le envió un correo para definir su contraseña.'
+        )
 
     return _role_json({'ok': True, 'created': created})
 
@@ -648,7 +688,7 @@ def _validate_org_slug(slug: str) -> str | None:
     return None
 
 
-@https_fn.on_request(region='us-central1')
+@https_fn.on_request(region='us-central1', secrets=['TELEGRAM_BOT_TOKEN'])
 def create_organization(req: https_fn.Request) -> https_fn.Response:
     if req.method == 'OPTIONS':
         return https_fn.Response('', status=204, headers=_ROLE_CORS)
@@ -741,6 +781,14 @@ def create_organization(req: https_fn.Request) -> https_fn.Response:
     existing_orgs[slug] = 'organizador'
     fb_auth.set_custom_user_claims(uid, {**existing_claims, 'orgs': existing_orgs})
 
+    _send_telegram_message(
+        f'🆕 <b>Nueva organización creada</b>\n'
+        f'🏢 {name} (<code>{slug}</code>)\n'
+        f'✉️ {(caller_claims.get("email") or "").lower()}\n'
+        f'🔗 trenkit.com/l/{slug}\n'
+        f'💳 Plan: Free (prueba única)'
+    )
+
     return _role_json({'ok': True, 'orgId': slug})
 
 
@@ -785,7 +833,7 @@ def _verify_paddle_signature(signature_header: str, raw_body: bytes, secret: str
     return hmac.compare_digest(computed, h1)
 
 
-@https_fn.on_request(region='us-central1', secrets=['PADDLE_WEBHOOK_SECRET'])
+@https_fn.on_request(region='us-central1', secrets=['PADDLE_WEBHOOK_SECRET', 'TELEGRAM_BOT_TOKEN'])
 def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
     if req.method != 'POST':
         return https_fn.Response('Method not allowed', status=405)
@@ -807,8 +855,9 @@ def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
 
     db = fb_firestore.client()
     org_ref = db.collection('organizations').document(org_id)
+    org_snap = org_ref.get()
 
-    if not org_ref.get().exists:
+    if not org_snap.exists:
         # orgId del checkout no corresponde a ninguna organización real (org
         # borrada, dato corrupto, o un customData desactualizado) — no crear
         # un documento a medias, solo registrar y devolver 200 para que
@@ -817,9 +866,12 @@ def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
         print(f'paddle_webhook: orgId "{org_id}" no existe, evento {event_type} ignorado')
         return https_fn.Response('ok', status=200)
 
+    org_name = org_snap.to_dict().get('name', org_id)
+
     if event_type in ('subscription.created', 'subscription.updated', 'subscription.activated', 'subscription.resumed'):
         billing_period = data.get('current_billing_period') or {}
         billing_cycle = data.get('billing_cycle') or {}
+        was_pro_already = org_snap.to_dict().get('plan') == 'pro'
         org_ref.set({
             'plan': 'pro',
             'status': 'active',
@@ -832,6 +884,13 @@ def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
             },
             'updatedAt': fb_firestore.SERVER_TIMESTAMP,
         }, merge=True)
+        if not was_pro_already:
+            _send_telegram_message(
+                f'💳 <b>Organización actualizada a Pro</b> 🎉\n'
+                f'🏢 {org_name}\n'
+                f'📅 Próxima renovación: {billing_period.get("ends_at", "—")}\n'
+                f'🔁 Ciclo: {billing_cycle.get("interval", "—")}'
+            )
     elif event_type in ('subscription.canceled', 'subscription.paused'):
         # No se revierten los límites automáticamente (evita cortar en
         # caliente antes de fin de periodo ya pagado) — solo se marca el
@@ -840,5 +899,10 @@ def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
             'status': 'canceled',
             'updatedAt': fb_firestore.SERVER_TIMESTAMP,
         }, merge=True)
+        _send_telegram_message(
+            f'⚠️ <b>Suscripción {"cancelada" if event_type == "subscription.canceled" else "pausada"}</b>\n'
+            f'🏢 {org_name}\n'
+            f'👉 Revisar manualmente si corresponde revertir a plan Free.'
+        )
 
     return https_fn.Response('ok', status=200)

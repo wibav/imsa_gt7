@@ -6,6 +6,7 @@ import {
     PENALTY_TYPE_CONFIG, SEVERITY_CONFIG, CLAIM_STATUS_CONFIG
 } from '../../models/Penalty';
 import { notifyPenaltyApplied, notifyClaimResolved } from '../../utils/telegram';
+import { useOrganization } from '../../context/OrganizationContext';
 
 /**
  * Tab de Sanciones para el admin de campeonatos.
@@ -27,6 +28,7 @@ export default function PenaltiesTab({
     const [showApplyModal, setShowApplyModal] = useState(false);
     const [showClaimResolveModal, setShowClaimResolveModal] = useState(null);
     const [saving, setSaving] = useState(false);
+    const { org } = useOrganization();
 
     // Config local del sistema de sanciones
     const [config, setConfig] = useState({
@@ -610,6 +612,7 @@ function ApplyPenaltyModal({ championshipId, allDrivers, tracks, presets, onClos
                 severity: form.severity,
                 trackName: form.trackName || null,
                 round: form.round || null,
+                orgName: org?.name,
             });
             onSaved();
             onClose();
@@ -926,6 +929,7 @@ function ClaimsSection({ claims, championshipId, allDrivers, tracks, config, onR
                 trackName: resolveModal?.trackName || null,
                 round: resolveModal?.round || null,
                 resolution,
+                orgName: org?.name,
             });
             onReload();
             if (onUpdate) onUpdate();

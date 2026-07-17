@@ -72,6 +72,7 @@ function EventDetailContent() {
             }
 
             // Notificar al admin vía Telegram (best-effort)
+            const org = event?.orgId ? await FirebaseService.getOrganization(event.orgId).catch(() => null) : null;
             notifyEventRegistration({
                 eventTitle: event?.title || 'Evento',
                 gt7Id: participantData.gt7Id,
@@ -79,6 +80,7 @@ function EventDetailContent() {
                 name: participantData.name,
                 waitlisted: result.waitlisted,
                 position: result.position,
+                orgName: org?.name,
             });
         } catch (error) {
             const errorMessage = error.message || "Error al inscribirse. Intenta de nuevo.";

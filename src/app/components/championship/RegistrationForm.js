@@ -94,6 +94,12 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
 
         setSubmitting(true);
         try {
+            // best-effort, no bloquea la inscripción si falla
+            const org = championship.orgId
+                ? await FirebaseService.getOrganization(championship.orgId).catch(() => null)
+                : null;
+            const orgTag = org?.name ? `🏢 ${org.name}\n` : '';
+
             if (isTeamMode) {
                 const data = {
                     teamName: teamName.trim(),
@@ -107,6 +113,7 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                 await FirebaseService.submitRegistration(championship.id, data);
                 sendTelegramNotification(
                     `📋 <b>Nueva inscripción de equipo</b>\n` +
+                    orgTag +
                     `🏆 ${championship.name}\n` +
                     `👥 ${data.teamName}\n` +
                     data.drivers.map(d => `🎮 ${d.gt7Id}${d.category ? ` (${d.category})` : ''}`).join('\n')
@@ -120,7 +127,7 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                 const gt7Id = data.gt7Id || '?';
                 const psnId = data.psnId ? ` (PSN: ${data.psnId})` : '';
                 sendTelegramNotification(
-                    `📋 <b>Nueva inscripción</b>\n🏆 ${championship.name}\n🎮 ${gt7Id}${psnId}`
+                    `📋 <b>Nueva inscripción</b>\n${orgTag}🏆 ${championship.name}\n🎮 ${gt7Id}${psnId}`
                 );
             }
 
