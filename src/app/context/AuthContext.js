@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
@@ -106,6 +106,12 @@ export function AuthProvider({ children }) {
         setClaims(result.claims || {});
     };
 
+    // Solo fuerza un refresh la PRIMERA vez que el listener ve un usuario
+    // real por carga de página — forzar en cada disparo del listener
+    // re-dispararía onIdTokenChanged indefinidamente (un refresh forzado
+    // mintea un token nuevo, lo que a su vez dispara el evento otra vez).
+    const forcedOnceRef = useRef(false);
+
     useEffect(() => {
         // onIdTokenChanged (no onAuthStateChanged): dispara en login/logout Y en
         // cada refresco automático del ID token (~1h), que es el único momento
@@ -116,7 +122,15 @@ export function AuthProvider({ children }) {
             setCurrentUser(user);
             if (user) {
                 try {
-                    const result = await user.getIdTokenResult();
+                    // Forzado solo la primera vez: un claim recién otorgado
+                    // (ej. al crear una organización en /signup) puede no
+                    // estar todavía en el token persistido si esta es la
+                    // primera carga de página tras el cambio — sin esto,
+                    // isAdmin() devolvía false pese a que el rol ya estaba
+                    // bien asignado en el servidor.
+                    const forceThisTime = !forcedOnceRef.current;
+                    forcedOnceRef.current = true;
+                    const result = await user.getIdTokenResult(forceThisTime);
                     setClaims(result.claims || {});
                 } catch {
                     setClaims({});

@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { onIdTokenChanged } from 'firebase/auth';
 import { auth } from '../api/firebase/firebaseConfig';
@@ -55,24 +55,48 @@ export function OrganizationProvider({ children }) {
     const [org, setOrg] = useState(null);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
-    // null = todavía no se sabe (esperar antes de resolver rutas admin);
-    // [] = sin sesión o sin organizaciones.
-    const [authOrgIds, setAuthOrgIds] = useState(null);
+
+    // authOrgIdsRef guarda el array real (para leer); authOrgIdsKey es una
+    // clave primitiva derivada (string), la única que se usa como
+    // dependencia de efectos. Object.keys() siempre crea un array nuevo, así
+    // que si se usara el array como dependencia, cada re-cálculo con el
+    // MISMO contenido se vería como "cambio" y volvería a disparar el
+    // efecto — con un refresh forzado de por medio, eso es un bucle
+    // infinito real (cada refresh mintea un token nuevo, que dispara
+    // onIdTokenChanged, que puebla el array de nuevo, con nueva referencia).
+    // Comparar por valor (la key) rompe el ciclo: incluso si el array es un
+    // objeto distinto, si el contenido es igual la key no cambia y no se
+    // vuelve a renderizar.
+    // null = todavía no se sabe; '' = sesión sin organizaciones.
+    const authOrgIdsRef = useRef(null);
+    const [authOrgIdsKey, setAuthOrgIdsKey] = useState(null);
+
+    function updateAuthOrgIds(ids) {
+        authOrgIdsRef.current = ids;
+        const key = ids.slice().sort().join(',');
+        setAuthOrgIdsKey(prev => (prev === key ? prev : key));
+    }
 
     useEffect(() => {
+        // Sin refresh forzado aquí: onIdTokenChanged dispara cada vez que el
+        // token cambia, así que forzar un refresh dentro de su propio
+        // callback re-dispararía el evento indefinidamente. El refresh
+        // forzado para rutas admin se hace puntualmente en resolve() abajo,
+        // una vez por navegación, no en cada cambio de token.
         const unsubscribe = onIdTokenChanged(auth, async (user) => {
             if (!user) {
-                setAuthOrgIds([]);
+                updateAuthOrgIds([]);
                 return;
             }
             try {
                 const result = await user.getIdTokenResult();
-                setAuthOrgIds(Object.keys(result.claims.orgs || {}));
+                updateAuthOrgIds(Object.keys(result.claims.orgs || {}));
             } catch {
-                setAuthOrgIds([]);
+                updateAuthOrgIds([]);
             }
         });
         return unsubscribe;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -81,7 +105,7 @@ export function OrganizationProvider({ children }) {
 
         // En rutas admin, esperar a saber los claims del usuario antes de
         // resolver — si no, se vería brevemente (o se filtraría) gt7-esp.
-        if (needsAuthOrg && authOrgIds === null) {
+        if (needsAuthOrg && authOrgIdsKey === null) {
             setLoading(true);
             return;
         }
@@ -94,8 +118,26 @@ export function OrganizationProvider({ children }) {
             let orgId;
             if (slug) {
                 orgId = slug;
-            } else if (needsAuthOrg && authOrgIds.length === 1) {
-                orgId = authOrgIds[0];
+            } else if (needsAuthOrg) {
+                let orgIds = authOrgIdsRef.current || [];
+                // Refresh forzado puntual (una vez por navegación, sin
+                // efecto de re-disparo gracias a updateAuthOrgIds comparar
+                // por valor): un claim recién otorgado (ej. al crear una
+                // organización en /signup) puede no estar todavía en el
+                // token persistido localmente si esta es la primera carga de
+                // página tras el cambio — sin esto, un organizador recién
+                // creado vería "acceso denegado" en su propio panel hasta el
+                // próximo refresh natural del token (hasta 1h).
+                if (auth.currentUser) {
+                    try {
+                        const fresh = await auth.currentUser.getIdTokenResult(true);
+                        orgIds = Object.keys(fresh.claims.orgs || {});
+                        if (!cancelled) updateAuthOrgIds(orgIds);
+                    } catch {
+                        // Se sigue con lo que ya se tenía en authOrgIdsRef.
+                    }
+                }
+                orgId = orgIds.length === 1 ? orgIds[0] : DEFAULT_ORG_ID;
             } else {
                 orgId = DEFAULT_ORG_ID;
             }
@@ -124,7 +166,7 @@ export function OrganizationProvider({ children }) {
 
         resolve();
         return () => { cancelled = true; };
-    }, [pathname, authOrgIds]);
+    }, [pathname, authOrgIdsKey]);
 
     // isRootView: true cuando la URL NO usa el prefijo /l/{slug} (la raíz y
     // todas las demás rutas del sistema). En ese caso el Dashboard muestra
