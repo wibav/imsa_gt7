@@ -6,8 +6,13 @@ import Image from 'next/image';
 
 export default function Navbar() {
     const [menuOpen, setMenuOpen] = useState(false);
-    const { currentUser, logout, isAdmin } = useAuth();
+    const { currentUser, logout, isAdmin, myOrgIds } = useAuth();
     const { org, isRootView } = useOrganization();
+
+    // En la vista raíz (agregada, todas las orgs) un usuario logueado con
+    // organización propia no tenía forma de volver a ella sin teclear la
+    // URL /l/{slug} a mano — este botón lo resuelve.
+    const myOrgId = myOrgIds()[0] || null;
 
     // Branding por organización (plan Pro, ver SPEC-1/SPEC-3): solo se
     // sustituye el logo/nombre por defecto de trenkit cuando la org tiene
@@ -134,6 +139,18 @@ export default function Navbar() {
                         </button>
                     )}
 
+                    {/* Volver a mi organización: en la vista raíz (agregada),
+                        un usuario logueado con org propia necesita una forma
+                        de volver a ella sin teclear /l/{slug} a mano. */}
+                    {isRootView && currentUser && myOrgId && (
+                        <button
+                            onClick={() => window.location.href = `/l/${myOrgId}`}
+                            className="bg-white/20 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-white/30 transition-all duration-200 text-sm"
+                        >
+                            🏠 Mi organización
+                        </button>
+                    )}
+
                     {/* CTA de alta self-service: solo en la vista raíz agregada
                         (trenkit), no dentro de la liga de un cliente (/l/{slug}) */}
                     {isRootView && !currentUser && (
@@ -169,6 +186,15 @@ export default function Navbar() {
                                 className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200"
                             >
                                 ⚙️ Admin
+                            </button>
+                        )}
+
+                        {isRootView && currentUser && myOrgId && (
+                            <button
+                                onClick={() => window.location.href = `/l/${myOrgId}`}
+                                className="w-full bg-white/20 text-white px-5 py-3 rounded-lg font-semibold hover:bg-white/30 transition-all duration-200"
+                            >
+                                🏠 Mi organización
                             </button>
                         )}
 

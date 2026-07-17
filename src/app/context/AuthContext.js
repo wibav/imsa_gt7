@@ -73,6 +73,13 @@ export function AuthProvider({ children }) {
         }
     };
 
+    // Los orgIds del usuario (todas las organizaciones a las que pertenece,
+    // en cualquier rol) — para que el Navbar pueda ofrecer "volver a mi
+    // organización" en la vista raíz sin que el usuario tenga que teclear
+    // la URL /l/{slug} a mano. Con más de una org, se prioriza la primera
+    // (caso multi-org: pendiente un selector dedicado).
+    const myOrgIds = () => Object.keys(claims.orgs || {});
+
     const currentOrgRole = () => (claims.orgs || {})[orgId] || null;
     const currentOrgRank = () => ROLE_RANK[currentOrgRole()] || 0;
 
@@ -154,6 +161,7 @@ export function AuthProvider({ children }) {
         isComisario,
         isPlatformOwner,
         currentOrgRole,
+        myOrgIds,
         refreshClaims,
         loading
     };
