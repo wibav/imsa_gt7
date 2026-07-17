@@ -437,25 +437,34 @@ export class FirebaseService {
         registeredAt: new Date().toISOString()
       };
 
+      // Inscripción pública (sin sesión): solo puede CREAR un documento
+      // nuevo en la subcolección, nunca borrar/regenerar los existentes
+      // (firestore.rules exige isOrgAdmin para update/delete ahí). Antes
+      // esto pasaba por _saveEventParticipants/_saveEventWaitlist, que
+      // borran y recrean TODA la subcolección — funciona para el admin
+      // (guardado masivo autenticado) pero le devuelve "missing or
+      // insufficient permissions" a cualquier inscripción pública que no
+      // sea la primera del evento, porque el borrado de los docs ya
+      // existentes queda denegado. El id incluye un timestamp para que
+      // `_loadEventParticipants`/`_loadEventWaitlist` (que ordenan por id)
+      // seguian reflejando el orden real de inscripción.
       if (isFull) {
         const waitlistPosition = currentWaitlist.length + 1;
-        const updatedWaitlist = [...currentWaitlist, { ...newParticipant, waitlistPosition }];
+        const entryId = `w${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-        // Siempre guardar en subcollections y actualizar contadores en doc principal
         await Promise.all([
-          this._saveEventWaitlist(eventId_str, updatedWaitlist),
-          updateDoc(eventRef, { waitlistCount: updatedWaitlist.length, updatedAt: new Date().toISOString() })
+          setDoc(doc(db, "events", eventId_str, "waitlist", entryId), { ...newParticipant, waitlistPosition, savedAt: new Date().toISOString() }),
+          updateDoc(eventRef, { waitlistCount: currentWaitlist.length + 1, updatedAt: new Date().toISOString() })
         ]);
 
         return { success: true, waitlisted: true, position: waitlistPosition, participant: newParticipant };
       }
 
-      const updatedParticipants = [...currentParticipants, newParticipant];
+      const participantId = `p${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-      // Siempre guardar en subcollections y actualizar contadores en doc principal
       await Promise.all([
-        this._saveEventParticipants(eventId_str, updatedParticipants),
-        updateDoc(eventRef, { participantCount: updatedParticipants.length, updatedAt: new Date().toISOString() })
+        setDoc(doc(db, "events", eventId_str, "participants", participantId), { ...newParticipant, savedAt: new Date().toISOString() }),
+        updateDoc(eventRef, { participantCount: currentParticipants.length + 1, updatedAt: new Date().toISOString() })
       ]);
 
       return { success: true, waitlisted: false, participant: newParticipant };

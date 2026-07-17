@@ -183,6 +183,9 @@ async function main() {
     await check('Anónimo puede actualizar SOLO waitlistCount/updatedAt en el evento', () =>
         assertSucceeds(anon.doc('events/event1').update({ waitlistCount: 1, updatedAt: 'y' })));
 
+    await check('Anónimo puede actualizar participantCount al inscribirse (addEventParticipant)', () =>
+        assertSucceeds(anon.doc('events/event1').update({ participantCount: 1, updatedAt: 'y' })));
+
     await check('Anónimo NO puede tocar otro campo del evento junto a waitlistCount', () =>
         assertFails(anon.doc('events/event1').update({ waitlistCount: 2, maxParticipants: 999 })));
 

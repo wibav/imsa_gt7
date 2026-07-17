@@ -153,14 +153,15 @@ service cloud.firestore {
 
     // ── events/{id} (eventos únicos, no ligados a un campeonato) ─────────
     // Lectura pública. Escritura: director_liga/organizador de esa org.
-    // Excepción: el flujo público de inscripción actualiza `waitlistCount`
-    // y `updatedAt` en el doc principal, además de crear en las
+    // Excepción: el flujo público de inscripción actualiza `participantCount`
+    // (contador legacy, mostrado en las tarjetas de evento) y `waitlistCount`
+    // más `updatedAt` en el doc principal, además de crear en las
     // subcolecciones `participants`/`waitlist` (sin sesión iniciada).
     match /events/{eventId} {
       allow read: if true;
       allow create: if isOrgAdmin(request.resource.data.orgId) && canCreateInOrg(request.resource.data.orgId);
       allow update: if (isOrgAdmin(resource.data.orgId) && request.resource.data.orgId == resource.data.orgId)
-        || onlyAffects(['waitlistCount', 'updatedAt']);
+        || onlyAffects(['participantCount', 'waitlistCount', 'updatedAt']);
       allow delete: if isOrgAdmin(resource.data.orgId);
 
       // `participantsCount` en el doc padre es mantenido por una Cloud
