@@ -39,6 +39,9 @@ export default function DashboardRenovated() {
     const { championships: orgChampionships, loading: orgChampionshipsLoading } = useChampionship();
     const [allOrgsChampionships, setAllOrgsChampionships] = useState([]);
     const [allOrgsChampionshipsLoading, setAllOrgsChampionshipsLoading] = useState(false);
+    // Nombres de organización por orgId, solo para la vista agregada — cada
+    // card necesita saber de qué liga es cuando se mezclan varias.
+    const [orgNamesById, setOrgNamesById] = useState({});
     const championships = isRootView ? allOrgsChampionships : orgChampionships;
     const championshipsLoading = isRootView ? allOrgsChampionshipsLoading : orgChampionshipsLoading;
     const { currentUser, isAdmin } = useAuth();
@@ -56,6 +59,23 @@ export default function DashboardRenovated() {
             .catch(() => setAllOrgsChampionships([]))
             .finally(() => setAllOrgsChampionshipsLoading(false));
     }, [isRootView]);
+
+    // Resolver nombres de organización para la vista agregada (una vez que
+    // se conocen los orgId presentes en campeonatos/eventos).
+    useEffect(() => {
+        if (!isRootView) {
+            setOrgNamesById({});
+            return;
+        }
+        const orgIds = [
+            ...allOrgsChampionships.map(c => c.orgId),
+            ...events.map(e => e.orgId),
+        ];
+        if (orgIds.length === 0) return;
+        FirebaseService.getOrganizationNames(orgIds)
+            .then(setOrgNamesById)
+            .catch(() => setOrgNamesById({}));
+    }, [isRootView, allOrgsChampionships, events]);
 
     // Cargar tracks de cada campeonato para calcular progreso
     useEffect(() => {
@@ -258,6 +278,7 @@ export default function DashboardRenovated() {
                                         <EventCard
                                             key={event.id}
                                             event={event}
+                                            orgName={isRootView ? orgNamesById[event.orgId] : null}
                                             onViewDetails={handleViewEventDetails}
                                             onRegister={handleRegisterToEvent}
                                         />
@@ -304,6 +325,7 @@ export default function DashboardRenovated() {
                                         key={championship.id}
                                         championship={championship}
                                         tracks={championshipTracks[championship.id] || []}
+                                        orgName={isRootView ? orgNamesById[championship.orgId] : null}
                                         onRegister={(c) => window.location.href = `/championships?id=${c.id}`}
                                     />
                                 ))}
@@ -330,6 +352,7 @@ export default function DashboardRenovated() {
                                         <EventCard
                                             key={event.id}
                                             event={event}
+                                            orgName={isRootView ? orgNamesById[event.orgId] : null}
                                             onViewDetails={handleViewEventDetails}
                                             onRegister={handleRegisterToEvent}
                                         />

@@ -17,7 +17,7 @@ export { calculateProgress } from "../utils/championshipUtils";
  * @param {Function} onClick - Función para navegar al detalle (opcional)
  * @param {Function} onRegister - Callback para inscribirse (opcional)
  */
-export default function ChampionshipCard({ championship, tracks = [], onClick, onRegister }) {
+export default function ChampionshipCard({ championship, tracks = [], orgName = null, onClick, onRegister }) {
     const router = useRouter();
     const progress = calculateProgress(tracks, championship);
     const nextRace = getNextRace(tracks);
@@ -66,6 +66,11 @@ export default function ChampionshipCard({ championship, tracks = [], onClick, o
             <div className="p-6">
                 {/* Título y temporada */}
                 <div className="mb-4">
+                    {orgName && (
+                        <span className="inline-block bg-white/10 border border-white/20 text-gray-300 text-xs px-2.5 py-1 rounded-full font-medium mb-2">
+                            🏢 {orgName}
+                        </span>
+                    )}
                     <h3 className="text-2xl font-bold text-white mb-2">
                         {championship.name}
                     </h3>

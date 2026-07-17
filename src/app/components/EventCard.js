@@ -11,7 +11,7 @@ import { EVENT_STATUSES, EVENT_CATEGORIES } from "../utils";
  * @param {Function} onViewDetails - Callback para ver detalles
  * @param {Function} onRegister - Callback para inscribirse
  */
-export default function EventCard({ event, onViewDetails, onRegister }) {
+export default function EventCard({ event, orgName = null, onViewDetails, onRegister }) {
     // Formatear fecha
     const formatDate = (dateStr) => {
         if (!dateStr) return '';
@@ -126,6 +126,11 @@ export default function EventCard({ event, onViewDetails, onRegister }) {
 
                 {/* Category & Format badges */}
                 <div className="flex flex-wrap gap-2 mb-4">
+                    {orgName && (
+                        <span className="inline-flex items-center gap-1 text-xs bg-white/10 border border-white/20 text-gray-300 px-2.5 py-1 rounded-full font-medium">
+                            🏢 {orgName}
+                        </span>
+                    )}
                     {cat && (
                         <span className="inline-flex items-center gap-1 text-xs bg-white/10 text-gray-300 px-2.5 py-1 rounded-full font-medium">
                             {cat.icon} {cat.label}

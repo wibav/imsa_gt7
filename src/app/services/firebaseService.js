@@ -1383,6 +1383,25 @@ export class FirebaseService {
     }
   }
 
+  /** Nombres de organizaciones por id, para la vista agregada de la raíz
+   *  (etiquetar de qué organización es cada campeonato/evento). `where(in)`
+   *  soporta hasta 30 ids — más que suficiente para el número de
+   *  organizaciones esperado en el corto plazo. */
+  static async getOrganizationNames(orgIds) {
+    const uniqueIds = [...new Set(orgIds)].filter(Boolean).slice(0, 30);
+    if (uniqueIds.length === 0) return {};
+    try {
+      const q = query(collection(db, 'organizations'), where('__name__', 'in', uniqueIds));
+      const snap = await getDocs(q);
+      const names = {};
+      snap.docs.forEach(d => { names[d.id] = d.data().name || d.id; });
+      return names;
+    } catch (error) {
+      console.error('Error getting organization names:', error);
+      return {};
+    }
+  }
+
   // ══════════════════════════════════════════
   // Equipamiento (catálogo GLOBAL, gestión exclusiva del Administrador de
   // Plataforma — ver firestore.rules)
