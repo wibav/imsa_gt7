@@ -3,14 +3,21 @@
 import { useState } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
+import { useOrganization } from '../context/OrganizationContext';
 
 export default function AdminLayout({ children }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const { currentUser, logout, isAdmin, isPlatformOwner } = useAuth();
+    const { org } = useOrganization();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
+
+    // Cada organización ve solo lo suyo al "volver al dashboard" — la raíz
+    // '/' es la vista agregada de todas las organizaciones (por diseño, ver
+    // README/SPEC-3), no el dashboard propio de esta organización.
+    const dashboardPath = org?.slug ? `/l/${org.slug}` : '/';
 
     const handleLogout = async () => {
         try {
@@ -26,7 +33,7 @@ export default function AdminLayout({ children }) {
             title: 'Navegación',
             icon: '🏠',
             items: [
-                { name: 'Volver al Dashboard', path: '/', icon: '🏠' },
+                { name: 'Volver al Dashboard', path: dashboardPath, icon: '🏠' },
             ]
         },
         {
@@ -39,13 +46,16 @@ export default function AdminLayout({ children }) {
                 ...(isAdmin() ? [{ name: 'Facturación', path: '/facturacion', icon: '💳' }] : []),
             ]
         },
-        {
+        // Catálogo de pistas: gestión exclusiva del Administrador de
+        // Plataforma (asignar imágenes es un recurso global compartido
+        // entre todas las organizaciones, no de una liga en particular).
+        ...(isPlatformOwner() ? [{
             title: 'Catálogo de Pistas',
             icon: '🏎️',
             items: [
                 { name: 'Pistas GT7', path: '/tracksAdmin', icon: '🏁' },
             ]
-        },
+        }] : []),
         {
             title: 'Gestión de Eventos',
             icon: '📅',

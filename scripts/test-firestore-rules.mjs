@@ -217,11 +217,14 @@ async function main() {
     await check('Anónimo NO puede escribir en el catálogo global de tracks', () =>
         assertFails(anon.doc('tracks/t1').set({ name: 'Hack' })));
 
-    await check('director_liga de GT7 ESP puede escribir en el catálogo global de tracks (carve-out actual)', () =>
-        assertSucceeds(dirLiga.doc('tracks/t1').set({ name: 'Spa' })));
+    await check('director_liga de GT7 ESP NO puede escribir en el catálogo global de tracks (solo platformOwner)', () =>
+        assertFails(dirLiga.doc('tracks/t1').set({ name: 'Spa' })));
 
-    await check('director_liga de OTRA organización NO puede escribir en tracks (carve-out limitado a gt7-esp hoy)', () =>
-        assertFails(dirLigaOtraOrg.doc('tracks/t2').set({ name: 'Otro' })));
+    await check('organizador de GT7 ESP NO puede escribir en el catálogo global de tracks (solo platformOwner)', () =>
+        assertFails(organizador.doc('tracks/t1').set({ name: 'Spa' })));
+
+    await check('Platform Owner puede escribir en el catálogo global de tracks', () =>
+        assertSucceeds(platformOwner.doc('tracks/t1').set({ name: 'Spa' })));
 
     // ── equipment (catálogo global, solo editable por platformOwner) ──
     await check('Anónimo puede LEER el catálogo de equipment', () =>

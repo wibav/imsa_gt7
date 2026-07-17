@@ -198,13 +198,12 @@ service cloud.firestore {
     // ── tracks/{id} (catálogo GLOBAL, compartido entre organizaciones) ───
     // No lleva orgId a propósito (ver 02-ESPECIFICACIONES.md SPEC-2): son
     // imágenes/layouts de circuitos reales de GT7, reutilizables por
-    // cualquier organización. Carve-out pragmático: hoy solo GT7 ESP lo
-    // gestiona en la práctica (vía TrackFormModal/tracksAdmin); se gatea a
-    // sus director_liga+ para no romper ese flujo ya en uso. Revisar cuándo
-    // una segunda organización necesite aportar al catálogo compartido.
+    // cualquier organización. Gestión exclusiva del Administrador de
+    // Plataforma (petición explícita de producto: es un recurso compartido
+    // por todas las ligas, no de una organización en particular).
     match /tracks/{trackId} {
       allow read: if true;
-      allow write: if isOrgAdmin('gt7-esp');
+      allow write: if isPlatformOwner();
     }
 
     // ── equipment/{id} (catálogo GLOBAL, "Equipamiento recomendado") ─────

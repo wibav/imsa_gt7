@@ -100,7 +100,7 @@ export default function SignupPage() {
                 <div className="text-center mb-8">
                     <div className="text-5xl mb-3">🏆</div>
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-white mb-2">
-                        Crea tu propia liga en trenkit
+                        Crea tu propia liga en GT7 Championships
                     </h1>
                     <p className="text-gray-400 text-sm">
                         Gratis para probar: 1 campeonato o evento, hasta 15 pilotos.

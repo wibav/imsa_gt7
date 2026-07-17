@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../context/AuthContext";
 import { FirebaseService } from "../services/firebaseService";
 import { GT7_TRACKS } from "../utils/constants";
 import { validateImageFile, compressImage } from "../utils/imageCompression";
@@ -13,6 +15,8 @@ const normalizeTrackName = (name) =>
     (name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
 export default function TracksAdminPage() {
+    const router = useRouter();
+    const { currentUser, isPlatformOwner, loading: authLoading } = useAuth();
     const [firestoreTracks, setFirestoreTracks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -27,6 +31,12 @@ export default function TracksAdminPage() {
         country: '',
         layoutImage: ''
     });
+
+    useEffect(() => {
+        if (!authLoading && !currentUser) {
+            router.push('/login');
+        }
+    }, [currentUser, authLoading, router]);
 
     useEffect(() => {
         fetchTracks();
@@ -249,6 +259,14 @@ export default function TracksAdminPage() {
             setSyncing(false);
         }
     };
+
+    if (authLoading) {
+        return <div className="p-8 text-gray-400 text-sm">Cargando…</div>;
+    }
+
+    if (!currentUser || !isPlatformOwner()) {
+        return <div className="p-8 text-gray-400 text-sm">Acceso denegado. Esta sección solo la administra el Administrador de Plataforma.</div>;
+    }
 
     if (loading) {
         return <LoadingSkeleton variant="page" message="Cargando pistas..." />;
