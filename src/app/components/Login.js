@@ -6,9 +6,27 @@ import ErrorMessage from './common/ErrorMessage';
 export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const { login } = useAuth();
+    const [resetMode, setResetMode] = useState(false);
+    const [resetSent, setResetSent] = useState(false);
+    const [resetLoading, setResetLoading] = useState(false);
+    const { login, resetPassword } = useAuth();
+
+    const handleResetSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            setError('');
+            setResetLoading(true);
+            await resetPassword(email);
+            setResetSent(true);
+        } catch (error) {
+            setError(error.code === 'auth/invalid-email' ? 'Email inválido' : 'No se pudo enviar el correo de recuperación');
+        } finally {
+            setResetLoading(false);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -67,6 +85,56 @@ export default function Login() {
                     <ErrorMessage errors={error} className="mb-6" />
                 )}
 
+                {resetMode ? (
+                    resetSent ? (
+                        <div className="text-center space-y-4">
+                            <p className="text-green-300 text-sm">
+                                ✅ Si existe una cuenta con ese correo, te enviamos un enlace para restablecer tu contraseña. Revisa tu bandeja de entrada (y spam).
+                            </p>
+                            <button
+                                onClick={() => { setResetMode(false); setResetSent(false); }}
+                                className="text-orange-400 hover:text-orange-300 text-sm font-medium"
+                            >
+                                ← Volver a iniciar sesión
+                            </button>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleResetSubmit} className="space-y-6">
+                            <p className="text-gray-300 text-sm">
+                                Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.
+                            </p>
+                            <div>
+                                <label htmlFor="reset-email" className="block text-sm font-medium text-gray-300 mb-2">
+                                    Correo Electrónico
+                                </label>
+                                <input
+                                    type="email"
+                                    id="reset-email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                    className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                    placeholder="admin@imsagt7.com"
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={resetLoading}
+                                className="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold py-3 px-4 rounded-lg hover:from-orange-700 hover:to-red-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {resetLoading ? 'Enviando…' : 'Enviar enlace de recuperación'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setResetMode(false)}
+                                className="w-full text-gray-400 hover:text-white text-sm"
+                            >
+                                ← Volver a iniciar sesión
+                            </button>
+                        </form>
+                    )
+                ) : (
+                <>
                 {/* Login Form */}
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
@@ -88,15 +156,35 @@ export default function Login() {
                         <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
                             Contraseña
                         </label>
-                        <input
-                            type="password"
-                            id="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                            placeholder="••••••••"
-                        />
+                        <div className="relative">
+                            <input
+                                type={showPassword ? 'text' : 'password'}
+                                id="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                className="w-full px-4 py-3 pr-12 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                placeholder="••••••••"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                                title={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                tabIndex={-1}
+                            >
+                                {showPassword ? '🙈' : '👁️'}
+                            </button>
+                        </div>
+                        <div className="text-right mt-2">
+                            <button
+                                type="button"
+                                onClick={() => { setResetMode(true); setError(''); }}
+                                className="text-orange-400 hover:text-orange-300 text-xs font-medium"
+                            >
+                                ¿Olvidaste tu contraseña?
+                            </button>
+                        </div>
                     </div>
 
                     <button
@@ -121,6 +209,8 @@ export default function Login() {
                         🔐 Área restringida para administradores
                     </p>
                 </div>
+                </>
+                )}
             </div>
         </div>
     );

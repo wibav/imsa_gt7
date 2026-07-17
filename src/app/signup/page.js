@@ -24,6 +24,7 @@ export default function SignupPage() {
     const [mode, setMode] = useState('signup'); // 'signup' | 'login'
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [accountError, setAccountError] = useState('');
     const [accountLoading, setAccountLoading] = useState(false);
 
@@ -134,15 +135,26 @@ export default function SignupPage() {
                                 required
                                 className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-orange-400"
                             />
-                            <input
-                                type="password"
-                                placeholder="Contraseña"
-                                value={password}
-                                onChange={e => setPassword(e.target.value)}
-                                required
-                                minLength={6}
-                                className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-orange-400"
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="Contraseña"
+                                    value={password}
+                                    onChange={e => setPassword(e.target.value)}
+                                    required
+                                    minLength={6}
+                                    className="w-full px-4 py-3 pr-12 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-orange-400"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                                    title={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                    tabIndex={-1}
+                                >
+                                    {showPassword ? '🙈' : '👁️'}
+                                </button>
+                            </div>
                             {accountError && <p className="text-red-400 text-sm">{accountError}</p>}
                             <button
                                 type="submit"

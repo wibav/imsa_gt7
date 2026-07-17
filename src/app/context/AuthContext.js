@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
+    sendPasswordResetEmail,
     signOut,
     onIdTokenChanged
 } from 'firebase/auth';
@@ -47,6 +48,16 @@ export function AuthProvider({ children }) {
         try {
             const result = await createUserWithEmailAndPassword(auth, email, password);
             return result;
+        } catch (error) {
+            throw error;
+        }
+    };
+
+    // Enviar email de recuperación de contraseña (Firebase se encarga del
+    // envío y del flujo de reseteo, no hay página propia que mantener).
+    const resetPassword = async (email) => {
+        try {
+            await sendPasswordResetEmail(auth, email);
         } catch (error) {
             throw error;
         }
@@ -123,6 +134,7 @@ export function AuthProvider({ children }) {
         currentUser,
         login,
         signup,
+        resetPassword,
         logout,
         isAdmin,
         isComisario,
