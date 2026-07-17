@@ -1097,9 +1097,15 @@ export class FirebaseService {
         createdAt: new Date().toISOString()
       };
 
-      await updateDoc(docRef, { registrations: arrayUnion(regData) });
+      // Si es auto-approve, los pilotos se agregan a championship.drivers en
+      // la MISMA escritura que registrations — firestore.rules solo permite
+      // al público tocar ambos campos juntos (onlyAffects(['registrations',
+      // 'drivers'])). Antes esto era un updateDoc separado tocando solo
+      // `drivers`, que las rules siempre denegaron ("missing or
+      // insufficient permissions") para cualquier campeonato con
+      // requiresApproval=false.
+      const updatePayload = { registrations: arrayUnion(regData) };
 
-      // Si es auto-approve, agregar pilotos directamente
       if (!reg.requiresApproval) {
         if (isTeamReg) {
           // Equipo: agregar cada piloto a championship.drivers
@@ -1109,7 +1115,7 @@ export class FirebaseService {
             .map(d => ({ name: d.gt7Id || d.psnId, category: d.category || '' }))
             .filter(d => d.name && !existingNames.has(d.name.toLowerCase()));
           if (toAdd.length > 0) {
-            await updateDoc(docRef, { drivers: [...existingDrivers, ...toAdd] });
+            updatePayload.drivers = [...existingDrivers, ...toAdd];
           }
         } else if (!champ.settings?.isTeamChampionship) {
           const driverName = data.gt7Id || data.psnId || data.name || 'Piloto';
@@ -1118,12 +1124,12 @@ export class FirebaseService {
             d => d.name?.toLowerCase() === driverName.toLowerCase()
           );
           if (!alreadyDriver) {
-            await updateDoc(docRef, {
-              drivers: arrayUnion({ name: driverName, category: data.category || '' })
-            });
+            updatePayload.drivers = arrayUnion({ name: driverName, category: data.category || '' });
           }
         }
       }
+
+      await updateDoc(docRef, updatePayload);
 
       return { success: true, registration: regData };
     } catch (error) {

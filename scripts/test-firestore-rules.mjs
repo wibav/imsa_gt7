@@ -61,6 +61,14 @@ async function main() {
             drivers: [],
             registrations: [],
         });
+        await db.doc('championships/champWithDrivers').set({
+            orgId: 'gt7-esp',
+            name: 'Test Championship con drivers',
+            categories: ['Gr1'],
+            settings: { pointsSystem: {} },
+            drivers: [{ name: 'piloto-existente' }],
+            registrations: [{ gt7Id: 'existente' }],
+        });
         await db.doc('events/event1').set({
             orgId: 'gt7-esp',
             title: 'Test Event',
@@ -116,10 +124,22 @@ async function main() {
     await check('Anónimo puede actualizar SOLO el campo registrations (inscripción pública)', () =>
         assertSucceeds(anon.doc('championships/champ1').update({ registrations: [{ gt7Id: 'x' }] })));
 
-    await check('Anónimo NO puede tocar registrations + otro campo a la vez', () =>
-        assertFails(anon.doc('championships/champ1').update({
+    await check('Anónimo puede actualizar registrations + drivers juntos (auto-aprobación)', () =>
+        assertSucceeds(anon.doc('championships/champ1').update({
             registrations: [{ gt7Id: 'y' }],
-            drivers: [{ name: 'hack' }],
+            drivers: [{ name: 'piloto-nuevo' }],
+        })));
+
+    await check('Anónimo NO puede reducir el tamaño de drivers (no puede vaciar el roster)', () =>
+        assertFails(anon.doc('championships/champWithDrivers').update({
+            registrations: [],
+            drivers: [],
+        })));
+
+    await check('Anónimo NO puede tocar registrations + un campo no permitido a la vez', () =>
+        assertFails(anon.doc('championships/champ1').update({
+            registrations: [{ gt7Id: 'z' }],
+            name: 'Hack',
         })));
 
     await check('director_liga de GT7 ESP puede actualizar campeonatos de GT7 ESP', () =>

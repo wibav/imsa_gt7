@@ -107,17 +107,24 @@ service cloud.firestore {
     // registrations[], carUsageTracking, preQualy, divisionsConfig, etc.
     // Lectura pública (clasificaciones/calendario son páginas públicas).
     // Escritura: director_liga/organizador DE ESA ORGANIZACIÓN específica.
-    // Excepción: inscripción pública (RegistrationForm) solo puede tocar el
-    // campo `registrations` — nunca settings, drivers, pointsSystem, etc.
+    // Excepción: inscripción pública (RegistrationForm) solo puede tocar
+    // `registrations` y, si el campeonato es de auto-aprobación,
+    // `drivers` en la misma escritura (RegistrationForm agrega el piloto/
+    // equipo recién inscrito ahí) — nunca settings, pointsSystem, etc.
     match /championships/{champId} {
       allow read: if true;
       // canCreateInOrg(): plan Free ya consumido su único uso, denegado.
       allow create: if isOrgAdmin(request.resource.data.orgId) && canCreateInOrg(request.resource.data.orgId);
-      // orgId es inmutable una vez creado. La inscripción pública (solo
-      // toca `registrations`) además debe respetar el límite de pilotos
-      // del plan de esa organización (ej. 15 en Free).
+      // orgId es inmutable una vez creado. La inscripción pública además
+      // debe respetar el límite de pilotos del plan (ej. 15 en Free), y
+      // `drivers` solo puede crecer (nunca reducirse) por esta vía, para
+      // que un registrante anónimo no pueda vaciar el roster de nadie.
       allow update: if (isOrgAdmin(resource.data.orgId) && request.resource.data.orgId == resource.data.orgId)
-        || (onlyAffects(['registrations']) && withinDriverLimit(resource.data.orgId, request.resource.data.registrations.size()));
+        || (
+          onlyAffects(['registrations', 'drivers'])
+          && withinDriverLimit(resource.data.orgId, request.resource.data.registrations.size())
+          && request.resource.data.drivers.size() >= resource.data.drivers.size()
+        );
       allow delete: if isOrgAdmin(resource.data.orgId);
 
       // Equipos, pistas, divisiones, eventos internos: heredan el orgId del
