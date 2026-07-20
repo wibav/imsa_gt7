@@ -1137,6 +1137,17 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
     const pqDriverGt7Map = Object.fromEntries(
         approvedRegs.map(r => [r.name || r.psnId || r.gt7Id, r.gt7Id || ''])
     );
+    // Mapa nombre → "GT7ID (PSN: psnId)" para identificar sin ambigüedad al
+    // piloto en el modal de resultados (antes solo mostraba el GT7 ID, sin
+    // el PSN — mismo criterio que la etiqueta pública de sala/división).
+    const driverLabelMap = Object.fromEntries(
+        approvedRegs.map(r => {
+            const key = r.name || r.psnId || r.gt7Id || '';
+            const gt7 = r.gt7Id || key;
+            const label = (r.psnId && r.psnId !== gt7) ? `${gt7} (PSN: ${r.psnId})` : gt7;
+            return [key, label];
+        })
+    );
     // Mapa psnId → gt7Id: normaliza claves antes de guardar en track.points/racePositions.
     const psnToGt7 = Object.fromEntries(
         approvedRegs
@@ -1184,17 +1195,20 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
             setDivFastestLap(divFL);
             setActiveDivisionTab(sortedDivisions[0]?.id || null);
         } else {
-            // Inicializar posiciones vacías (modo sin divisiones)
+            // Inicializar posiciones — precargar resultados existentes si los hay
+            // (antes siempre arrancaba vacío, descartando lo ya guardado en
+            // track.results al reabrir el modal para editar)
+            const existing = track.results || {};
             const currentPositions = {};
             const currentSprintPositions = {};
             allDriverNames.forEach(driver => {
-                currentPositions[driver] = '';
-                currentSprintPositions[driver] = '';
+                currentPositions[driver] = existing.racePositions?.[driver] ?? '';
+                currentSprintPositions[driver] = existing.sprintPositions?.[driver] ?? '';
             });
             setPositions(currentPositions);
             setSprintPositions(currentSprintPositions);
-            setQualyTop3({ first: '', second: '', third: '' });
-            setFastestLapDriver('');
+            setQualyTop3(existing.qualifying?.top3 || { first: '', second: '', third: '' });
+            setFastestLapDriver(existing.fastestLap?.driver || '');
         }
 
         // Precargar carros usados existentes (si ya se guardaron antes)
@@ -1738,7 +1752,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                         return (
                                             <div key={driver} className="bg-white/5 border border-white/20 rounded-lg p-3">
                                                 <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-white font-medium text-sm">{pqDriverGt7Map[driver] || driver}</span>
+                                                    <span className="text-white font-medium text-sm">{driverLabelMap[driver] || driver}</span>
                                                     {pts !== null && <span className="text-sm text-orange-400 font-bold">= {pts} pts</span>}
                                                 </div>
                                                 <input
@@ -1815,7 +1829,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                                 return (
                                                     <div key={driver} className={`rounded-lg p-3 border ${overLimit ? 'bg-red-900/20 border-red-500/40' : nearLimit ? 'bg-yellow-900/20 border-yellow-500/40' : 'bg-white/5 border-white/20'}`}>
                                                         <div className="flex items-center justify-between mb-2">
-                                                            <span className="text-white font-medium text-sm">{pqDriverGt7Map[driver] || driver}</span>
+                                                            <span className="text-white font-medium text-sm">{driverLabelMap[driver] || driver}</span>
                                                             {selectedCar && (
                                                                 <span className={`text-xs px-2 py-0.5 rounded-full ${overLimit ? 'bg-red-600/40 text-red-300' : nearLimit ? 'bg-yellow-600/40 text-yellow-300' : 'bg-green-600/30 text-green-300'}`}>
                                                                     {usesOfSelected + 1}/{cat.maxUsesPerCar} usos
@@ -1876,7 +1890,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                             return (
                                                 <div key={driver} className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
                                                     <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-white font-medium text-sm">{pqDriverGt7Map[driver] || driver}</span>
+                                                        <span className="text-white font-medium text-sm">{driverLabelMap[driver] || driver}</span>
                                                         {pts !== null && <span className="text-sm text-purple-400 font-bold">= {pts} pts</span>}
                                                     </div>
                                                     <input
@@ -1938,7 +1952,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                                         className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white"
                                                     >
                                                         <option value="" className="bg-slate-800">Seleccionar piloto</option>
-                                                        {modalDriverNames.map(d => <option key={d} value={d} className="bg-slate-800">{pqDriverGt7Map[d] || d}</option>)}
+                                                        {modalDriverNames.map(d => <option key={d} value={d} className="bg-slate-800">{driverLabelMap[d] || d}</option>)}
                                                     </select>
                                                 </div>
                                             );
@@ -1970,7 +1984,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                             className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white"
                                         >
                                             <option value="" className="bg-slate-800">Seleccionar piloto</option>
-                                            {modalDriverNames.map(d => <option key={d} value={d} className="bg-slate-800">{pqDriverGt7Map[d] || d}</option>)}
+                                            {modalDriverNames.map(d => <option key={d} value={d} className="bg-slate-800">{driverLabelMap[d] || d}</option>)}
                                         </select>
                                     </div>
                                 </div>
