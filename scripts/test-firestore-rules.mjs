@@ -178,9 +178,11 @@ async function main() {
     await check('director_liga de GT7 ESP puede crear una reclamación en GT7 ESP', () =>
         assertSucceeds(dirLiga.doc('championships/champ1/claims/c1').set({ status: 'pending' })));
 
-    await check('Anónimo puede crear una reclamación (ClaimForm.js, sin sesión)', () =>
+    await check('Anónimo puede crear una reclamación (payload real de ClaimForm/Claim.toFirestore, con resolvedBy/resolution/penaltyId presentes pero vacíos)', () =>
         assertSucceeds(anon.doc('championships/champ1/claims/c2').set({
-            reporterName: 'x', accusedNames: ['y'], description: 'toque en curva 3', status: 'pending',
+            reporterName: 'x', reporterPsnId: '', accusedNames: ['y'], trackId: 't1', trackName: 'Spa',
+            round: 1, lap: '', minute: '', description: 'toque en curva 3', evidence: '',
+            status: 'pending', resolution: '', penaltyId: null, resolvedBy: '', resolvedAt: null,
         })));
 
     await check('Anónimo NO puede crear una reclamación ya marcada como resuelta', () =>

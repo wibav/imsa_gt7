@@ -162,7 +162,7 @@ service cloud.firestore {
       match /claims/{claimId} {
         allow read: if true;
         allow create: if request.resource.data.get('status', 'pending') == 'pending'
-          && request.resource.data.get('resolvedBy', null) == null
+          && request.resource.data.get('resolvedBy', '') in [null, '']
           && request.resource.data.get('penaltyId', null) == null;
         allow update, delete: if isOrgComisario(parentChampOrgId(champId));
       }
