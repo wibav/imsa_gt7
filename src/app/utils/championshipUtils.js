@@ -17,8 +17,8 @@ export const calculateProgress = (tracks, championship) => {
         // Si no hay tracks, calcular por fechas si están disponibles
         if (championship?.startDate && championship?.endDate) {
             const now = new Date();
-            const start = new Date(championship.startDate + 'T00:00:00');
-            const end = new Date(championship.endDate + 'T00:00:00');
+            const start = new Date(championship.startDate.includes('T') ? championship.startDate : championship.startDate + 'T00:00:00');
+            const end = new Date(championship.endDate.includes('T') ? championship.endDate : championship.endDate + 'T00:00:00');
 
             if (now < start) return { completed: 0, total: 0, percentage: 0 };
             if (now > end || championship.status === 'completed') {

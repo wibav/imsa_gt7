@@ -11,7 +11,7 @@
  */
 export const formatDateShort = (dateStr) => {
     if (!dateStr) return '';
-    const date = new Date(dateStr + 'T00:00:00');
+    const date = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00');
     return date.toLocaleDateString('es-ES', {
         day: '2-digit',
         month: 'short'
@@ -27,7 +27,7 @@ export const formatDateShort = (dateStr) => {
 export const formatDateFull = (dateStr) => {
     if (!dateStr) return '';
     try {
-        const date = new Date(dateStr + 'T00:00:00');
+        const date = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00');
         if (isNaN(date.getTime())) return dateStr;
         return date.toLocaleDateString('es-ES', {
             day: '2-digit',
