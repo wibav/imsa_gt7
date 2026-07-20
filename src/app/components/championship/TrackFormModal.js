@@ -95,6 +95,7 @@ export function getEmptyTrackData(tracksCount = 0, firstCategory = '') {
             tcs: 'no',
             asm: 'no',
             counterSteering: 'no',
+            qualyDuration: 10,
             qualySlipstream: false,
             raceSlipstream: true,
             qualyTireWear: false,
@@ -489,6 +490,17 @@ export default function TrackFormModal({ track, championship, onSave, onClose })
                             <h4 className="text-xl font-bold text-white mb-1">🎯 Clasificación (Qualy)</h4>
                             <p className="text-xs text-gray-400 mb-4">Configuración específica para la sesión de clasificación</p>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">⏱️ Duración (minutos) *</label>
+                                    <input
+                                        type="number" min="1"
+                                        value={form.rules.qualyDuration ?? 10}
+                                        onChange={e => setRule('qualyDuration', parseInt(e.target.value) || 10)}
+                                        className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                        placeholder="Ej: 10"
+                                    />
+                                    <p className="text-xs text-gray-400 mt-1">La clasificación en GT7 es siempre por tiempo, no por vueltas</p>
+                                </div>
                                 <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-300">💨 Rebufo (Slipstream)</label>

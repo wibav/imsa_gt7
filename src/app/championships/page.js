@@ -765,6 +765,9 @@ export default function ChampionshipDetailPage() {
                                                                 🏁 {track.laps} vueltas
                                                             </span>
                                                         )}
+                                                        <span className="bg-orange-500/20 border border-orange-500/30 text-orange-300 px-2 py-1 rounded">
+                                                            🎯 Qualy {track.rules.qualyDuration ?? 10} min
+                                                        </span>
                                                         {track.rules.weather && track.rules.weather !== 'clear' && (
                                                             <span className="bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 px-2 py-1 rounded">
                                                                 🌧️ {track.rules.weather === 'rain' ? 'Lluvia' : track.rules.weather === 'variable' ? 'Variable' : track.rules.weather}
@@ -2112,6 +2115,12 @@ export default function ChampionshipDetailPage() {
                                             {selectedTrack.raceType === 'sprint_carrera' ? '⚡ Sprint + Carrera' :
                                                 selectedTrack.raceType === 'resistencia' ? `⏱️ Resistencia (${selectedTrack.duration} min)` :
                                                     selectedTrack.raceType === 'carrera' ? `🏁 ${selectedTrack.laps} vueltas` : '🏁 Carrera'}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-gray-400 mb-1">Clasificación (Qualy)</div>
+                                        <div className="text-white font-semibold">
+                                            🎯 {selectedTrack.rules?.qualyDuration ?? 10} min
                                         </div>
                                     </div>
                                     {selectedTrack.status && (
