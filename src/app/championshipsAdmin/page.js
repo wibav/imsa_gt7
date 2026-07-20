@@ -451,6 +451,7 @@ export default function ChampionshipDetail() {
                             championship={championship}
                             teams={teams}
                             tracks={tracks}
+                            divisions={divisions}
                             editMode={editMode}
                             onUpdate={loadChampionshipData}
                         />
@@ -2000,7 +2001,8 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
 }
 
 // Tab de Pilotos con clasificación individual
-function DriversTab({ championshipId, championship, teams, tracks, onUpdate, editMode }) {
+function DriversTab({ championshipId, championship, teams, tracks, divisions = [], onUpdate, editMode }) {
+    const { org } = useOrganization();
     const [confirmDelete, setConfirmDelete] = useState(null); // nombre del piloto a eliminar
     const [deleting, setDeleting] = useState(false);
 
@@ -2008,20 +2010,27 @@ function DriversTab({ championshipId, championship, teams, tracks, onUpdate, edi
         setDeleting(true);
         try {
             if (teamId) {
-                // Campeonato por equipos: quitar piloto del team
-                const team = teams.find(t => t.id === teamId);
-                if (!team) return;
-                const updatedDrivers = (team.drivers || []).filter(d => d.name !== driverName);
-                await FirebaseService.updateTeam(championshipId, teamId, { drivers: updatedDrivers });
+                // Campeonato por equipos: baja coordinada (team.drivers +
+                // registrations + championship.drivers + división, ver
+                // FirebaseService.withdrawTeamDriver)
+                await FirebaseService.withdrawTeamDriver(championshipId, teamId, driverName, divisions);
             } else {
                 // Campeonato individual: quitar de championship.drivers
                 const updatedDrivers = (championship.drivers || []).filter(d => d.name !== driverName);
                 await FirebaseService.updateChampionship(championshipId, { drivers: updatedDrivers });
             }
+            notifyRegistrationUpdated({
+                championshipName: championship?.name || championshipId,
+                driverName,
+                psnId: null,
+                status: 'withdrawn',
+                orgName: org?.name,
+            });
             setConfirmDelete(null);
             onUpdate();
         } catch (err) {
             console.error('Error eliminando piloto:', err);
+            alert('Error al dar de baja: ' + err.message);
         } finally {
             setDeleting(false);
         }
@@ -2206,7 +2215,7 @@ function DriversTab({ championshipId, championship, teams, tracks, onUpdate, edi
                                             <button
                                                 onClick={() => setConfirmDelete(driver.name)}
                                                 className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-900/30 rounded-lg transition-all"
-                                                title="Eliminar piloto del campeonato"
+                                                title="Dar de baja del campeonato (quita equipo/inscripción y asignación de sala; preserva resultados ya corridos)"
                                             >
                                                 🗑️
                                             </button>

@@ -1248,6 +1248,64 @@ export class FirebaseService {
   }
 
   /**
+   * Da de baja a UN piloto dentro del roster de un equipo (campeonato por
+   * equipos, `championship.settings.isTeamChampionship`). A diferencia de
+   * las inscripciones individuales, aquí un piloto vive en hasta 3
+   * ubicaciones desconectadas entre sí (sin IDs relacionales, todo se
+   * cruza por nombre = gt7Id||psnId, mismo criterio que el resto del
+   * modelo de datos):
+   *   1. `teams/{teamId}.drivers[]` — el roster real que usa DriversTab/
+   *      standingsCalculator para clasificación por equipos.
+   *   2. `championship.registrations[].drivers[]` — la inscripción de
+   *      equipo original; si era el último piloto de esa inscripción, se
+   *      elimina el registro completo (equipo sin pilotos ya no tiene
+   *      sentido como inscripción activa).
+   *   3. `championship.drivers[]` — lista plana que también alimenta la
+   *      clasificación individual (ver standingsCalculator.getAllDrivers);
+   *      sin esta limpieza el piloto seguiría puntuando ahí aunque ya no
+   *      esté en su equipo.
+   * Más `division.drivers[]` si estaba asignado a una sala, igual que en
+   * withdrawRegistration. Preserva track.points/results a propósito.
+   *
+   * @param {string} championshipId
+   * @param {string} teamId
+   * @param {string} driverName - team.drivers[].name a quitar
+   * @param {Array} divisions - divisiones ya cargadas (para no releer)
+   */
+  static async withdrawTeamDriver(championshipId, teamId, driverName, divisions = []) {
+    const champRef = doc(db, 'championships', championshipId);
+    const teamRef = doc(db, 'championships', championshipId, 'teams', teamId);
+    const [champSnap, teamSnap] = await Promise.all([getDoc(champRef), getDoc(teamRef)]);
+    if (!champSnap.exists()) throw new Error('Campeonato no encontrado');
+    if (!teamSnap.exists()) throw new Error('Equipo no encontrado');
+
+    const champ = champSnap.data();
+    const team = teamSnap.data();
+
+    const updatedTeamDrivers = (team.drivers || []).filter(d => d.name !== driverName);
+    await updateDoc(teamRef, { drivers: updatedTeamDrivers });
+
+    const updatedRegistrations = (champ.registrations || [])
+      .map(r => {
+        if (r.teamName !== team.name || !Array.isArray(r.drivers)) return r;
+        return { ...r, drivers: r.drivers.filter(d => (d.gt7Id || d.psnId) !== driverName) };
+      })
+      .filter(r => !(r.teamName === team.name && Array.isArray(r.drivers) && r.drivers.length === 0));
+
+    const updatedChampDrivers = (champ.drivers || []).filter(d => d.name !== driverName);
+    await updateDoc(champRef, { registrations: updatedRegistrations, drivers: updatedChampDrivers });
+
+    const affectedDivisions = divisions.filter(d => (d.drivers || []).includes(driverName));
+    await Promise.all(affectedDivisions.map(d =>
+      FirebaseService.updateDivision(championshipId, d.id, {
+        drivers: (d.drivers || []).filter(name => name !== driverName),
+      })
+    ));
+
+    return { removedFromDivisions: affectedDivisions.map(d => d.name) };
+  }
+
+  /**
    * Guardar resultados de Pre-Qualy en el campeonato
    * @param {string} championshipId
    * @param {Array<{driverName: string, time: string, classified: boolean}>} results
