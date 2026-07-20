@@ -178,6 +178,27 @@ async function main() {
     await check('director_liga de GT7 ESP puede crear una reclamación en GT7 ESP', () =>
         assertSucceeds(dirLiga.doc('championships/champ1/claims/c1').set({ status: 'pending' })));
 
+    await check('Anónimo puede crear una reclamación (ClaimForm.js, sin sesión)', () =>
+        assertSucceeds(anon.doc('championships/champ1/claims/c2').set({
+            reporterName: 'x', accusedNames: ['y'], description: 'toque en curva 3', status: 'pending',
+        })));
+
+    await check('Anónimo NO puede crear una reclamación ya marcada como resuelta', () =>
+        assertFails(anon.doc('championships/champ1/claims/c3').set({
+            reporterName: 'x', accusedNames: ['y'], description: 'z', status: 'resolved',
+        })));
+
+    await check('Anónimo NO puede crear una reclamación con penaltyId ya asignado', () =>
+        assertFails(anon.doc('championships/champ1/claims/c4').set({
+            reporterName: 'x', accusedNames: ['y'], description: 'z', status: 'pending', penaltyId: 'p1',
+        })));
+
+    await check('Anónimo NO puede editar/resolver una reclamación ajena', () =>
+        assertFails(anon.doc('championships/champ1/claims/c1').update({ status: 'resolved' })));
+
+    await check('comisario de GT7 ESP puede resolver una reclamación', () =>
+        assertSucceeds(comisario.doc('championships/champ1/claims/c1').update({ status: 'resolved', resolvedBy: 'uidComisario' })));
+
     await check('Usuario sin claim NO puede crear una sanción', () =>
         assertFails(noClaim.doc('championships/champ1/penalties/p2').set({ driver: 'y' })));
 

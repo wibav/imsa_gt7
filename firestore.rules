@@ -147,14 +147,24 @@ service cloud.firestore {
         allow write: if isOrgAdmin(parentChampOrgId(champId));
       }
 
-      // Sanciones y reclamaciones: comisario+ de esa organización.
+      // Sanciones: solo comisario+ de esa organización (se crean desde el
+      // panel admin, nunca por un piloto).
       match /penalties/{penaltyId} {
         allow read: if true;
         allow write: if isOrgComisario(parentChampOrgId(champId));
       }
+      // Reclamaciones: cualquier piloto reporta un incidente sin sesión
+      // iniciada (ClaimForm.js, "Reportar Incidente") — a diferencia de
+      // penalties, `create` debe estar abierta al público. Lo único que se
+      // protege es que nadie pueda crear un reclamo ya "resuelto" de
+      // entrada (status/resolvedBy/penaltyId) — eso es exclusivo de un
+      // comisario+ vía update/delete, igual que antes.
       match /claims/{claimId} {
         allow read: if true;
-        allow write: if isOrgComisario(parentChampOrgId(champId));
+        allow create: if request.resource.data.get('status', 'pending') == 'pending'
+          && request.resource.data.get('resolvedBy', null) == null
+          && request.resource.data.get('penaltyId', null) == null;
+        allow update, delete: if isOrgComisario(parentChampOrgId(champId));
       }
     }
 
