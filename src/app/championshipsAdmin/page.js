@@ -1183,8 +1183,14 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                 divPos[div.id] = {};
                 divSprint[div.id] = {};
                 drivers.forEach(d => {
-                    divPos[div.id][d] = existing?.racePositions?.[d] ?? '';
-                    divSprint[div.id][d] = existing?.sprintPositions?.[d] ?? '';
+                    // Las posiciones se guardan con claves normalizadas al GT7 ID
+                    // canónico (normalizeDriverKeys), pero div.drivers puede tener
+                    // el alias PSN crudo si difiere — hay que resolverlo para
+                    // encontrar el valor guardado (si no, siempre carga vacío para
+                    // esos pilotos, aunque los que ya tenían PSN===GT7 ID sí cargaban).
+                    const canonicalKey = resolveDriverKey(d);
+                    divPos[div.id][d] = existing?.racePositions?.[canonicalKey] ?? existing?.racePositions?.[d] ?? '';
+                    divSprint[div.id][d] = existing?.sprintPositions?.[canonicalKey] ?? existing?.sprintPositions?.[d] ?? '';
                 });
                 divQualy[div.id] = existing?.qualifying?.top3 || { first: '', second: '', third: '' };
                 divFL[div.id] = existing?.fastestLap?.driver || '';
@@ -1211,8 +1217,20 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
             setFastestLapDriver(existing.fastestLap?.driver || '');
         }
 
-        // Precargar carros usados existentes (si ya se guardaron antes)
-        setCarsUsed(track.carsUsed || {});
+        // Precargar carros usados existentes (si ya se guardaron antes). Igual
+        // que racePositions/sprintPositions, track.carsUsed se guarda con
+        // claves normalizadas al GT7 ID canónico — hay que resolver la clave
+        // cruda de cada piloto (div.drivers/allDriverNames) para encontrarlo.
+        const rawDriverKeys = hasDivisions
+            ? [...new Set(sortedDivisions.flatMap(div => div.drivers || []))]
+            : allDriverNames;
+        const rehydratedCarsUsed = {};
+        rawDriverKeys.forEach(d => {
+            const canonicalKey = resolveDriverKey(d);
+            const car = track.carsUsed?.[canonicalKey] ?? track.carsUsed?.[d];
+            if (car) rehydratedCarsUsed[d] = car;
+        });
+        setCarsUsed(rehydratedCarsUsed);
         setCarUsageErrors([]);
 
         setShowPositionsModal(true);
