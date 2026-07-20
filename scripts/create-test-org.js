@@ -41,12 +41,11 @@ async function create() {
         slug: TEST_ORG_ID,
         plan: 'pro',
         status: 'active',
-        freeTrialUsed: false,
+        championshipCredits: 0, // billingExempt=true la salta igual, ver firestore.rules canCreateInOrg()
         billingExempt: true, // organización de prueba, no de cliente real
         ownerUid: null,
         branding: { logoUrl: null, colorPrimary: null, colorSecondary: null },
-        limits: { maxActiveChampionshipsOrEvents: null, maxDrivers: null, maxAdmins: null, maxComisarios: null },
-        subscription: { provider: null, externalId: null, currentPeriodEnd: null, cycle: null },
+        limits: { maxDrivers: null, maxAdmins: null, maxComisarios: null },
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });

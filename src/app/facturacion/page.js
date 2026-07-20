@@ -101,8 +101,8 @@ export default function FacturacionPage() {
                 </div>
                 <dl className="grid grid-cols-2 gap-3 text-sm">
                     <div>
-                        <dt className="text-gray-500 text-xs">Campeonatos/eventos activos</dt>
-                        <dd className="text-white">{limits.maxActiveChampionshipsOrEvents ?? 'Ilimitado'}</dd>
+                        <dt className="text-gray-500 text-xs">Campeonatos/eventos por crear</dt>
+                        <dd className="text-white">{org?.billingExempt ? 'Ilimitado' : (org?.championshipCredits ?? 0)}</dd>
                     </div>
                     <div>
                         <dt className="text-gray-500 text-xs">Pilotos por campeonato</dt>
@@ -117,6 +117,11 @@ export default function FacturacionPage() {
                         <dd className="text-white">{limits.maxComisarios ?? 'Ilimitado'}</dd>
                     </div>
                 </dl>
+                {!org?.billingExempt && (org?.championshipCredits ?? 0) <= 0 && (
+                    <p className="mt-4 pt-4 border-t border-white/10 text-orange-300 text-sm">
+                        Ya usaste todos tus créditos disponibles — necesitas otro lote para crear un nuevo campeonato o evento.
+                    </p>
+                )}
             </div>
 
             {plan === 'free' && isOrganizador && (

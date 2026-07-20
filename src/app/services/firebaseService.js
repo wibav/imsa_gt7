@@ -11,7 +11,8 @@ import {
   orderBy,
   addDoc,
   updateDoc,
-  arrayUnion
+  arrayUnion,
+  increment
 } from "firebase/firestore";
 import {
   getStorage,
@@ -1436,6 +1437,21 @@ export class FirebaseService {
       console.error('Error getting all organizations:', error);
       return [];
     }
+  }
+
+  /** Otorga un lote de créditos a una organización — venta manual mientras
+   *  no existe el checkout de Paddle para lotes (ADR-007). `firestore.rules`
+   *  solo permite escribir `organizations/{orgId}` sin restricción de campos
+   *  al Administrador de Plataforma, así que esto solo puede llamarse con
+   *  esa sesión. `plan` es opcional: solo se toca si el lote otorgado
+   *  también implica subir de tier (ej. vender un lote Pro a una org Free). */
+  static async grantChampionshipCredits(orgId, creditsToAdd, newPlan = null) {
+    const updates = {
+      championshipCredits: increment(creditsToAdd),
+      updatedAt: new Date().toISOString(),
+    };
+    if (newPlan) updates.plan = newPlan;
+    await updateDoc(doc(db, 'organizations', orgId), updates);
   }
 
   // ══════════════════════════════════════════

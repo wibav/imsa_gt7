@@ -7,6 +7,15 @@
 
 Fecha: 2026-07-02
 
+> **Actualización 2026-07-20 (ADR-007):** el mecanismo de cobro descrito en
+> §1.3/§1.4/§3 (suscripción mensual/anual recurrente) fue reemplazado por
+> **venta de lotes prepagados de campeonatos/eventos** — se compran, se
+> consumen 1 a 1 al crear cada campeonato/evento, y no caducan por tiempo.
+> El resto del documento (segmentos, roles, arquitectura multi-tenant,
+> routing, branding) sigue vigente sin cambios. Detalle técnico completo en
+> `Notas/Proyectos/GT7 Championships/ADR/ADR-007-lotes-prepagados-vs-
+> suscripcion.md`.
+
 ---
 
 ## 0. Resumen ejecutivo

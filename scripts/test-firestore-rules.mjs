@@ -80,6 +80,7 @@ async function main() {
         await db.doc('organizations/gt7-esp').set({
             name: 'GT7 ESP',
             slug: 'gt7-esp',
+            billingExempt: true,
             reglamento: { sections: [{ id: 'conducta', title: 'Conducta' }] },
         });
         await db.doc('organizations/otra-org').set({ name: 'Otra Org', slug: 'otra-org' });
@@ -87,9 +88,9 @@ async function main() {
             uid: 'uidComisario', orgId: 'gt7-esp', role: 'comisario', email: 'c@test.com',
         });
 
-        // Orgs para probar límites de plan (SPEC-6).
-        await db.doc('organizations/free-org-used').set({ name: 'Free Usado', slug: 'free-org-used', plan: 'free', freeTrialUsed: true });
-        await db.doc('organizations/free-org-fresh').set({ name: 'Free Sin Usar', slug: 'free-org-fresh', plan: 'free', freeTrialUsed: false });
+        // Orgs para probar límites de plan (SPEC-6 / ADR-007 — lotes prepagados).
+        await db.doc('organizations/free-org-used').set({ name: 'Free Usado', slug: 'free-org-used', plan: 'free', championshipCredits: 0 });
+        await db.doc('organizations/free-org-fresh').set({ name: 'Free Sin Usar', slug: 'free-org-fresh', plan: 'free', championshipCredits: 1 });
         await db.doc('organizations/limited-org').set({ name: 'Org Limitada', slug: 'limited-org', plan: 'pro', limits: { maxDrivers: 2 } });
         await db.doc('championships/champLimited').set({
             orgId: 'limited-org', name: 'Champ Limitado', categories: ['Gr1'],
@@ -300,20 +301,25 @@ async function main() {
     await check('NADIE puede escribir memberships desde el cliente (ni platformOwner)', () =>
         assertFails(platformOwner.doc('memberships/otro_gt7-esp').set({ role: 'comisario' })));
 
-    // ── límites de plan (SPEC-6) ──
-    await check('Free con freeTrialUsed=true NO puede crear un campeonato', () =>
+    // ── límites de plan — lotes prepagados (ADR-007) ──
+    await check('Org con championshipCredits=0 NO puede crear un campeonato', () =>
         assertFails(dirLigaFreeUsed.doc('championships/champFreeUsed').set({
             orgId: 'free-org-used', name: 'X', categories: [], settings: { pointsSystem: {} }, drivers: [], registrations: [],
         })));
 
-    await check('Free con freeTrialUsed=false SÍ puede crear su primer campeonato', () =>
+    await check('Org con championshipCredits=1 SÍ puede crear un campeonato', () =>
         assertSucceeds(dirLigaFreeFresh.doc('championships/champFreeFresh').set({
             orgId: 'free-org-fresh', name: 'X', categories: [], settings: { pointsSystem: {} }, drivers: [], registrations: [],
         })));
 
-    await check('Free con freeTrialUsed=true NO puede crear un evento', () =>
+    await check('Org con championshipCredits=0 NO puede crear un evento', () =>
         assertFails(dirLigaFreeUsed.doc('events/eventFreeUsed').set({
             orgId: 'free-org-used', title: 'X', waitlistCount: 0, updatedAt: 'x',
+        })));
+
+    await check('Org billingExempt puede crear un campeonato aunque championshipCredits=0', () =>
+        assertSucceeds(dirLiga.doc('championships/champExempt').set({
+            orgId: 'gt7-esp', name: 'X', categories: [], settings: { pointsSystem: {} }, drivers: [], registrations: [],
         })));
 
     await check('Inscripción pública respeta el límite de pilotos (maxDrivers=2): dentro del límite', () =>

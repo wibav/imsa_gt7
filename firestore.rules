@@ -77,23 +77,23 @@ service cloud.firestore {
     }
 
     // ── Límites de plan (SPEC-6 / docs/PLAN_MONETIZACION.md §1.4) ────────
-    // `organizations/{orgId}.limits`/`plan`/`freeTrialUsed` son la fuente de
-    // verdad. Defaults conservadores si faltan (orgs antiguas sin el campo):
-    // plan 'pro' (sin restricción) y sin límite de pilotos, para no bloquear
-    // datos existentes que aún no tengan estos campos.
+    // `organizations/{orgId}.limits`/`plan`/`championshipCredits` son la
+    // fuente de verdad. Defaults conservadores si faltan (orgs antiguas sin
+    // el campo): plan 'pro' (sin restricción) y sin límite de pilotos, para
+    // no bloquear datos existentes que aún no tengan estos campos.
     function orgDoc(orgId) {
       return get(/databases/$(database)/documents/organizations/$(orgId)).data;
     }
 
-    function orgPlan(orgId) {
-      return orgDoc(orgId).get('plan', 'pro');
-    }
-
-    // Plan Free = prueba única: una sola organización puede usarlo una sola
-    // vez (1 campeonato O 1 evento). `freeTrialUsed` lo marca la Cloud
-    // Function al crear ese primer campeonato/evento (ver functions/main.py).
+    // Modelo de "lotes" prepagados (reemplaza la suscripción recurrente,
+    // ADR-007): cada organización tiene un saldo de `championshipCredits` —
+    // se descuenta 1 por cada campeonato/evento creado (Cloud Function, ver
+    // functions/main.py) y solo se recarga comprando otro lote. El plan
+    // Free arranca con 1 crédito (su prueba única). `billingExempt` (GT7 ESP,
+    // orgs de prueba internas) se salta el conteo por completo.
     function canCreateInOrg(orgId) {
-      return !(orgPlan(orgId) == 'free' && orgDoc(orgId).get('freeTrialUsed', false) == true);
+      return orgDoc(orgId).get('billingExempt', false) == true
+        || orgDoc(orgId).get('championshipCredits', 0) > 0;
     }
 
     // null/ausente = sin límite (planes de pago hoy no tienen tope real).

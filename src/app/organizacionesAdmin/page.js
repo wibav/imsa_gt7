@@ -23,11 +23,69 @@ function formatDate(ts) {
     return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// Formulario inline para otorgar un lote de créditos a una organización —
+// venta manual mientras no existe el checkout de Paddle para lotes
+// (ADR-007). Aparece al hacer clic en "Otorgar lote" en la fila de la org.
+function GrantCreditsForm({ org, onCancel, onGranted }) {
+    const [credits, setCredits] = useState(10);
+    const [plan, setPlan] = useState(org.plan || 'free');
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!credits || credits <= 0) {
+            setError('La cantidad debe ser mayor a 0');
+            return;
+        }
+        setSaving(true);
+        setError('');
+        try {
+            const newPlan = plan !== org.plan ? plan : null;
+            await FirebaseService.grantChampionshipCredits(org.id, credits, newPlan);
+            onGranted();
+        } catch (err) {
+            console.error('Error otorgando créditos:', err);
+            setError('No se pudo otorgar el lote. Intenta de nuevo.');
+            setSaving(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="flex items-center gap-2 mt-2 bg-white/5 border border-white/10 rounded-lg p-2">
+            <input
+                type="number" min="1" value={credits}
+                onChange={e => setCredits(parseInt(e.target.value) || 0)}
+                className="w-20 px-2 py-1 bg-white/10 border border-white/30 rounded text-white text-xs"
+                placeholder="Cantidad"
+            />
+            <select
+                value={plan} onChange={e => setPlan(e.target.value)}
+                className="px-2 py-1 bg-white/10 border border-white/30 rounded text-white text-xs"
+            >
+                <option value="free">Free</option>
+                <option value="starter">Starter</option>
+                <option value="pro">Pro</option>
+            </select>
+            <button type="submit" disabled={saving}
+                className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-medium rounded">
+                {saving ? 'Guardando…' : 'Confirmar'}
+            </button>
+            <button type="button" onClick={onCancel} disabled={saving}
+                className="px-3 py-1 bg-white/10 hover:bg-white/20 text-gray-300 text-xs font-medium rounded">
+                Cancelar
+            </button>
+            {error && <span className="text-red-400 text-xs">{error}</span>}
+        </form>
+    );
+}
+
 export default function OrganizacionesAdmin() {
     const router = useRouter();
     const { currentUser, isPlatformOwner, loading: authLoading } = useAuth();
     const [orgs, setOrgs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [grantingOrgId, setGrantingOrgId] = useState(null);
 
     useEffect(() => {
         if (!authLoading && !currentUser) {
@@ -35,11 +93,16 @@ export default function OrganizacionesAdmin() {
         }
     }, [currentUser, authLoading, router]);
 
+    const loadOrgs = () => {
+        setLoading(true);
+        FirebaseService.getAllOrganizations()
+            .then(setOrgs)
+            .finally(() => setLoading(false));
+    };
+
     useEffect(() => {
         if (!authLoading && currentUser && isPlatformOwner()) {
-            FirebaseService.getAllOrganizations()
-                .then(setOrgs)
-                .finally(() => setLoading(false));
+            loadOrgs();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authLoading, currentUser]);
@@ -90,6 +153,7 @@ export default function OrganizacionesAdmin() {
                                 <th className="py-3 pr-4">Organización</th>
                                 <th className="py-3 pr-4">Plan</th>
                                 <th className="py-3 pr-4">Estado</th>
+                                <th className="py-3 pr-4">Créditos</th>
                                 <th className="py-3 pr-4">Organizador</th>
                                 <th className="py-3 pr-4">Creada</th>
                                 <th className="py-3 pr-4">Límites</th>
@@ -97,7 +161,7 @@ export default function OrganizacionesAdmin() {
                         </thead>
                         <tbody>
                             {orgs.map(org => (
-                                <tr key={org.id} className="border-b border-white/5 hover:bg-white/5">
+                                <tr key={org.id} className="border-b border-white/5 hover:bg-white/5 align-top">
                                     <td className="py-3 pr-4">
                                         <a
                                             href={`/l/${org.slug}`}
@@ -123,10 +187,25 @@ export default function OrganizacionesAdmin() {
                                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[org.status] || STATUS_COLORS.active}`}>
                                             {org.status || 'active'}
                                         </span>
-                                        {org.plan === 'free' && (
-                                            <span className="ml-1 text-gray-500 text-xs">
-                                                {org.freeTrialUsed ? '(usada)' : '(sin usar)'}
-                                            </span>
+                                    </td>
+                                    <td className="py-3 pr-4">
+                                        <div className="text-white font-semibold">
+                                            {org.billingExempt ? '∞' : (org.championshipCredits ?? 0)}
+                                        </div>
+                                        <div className="text-gray-500 text-xs">campeonatos/eventos por crear</div>
+                                        {grantingOrgId === org.id ? (
+                                            <GrantCreditsForm
+                                                org={org}
+                                                onCancel={() => setGrantingOrgId(null)}
+                                                onGranted={() => { setGrantingOrgId(null); loadOrgs(); }}
+                                            />
+                                        ) : (
+                                            <button
+                                                onClick={() => setGrantingOrgId(org.id)}
+                                                className="mt-1 text-orange-300 hover:text-orange-200 text-xs font-medium underline"
+                                            >
+                                                + Otorgar lote
+                                            </button>
                                         )}
                                     </td>
                                     <td className="py-3 pr-4 text-gray-300">
@@ -136,7 +215,7 @@ export default function OrganizacionesAdmin() {
                                         {formatDate(org.createdAt)}
                                     </td>
                                     <td className="py-3 pr-4 text-gray-500 text-xs">
-                                        {org.limits?.maxDrivers ?? '∞'} pilotos · {org.limits?.maxActiveChampionshipsOrEvents ?? '∞'} activos
+                                        {org.limits?.maxDrivers ?? '∞'} pilotos
                                     </td>
                                 </tr>
                             ))}

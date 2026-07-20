@@ -581,17 +581,21 @@ def manage_user_role(req: https_fn.Request) -> https_fn.Response:
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# Límites de plan (SPEC-6 / docs/PLAN_MONETIZACION.md §1.4)
+# Límites de plan — modelo de lotes prepagados (ADR-007, reemplaza la
+# suscripción recurrente).
 #
-# El plan Free es de uso único (1 campeonato O 1 evento). El cliente no
-# puede marcar `freeTrialUsed` él mismo (firestore.rules bloquea escritura de
-# ese campo salvo platformOwner) — lo hace esta Cloud Function, con Admin
-# SDK, al detectar la creación del primer campeonato/evento de una
-# organización en plan Free. `firestore.rules` ya deniega una segunda
-# creación una vez `freeTrialUsed == true`.
+# Cada organización tiene un saldo `championshipCredits`: se descuenta 1 al
+# crear un campeonato o evento, hasta llegar a 0 (ahí `firestore.rules`
+# deniega nuevas creaciones — `canCreateInOrg`). El plan Free arranca con 1
+# crédito (su prueba única); los planes de pago recargan el saldo al comprar
+# un lote (webhook de Paddle, aún no implementado — hasta entonces, el
+# Administrador de Plataforma puede otorgar créditos manualmente desde
+# /organizacionesAdmin). El cliente no puede tocar `championshipCredits`
+# directamente (firestore.rules solo permite platformOwner) — el descuento
+# lo hace esta Cloud Function con Admin SDK, al detectar la creación.
 # ══════════════════════════════════════════════════════════════════════════
 
-def _mark_free_trial_used_if_needed(org_id: str | None) -> None:
+def _consume_championship_credit_if_needed(org_id: str | None) -> None:
     if not org_id:
         return
     db = fb_firestore.client()
@@ -600,20 +604,25 @@ def _mark_free_trial_used_if_needed(org_id: str | None) -> None:
     if not org_snap.exists:
         return
     org = org_snap.to_dict() or {}
-    if org.get('plan') == 'free' and not org.get('freeTrialUsed'):
-        org_ref.update({'freeTrialUsed': True, 'updatedAt': fb_firestore.SERVER_TIMESTAMP})
+    if org.get('billingExempt'):
+        return
+    if org.get('championshipCredits', 0) > 0:
+        org_ref.update({
+            'championshipCredits': fb_firestore.Increment(-1),
+            'updatedAt': fb_firestore.SERVER_TIMESTAMP,
+        })
 
 
 @firestore_fn.on_document_created(document='championships/{champId}')
 def on_championship_created(event: firestore_fn.Event) -> None:
     data = event.data.to_dict() if event.data else {}
-    _mark_free_trial_used_if_needed(data.get('orgId'))
+    _consume_championship_credit_if_needed(data.get('orgId'))
 
 
 @firestore_fn.on_document_created(document='events/{eventId}')
 def on_event_created(event: firestore_fn.Event) -> None:
     data = event.data.to_dict() if event.data else {}
-    _mark_free_trial_used_if_needed(data.get('orgId'))
+    _consume_championship_credit_if_needed(data.get('orgId'))
 
 
 # `events/{eventId}.participantsCount` es un contador cacheado, mantenido
@@ -660,15 +669,17 @@ _RESERVED_SLUGS = {
 
 _SLUG_RE = re.compile(r'^[a-z0-9-]+$')
 
+# `maxActiveChampionshipsOrEvents` ya no aplica (modelo de lotes prepagados,
+# ADR-007): cuántos campeonatos/eventos puede crear una org lo determina su
+# saldo `championshipCredits`, no un tope fijo por plan. Estos límites solo
+# cubren lo que sí sigue dependiendo del tier (pilotos, administradores).
 _FREE_PLAN_LIMITS = {
-    'maxActiveChampionshipsOrEvents': 1,
     'maxDrivers': 15,
     'maxAdmins': 1,
     'maxComisarios': 1,
 }
 
 _PRO_PLAN_LIMITS = {
-    'maxActiveChampionshipsOrEvents': None,  # ilimitado
     'maxDrivers': 200,
     'maxAdmins': 10,
     'maxComisarios': 15,
@@ -744,12 +755,11 @@ def create_organization(req: https_fn.Request) -> https_fn.Response:
             'slug': slug,
             'plan': 'free',
             'status': 'active',
-            'freeTrialUsed': False,
+            'championshipCredits': 1,  # prueba única — 1 campeonato o evento
             'billingExempt': False,
             'ownerUid': uid,
             'branding': {'logoUrl': None, 'colorPrimary': None, 'colorSecondary': None},
             'limits': _FREE_PLAN_LIMITS,
-            'subscription': {'provider': None, 'externalId': None, 'currentPeriodEnd': None, 'cycle': None},
             'createdAt': fb_firestore.SERVER_TIMESTAMP,
             'updatedAt': fb_firestore.SERVER_TIMESTAMP,
         })
