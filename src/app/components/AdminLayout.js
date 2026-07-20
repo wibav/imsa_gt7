@@ -9,7 +9,7 @@ export default function AdminLayout({ children }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const { currentUser, logout, isAdmin, isPlatformOwner } = useAuth();
+    const { currentUser, logout, isAdmin, isPlatformOwner, currentOrgRole } = useAuth();
     const { org } = useOrganization();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
@@ -54,6 +54,10 @@ export default function AdminLayout({ children }) {
                 { name: 'Crear Campeonato', path: '/championshipsAdmin/new', icon: '➕' },
                 ...(isAdmin() ? [{ name: 'Usuarios', path: '/usersAdmin', icon: '👥' }] : []),
                 ...(isAdmin() ? [{ name: 'Facturación', path: '/facturacion', icon: '💳' }] : []),
+                // Branding (logo/colores): exclusivo del Organizador — un
+                // director_liga administra campeonatos pero no la identidad
+                // de la organización ni su plan.
+                ...(currentOrgRole() === 'organizador' ? [{ name: 'Mi Organización', path: '/organizacionAdmin', icon: '🎨' }] : []),
             ]
         },
         // Catálogo de pistas: gestión exclusiva del Administrador de

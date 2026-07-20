@@ -1439,6 +1439,17 @@ export class FirebaseService {
     }
   }
 
+  /** Actualiza el branding (logo, colores) de una organización — llamado por
+   *  el propio Organizador desde /organizacionAdmin. `firestore.rules` solo
+   *  le permite tocar los campos `branding`/`reglamento`/`updatedAt` de su
+   *  propia organización (nunca plan/billing/límites). */
+  static async updateOrganizationBranding(orgId, branding) {
+    await updateDoc(doc(db, 'organizations', orgId), {
+      branding,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
   /** Otorga un lote de créditos a una organización — venta manual mientras
    *  no existe el checkout de Paddle para lotes (ADR-007). `firestore.rules`
    *  solo permite escribir `organizations/{orgId}` sin restricción de campos

@@ -21,6 +21,14 @@ export default function Navbar() {
     const customLogoUrl = org?.branding?.logoUrl || null;
     const displayName = customLogoUrl ? (org?.name || 'GT7 Championships') : 'GT7 Championships';
 
+    // Mismo criterio que el logo: solo se reemplaza el degradado naranja/rojo
+    // por defecto cuando la org configuró explícitamente sus colores desde
+    // /organizacionAdmin — si no, el header se ve exactamente igual que hoy.
+    const { colorPrimary, colorSecondary } = org?.branding || {};
+    const headerStyle = (colorPrimary && colorSecondary)
+        ? { background: `linear-gradient(to right, ${colorPrimary}, ${colorSecondary}, ${colorPrimary})` }
+        : undefined;
+
     const handleLogout = async () => {
         try {
             await logout();
@@ -38,7 +46,10 @@ export default function Navbar() {
     ];
 
     return (
-        <div className="bg-gradient-to-r from-orange-600 via-red-600 to-orange-600 px-4 py-4 sm:py-6 sticky top-0 z-50 backdrop-blur-lg bg-opacity-95">
+        <div
+            className={`${headerStyle ? '' : 'bg-gradient-to-r from-orange-600 via-red-600 to-orange-600'} px-4 py-4 sm:py-6 sticky top-0 z-50 backdrop-blur-lg bg-opacity-95`}
+            style={headerStyle}
+        >
             <div className="max-w-7xl mx-auto w-full">
                 {/* Header con Logo */}
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">

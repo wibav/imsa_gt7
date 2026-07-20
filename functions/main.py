@@ -664,7 +664,8 @@ _RESERVED_SLUGS = {
     'l', 'api', 'championships', 'championshipsadmin', 'equipamiento',
     'events', 'eventsadmin', 'login', 'pilots', 'reglamento', 'teamsadmin',
     'tools', 'tracksadmin', 'usersadmin', 'admin', 'www', 'app', 'signup',
-    'equipamientoadmin',
+    'equipamientoadmin', 'organizacionesadmin', 'organizacionadmin',
+    'facturacion',
 }
 
 _SLUG_RE = re.compile(r'^[a-z0-9-]+$')
