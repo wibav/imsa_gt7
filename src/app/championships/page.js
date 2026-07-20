@@ -998,6 +998,17 @@ export default function ChampionshipDetailPage() {
                                 .filter(r => r.status === 'approved' || !championship.registration?.requiresApproval);
                             const totalAssigned = divisions.reduce((sum, d) => sum + (d.drivers || []).length, 0);
                             const allAssignedDrivers = new Set(divisions.flatMap(d => d.drivers || []));
+                            // `division.drivers[]` guarda un solo string por piloto, con prioridad
+                            // r.name || r.psnId || r.gt7Id (ver DivisionsTab.js) — puede ser el PSN ID
+                            // crudo. Este mapa resuelve cualquiera de los 3 identificadores al GT7 ID
+                            // canónico, mismo criterio que standingsCalculator.js (registrationAliases).
+                            const gt7IdByAnyId = {};
+                            (championship.registrations || []).forEach(r => {
+                                if (!r.gt7Id) return;
+                                if (r.name) gt7IdByAnyId[r.name] = r.gt7Id;
+                                if (r.psnId) gt7IdByAnyId[r.psnId] = r.gt7Id;
+                                gt7IdByAnyId[r.gt7Id] = r.gt7Id;
+                            });
                             // Un piloto está asignado si CUALQUIERA de sus identificadores aparece en alguna división
                             // (DivisionsTab guarda la clave con prioridad r.name || r.psnId || r.gt7Id)
                             const unassigned = approvedRegistrations.filter(r =>
@@ -1141,7 +1152,7 @@ export default function ChampionshipDetailPage() {
                                                                             >
                                                                                 {idx + 1}
                                                                             </span>
-                                                                            <span className="text-white text-sm font-medium">{driver}</span>
+                                                                            <span className="text-white text-sm font-medium">{gt7IdByAnyId[driver] || driver}</span>
                                                                         </li>
                                                                     ))}
                                                                 </ul>
