@@ -1202,6 +1202,52 @@ export class FirebaseService {
   }
 
   /**
+   * Da de baja a un piloto con inscripción individual (no de equipo): quita
+   * su registro de `registrations`, su entrada en `drivers`, y lo remueve de
+   * cualquier división a la que estuviera asignado — libera el cupo y deja
+   * de contar en clasificaciones futuras. Los resultados ya corridos
+   * (`track.points`/`track.results`) se preservan intencionalmente: dar de
+   * baja no debe alterar el historial de carreras ya disputadas.
+   *
+   * No soporta inscripciones de equipo (`reg.drivers[]`) — quitar a un
+   * piloto de un roster de equipo es un flujo distinto (editar el equipo),
+   * no "dar de baja" del campeonato completo.
+   *
+   * @param {string} championshipId
+   * @param {string} registrationId - r.id de la entrada en registrations[]
+   * @param {Array} divisions - divisiones ya cargadas del campeonato (para no releer)
+   */
+  static async withdrawRegistration(championshipId, registrationId, divisions = []) {
+    const docRef = doc(db, 'championships', championshipId);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) throw new Error('Campeonato no encontrado');
+    const champ = snap.data();
+
+    const reg = (champ.registrations || []).find(r => r.id === registrationId);
+    if (!reg) throw new Error('Inscripción no encontrada');
+    if (Array.isArray(reg.drivers) && reg.drivers.length > 0) {
+      throw new Error('Esta es una inscripción de equipo — edita el roster del equipo en vez de dar de baja aquí');
+    }
+
+    // Mismos 3 identificadores con los que se guardó en drivers[]/division.drivers[]
+    // al aprobar (ver updateRegistrations) — hay que cubrir los 3 para no dejar huérfanos.
+    const identifiers = [reg.name, reg.psnId, reg.gt7Id].filter(Boolean);
+
+    const updatedRegistrations = (champ.registrations || []).filter(r => r.id !== registrationId);
+    const updatedDrivers = (champ.drivers || []).filter(d => !identifiers.includes(d.name));
+    await updateDoc(docRef, { registrations: updatedRegistrations, drivers: updatedDrivers });
+
+    const affectedDivisions = divisions.filter(d => (d.drivers || []).some(name => identifiers.includes(name)));
+    await Promise.all(affectedDivisions.map(d =>
+      FirebaseService.updateDivision(championshipId, d.id, {
+        drivers: (d.drivers || []).filter(name => !identifiers.includes(name)),
+      })
+    ));
+
+    return { removedFromDivisions: affectedDivisions.map(d => d.name) };
+  }
+
+  /**
    * Guardar resultados de Pre-Qualy en el campeonato
    * @param {string} championshipId
    * @param {Array<{driverName: string, time: string, classified: boolean}>} results

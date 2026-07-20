@@ -81,8 +81,8 @@ export function notifyEventRegistration({ eventTitle, gt7Id, psnId, name, waitli
 }
 
 export function notifyRegistrationUpdated({ championshipName, driverName, psnId, status, orgName }) {
-    const statusEmoji = status === 'approved' ? '✅' : status === 'rejected' ? '❌' : '⏳';
-    const statusLabel = status === 'approved' ? 'Aprobado' : status === 'rejected' ? 'Rechazado' : 'Pendiente';
+    const statusEmoji = status === 'approved' ? '✅' : status === 'rejected' ? '❌' : status === 'withdrawn' ? '🚪' : '⏳';
+    const statusLabel = status === 'approved' ? 'Aprobado' : status === 'rejected' ? 'Rechazado' : status === 'withdrawn' ? 'Baja' : 'Pendiente';
     const psnInfo = psnId && psnId !== driverName ? ` (PSN: ${psnId})` : '';
     return sendTelegramNotification(
         `👤 <b>Inscripción ${statusLabel}</b> ${statusEmoji}\n` +

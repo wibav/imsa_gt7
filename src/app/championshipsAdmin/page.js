@@ -472,6 +472,7 @@ export default function ChampionshipDetail() {
                         <RegistrationsTab
                             championshipId={championshipId}
                             championship={championship}
+                            divisions={divisions}
                             onUpdate={loadChampionshipData}
                         />
                     )}
@@ -2288,12 +2289,15 @@ function StatCard({ icon, label, value }) {
 // ============================================================
 // Tab de Inscripciones (Fase 2)
 // ============================================================
-function RegistrationsTab({ championshipId, championship, onUpdate }) {
+function RegistrationsTab({ championshipId, championship, divisions = [], onUpdate }) {
+    const { org } = useOrganization();
     const [filter, setFilter] = useState('all');
     const [saving, setSaving] = useState(false);
     const [selectedIds, setSelectedIds] = useState([]);
     const [editingReg, setEditingReg] = useState(null); // { id, gt7Id, psnId, country, experience }
     const [editSaving, setEditSaving] = useState(false);
+    const [confirmWithdrawId, setConfirmWithdrawId] = useState(null);
+    const [withdrawing, setWithdrawing] = useState(false);
 
     const registrations = championship.registrations || [];
     const filtered = filter === 'all' ? registrations : registrations.filter(r => r.status === filter);
@@ -2370,6 +2374,30 @@ function RegistrationsTab({ championshipId, championship, onUpdate }) {
             alert('Error al guardar: ' + error.message);
         } finally {
             setEditSaving(false);
+        }
+    };
+
+    const handleWithdraw = async (registrationId) => {
+        setWithdrawing(true);
+        try {
+            const reg = registrations.find(r => r.id === registrationId);
+            await FirebaseService.withdrawRegistration(championshipId, registrationId, divisions);
+            if (reg) {
+                notifyRegistrationUpdated({
+                    championshipName: championship?.name || championshipId,
+                    driverName: reg.gt7Id || reg.name || reg.psnId || registrationId,
+                    psnId: reg.psnId || null,
+                    status: 'withdrawn',
+                    orgName: org?.name,
+                });
+            }
+            setConfirmWithdrawId(null);
+            onUpdate();
+        } catch (error) {
+            console.error('Error dando de baja:', error);
+            alert('Error al dar de baja: ' + error.message);
+        } finally {
+            setWithdrawing(false);
         }
     };
 
@@ -2483,6 +2511,10 @@ function RegistrationsTab({ championshipId, championship, onUpdate }) {
                     {filtered.map(r => {
                         const style = statusStyles[r.status] || statusStyles.pending;
                         const isEditing = editingReg?.id === r.id;
+                        const identifiers = [r.name, r.psnId, r.gt7Id].filter(Boolean);
+                        const assignedDivision = !r.teamName
+                            ? divisions.find(d => (d.drivers || []).some(name => identifiers.includes(name)))
+                            : null;
                         return (
                             <div key={r.id} className={`${style.bg} border ${style.border} rounded-lg p-4`}>
                                 <div className="flex items-start gap-4">
@@ -2558,6 +2590,11 @@ function RegistrationsTab({ championshipId, championship, onUpdate }) {
                                                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${style.bg} ${style.text}`}>
                                                         {style.label}
                                                     </span>
+                                                    {assignedDivision && (
+                                                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-200">
+                                                            🏟️ {assignedDivision.name}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 {/* Inscripción de equipo: lista de pilotos */}
                                                 {r.teamName && Array.isArray(r.drivers) && (
@@ -2618,6 +2655,27 @@ function RegistrationsTab({ championshipId, championship, onUpdate }) {
                                                     title="Devolver a pendiente">
                                                     ↩️
                                                 </button>
+                                            )}
+                                            {!r.teamName && (
+                                                confirmWithdrawId === r.id ? (
+                                                    <div className="flex items-center gap-1.5 bg-red-900/40 border border-red-500/50 rounded-lg px-2 py-1">
+                                                        <span className="text-red-300 text-xs">¿Dar de baja?</span>
+                                                        <button onClick={() => handleWithdraw(r.id)} disabled={withdrawing}
+                                                            className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded font-bold disabled:opacity-50">
+                                                            {withdrawing ? '...' : 'Sí'}
+                                                        </button>
+                                                        <button onClick={() => setConfirmWithdrawId(null)} disabled={withdrawing}
+                                                            className="px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded">
+                                                            No
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={() => setConfirmWithdrawId(r.id)}
+                                                        className="px-2.5 py-1.5 bg-white/10 hover:bg-red-900/40 border border-white/20 hover:border-red-500/50 text-white hover:text-red-300 text-xs rounded transition-all"
+                                                        title="Dar de baja del campeonato (quita inscripción, cupo y asignación de sala; preserva resultados ya corridos)">
+                                                        🚪 Baja
+                                                    </button>
+                                                )
                                             )}
                                         </div>
                                     )}
