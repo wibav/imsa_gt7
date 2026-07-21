@@ -519,6 +519,8 @@ export default function PenaltiesTab({
             {showApplyModal && (
                 <ApplyPenaltyModal
                     championshipId={championshipId}
+                    championship={championship}
+                    org={org}
                     allDrivers={allDrivers}
                     tracks={completedTracks}
                     presets={config.presets.filter(p => p.active)}
@@ -533,7 +535,7 @@ export default function PenaltiesTab({
 // ═══════════════════════════════════════════════
 // MODAL: Aplicar Sanción
 // ═══════════════════════════════════════════════
-function ApplyPenaltyModal({ championshipId, allDrivers, tracks, presets, onClose, onSaved }) {
+function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, tracks, presets, onClose, onSaved }) {
     const [mode, setMode] = useState('preset'); // preset | custom
     const [selectedPreset, setSelectedPreset] = useState(null);
     const [extraPoints, setExtraPoints] = useState(0);
