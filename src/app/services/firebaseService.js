@@ -12,7 +12,8 @@ import {
   addDoc,
   updateDoc,
   arrayUnion,
-  increment
+  increment,
+  writeBatch
 } from "firebase/firestore";
 import {
   getStorage,
@@ -1346,6 +1347,173 @@ export class FirebaseService {
       console.error('Error updating registration data:', error);
       throw error;
     }
+  }
+
+  /**
+   * Renombra a un piloto en TODAS las ubicaciones del modelo de datos donde
+   * su identificador vive denormalizado — sin ningún ID relacional, todo se
+   * cruza por el nombre = name||psnId||gt7Id (ver DivisionsTab.js/
+   * standingsCalculator.js). Necesario porque editar el GT7 ID/PSN ID de una
+   * inscripción (RegistrationsTab "✏️ Editar datos") por sí solo NO
+   * actualiza nada más: el piloto seguiría apareciendo bajo el identificador
+   * viejo en su división, sus resultados ya cargados, y cualquier
+   * reclamación/sanción donde participe — el mismo problema que obligó a
+   * corregir "Zeus GM" a mano con un script (ver scripts/
+   * rename-driver-zeusguerrero.js).
+   *
+   * Se intenta renombrar CADA identificador antiguo candidato (puede haber
+   * más de uno: name/psnId/gt7Id previos a la edición) — renombrar una
+   * clave que no existe en un lugar dado es un no-op seguro, así que no
+   * hace falta saber de antemano cuál de los 3 estaba realmente en uso.
+   *
+   * @param {string} championshipId
+   * @param {string[]} oldKeys - identificadores previos a la edición (name/psnId/gt7Id)
+   * @param {string} newKey - nuevo identificador canónico (gt7Id corregido)
+   * @returns {Promise<{renamed: boolean}>}
+   */
+  static async renameDriverEverywhere(championshipId, oldKeys, newKey) {
+    const candidates = [...new Set(oldKeys)].filter(k => k && k !== newKey);
+    if (candidates.length === 0) return { renamed: false };
+
+    const isOld = (v) => candidates.includes(v);
+    const renameMapKeys = (map = {}) => {
+      const out = { ...map };
+      candidates.forEach(oldKey => {
+        if (oldKey in out) {
+          out[newKey] = out[oldKey];
+          delete out[oldKey];
+        }
+      });
+      return out;
+    };
+    const renameArrayEntries = (arr = []) => arr.map(v => isOld(v) ? newKey : v);
+    const renameSingleValue = (v) => isOld(v) ? newKey : v;
+
+    const renameSessionResult = (res = {}) => ({
+      ...res,
+      ...(res.racePositions ? { racePositions: renameMapKeys(res.racePositions) } : {}),
+      ...(res.racePoints ? { racePoints: renameMapKeys(res.racePoints) } : {}),
+      ...(res.sprintPositions ? { sprintPositions: renameMapKeys(res.sprintPositions) } : {}),
+      ...(res.sprintPoints ? { sprintPoints: renameMapKeys(res.sprintPoints) } : {}),
+      ...(res.qualifying ? {
+        qualifying: {
+          ...res.qualifying,
+          ...(res.qualifying.top3 ? {
+            top3: {
+              ...res.qualifying.top3,
+              ...(res.qualifying.top3.first !== undefined ? { first: renameSingleValue(res.qualifying.top3.first) } : {}),
+              ...(res.qualifying.top3.second !== undefined ? { second: renameSingleValue(res.qualifying.top3.second) } : {}),
+              ...(res.qualifying.top3.third !== undefined ? { third: renameSingleValue(res.qualifying.top3.third) } : {}),
+            }
+          } : {}),
+          ...(res.qualifying.points ? { points: renameMapKeys(res.qualifying.points) } : {}),
+        }
+      } : {}),
+      ...(res.fastestLap ? {
+        fastestLap: {
+          ...res.fastestLap,
+          ...(res.fastestLap.driver !== undefined ? { driver: renameSingleValue(res.fastestLap.driver) } : {}),
+          ...(res.fastestLap.points ? { points: renameMapKeys(res.fastestLap.points) } : {}),
+        }
+      } : {}),
+    });
+
+    const batch = writeBatch(db);
+    let touched = false;
+
+    const champRef = doc(db, 'championships', championshipId);
+    const champSnap = await getDoc(champRef);
+    if (!champSnap.exists()) throw new Error('Campeonato no encontrado');
+    const champ = champSnap.data();
+
+    // 1) championship.drivers[]
+    const updatedDrivers = (champ.drivers || []).map(d => isOld(d.name) ? { ...d, name: newKey } : d);
+    if (JSON.stringify(updatedDrivers) !== JSON.stringify(champ.drivers || [])) {
+      batch.update(champRef, { drivers: updatedDrivers });
+      touched = true;
+    }
+
+    // 2) championship.preQualy.results[]
+    if (Array.isArray(champ.preQualy?.results) && champ.preQualy.results.some(r => isOld(r.driverName))) {
+      const updatedResults = champ.preQualy.results.map(r => isOld(r.driverName) ? { ...r, driverName: newKey } : r);
+      batch.update(champRef, { 'preQualy.results': updatedResults });
+      touched = true;
+    }
+
+    // 3) divisions/{divId}.drivers[]
+    const divsSnap = await getDocs(collection(db, 'championships', championshipId, 'divisions'));
+    divsSnap.forEach(d => {
+      const drivers = d.data().drivers || [];
+      if (drivers.some(isOld)) {
+        batch.update(d.ref, { drivers: renameArrayEntries(drivers) });
+        touched = true;
+      }
+    });
+
+    // 4) tracks/{trackId} — points, carsUsed, sprintPoints, results (flat y por división)
+    const tracksSnap = await getDocs(collection(db, 'championships', championshipId, 'tracks'));
+    tracksSnap.forEach(t => {
+      const track = t.data();
+      const update = {};
+
+      if (track.points) {
+        const renamed = renameMapKeys(track.points);
+        if (JSON.stringify(renamed) !== JSON.stringify(track.points)) update.points = renamed;
+      }
+      if (track.carsUsed) {
+        const renamed = renameMapKeys(track.carsUsed);
+        if (JSON.stringify(renamed) !== JSON.stringify(track.carsUsed)) update.carsUsed = renamed;
+      }
+      if (track.sprintPoints) {
+        const renamed = renameMapKeys(track.sprintPoints);
+        if (JSON.stringify(renamed) !== JSON.stringify(track.sprintPoints)) update.sprintPoints = renamed;
+      }
+      if (track.results?.divisions) {
+        const renamedDivisions = Object.fromEntries(
+          Object.entries(track.results.divisions).map(([divId, res]) => [divId, renameSessionResult(res)])
+        );
+        if (JSON.stringify(renamedDivisions) !== JSON.stringify(track.results.divisions)) {
+          update.results = { ...track.results, divisions: renamedDivisions };
+        }
+      } else if (track.results) {
+        const renamedResults = renameSessionResult(track.results);
+        if (JSON.stringify(renamedResults) !== JSON.stringify(track.results)) {
+          update.results = renamedResults;
+        }
+      }
+
+      if (Object.keys(update).length > 0) {
+        batch.update(t.ref, update);
+        touched = true;
+      }
+    });
+
+    // 5) claims — reporterName, accusedNames[]
+    const claimsSnap = await getDocs(collection(db, 'championships', championshipId, 'claims'));
+    claimsSnap.forEach(c => {
+      const claim = c.data();
+      const update = {};
+      if (isOld(claim.reporterName)) update.reporterName = newKey;
+      if (Array.isArray(claim.accusedNames) && claim.accusedNames.some(isOld)) {
+        update.accusedNames = renameArrayEntries(claim.accusedNames);
+      }
+      if (Object.keys(update).length > 0) {
+        batch.update(c.ref, update);
+        touched = true;
+      }
+    });
+
+    // 6) penalties — driverName
+    const penaltiesSnap = await getDocs(collection(db, 'championships', championshipId, 'penalties'));
+    penaltiesSnap.forEach(p => {
+      if (isOld(p.data().driverName)) {
+        batch.update(p.ref, { driverName: newKey });
+        touched = true;
+      }
+    });
+
+    if (touched) await batch.commit();
+    return { renamed: touched };
   }
 
   /**

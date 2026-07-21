@@ -2408,7 +2408,17 @@ function RegistrationsTab({ championshipId, championship, divisions = [], onUpda
         setEditSaving(true);
         try {
             const { id, ...fields } = editingReg;
+            const reg = registrations.find(r => r.id === id);
+            const oldKeys = reg ? [reg.name, reg.psnId, reg.gt7Id] : [];
             await FirebaseService.updateRegistrationData(championshipId, id, fields);
+            // Si cambió el GT7 ID/PSN ID, propagar el renombre a división,
+            // resultados, reclamaciones y sanciones — si no, el piloto
+            // quedaría duplicado bajo el identificador viejo en todo lo
+            // demás (ver FirebaseService.renameDriverEverywhere).
+            const newKey = fields.gt7Id || fields.psnId;
+            if (newKey) {
+                await FirebaseService.renameDriverEverywhere(championshipId, oldKeys, newKey);
+            }
             setEditingReg(null);
             onUpdate();
         } catch (error) {
