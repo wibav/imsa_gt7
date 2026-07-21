@@ -503,6 +503,8 @@ export default function PenaltiesTab({
                         <ClaimsSection
                             claims={claims}
                             championshipId={championshipId}
+                            championship={championship}
+                            org={org}
                             allDrivers={allDrivers}
                             tracks={completedTracks}
                             config={config}
@@ -879,11 +881,50 @@ function ApplyPenaltyModal({ championshipId, allDrivers, tracks, presets, onClos
 // ═══════════════════════════════════════════════
 // SECCIÓN: Reclamaciones
 // ═══════════════════════════════════════════════
-function ClaimsSection({ claims, championshipId, allDrivers, tracks, config, onReload, onUpdate }) {
+/** Texto plano de una reclamación, para compartir con comisarios (WhatsApp, copiar/pegar) */
+function formatClaimForShare(claim, championshipName) {
+    const accused = Array.isArray(claim.accusedNames) ? claim.accusedNames.join(', ') : (claim.accusedNames || claim.accusedName || '?');
+    const trackInfo = claim.trackName
+        ? `🏁 R${claim.round || '?'} — ${claim.trackName}${claim.lap ? ` • Vuelta ${claim.lap}` : ''}${claim.minute ? ` • Min. ${claim.minute}` : ''}\n`
+        : '';
+    const evidenceLines = (claim.evidence || []).map(url => `🎥 ${url}`).join('\n');
+    return (
+        `📩 Reclamación — ${championshipName}\n` +
+        `👤 ${claim.reporterName} → ${accused}\n` +
+        trackInfo +
+        `📝 ${claim.description}` +
+        (evidenceLines ? `\n${evidenceLines}` : '')
+    );
+}
+
+function ClaimsSection({ claims, championshipId, championship, org, allDrivers, tracks, config, onReload, onUpdate }) {
     const [resolveModal, setResolveModal] = useState(null);
     const [rejectModal, setRejectModal] = useState(null);
     const [rejectReason, setRejectReason] = useState('');
     const [rejectSaving, setRejectSaving] = useState(false);
+    const [copiedAll, setCopiedAll] = useState(false);
+    const [copiedId, setCopiedId] = useState(null);
+
+    const championshipName = championship?.name || championshipId;
+    const pendingClaims = claims.filter(c => c.status === 'pending' || c.status === 'reviewing');
+
+    const handleCopyPending = async () => {
+        const text = pendingClaims
+            .map(c => formatClaimForShare(c, championshipName))
+            .join('\n\n———\n\n');
+        await navigator.clipboard.writeText(text);
+        setCopiedAll(true);
+        setTimeout(() => setCopiedAll(false), 2000);
+    };
+
+    const handleCopyClaim = async (claim) => {
+        await navigator.clipboard.writeText(formatClaimForShare(claim, championshipName));
+        setCopiedId(claim.id);
+        setTimeout(() => setCopiedId(null), 2000);
+    };
+
+    const whatsappShareUrl = (claim) =>
+        `https://wa.me/?text=${encodeURIComponent(formatClaimForShare(claim, championshipName))}`;
 
     if (!config.allowClaims) {
         return (
@@ -945,7 +986,18 @@ function ClaimsSection({ claims, championshipId, allDrivers, tracks, config, onR
 
     return (
         <div className="space-y-4">
-            <h3 className="text-lg font-bold text-white">📩 Reclamaciones Recibidas</h3>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+                <h3 className="text-lg font-bold text-white">📩 Reclamaciones Recibidas</h3>
+                {pendingClaims.length > 0 && (
+                    <button
+                        onClick={handleCopyPending}
+                        className="text-xs px-3 py-1.5 bg-white/10 hover:bg-white/20 text-gray-300 rounded-lg transition-all"
+                        title="Copia el texto de todas las reclamaciones pendientes, para pegar en el grupo de WhatsApp de comisarios"
+                    >
+                        {copiedAll ? '✅ Copiado' : `📋 Copiar pendientes (${pendingClaims.length})`}
+                    </button>
+                )}
+            </div>
 
             {claims.length === 0 ? (
                 <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
@@ -1019,6 +1071,23 @@ function ClaimsSection({ claims, championshipId, allDrivers, tracks, config, onR
                                             >
                                                 ❌ Rechazar
                                             </button>
+                                            <div className="flex gap-1 mt-1 pt-1 border-t border-white/10">
+                                                <a
+                                                    href={whatsappShareUrl(claim)}
+                                                    target="_blank" rel="noopener noreferrer"
+                                                    className="text-xs px-2 py-1 bg-green-700/20 hover:bg-green-700/40 text-green-300 rounded transition-all"
+                                                    title="Compartir esta reclamación en WhatsApp (para deliberar con comisarios)"
+                                                >
+                                                    📤
+                                                </a>
+                                                <button
+                                                    onClick={() => handleCopyClaim(claim)}
+                                                    className="text-xs px-2 py-1 bg-white/10 hover:bg-white/20 text-gray-300 rounded transition-all"
+                                                    title="Copiar texto de esta reclamación"
+                                                >
+                                                    {copiedId === claim.id ? '✅' : '📋'}
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>

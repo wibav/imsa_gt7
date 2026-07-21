@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
+import { notifyClaimCreated } from '../../utils/telegram';
 
 const HOURS_LIMIT = 72;
 
@@ -100,6 +101,18 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
             await FirebaseService.createClaim(championshipId, {
                 ...form,
                 createdAt: new Date().toISOString()
+            });
+            const org = championship?.orgId
+                ? await FirebaseService.getOrganization(championship.orgId).catch(() => null)
+                : null;
+            notifyClaimCreated({
+                championshipName: championship?.name || championshipId,
+                reporterName: form.reporterName,
+                accusedNames: form.accusedNames,
+                trackName: form.trackName,
+                round: form.round,
+                description: form.description,
+                orgName: org?.name,
             });
             setSubmitted(true);
             if (onSubmitted) onSubmitted();

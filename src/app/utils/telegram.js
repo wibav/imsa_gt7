@@ -52,6 +52,18 @@ export function notifyPenaltyApplied({ championshipName, driverName, penaltyName
     );
 }
 
+export function notifyClaimCreated({ championshipName, reporterName, accusedNames, trackName, round, description, orgName }) {
+    const accused = Array.isArray(accusedNames) ? accusedNames.join(', ') : accusedNames;
+    const trackInfo = trackName ? ` (R${round} — ${trackName})` : '';
+    return sendTelegramNotification(
+        `📩 <b>Nueva reclamación</b>\n` +
+        orgTag(orgName) +
+        `🏆 ${championshipName}\n` +
+        `👤 ${reporterName} → ${accused}${trackInfo}\n` +
+        `📝 ${description}`
+    );
+}
+
 export function notifyClaimResolved({ championshipName, status, reporterName, accusedNames, trackName, round, resolution, orgName }) {
     const statusEmoji = status === 'accepted' ? '✅' : '❌';
     const statusLabel = status === 'accepted' ? 'Aceptada' : 'Rechazada';
