@@ -32,6 +32,35 @@ export default function UsersAdmin() {
 
     // Feedback de "cuenta nueva creada, se envió correo de restablecimiento"
     const [accountCreatedNotice, setAccountCreatedNotice] = useState('');
+    // Si sendPasswordResetEmail falla, se guarda el email para poder reintentar
+    // (antes el error se descartaba en silencio con .catch(()=>{}) y la UI
+    // igual decía "se envió", sin ninguna forma de saber que en realidad falló).
+    const [emailFailedFor, setEmailFailedFor] = useState('');
+    const [resendingEmail, setResendingEmail] = useState(false);
+
+    const sendWelcomeEmail = async (email) => {
+        try {
+            await resetPassword(email);
+            setEmailFailedFor('');
+            setAccountCreatedNotice(`Se creó una cuenta nueva para ${email} y se le envió un correo para que defina su contraseña.`);
+        } catch (err) {
+            setEmailFailedFor(email);
+            setAccountCreatedNotice(
+                `Se creó la cuenta para ${email}, pero el correo para definir la contraseña NO se pudo enviar` +
+                (err.code ? ` (${err.code})` : '') + '. Revisa spam o usa el botón de reenviar.'
+            );
+        }
+    };
+
+    const handleResendEmail = async () => {
+        if (!emailFailedFor) return;
+        setResendingEmail(true);
+        try {
+            await sendWelcomeEmail(emailFailedFor);
+        } finally {
+            setResendingEmail(false);
+        }
+    };
 
     // Redirigir si no está autenticado
     useEffect(() => {
@@ -82,6 +111,7 @@ export default function UsersAdmin() {
         }
         setAdminSaving(true);
         setAccountCreatedNotice('');
+        setEmailFailedFor('');
         try {
             // Nuevos admins se agregan como "director_liga" — "organizador"
             // (dueño de la organización) es un rol especial, no se otorga
@@ -91,8 +121,7 @@ export default function UsersAdmin() {
                 // La Cloud Function creó la cuenta con una contraseña
                 // aleatoria que nunca se expone — el usuario la define él
                 // mismo al abrir el enlace de este correo.
-                await resetPassword(email).catch(() => {});
-                setAccountCreatedNotice(`Se creó una cuenta nueva para ${email} y se le envió un correo para que defina su contraseña.`);
+                await sendWelcomeEmail(email);
             }
             setNewAdminEmail('');
             setNewAdminName('');
@@ -140,11 +169,11 @@ export default function UsersAdmin() {
         }
         setComisarioSaving(true);
         setAccountCreatedNotice('');
+        setEmailFailedFor('');
         try {
             const result = await FirebaseService.setUserRole(email, orgId, 'comisario', newComisarioName.trim());
             if (result.created) {
-                await resetPassword(email).catch(() => {});
-                setAccountCreatedNotice(`Se creó una cuenta nueva para ${email} y se le envió un correo para que defina su contraseña.`);
+                await sendWelcomeEmail(email);
             }
             setNewComisarioEmail('');
             setNewComisarioName('');
@@ -187,9 +216,18 @@ export default function UsersAdmin() {
             </p>
 
             {accountCreatedNotice && (
-                <p className="mb-6 max-w-2xl text-green-300 text-sm bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3">
-                    ✅ {accountCreatedNotice}
-                </p>
+                <div className={`mb-6 max-w-2xl text-sm border rounded-lg px-4 py-3 flex items-center justify-between gap-3 ${emailFailedFor ? 'text-orange-300 bg-orange-500/10 border-orange-500/30' : 'text-green-300 bg-green-500/10 border-green-500/30'}`}>
+                    <span>{emailFailedFor ? '⚠️' : '✅'} {accountCreatedNotice}</span>
+                    {emailFailedFor && (
+                        <button
+                            onClick={handleResendEmail}
+                            disabled={resendingEmail}
+                            className="shrink-0 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-all"
+                        >
+                            {resendingEmail ? 'Reenviando...' : '📩 Reenviar'}
+                        </button>
+                    )}
+                </div>
             )}
 
             {/* Admins */}
