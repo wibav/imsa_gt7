@@ -92,7 +92,11 @@ export class Claim {
         this.lap = data.lap || '';           // Número de vuelta (opcional)
         this.minute = data.minute || '';     // Minuto de carrera (opcional, útil en resistencia)
         this.description = data.description || '';
-        this.evidence = data.evidence || '';          // URL de video (YouTube, etc.)
+        // URLs de video (YouTube, etc.) — varias perspectivas del mismo incidente.
+        // Normaliza datos antiguos (guardados como un solo string) a array.
+        this.evidence = Array.isArray(data.evidence)
+            ? data.evidence
+            : (data.evidence ? [data.evidence] : []);
 
         // Estado
         this.status = data.status || 'pending';       // 'pending' | 'reviewing' | 'accepted' | 'rejected' | 'resolved'

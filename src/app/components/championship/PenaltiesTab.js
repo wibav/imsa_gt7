@@ -337,12 +337,16 @@ export default function PenaltiesTab({
                                                 {penalty.evidence && (
                                                     <div className="mt-2 pt-2 border-t border-white/10">
                                                         <span className="text-xs text-gray-500">📎 Evidencia: </span>
-                                                        {penalty.evidence.startsWith('http') ? (
-                                                            <a href={penalty.evidence} target="_blank" rel="noopener noreferrer"
-                                                                className="text-xs text-blue-400 hover:underline">{penalty.evidence}</a>
-                                                        ) : (
-                                                            <span className="text-xs text-gray-300">{penalty.evidence}</span>
-                                                        )}
+                                                        <span className="inline-flex flex-wrap gap-x-3">
+                                                            {penalty.evidence.split('\n').filter(Boolean).map((url, i) => (
+                                                                url.startsWith('http') ? (
+                                                                    <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                                                                        className="text-xs text-blue-400 hover:underline">{url}</a>
+                                                                ) : (
+                                                                    <span key={i} className="text-xs text-gray-300">{url}</span>
+                                                                )
+                                                            ))}
+                                                        </span>
                                                     </div>
                                                 )}
                                             </div>
@@ -972,14 +976,16 @@ function ClaimsSection({ claims, championshipId, allDrivers, tracks, config, onR
                                             </div>
                                         )}
                                         <p className="text-gray-300 text-sm">{claim.description}</p>
-                                        {claim.evidence && (
-                                            <div className="mt-1">
-                                                {claim.evidence.startsWith('http') ? (
-                                                    <a href={claim.evidence} target="_blank" rel="noopener noreferrer"
-                                                        className="text-xs text-blue-400 hover:underline">📎 Ver evidencia</a>
-                                                ) : (
-                                                    <span className="text-xs text-gray-400">📎 {claim.evidence}</span>
-                                                )}
+                                        {claim.evidence?.length > 0 && (
+                                            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                                                {claim.evidence.map((url, i) => (
+                                                    url.startsWith('http') ? (
+                                                        <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                                                            className="text-xs text-blue-400 hover:underline">📎 Ver evidencia {claim.evidence.length > 1 ? i + 1 : ''}</a>
+                                                    ) : (
+                                                        <span key={i} className="text-xs text-gray-400">📎 {url}</span>
+                                                    )
+                                                ))}
                                             </div>
                                         )}
                                         {claim.resolution && (
@@ -1139,7 +1145,7 @@ function ResolveClaimModal({ claim, allDrivers, tracks, presets, onClose, onReso
                     timeSeconds: 0,
                     lap: claim.lap,
                     incident: claim.description,
-                    evidence: claim.evidence
+                    evidence: (claim.evidence || []).join('\n')
                 };
             } else if (selectedPreset) {
                 const totalPoints = (selectedPreset.points || 0) + (extraPoints || 0);
@@ -1163,7 +1169,7 @@ function ResolveClaimModal({ claim, allDrivers, tracks, presets, onClose, onReso
                     extraPointsReason: extraPointsReason || '',
                     lap: claim.lap,
                     incident: claim.description,
-                    evidence: claim.evidence
+                    evidence: (claim.evidence || []).join('\n')
                 };
             }
         }

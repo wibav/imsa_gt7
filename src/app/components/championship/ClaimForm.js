@@ -30,9 +30,10 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
         lap: '',
         minute: '',
         description: '',
-        evidence: ''
+        evidence: []
     });
     const [accusedInput, setAccusedInput] = useState('');
+    const [evidenceInput, setEvidenceInput] = useState('');
     const [saving, setSaving] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [errors, setErrors] = useState([]);
@@ -63,6 +64,17 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
 
     const handleRemoveAccused = (name) => {
         setForm(prev => ({ ...prev, accusedNames: prev.accusedNames.filter(n => n !== name) }));
+    };
+
+    const handleAddEvidence = () => {
+        const url = evidenceInput.trim();
+        if (!url || form.evidence.includes(url)) return;
+        setForm(prev => ({ ...prev, evidence: [...prev.evidence, url] }));
+        setEvidenceInput('');
+    };
+
+    const handleRemoveEvidence = (url) => {
+        setForm(prev => ({ ...prev, evidence: prev.evidence.filter(u => u !== url) }));
     };
 
     const validate = () => {
@@ -282,19 +294,39 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
                             />
                         </div>
 
-                        {/* URL del video */}
+                        {/* URLs de video (varias perspectivas) */}
                         <div>
                             <label className="text-gray-400 text-sm block mb-1">
-                                URL del video (recomendado)
+                                URL(s) de video (recomendado)
                             </label>
-                            <input
-                                type="url"
-                                value={form.evidence}
-                                onChange={e => setForm(prev => ({ ...prev, evidence: e.target.value }))}
-                                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm"
-                                placeholder="https://youtube.com/watch?v=..."
-                            />
-                            <p className="text-gray-600 text-xs mt-1">Incluye un clip de YouTube con el incidente para agilizar la revisión</p>
+                            {form.evidence.length > 0 && (
+                                <ul className="space-y-1 mb-2">
+                                    {form.evidence.map(url => (
+                                        <li key={url} className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
+                                            <span className="text-blue-300 text-xs truncate flex-1">{url}</span>
+                                            <button type="button" onClick={() => handleRemoveEvidence(url)}
+                                                className="text-gray-400 hover:text-red-400 leading-none">×</button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                            <div className="flex gap-2">
+                                <input
+                                    type="url"
+                                    value={evidenceInput}
+                                    onChange={e => setEvidenceInput(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddEvidence(); } }}
+                                    className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm"
+                                    placeholder="https://youtube.com/watch?v=..."
+                                />
+                                <button type="button"
+                                    onClick={handleAddEvidence}
+                                    disabled={!evidenceInput.trim()}
+                                    className="px-3 py-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-40 text-white text-sm rounded-lg transition-all">
+                                    + Agregar
+                                </button>
+                            </div>
+                            <p className="text-gray-600 text-xs mt-1">Puedes agregar más de un clip (distintas perspectivas del mismo incidente)</p>
                         </div>
 
                         <div className="flex gap-3 justify-end pt-2">

@@ -181,7 +181,7 @@ async function main() {
     await check('Anónimo puede crear una reclamación (payload real de ClaimForm/Claim.toFirestore, con resolvedBy/resolution/penaltyId presentes pero vacíos)', () =>
         assertSucceeds(anon.doc('championships/champ1/claims/c2').set({
             reporterName: 'x', reporterPsnId: '', accusedNames: ['y'], trackId: 't1', trackName: 'Spa',
-            round: 1, lap: '', minute: '', description: 'toque en curva 3', evidence: '',
+            round: 1, lap: '', minute: '', description: 'toque en curva 3', evidence: [],
             status: 'pending', resolution: '', penaltyId: null, resolvedBy: '', resolvedAt: null,
         })));
 
