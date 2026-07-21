@@ -1074,7 +1074,7 @@ function ClaimsSection({ claims, championshipId, championship, org, allDrivers, 
                                             <div className="flex gap-1 mt-1 pt-1 border-t border-white/10">
                                                 <a
                                                     href={whatsappShareUrl(claim)}
-                                                    target="_blank" rel="noopener noreferrer"
+                                                    rel="noopener noreferrer"
                                                     className="text-xs px-2 py-1 bg-green-700/20 hover:bg-green-700/40 text-green-300 rounded transition-all"
                                                     title="Compartir esta reclamación en WhatsApp (para deliberar con comisarios)"
                                                 >
