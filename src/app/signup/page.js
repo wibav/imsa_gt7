@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { FirebaseService } from '../services/firebaseService';
 import { validateOrgSlug } from '../utils/orgRouting';
@@ -18,7 +18,22 @@ function slugify(text) {
 }
 
 export default function SignupPage() {
-    const { currentUser, login, signup, refreshClaims, loading: authLoading } = useAuth();
+    const { currentUser, login, signup, refreshClaims, myOrgIds, loading: authLoading } = useAuth();
+
+    // Si el usuario ya pertenece a una organización (típicamente la suya
+    // propia, ya creada antes), no tiene sentido mostrarle el formulario de
+    // "crear tu liga" de nuevo — se le manda directo a su panel. Sin esto,
+    // cualquiera con una liga ya creada que vuelva a "Crea tu liga" y haga
+    // login se quedaba atascado viendo el formulario de alta otra vez.
+    useEffect(() => {
+        if (!authLoading && currentUser) {
+            const existingOrgId = myOrgIds()[0];
+            if (existingOrgId) {
+                window.location.href = `/l/${existingOrgId}`;
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [authLoading, currentUser]);
 
     // Paso 1: cuenta
     const [mode, setMode] = useState('signup'); // 'signup' | 'login'
@@ -109,6 +124,8 @@ export default function SignupPage() {
 
                 {authLoading ? (
                     <p className="text-center text-gray-400 text-sm">Cargando…</p>
+                ) : currentUser && myOrgIds()[0] ? (
+                    <p className="text-center text-gray-400 text-sm">Ya tienes una organización — redirigiendo a tu panel…</p>
                 ) : !currentUser ? (
                     <div className="bg-white/10 border border-white/20 rounded-xl p-6">
                         <div className="flex gap-2 mb-6">
