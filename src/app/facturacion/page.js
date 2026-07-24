@@ -19,7 +19,7 @@ const PLAN_LABELS = { free: 'Free (prueba única)', starter: 'Starter', pro: 'Pr
 
 // Planes mensuales (suscripción recurrente) — desbloquean límites y
 // personalización. 'pro_ia' es el único que además incluye las sugerencias
-// de resolución de reclamaciones con Gemini (tiene coste variable real, ver
+// de resolución de reclamaciones con IA (tiene coste variable real, ver
 // docs/PLAN_MONETIZACION.md §9).
 const PLANES = [
     {
@@ -32,16 +32,16 @@ const PLANES = [
     {
         key: 'pro',
         label: 'Pro',
-        price: '35 €/mes',
+        price: '25 €/mes',
         priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_PRO || '',
         features: ['Hasta 200 pilotos', '4 administradores (incl. owner)', '8 comisarios', 'Branding propio (logo + colores)', 'URL personalizada'],
     },
     {
         key: 'pro_ia',
         label: 'Pro + IA',
-        price: '55 €/mes',
+        price: '35 €/mes',
         priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_PRO_IA || '',
-        features: ['Hasta 200 pilotos', '4 administradores (incl. owner)', '12 comisarios', 'Branding + URL personalizada', '🤖 Sugerencia de resolución de reclamaciones con Gemini', 'Hasta 60 sugerencias de IA/mes'],
+        features: ['Hasta 200 pilotos', '4 administradores (incl. owner)', '12 comisarios', 'Branding + URL personalizada', '🤖 Sugerencia de resolución de reclamaciones con IA', 'Hasta 80 sugerencias de IA/mes'],
         highlight: true,
     },
 ];
@@ -50,9 +50,9 @@ const PLANES = [
 // puede crear la organización. Independiente del plan mensual: una org
 // Free puede comprar un lote sin pasar a Starter/Pro.
 const LOTES = [
-    { key: 'S', credits: 1, price: '8 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_S || '' },
-    { key: 'M', credits: 5, price: '30 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_M || '' },
-    { key: 'L', credits: 10, price: '50 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_L || '' },
+    { key: 'S', credits: 1, price: '4 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_S || '' },
+    { key: 'M', credits: 5, price: '15 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_M || '' },
+    { key: 'L', credits: 10, price: '25 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_L || '' },
 ];
 
 const PLAN_RANK = { free: 0, starter: 1, pro: 2, pro_ia: 3 };

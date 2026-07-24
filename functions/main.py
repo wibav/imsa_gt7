@@ -731,7 +731,7 @@ _PADDLE_PRICE_CREDITS = {
 # Tope de sugerencias de IA por organización/mes en plan 'pro_ia' — acota el
 # coste variable de Gemini incluso dentro de un plan de pago (ver §9.4 de
 # docs/PLAN_MONETIZACION.md). Ajustable a futuro por `org.limits.maxAiSuggestionsPerMonth`.
-_AI_MONTHLY_CAP_DEFAULT = 60
+_AI_MONTHLY_CAP_DEFAULT = 80
 
 
 def _validate_org_slug(slug: str) -> str | None:

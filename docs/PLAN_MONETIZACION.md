@@ -99,12 +99,12 @@ notificaciones — sin planillas de Excel ni bots caseros."
 
 ### 1.4 Planes mensuales (features/límites — eje recurrente)
 
-| Plan | Precio | Pilotos | Admins (incl. owner) | Comisarios | Branding | URL propia | Sugerencias IA (Gemini) |
+| Plan | Precio | Pilotos | Admins (incl. owner) | Comisarios | Branding | URL propia | Sugerencias IA |
 |------|--------|---------|----------------------|-----------|----------|-----------|--------------------------|
 | **Free** (solo lotes) | 0 €/mes | 15 (máx.) | 2 | 3 | "Powered by" visible | No | No |
 | **Starter** | 12 €/mes | 60 | 2 | 6 | "Powered by" visible | No | No |
-| **Pro** | 35 €/mes | 200 | 4 | 8 | **Logo + colores propios** | **Sí: `trenkit.com/l/mi-liga`** | No |
-| **Pro + IA** | 55 €/mes | 200 | 4 | 12 | Logo + colores propios | Sí | **Sí — hasta 60 sugerencias/mes** |
+| **Pro** | 25 €/mes | 200 | 4 | 8 | **Logo + colores propios** | **Sí: `trenkit.com/l/mi-liga`** | No |
+| **Pro + IA** | 35 €/mes | 200 | 4 | 12 | Logo + colores propios | Sí | **Sí — hasta 80 sugerencias/mes** |
 
 - **Anual**: 2 meses gratis (~17% descuento) en cualquiera de los 3 planes de
   pago — pendiente de crear el precio anual equivalente en Paddle cuando se
@@ -112,22 +112,26 @@ notificaciones — sin planillas de Excel ni bots caseros."
 - **Pro + IA no es un add-on activable sobre Pro**: es un plan propio con su
   propio `priceId` — más simple de facturar y de mostrar en el checkout que
   una suscripción con complementos.
-- **Tope de 60 sugerencias de IA/mes**: pensado para acotar el coste variable
+- **Tope de 80 sugerencias de IA/mes**: pensado para acotar el coste variable
   de Gemini incluso dentro de un plan de pago (ver §9.3). No está pensado
   como límite duro definitivo — se ajusta con datos reales de uso/coste una
   vez haya organizaciones activas en este plan.
+- El texto de cara al organizador dice "sugerencias con IA" (no menciona
+  "Gemini") — el proveedor concreto es un detalle de implementación, no algo
+  que el cliente necesite saber.
 
 ### 1.4bis Lotes de créditos (volumen — eje de pago único)
 
 | Lote | Créditos (campeonatos/eventos) | Precio | €/crédito |
 |------|-------------------------------|--------|-----------|
-| **S** | 1 | 8 € | 8,0 € |
-| **M** | 5 | 30 € | 6,0 € |
-| **L** | 10 | 50 € | 5,0 € |
+| **S** | 1 | 4 € | 4,0 € |
+| **M** | 5 | 15 € | 3,0 € |
+| **L** | 10 | 25 € | 2,5 € |
 
-> Precios de referencia — solo las **cantidades de créditos (1/5/10)** están
-> decididas; los importes en € son una propuesta a validar (mantienen el
-> descuento por volumen del diseño original).
+> Precios ajustados por el propietario el 2026-07-24 (mitad de la propuesta
+> inicial de 8/30/50 €) — sigue siendo una cifra tentativa ("quizás" bajarlos
+> a la mitad), no una decisión cerrada como sí lo son los precios de los
+> planes mensuales (§1.4).
 
 - No caducan por tiempo (a diferencia de los planes, que si dejan de pagarse
   pierden sus límites/features en el siguiente ciclo).
@@ -533,7 +537,7 @@ suspender/reactivar, métricas (MRR, churn, activación).
 13. **Sugerencias de reclamaciones con IA (Gemini) son exclusivas del plan
     Pro + IA** (no de "cualquier plan de pago") — tienen coste variable real
     por llamada, y el plan Pro + IA existe específicamente para cubrirlo con
-    margen. Incluye tope de 60 sugerencias/mes por organización. Ver §9.
+    margen. Incluye tope de 80 sugerencias/mes por organización. Ver §9.
 
 **Único punto abierto (no es de código, es operativo):**
 - Crear los **6 precios reales en el Dashboard de Paddle** (3 lotes
@@ -581,7 +585,7 @@ límite (cualquier organización Free podría generar llamadas ilimitadas).
 - **Tope de uso mensual**: dentro de `organizations/{orgId}.aiUsage =
   {month, count}`, incrementado en una transacción de Firestore antes de
   llamar a Gemini (evita que dos llamadas casi simultáneas se cuelen ambas
-  justo en el límite). Por defecto 60 sugerencias/mes
+  justo en el límite). Por defecto 80 sugerencias/mes
   (`_AI_MONTHLY_CAP_DEFAULT`), configurable por organización vía
   `org.limits.maxAiSuggestionsPerMonth`. Las organizaciones
   `billingExempt` no tienen tope. Al superarlo, devuelve `429`.
@@ -602,7 +606,7 @@ límite (cualquier organización Free podría generar llamadas ilimitadas).
   `functions/main.py` si cambian los límites de algún plan.
 
 ### 9.4 Ajustable a futuro (no bloqueante)
-- El tope de 60 sugerencias/mes es una primera estimación conservadora, no un
+- El tope de 80 sugerencias/mes es una primera estimación conservadora, no un
   número validado con datos reales de coste de Gemini por llamada de video —
   revisar y ajustar cuando haya organizaciones activas en el plan Pro + IA.
 - Ciclo anual del plan Pro + IA (con descuento, como el resto de planes) aún
