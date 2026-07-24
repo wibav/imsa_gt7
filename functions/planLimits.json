@@ -1,0 +1,7 @@
+{
+  "_comment": "Fuente única de verdad para los límites por plan (maxDrivers/maxAdmins/maxComisarios). Importado por functions/main.py (Python) y src/app/services/firebaseService.js (JS) — antes vivían duplicados a mano en ambos, con solo un comentario pidiendo mantenerlos en sync. maxAdmins incluye al Organizador/owner de la liga (no es adicional a él). 'pro_ia' comparte maxDrivers/maxAdmins con 'pro' pero permite más comisarios (más manos revisando reclamaciones, coherente con el volumen de sugerencias de IA que puede pedir una liga grande) y además incluye la IA en sí (ver _AI_MONTHLY_CAP_DEFAULT en functions/main.py).",
+  "free": { "maxDrivers": 15, "maxAdmins": 2, "maxComisarios": 3 },
+  "starter": { "maxDrivers": 60, "maxAdmins": 2, "maxComisarios": 6 },
+  "pro": { "maxDrivers": 200, "maxAdmins": 4, "maxComisarios": 8 },
+  "pro_ia": { "maxDrivers": 200, "maxAdmins": 4, "maxComisarios": 12 }
+}

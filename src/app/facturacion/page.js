@@ -15,6 +15,12 @@ import { useOrganization } from '../context/OrganizationContext';
 const PADDLE_CLIENT_TOKEN = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || '';
 const PADDLE_ENV = process.env.NEXT_PUBLIC_PADDLE_ENV || 'sandbox';
 
+// Interruptor de emergencia: un solo flip (sin tocar price IDs, token, ni
+// desmontar el catálogo) para pausar TODO el checkout de Paddle — por si un
+// bug de precios o un incidente de Paddle exige parar las ventas ya. Volver
+// a `true` para reactivar.
+const CHECKOUT_ENABLED = true;
+
 const PLAN_LABELS = { free: 'Free (prueba única)', starter: 'Starter', pro: 'Pro', pro_ia: 'Pro + IA' };
 
 // Planes mensuales (suscripción recurrente) — desbloquean límites y
@@ -65,7 +71,7 @@ export default function FacturacionPage() {
     const [paddleReady, setPaddleReady] = useState(false);
     const [checkoutKey, setCheckoutKey] = useState(null);
 
-    const paddleConfigured = Boolean(PADDLE_CLIENT_TOKEN);
+    const paddleConfigured = CHECKOUT_ENABLED && Boolean(PADDLE_CLIENT_TOKEN);
 
     useEffect(() => {
         if (!authLoading && !currentUser) {
@@ -169,7 +175,9 @@ export default function FacturacionPage() {
 
             {isOrganizador && !paddleConfigured && (
                 <p className="text-gray-500 text-sm italic mb-8">
-                    La pasarela de pago todavía no está configurada. Contacta al Administrador de Plataforma.
+                    {CHECKOUT_ENABLED
+                        ? 'La pasarela de pago todavía no está configurada. Contacta al Administrador de Plataforma.'
+                        : 'La compra de lotes/planes está pausada temporalmente. Contacta al Administrador de Plataforma.'}
                 </p>
             )}
 

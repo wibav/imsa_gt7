@@ -14,7 +14,8 @@ import {
   arrayUnion,
   increment,
   writeBatch,
-  deleteField
+  deleteField,
+  runTransaction
 } from "firebase/firestore";
 import {
   getStorage,
@@ -24,6 +25,10 @@ import {
   deleteObject
 } from "firebase/storage";
 import { app, auth } from "../api/firebase/firebaseConfig";
+// Fuente única de límites por plan, compartida con functions/main.py (que
+// la importa desde el mismo archivo) — antes vivían duplicados a mano aquí
+// y en Python, con solo un comentario pidiendo mantenerlos en sync.
+import PLAN_LIMITS_JSON from "../../../functions/planLimits.json";
 import { Championship, Team, Track, Event } from "../models/Championship";
 import { Penalty, Claim } from "../models/Penalty";
 
@@ -1723,15 +1728,9 @@ export class FirebaseService {
     });
   }
 
-  /** Espejo de los límites por plan de functions/main.py (_FREE_PLAN_LIMITS,
-   *  _STARTER_PLAN_LIMITS, _PRO_PLAN_LIMITS, _PRO_IA_PLAN_LIMITS) — mantener
-   *  ambos en sync si cambian los límites de algún plan. */
-  static PLAN_LIMITS = {
-    free: { maxDrivers: 15, maxAdmins: 2, maxComisarios: 3 },
-    starter: { maxDrivers: 60, maxAdmins: 2, maxComisarios: 6 },
-    pro: { maxDrivers: 200, maxAdmins: 4, maxComisarios: 8 },
-    pro_ia: { maxDrivers: 200, maxAdmins: 4, maxComisarios: 12 },
-  };
+  /** Límites por plan — ver functions/planLimits.json, fuente única
+   *  compartida con functions/main.py. */
+  static PLAN_LIMITS = PLAN_LIMITS_JSON;
 
   /** Otorga un lote de créditos a una organización y/o le cambia el plan —
    *  vía manual (comp de cortesía, o venta fuera de Paddle) desde
@@ -1750,33 +1749,42 @@ export class FirebaseService {
   static async grantChampionshipCredits(orgId, creditsToAdd, newPlan = null) {
     const purchasingCredits = creditsToAdd > 0;
     const orgRef = doc(db, 'organizations', orgId);
-    const updates = {
-      championshipCredits: increment(creditsToAdd),
-      updatedAt: new Date().toISOString(),
-    };
-    if (purchasingCredits) updates.creditsPurchased = true;
 
-    if (newPlan) {
-      // Reemplaza el mapa `limits` completo — si esta compra (o alguna
-      // anterior) ya eliminó el tope de pilotos, se excluye maxDrivers
-      // directamente aquí en vez de usar deleteField() sobre
-      // 'limits.maxDrivers' (Firestore no permite mezclar un path anidado
-      // con su padre 'limits' en el mismo updateDoc).
-      let hadCreditsPurchased = purchasingCredits;
-      if (!hadCreditsPurchased) {
-        const snap = await getDoc(orgRef);
-        hadCreditsPurchased = Boolean(snap.data()?.creditsPurchased);
+    // Transacción (no getDoc + updateDoc sueltos): esto puede correr casi al
+    // mismo tiempo que paddle_webhook procesa una compra real de lote para
+    // la misma org — sin transacción, un getDoc de este método podía leer
+    // `creditsPurchased` como false justo antes de que el webhook lo pusiera
+    // en true, y luego este updateDoc reescribía `limits` completo
+    // reintroduciendo maxDrivers, deshaciendo silenciosamente la compra.
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(orgRef);
+      const hadCreditsPurchased = purchasingCredits || Boolean(snap.data()?.creditsPurchased);
+
+      const updates = {
+        championshipCredits: increment(creditsToAdd),
+        updatedAt: new Date().toISOString(),
+      };
+      if (purchasingCredits) updates.creditsPurchased = true;
+
+      if (newPlan) {
+        // Reemplaza el mapa `limits` completo — si esta compra (o alguna
+        // anterior, leída dentro de esta misma transacción) ya eliminó el
+        // tope de pilotos, se excluye maxDrivers directamente aquí en vez
+        // de usar deleteField() sobre 'limits.maxDrivers' (Firestore no
+        // permite mezclar un path anidado con su padre 'limits' en el
+        // mismo update).
+        updates.plan = newPlan;
+        updates.aiEnabled = newPlan === 'pro_ia';
+        const planLimits = { ...(FirebaseService.PLAN_LIMITS[newPlan] || FirebaseService.PLAN_LIMITS.free) };
+        if (hadCreditsPurchased) delete planLimits.maxDrivers;
+        updates.limits = planLimits;
+      } else if (purchasingCredits) {
+        // Sin cambio de plan: solo quitar el tope de pilotos del límite actual.
+        updates['limits.maxDrivers'] = deleteField();
       }
-      updates.plan = newPlan;
-      updates.aiEnabled = newPlan === 'pro_ia';
-      const planLimits = { ...(FirebaseService.PLAN_LIMITS[newPlan] || FirebaseService.PLAN_LIMITS.free) };
-      if (hadCreditsPurchased) delete planLimits.maxDrivers;
-      updates.limits = planLimits;
-    } else if (purchasingCredits) {
-      // Sin cambio de plan: solo quitar el tope de pilotos del límite actual.
-      updates['limits.maxDrivers'] = deleteField();
-    }
-    await updateDoc(orgRef, updates);
+
+      transaction.update(orgRef, updates);
+    });
   }
 
   // ══════════════════════════════════════════

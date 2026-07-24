@@ -675,34 +675,18 @@ _SLUG_RE = re.compile(r'^[a-z0-9-]+$')
 # ADR-007): cuántos campeonatos/eventos puede crear una org lo determina su
 # saldo `championshipCredits`, no un tope fijo por plan. Estos límites solo
 # cubren lo que sí sigue dependiendo del tier (pilotos, administradores).
-# maxAdmins incluye al Organizador/owner de la liga (no es adicional a él).
-_FREE_PLAN_LIMITS = {  # solo lotes de créditos, sin plan mensual
-    'maxDrivers': 15,
-    'maxAdmins': 2,
-    'maxComisarios': 3,
-}
+#
+# Fuente única: planLimits.json (junto a este archivo, se despliega con la
+# función) — también lo importa src/app/services/firebaseService.js para el
+# otorgamiento manual de planes. Antes vivían duplicados a mano en Python y
+# JS con solo un comentario pidiendo mantenerlos en sync.
+with open(os.path.join(os.path.dirname(__file__), 'planLimits.json')) as _plan_limits_file:
+    _PLAN_LIMITS = json.load(_plan_limits_file)
 
-_STARTER_PLAN_LIMITS = {
-    'maxDrivers': 60,
-    'maxAdmins': 2,
-    'maxComisarios': 6,
-}
-
-_PRO_PLAN_LIMITS = {
-    'maxDrivers': 200,
-    'maxAdmins': 4,
-    'maxComisarios': 8,
-}
-
-# 'pro_ia' comparte maxDrivers con 'pro' pero permite más comisarios (más
-# manos revisando reclamaciones, coherente con el volumen de sugerencias de
-# IA que puede llegar a pedir una liga grande) — además incluye la IA en sí
-# (ver _AI_MONTHLY_CAP más abajo).
-_PRO_IA_PLAN_LIMITS = {
-    'maxDrivers': 200,
-    'maxAdmins': 4,
-    'maxComisarios': 12,
-}
+_FREE_PLAN_LIMITS = _PLAN_LIMITS['free']
+_STARTER_PLAN_LIMITS = _PLAN_LIMITS['starter']
+_PRO_PLAN_LIMITS = _PLAN_LIMITS['pro']
+_PRO_IA_PLAN_LIMITS = _PLAN_LIMITS['pro_ia']
 
 # ══════════════════════════════════════════════════════════════════════════
 # Catálogo de precios de Paddle → qué desbloquea cada uno.
@@ -932,12 +916,27 @@ def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
     if event_type in ('subscription.created', 'subscription.updated', 'subscription.activated', 'subscription.resumed'):
         # Un item de la suscripción trae el price.id que compró — se resuelve
         # contra el catálogo para saber qué plan/límites/IA corresponde.
-        # Si el price.id no está en el catálogo (precio viejo, o placeholder
-        # sin reemplazar todavía) se cae a 'pro' sin IA, el comportamiento
-        # previo, en vez de fallar silenciosamente.
         items = data.get('items') or []
         price_id = next((it.get('price', {}).get('id') for it in items if it.get('price')), None)
-        plan, plan_limits, ai_enabled = _PADDLE_PRICE_PLANS.get(price_id, ('pro', _PRO_PLAN_LIMITS, False))
+        price_match = _PADDLE_PRICE_PLANS.get(price_id)
+
+        if price_match is None:
+            # price.id desconocido (precio rotado, typo en el catálogo, o un
+            # tipo de precio nuevo aún no añadido) — NO se toca plan/limits/
+            # aiEnabled. Este evento dispara en cada renovación, así que
+            # "caer" a un plan por defecto sobrescribiría silenciosamente el
+            # plan real de la organización (ej. degradar un pro_ia pagado a
+            # pro sin avisar). Se registra y se alerta para revisión manual.
+            print(f'paddle_webhook: price_id desconocido {price_id!r} en {event_type} para org "{org_id}" — no se actualiza el plan')
+            _send_telegram_message(
+                f'⚠️ <b>price_id desconocido en webhook de Paddle</b>\n'
+                f'🏢 {org_name}\n'
+                f'🔖 price_id: {price_id or "—"}\n'
+                f'👉 El plan de la organización NO se actualizó — revisar _PADDLE_PRICE_PLANS.'
+            )
+            return https_fn.Response('ok', status=200)
+
+        plan, plan_limits, ai_enabled = price_match
 
         billing_period = data.get('current_billing_period') or {}
         billing_cycle = data.get('billing_cycle') or {}
@@ -993,8 +992,16 @@ def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
         # ignora si ya se procesó, para no duplicar el abono.
         transaction_id = data.get('id')
         items = data.get('items') or []
+
+        def _item_quantity(it):
+            # `or 1` trataría una quantity explícita de 0 igual que una
+            # ausente (0 or 1 == 1) — se distingue None (ausente, default 1)
+            # de un 0 real (línea ajustada/con descuento total, cuenta como 0).
+            quantity = it.get('quantity')
+            return 1 if quantity is None else int(quantity)
+
         total_credits = sum(
-            _PADDLE_PRICE_CREDITS.get(it.get('price', {}).get('id'), 0) * int(it.get('quantity', 1) or 1)
+            _PADDLE_PRICE_CREDITS.get(it.get('price', {}).get('id'), 0) * _item_quantity(it)
             for it in items if it.get('price')
         )
         if total_credits > 0 and transaction_id:
@@ -1113,10 +1120,12 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
         }, 402)
 
     # Tope de uso mensual — acota el coste de Gemini incluso dentro de un
-    # plan de pago. billingExempt (GT7 ESP) no tiene tope. La transacción
-    # evita que dos llamadas casi simultáneas se cuelen ambas justo en el
-    # límite (leer-comprobar-incrementar no es atómico sin ella).
-    if org_ref and not is_billing_exempt:
+    # plan de pago. billingExempt (GT7 ESP) no tiene tope, y platformOwner
+    # tampoco consume el cupo de una organización ajena (mismo criterio que
+    # el chequeo de plan de arriba). La transacción evita que dos llamadas
+    # casi simultáneas se cuelen ambas justo en el límite (leer-comprobar-
+    # incrementar no es atómico sin ella).
+    if org_ref and not is_billing_exempt and not caller_claims.get('platformOwner'):
         cap = (org.get('limits') or {}).get('maxAiSuggestionsPerMonth', _AI_MONTHLY_CAP_DEFAULT)
         current_month = datetime.now(timezone.utc).strftime('%Y-%m')
 

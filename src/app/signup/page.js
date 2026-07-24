@@ -124,7 +124,7 @@ export default function SignupPage() {
 
                 {authLoading ? (
                     <p className="text-center text-gray-400 text-sm">Cargando…</p>
-                ) : currentUser && myOrgIds()[0] ? (
+                ) : !created && currentUser && myOrgIds()[0] ? (
                     <p className="text-center text-gray-400 text-sm">Ya tienes una organización — redirigiendo a tu panel…</p>
                 ) : !currentUser ? (
                     <div className="bg-white/10 border border-white/20 rounded-xl p-6">

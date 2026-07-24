@@ -6,7 +6,6 @@ import {
     PENALTY_TYPE_CONFIG, SEVERITY_CONFIG, CLAIM_STATUS_CONFIG
 } from '../../models/Penalty';
 import { notifyPenaltyApplied, notifyClaimResolved } from '../../utils/telegram';
-import { useOrganization } from '../../context/OrganizationContext';
 
 /**
  * Tab de Sanciones para el admin de campeonatos.
@@ -28,7 +27,18 @@ export default function PenaltiesTab({
     const [showApplyModal, setShowApplyModal] = useState(false);
     const [showClaimResolveModal, setShowClaimResolveModal] = useState(null);
     const [saving, setSaving] = useState(false);
-    const { org } = useOrganization();
+    // La organización de ESTE campeonato, no la de la sesión del usuario que
+    // lo está administrando — useOrganization() resolvía por los claims del
+    // caller (con fallback ambiguo para usuarios multi-org/platformOwner),
+    // lo que podía mostrar el plan/billingExempt de la org equivocada (ej.
+    // el botón de sugerencia de IA reflejando gt7-esp en vez del campeonato
+    // real que se está viendo). El backend ya resolvía correctamente por
+    // championship.orgId; esto alinea el frontend con el mismo criterio.
+    const [org, setOrg] = useState(null);
+    useEffect(() => {
+        if (!championship?.orgId) { setOrg(null); return; }
+        FirebaseService.getOrganization(championship.orgId).then(setOrg);
+    }, [championship?.orgId]);
 
     // Config local del sistema de sanciones
     const [config, setConfig] = useState({
