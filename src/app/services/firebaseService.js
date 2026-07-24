@@ -13,7 +13,8 @@ import {
   updateDoc,
   arrayUnion,
   increment,
-  writeBatch
+  writeBatch,
+  deleteField
 } from "firebase/firestore";
 import {
   getStorage,
@@ -1739,18 +1740,43 @@ export class FirebaseService {
    *  Plataforma, así que esto solo puede llamarse con esa sesión. `newPlan`
    *  es opcional; si se pasa, también actualiza `limits`/`aiEnabled` para
    *  que quede consistente con lo que aplicaría el webhook de Paddle para
-   *  ese mismo plan. */
+   *  ese mismo plan.
+   *
+   *  Comprar un lote (creditsToAdd > 0, siempre el caso en este formulario)
+   *  elimina el límite de pilotos permanentemente — igual que hace
+   *  paddle_webhook con `creditsPurchased`/`limits.maxDrivers`. No aplica al
+   *  crédito de prueba inicial del plan Free (ese se otorga en
+   *  create_organization, no aquí). */
   static async grantChampionshipCredits(orgId, creditsToAdd, newPlan = null) {
+    const purchasingCredits = creditsToAdd > 0;
+    const orgRef = doc(db, 'organizations', orgId);
     const updates = {
       championshipCredits: increment(creditsToAdd),
       updatedAt: new Date().toISOString(),
     };
+    if (purchasingCredits) updates.creditsPurchased = true;
+
     if (newPlan) {
+      // Reemplaza el mapa `limits` completo — si esta compra (o alguna
+      // anterior) ya eliminó el tope de pilotos, se excluye maxDrivers
+      // directamente aquí en vez de usar deleteField() sobre
+      // 'limits.maxDrivers' (Firestore no permite mezclar un path anidado
+      // con su padre 'limits' en el mismo updateDoc).
+      let hadCreditsPurchased = purchasingCredits;
+      if (!hadCreditsPurchased) {
+        const snap = await getDoc(orgRef);
+        hadCreditsPurchased = Boolean(snap.data()?.creditsPurchased);
+      }
       updates.plan = newPlan;
-      updates.limits = FirebaseService.PLAN_LIMITS[newPlan] || FirebaseService.PLAN_LIMITS.free;
       updates.aiEnabled = newPlan === 'pro_ia';
+      const planLimits = { ...(FirebaseService.PLAN_LIMITS[newPlan] || FirebaseService.PLAN_LIMITS.free) };
+      if (hadCreditsPurchased) delete planLimits.maxDrivers;
+      updates.limits = planLimits;
+    } else if (purchasingCredits) {
+      // Sin cambio de plan: solo quitar el tope de pilotos del límite actual.
+      updates['limits.maxDrivers'] = deleteField();
     }
-    await updateDoc(doc(db, 'organizations', orgId), updates);
+    await updateDoc(orgRef, updates);
   }
 
   // ══════════════════════════════════════════

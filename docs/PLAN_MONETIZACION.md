@@ -136,7 +136,19 @@ notificaciones — sin planillas de Excel ni bots caseros."
 - El plan Free arranca con **1 crédito** (su prueba única) — comprar un lote
   no exige subir de plan mensual. Una organización que **solo compra lotes**
   (sin suscribirse a Starter/Pro/Pro + IA) se queda con los límites de
-  pilotos/admins/comisarios del plan **Free** (§1.4).
+  **admins/comisarios** del plan Free (§1.4) — pero no con el de pilotos, ver
+  el punto siguiente.
+- **Comprar un lote elimina el límite de pilotos permanentemente**, en
+  cualquier plan mensual (incluido Free). Regla de negocio: si ya estás
+  pagando por volumen de campeonatos/eventos, no tiene sentido seguir topando
+  cuántos pilotos puede tener cada uno. No aplica al crédito de prueba
+  inicial del plan Free (ese no cuenta como "lote comprado"). Implementado
+  vía `organizations/{id}.creditsPurchased` (flag permanente, puesto por
+  `paddle_webhook` al procesar `transaction.completed`/`paid`, o por
+  `FirebaseService.grantChampionshipCredits` en el otorgamiento manual): una
+  vez en `true`, tanto el webhook de suscripciones como el otorgamiento
+  manual omiten `maxDrivers` de `limits` al escribirlo, sin importar qué
+  plan mensual tenga la organización después.
 
 - **Moneda: EUR** (resides en Portugal). **Ciclos: mensual y anual** (anual con
   descuento, ~2 meses gratis).

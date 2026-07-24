@@ -938,12 +938,20 @@ def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
         # previo, en vez de fallar silenciosamente.
         items = data.get('items') or []
         price_id = next((it.get('price', {}).get('id') for it in items if it.get('price')), None)
-        plan, limits, ai_enabled = _PADDLE_PRICE_PLANS.get(price_id, ('pro', _PRO_PLAN_LIMITS, False))
+        plan, plan_limits, ai_enabled = _PADDLE_PRICE_PLANS.get(price_id, ('pro', _PRO_PLAN_LIMITS, False))
 
         billing_period = data.get('current_billing_period') or {}
         billing_cycle = data.get('billing_cycle') or {}
         prev = org_snap.to_dict()
         was_same_plan_already = prev.get('plan') == plan
+
+        # Si la organización ya compró algún lote de créditos alguna vez
+        # (creditsPurchased), el límite de pilotos queda eliminado
+        # permanentemente — no se reintroduce al cambiar de plan mensual.
+        limits = dict(plan_limits)
+        if prev.get('creditsPurchased'):
+            limits.pop('maxDrivers', None)
+
         org_ref.set({
             'plan': plan,
             'status': 'active',
@@ -1002,8 +1010,16 @@ def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
                     'credits': total_credits,
                     'processedAt': fb_firestore.SERVER_TIMESTAMP,
                 })
+                # Comprar un lote elimina el límite de pilotos permanentemente
+                # (a diferencia de los créditos, esto no se revierte al gastar
+                # los créditos ni al cambiar de plan mensual — ver el chequeo
+                # de `creditsPurchased` en el handler de subscription.* más
+                # arriba). No aplica al crédito de prueba inicial del plan
+                # Free (ese se otorga en create_organization, no aquí).
                 transaction.update(org_ref, {
                     'championshipCredits': fb_firestore.Increment(total_credits),
+                    'creditsPurchased': True,
+                    'limits.maxDrivers': fb_firestore.DELETE_FIELD,
                     'updatedAt': fb_firestore.SERVER_TIMESTAMP,
                 })
                 return True
@@ -1013,7 +1029,8 @@ def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
                 _send_telegram_message(
                     f'💳 <b>Lote de créditos comprado</b> 🎉\n'
                     f'🏢 {org_name}\n'
-                    f'➕ {total_credits} campeonatos/eventos'
+                    f'➕ {total_credits} campeonatos/eventos\n'
+                    f'♾️ Límite de pilotos eliminado'
                 )
 
     return https_fn.Response('ok', status=200)
