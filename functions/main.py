@@ -711,6 +711,26 @@ _PADDLE_PRICE_CREDITS = {
     'pri_01kyarf6gyp1bt7d9td4bhss3j': 10,
 }
 
+# ── BLOQUE TEMPORAL DE PRUEBAS EN SANDBOX (borrar cuando se termine de
+# validar el flujo antes de pasar a Live) ───────────────────────────────────
+# Un solo `paddle_webhook` recibe eventos de Live y de Sandbox (ver
+# PADDLE_WEBHOOK_SECRET_SANDBOX más abajo), pero cada entorno tiene su propio
+# catálogo de price_id — sin este bloque, un evento de Sandbox llega con la
+# firma válida pero con un price_id que no está en el catálogo de Live, y se
+# ignora en silencio (200 ok, sin aplicar nada). Réplica del mismo catálogo
+# de arriba con los price_id creados en sandbox-api.paddle.com.
+_PADDLE_PRICE_PLANS.update({
+    'pri_01kyavjdt8y8acwjny00dvqv59': ('starter', _STARTER_PLAN_LIMITS, False),
+    'pri_01kyavjejpfcjjrfcqcd5dbt5a': ('pro', _PRO_PLAN_LIMITS, False),
+    'pri_01kyavjf8bx9cbdem8c8sq1bny': ('pro_ia', _PRO_IA_PLAN_LIMITS, True),
+})
+_PADDLE_PRICE_CREDITS.update({
+    'pri_01kyavhxrja0jgg0r67r9vbw52': 1,
+    'pri_01kyavhyd5rss1yms3xehc3tnk': 5,
+    'pri_01kyavhyzyj3h4167z199gy5dx': 10,
+})
+# ── FIN BLOQUE TEMPORAL DE SANDBOX ──────────────────────────────────────────
+
 # Tope de sugerencias de IA por organización/mes en plan 'pro_ia' — acota el
 # coste variable de Gemini incluso dentro de un plan de pago (ver §9.4 de
 # docs/PLAN_MONETIZACION.md). Ajustable a futuro por `org.limits.maxAiSuggestionsPerMonth`.
@@ -874,13 +894,28 @@ def _verify_paddle_signature(signature_header: str, raw_body: bytes, secret: str
     return hmac.compare_digest(computed, h1)
 
 
-@https_fn.on_request(region='us-central1', secrets=['PADDLE_WEBHOOK_SECRET', 'TELEGRAM_BOT_TOKEN'])
+@https_fn.on_request(
+    region='us-central1',
+    secrets=['PADDLE_WEBHOOK_SECRET', 'PADDLE_WEBHOOK_SECRET_SANDBOX', 'TELEGRAM_BOT_TOKEN'],
+)
 def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
     if req.method != 'POST':
         return https_fn.Response('Method not allowed', status=405)
 
-    secret = os.environ.get('PADDLE_WEBHOOK_SECRET', '')
-    if not _verify_paddle_signature(req.headers.get('Paddle-Signature', ''), req.get_data(), secret):
+    # Un solo endpoint recibe eventos de Live Y de Sandbox (Sandbox se usa
+    # para probar flujos con tarjetas de test antes de tocar Live real) —
+    # cada entorno de Paddle firma con su propio secreto, así que se acepta
+    # cualquiera de los dos. PADDLE_WEBHOOK_SECRET_SANDBOX solo existe
+    # mientras se estén validando flujos nuevos; quitarlo del catálogo de
+    # secrets si Sandbox deja de usarse.
+    raw_body = req.get_data()
+    signature_header = req.headers.get('Paddle-Signature', '')
+    live_secret = os.environ.get('PADDLE_WEBHOOK_SECRET', '')
+    sandbox_secret = os.environ.get('PADDLE_WEBHOOK_SECRET_SANDBOX', '')
+    if not (
+        _verify_paddle_signature(signature_header, raw_body, live_secret)
+        or _verify_paddle_signature(signature_header, raw_body, sandbox_secret)
+    ):
         return https_fn.Response('Invalid signature', status=401)
 
     payload = req.get_json(silent=True) or {}
