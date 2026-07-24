@@ -939,7 +939,7 @@ def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
 # (ejecutar en tu propia terminal; el valor nunca debe pegarse en el chat).
 # ══════════════════════════════════════════════════════════════════════════
 
-_GEMINI_MODEL = 'gemini-2.0-flash'
+_GEMINI_MODEL = 'gemini-3.6-flash'
 
 
 def _is_youtube_url(url: str) -> bool:
