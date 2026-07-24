@@ -1722,18 +1722,34 @@ export class FirebaseService {
     });
   }
 
-  /** Otorga un lote de créditos a una organización — venta manual mientras
-   *  no existe el checkout de Paddle para lotes (ADR-007). `firestore.rules`
-   *  solo permite escribir `organizations/{orgId}` sin restricción de campos
-   *  al Administrador de Plataforma, así que esto solo puede llamarse con
-   *  esa sesión. `plan` es opcional: solo se toca si el lote otorgado
-   *  también implica subir de tier (ej. vender un lote Pro a una org Free). */
+  /** Espejo de los límites por plan de functions/main.py (_FREE_PLAN_LIMITS,
+   *  _STARTER_PLAN_LIMITS, _PRO_PLAN_LIMITS, _PRO_IA_PLAN_LIMITS) — mantener
+   *  ambos en sync si cambian los límites de algún plan. */
+  static PLAN_LIMITS = {
+    free: { maxDrivers: 15, maxAdmins: 1, maxComisarios: 1 },
+    starter: { maxDrivers: 60, maxAdmins: 3, maxComisarios: 5 },
+    pro: { maxDrivers: 200, maxAdmins: 10, maxComisarios: 15 },
+    pro_ia: { maxDrivers: 200, maxAdmins: 10, maxComisarios: 15 },
+  };
+
+  /** Otorga un lote de créditos a una organización y/o le cambia el plan —
+   *  vía manual (comp de cortesía, o venta fuera de Paddle) desde
+   *  /organizacionesAdmin. `firestore.rules` solo permite escribir
+   *  `organizations/{orgId}` sin restricción de campos al Administrador de
+   *  Plataforma, así que esto solo puede llamarse con esa sesión. `newPlan`
+   *  es opcional; si se pasa, también actualiza `limits`/`aiEnabled` para
+   *  que quede consistente con lo que aplicaría el webhook de Paddle para
+   *  ese mismo plan. */
   static async grantChampionshipCredits(orgId, creditsToAdd, newPlan = null) {
     const updates = {
       championshipCredits: increment(creditsToAdd),
       updatedAt: new Date().toISOString(),
     };
-    if (newPlan) updates.plan = newPlan;
+    if (newPlan) {
+      updates.plan = newPlan;
+      updates.limits = FirebaseService.PLAN_LIMITS[newPlan] || FirebaseService.PLAN_LIMITS.free;
+      updates.aiEnabled = newPlan === 'pro_ia';
+    }
     await updateDoc(doc(db, 'organizations', orgId), updates);
   }
 

@@ -7,19 +7,55 @@ import { useOrganization } from '../context/OrganizationContext';
 
 // Variables públicas (no secretas) de Paddle — ver checklist en
 // Notas/Proyectos/GT7 Championships/README.md. El webhook que realmente
-// promueve el plan vive en functions/main.py:paddle_webhook, con el
-// webhook secret en Secret Manager (nunca aquí).
+// aplica los cambios (plan, límites, créditos) vive en
+// functions/main.py:paddle_webhook, con el webhook secret en Secret Manager
+// (nunca aquí). Cada price_id debe existir también en el catálogo de
+// _PADDLE_PRICE_PLANS / _PADDLE_PRICE_CREDITS del backend — si no coincide,
+// el checkout se completa en Paddle pero el webhook no sabe qué desbloquear.
 const PADDLE_CLIENT_TOKEN = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN || '';
-const PADDLE_PRICE_ID_PRO = process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_PRO || '';
 const PADDLE_ENV = process.env.NEXT_PUBLIC_PADDLE_ENV || 'sandbox';
 
-const PLAN_LABELS = { free: 'Free (prueba única)', starter: 'Starter', pro: 'Pro' };
+const PLAN_LABELS = { free: 'Free (prueba única)', starter: 'Starter', pro: 'Pro', pro_ia: 'Pro + IA' };
 
-// Pausa deliberada del checkout mientras se replantean los planes/paquetes
-// (integración con Paddle ya probada de punta a punta — checkout, webhook y
-// Firestore funcionando; solo se oculta el botón). Volver a `true` cuando
-// los precios/planes estén definidos.
-const UPGRADE_ENABLED = false;
+// Planes mensuales (suscripción recurrente) — desbloquean límites y
+// personalización. 'pro_ia' es el único que además incluye las sugerencias
+// de resolución de reclamaciones con Gemini (tiene coste variable real, ver
+// docs/PLAN_MONETIZACION.md §9).
+const PLANES = [
+    {
+        key: 'starter',
+        label: 'Starter',
+        price: '12 €/mes',
+        priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_STARTER || '',
+        features: ['Hasta 60 pilotos', '3 administradores', '5 comisarios'],
+    },
+    {
+        key: 'pro',
+        label: 'Pro',
+        price: '35 €/mes',
+        priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_PRO || '',
+        features: ['Hasta 200 pilotos', '10 administradores', '15 comisarios', 'Branding propio (logo + colores)', 'URL personalizada'],
+    },
+    {
+        key: 'pro_ia',
+        label: 'Pro + IA',
+        price: '55 €/mes',
+        priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_PRO_IA || '',
+        features: ['Todo lo de Pro', '🤖 Sugerencia de resolución de reclamaciones con Gemini', 'Hasta 60 sugerencias de IA/mes'],
+        highlight: true,
+    },
+];
+
+// Lotes de créditos (pago único, no caduca) — cuántos campeonatos/eventos
+// puede crear la organización. Independiente del plan mensual: una org
+// Free puede comprar un lote sin pasar a Starter/Pro.
+const LOTES = [
+    { key: 'S', credits: 3, price: '15 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_S || '' },
+    { key: 'M', credits: 10, price: '40 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_M || '' },
+    { key: 'L', credits: 25, price: '85 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_L || '' },
+];
+
+const PLAN_RANK = { free: 0, starter: 1, pro: 2, pro_ia: 3 };
 
 export default function FacturacionPage() {
     const router = useRouter();
@@ -27,9 +63,9 @@ export default function FacturacionPage() {
     const { org, orgId, loading: orgLoading } = useOrganization();
 
     const [paddleReady, setPaddleReady] = useState(false);
-    const [checkoutOpening, setCheckoutOpening] = useState(false);
+    const [checkoutKey, setCheckoutKey] = useState(null);
 
-    const configured = Boolean(PADDLE_CLIENT_TOKEN && PADDLE_PRICE_ID_PRO);
+    const paddleConfigured = Boolean(PADDLE_CLIENT_TOKEN);
 
     useEffect(() => {
         if (!authLoading && !currentUser) {
@@ -38,7 +74,7 @@ export default function FacturacionPage() {
     }, [currentUser, authLoading, router]);
 
     useEffect(() => {
-        if (!UPGRADE_ENABLED || !configured || typeof window === 'undefined' || window.Paddle) {
+        if (!paddleConfigured || typeof window === 'undefined' || window.Paddle) {
             if (window?.Paddle) setPaddleReady(true);
             return;
         }
@@ -53,18 +89,18 @@ export default function FacturacionPage() {
         document.body.appendChild(script);
         // No se limpia el script al desmontar: Paddle.js es seguro de dejar
         // cargado el resto de la sesión.
-    }, [configured]);
+    }, [paddleConfigured]);
 
-    const handleUpgrade = useCallback(() => {
-        if (!window.Paddle || !orgId || !currentUser) return;
-        setCheckoutOpening(true);
+    const handlePurchase = useCallback((key, priceId) => {
+        if (!window.Paddle || !orgId || !currentUser || !priceId) return;
+        setCheckoutKey(key);
         window.Paddle.Checkout.open({
-            items: [{ priceId: PADDLE_PRICE_ID_PRO, quantity: 1 }],
+            items: [{ priceId, quantity: 1 }],
             customData: { orgId },
             customer: { email: currentUser.email },
             settings: { successUrl: window.location.href },
         });
-        setCheckoutOpening(false);
+        setCheckoutKey(null);
     }, [orgId, currentUser]);
 
     if (authLoading || orgLoading) {
@@ -76,18 +112,19 @@ export default function FacturacionPage() {
     }
 
     const isOrganizador = currentOrgRole() === 'organizador';
-    const plan = org?.plan || 'pro';
+    const plan = org?.plan || 'free';
     const status = org?.status || 'active';
     const limits = org?.limits || {};
+    const currentRank = PLAN_RANK[plan] ?? 0;
 
     return (
-        <div className="p-6 max-w-2xl">
+        <div className="p-6 max-w-3xl">
             <h1 className="text-3xl font-bold text-white mb-1">💳 Facturación</h1>
             <p className="text-gray-400 text-sm mb-8">
-                Plan y límites de tu organización.
+                Plan, límites y créditos de tu organización.
             </p>
 
-            <div className="bg-white/5 border border-white/10 rounded-lg p-6 mb-6">
+            <div className="bg-white/5 border border-white/10 rounded-lg p-6 mb-8">
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <p className="text-white font-semibold text-lg">{PLAN_LABELS[plan] || plan}</p>
@@ -124,37 +161,79 @@ export default function FacturacionPage() {
                 )}
             </div>
 
-            {plan === 'free' && isOrganizador && (
-                <div className="bg-white/5 border border-white/10 rounded-lg p-6">
-                    <h2 className="text-white font-semibold mb-2">Actualizar a Pro</h2>
-                    <p className="text-gray-400 text-sm mb-4">
-                        Campeonatos/eventos ilimitados, hasta 200 pilotos, branding propio (logo + colores)
-                        y URL personalizada.
-                    </p>
-                    {!UPGRADE_ENABLED ? (
-                        <p className="text-gray-500 text-sm italic">
-                            Muy pronto. Estamos terminando de definir los planes — vuelve a revisar en unos días.
-                        </p>
-                    ) : !configured ? (
-                        <p className="text-gray-500 text-sm italic">
-                            La pasarela de pago todavía no está configurada. Contacta al Administrador de Plataforma.
-                        </p>
-                    ) : (
-                        <button
-                            onClick={handleUpgrade}
-                            disabled={!paddleReady || checkoutOpening}
-                            className="px-5 py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold rounded-lg hover:from-orange-700 hover:to-red-700 disabled:opacity-50 transition-all"
-                        >
-                            {paddleReady ? '⭐ Actualizar a Pro' : 'Cargando pasarela de pago…'}
-                        </button>
-                    )}
-                </div>
+            {!isOrganizador && (
+                <p className="text-gray-500 text-sm">
+                    Solo el Organizador de esta organización puede comprar lotes o cambiar de plan.
+                </p>
             )}
 
-            {plan === 'free' && !isOrganizador && (
-                <p className="text-gray-500 text-sm">
-                    Solo el Organizador de esta organización puede actualizar el plan.
+            {isOrganizador && !paddleConfigured && (
+                <p className="text-gray-500 text-sm italic mb-8">
+                    La pasarela de pago todavía no está configurada. Contacta al Administrador de Plataforma.
                 </p>
+            )}
+
+            {isOrganizador && paddleConfigured && (
+                <>
+                    {/* Lotes de créditos — pago único, no caduca, independiente del plan */}
+                    <section className="mb-10">
+                        <h2 className="text-white font-semibold mb-1">📦 Lotes de créditos</h2>
+                        <p className="text-gray-400 text-sm mb-4">
+                            Cada crédito equivale a un campeonato o evento nuevo. No caducan.
+                        </p>
+                        <div className="grid sm:grid-cols-3 gap-3">
+                            {LOTES.map(lote => (
+                                <div key={lote.key} className="bg-white/5 border border-white/10 rounded-lg p-4 flex flex-col">
+                                    <p className="text-white font-bold text-xl">{lote.credits}</p>
+                                    <p className="text-gray-400 text-xs mb-3">campeonatos/eventos</p>
+                                    <p className="text-orange-300 font-semibold mb-3">{lote.price}</p>
+                                    <button
+                                        onClick={() => handlePurchase(`lote-${lote.key}`, lote.priceId)}
+                                        disabled={!paddleReady || !lote.priceId || checkoutKey === `lote-${lote.key}`}
+                                        className="mt-auto px-3 py-2 bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-all"
+                                        title={!lote.priceId ? 'Próximamente' : undefined}
+                                    >
+                                        {!lote.priceId ? 'Próximamente' : 'Comprar'}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    {/* Planes mensuales — suscripción recurrente, desbloquea límites/branding/IA */}
+                    <section>
+                        <h2 className="text-white font-semibold mb-1">⭐ Planes mensuales</h2>
+                        <p className="text-gray-400 text-sm mb-4">
+                            Sube de plan para más pilotos, administradores, branding propio y sugerencias con IA.
+                        </p>
+                        <div className="grid sm:grid-cols-3 gap-3">
+                            {PLANES.map(p => {
+                                const isCurrent = plan === p.key;
+                                const isDowngrade = PLAN_RANK[p.key] < currentRank;
+                                return (
+                                    <div
+                                        key={p.key}
+                                        className={`rounded-lg p-4 flex flex-col border ${p.highlight ? 'bg-purple-500/10 border-purple-500/30' : 'bg-white/5 border-white/10'}`}
+                                    >
+                                        <p className="text-white font-bold">{p.label}</p>
+                                        <p className="text-orange-300 font-semibold mb-2">{p.price}</p>
+                                        <ul className="text-gray-400 text-xs space-y-1 mb-3 flex-1">
+                                            {p.features.map(f => <li key={f}>• {f}</li>)}
+                                        </ul>
+                                        <button
+                                            onClick={() => handlePurchase(p.key, p.priceId)}
+                                            disabled={!paddleReady || !p.priceId || isCurrent || isDowngrade || checkoutKey === p.key}
+                                            className="px-3 py-2 bg-gradient-to-r from-orange-600 to-red-600 disabled:from-white/10 disabled:to-white/10 text-white text-sm font-medium rounded-lg transition-all disabled:opacity-60"
+                                            title={!p.priceId ? 'Próximamente' : (isDowngrade ? 'Contacta al Administrador de Plataforma para bajar de plan' : undefined)}
+                                        >
+                                            {isCurrent ? 'Plan actual' : (!p.priceId ? 'Próximamente' : (isDowngrade ? 'No disponible' : 'Suscribirse'))}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </section>
+                </>
             )}
         </div>
     );

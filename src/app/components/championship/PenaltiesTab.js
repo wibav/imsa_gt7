@@ -1174,9 +1174,10 @@ function ClaimsSection({ claims, championshipId, championship, org, allDrivers, 
 // ═══════════════════════════════════════════════
 function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, presets, onClose, onResolve }) {
     // Gemini tiene coste por llamada, así que la sugerencia con IA solo está
-    // disponible en planes de pago (Starter/Pro) o exentos de facturación —
-    // el backend también lo valida (402), esto solo evita la llamada inútil.
-    const aiAvailable = Boolean(org?.billingExempt || (org?.plan && org.plan !== 'free'));
+    // disponible en el plan 'pro_ia' (Pro + IA) o para orgs exentas de
+    // facturación — el backend también lo valida (402/429), esto solo evita
+    // la llamada inútil cuando ya sabemos que no aplica.
+    const aiAvailable = Boolean(org?.billingExempt || org?.plan === 'pro_ia');
     const [resolution, setResolution] = useState('');
     const [aiSuggestion, setAiSuggestion] = useState(null);
     const [aiLoading, setAiLoading] = useState(false);
@@ -1318,9 +1319,9 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                                 className="text-xs px-2.5 py-1 bg-purple-600/20 hover:bg-purple-600/40 disabled:opacity-50 text-purple-300 rounded-lg transition-all"
                                 title={aiAvailable
                                     ? "Analiza el video de evidencia (solo YouTube) y sugiere una resolución — no reemplaza tu criterio"
-                                    : "Disponible en planes de pago (Starter/Pro) — actualiza el plan en Facturación"}
+                                    : "Disponible en el plan Pro + IA — actualiza el plan en Facturación"}
                             >
-                                {aiLoading ? '🤖 Analizando video...' : (aiAvailable ? '🤖 Pedir sugerencia' : '🔒 Sugerencia IA (plan de pago)')}
+                                {aiLoading ? '🤖 Analizando video...' : (aiAvailable ? '🤖 Pedir sugerencia' : '🔒 Sugerencia IA (Pro + IA)')}
                             </button>
                         </div>
                         <textarea

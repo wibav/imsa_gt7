@@ -8,6 +8,7 @@ import re
 import secrets
 import time
 import traceback as tb
+from datetime import datetime, timezone
 import urllib.error
 import urllib.request
 from io import BytesIO
@@ -680,11 +681,50 @@ _FREE_PLAN_LIMITS = {
     'maxComisarios': 1,
 }
 
+_STARTER_PLAN_LIMITS = {
+    'maxDrivers': 60,
+    'maxAdmins': 3,
+    'maxComisarios': 5,
+}
+
 _PRO_PLAN_LIMITS = {
     'maxDrivers': 200,
     'maxAdmins': 10,
     'maxComisarios': 15,
 }
+
+# 'pro_ia' tiene los mismos límites de uso que 'pro' — la diferencia es que
+# además incluye las sugerencias de IA (ver _AI_MONTHLY_CAP más abajo).
+_PRO_IA_PLAN_LIMITS = _PRO_PLAN_LIMITS
+
+# ══════════════════════════════════════════════════════════════════════════
+# Catálogo de precios de Paddle → qué desbloquea cada uno.
+#
+# Los `price_id` son públicos (no son secretos, van también en el frontend
+# como NEXT_PUBLIC_PADDLE_PRICE_ID_*), así que viven hardcodeados aquí igual
+# que el resto de constantes de negocio del archivo. Rellenar con los IDs
+# reales tras crearlos en el Dashboard de Paddle (Catalog → Prices) — uno de
+# tipo "Recurring" por cada plan mensual, uno de tipo "One-time" por cada
+# lote de créditos.
+#
+# _PADDLE_PRICE_PLANS: precios recurrentes → (plan, límites, incluye IA)
+_PADDLE_PRICE_PLANS = {
+    'pri_REEMPLAZAR_STARTER_MENSUAL': ('starter', _STARTER_PLAN_LIMITS, False),
+    'pri_REEMPLAZAR_PRO_MENSUAL': ('pro', _PRO_PLAN_LIMITS, False),
+    'pri_REEMPLAZAR_PRO_IA_MENSUAL': ('pro_ia', _PRO_IA_PLAN_LIMITS, True),
+}
+
+# _PADDLE_PRICE_CREDITS: precios de pago único → créditos de campeonatos/eventos
+_PADDLE_PRICE_CREDITS = {
+    'pri_REEMPLAZAR_LOTE_S': 3,
+    'pri_REEMPLAZAR_LOTE_M': 10,
+    'pri_REEMPLAZAR_LOTE_L': 25,
+}
+
+# Tope de sugerencias de IA por organización/mes en plan 'pro_ia' — acota el
+# coste variable de Gemini incluso dentro de un plan de pago (ver §9.4 de
+# docs/PLAN_MONETIZACION.md). Ajustable a futuro por `org.limits.maxAiSuggestionsPerMonth`.
+_AI_MONTHLY_CAP_DEFAULT = 60
 
 
 def _validate_org_slug(slug: str) -> str | None:
@@ -884,24 +924,36 @@ def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
     org_name = org_snap.to_dict().get('name', org_id)
 
     if event_type in ('subscription.created', 'subscription.updated', 'subscription.activated', 'subscription.resumed'):
+        # Un item de la suscripción trae el price.id que compró — se resuelve
+        # contra el catálogo para saber qué plan/límites/IA corresponde.
+        # Si el price.id no está en el catálogo (precio viejo, o placeholder
+        # sin reemplazar todavía) se cae a 'pro' sin IA, el comportamiento
+        # previo, en vez de fallar silenciosamente.
+        items = data.get('items') or []
+        price_id = next((it.get('price', {}).get('id') for it in items if it.get('price')), None)
+        plan, limits, ai_enabled = _PADDLE_PRICE_PLANS.get(price_id, ('pro', _PRO_PLAN_LIMITS, False))
+
         billing_period = data.get('current_billing_period') or {}
         billing_cycle = data.get('billing_cycle') or {}
-        was_pro_already = org_snap.to_dict().get('plan') == 'pro'
+        prev = org_snap.to_dict()
+        was_same_plan_already = prev.get('plan') == plan
         org_ref.set({
-            'plan': 'pro',
+            'plan': plan,
             'status': 'active',
-            'limits': _PRO_PLAN_LIMITS,
+            'limits': limits,
+            'aiEnabled': ai_enabled,
             'subscription': {
                 'provider': 'paddle',
                 'externalId': data.get('id'),
+                'priceId': price_id,
                 'currentPeriodEnd': billing_period.get('ends_at'),
                 'cycle': billing_cycle.get('interval'),
             },
             'updatedAt': fb_firestore.SERVER_TIMESTAMP,
         }, merge=True)
-        if not was_pro_already:
+        if not was_same_plan_already:
             _send_telegram_message(
-                f'💳 <b>Organización actualizada a Pro</b> 🎉\n'
+                f'💳 <b>Organización actualizada a {plan}</b> 🎉\n'
                 f'🏢 {org_name}\n'
                 f'📅 Próxima renovación: {billing_period.get("ends_at", "—")}\n'
                 f'🔁 Ciclo: {billing_cycle.get("interval", "—")}'
@@ -919,6 +971,43 @@ def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
             f'🏢 {org_name}\n'
             f'👉 Revisar manualmente si corresponde revertir a plan Free.'
         )
+    elif event_type in ('transaction.completed', 'transaction.paid'):
+        # Compra de un lote de créditos (pago único, no una suscripción) —
+        # suma championshipCredits según el price.id comprado. Un mismo
+        # transaction_id puede llegar más de una vez (reintentos de Paddle),
+        # así que se registra en `paddleProcessedTransactions/{id}` y se
+        # ignora si ya se procesó, para no duplicar el abono.
+        transaction_id = data.get('id')
+        items = data.get('items') or []
+        total_credits = sum(
+            _PADDLE_PRICE_CREDITS.get(it.get('price', {}).get('id'), 0) * int(it.get('quantity', 1) or 1)
+            for it in items if it.get('price')
+        )
+        if total_credits > 0 and transaction_id:
+            processed_ref = db.collection('paddleProcessedTransactions').document(transaction_id)
+
+            @fb_firestore.transactional
+            def _grant_credits_tx(transaction):
+                if processed_ref.get(transaction=transaction).exists:
+                    return False
+                transaction.set(processed_ref, {
+                    'orgId': org_id,
+                    'credits': total_credits,
+                    'processedAt': fb_firestore.SERVER_TIMESTAMP,
+                })
+                transaction.update(org_ref, {
+                    'championshipCredits': fb_firestore.Increment(total_credits),
+                    'updatedAt': fb_firestore.SERVER_TIMESTAMP,
+                })
+                return True
+
+            granted = _grant_credits_tx(db.transaction())
+            if granted:
+                _send_telegram_message(
+                    f'💳 <b>Lote de créditos comprado</b> 🎉\n'
+                    f'🏢 {org_name}\n'
+                    f'➕ {total_credits} campeonatos/eventos'
+                )
 
     return https_fn.Response('ok', status=200)
 
@@ -983,19 +1072,50 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
         return _role_json({'ok': False, 'error': 'Requiere rol de comisario en esta organización'}, 403)
 
     # Gemini tiene coste por llamada (facturado a nosotros, no al organizador),
-    # así que esta función solo se sirve a organizaciones de plan de pago o
-    # exentas de facturación — el plan Free no la incluye. El chequeo de rol
-    # de arriba ya exige comisario+, pero eso no basta: un comisario de una
-    # org Free también quedaría bloqueado aquí.
-    if not caller_claims.get('platformOwner'):
-        org_snap = db.collection('organizations').document(org_id).get() if org_id else None
-        org = org_snap.to_dict() if org_snap and org_snap.exists else {}
-        if not org.get('billingExempt') and org.get('plan', 'free') == 'free':
+    # así que esta función solo se sirve a organizaciones en el plan 'pro_ia'
+    # (el tier superior que incluye IA — Starter y Pro "a secas" NO la
+    # incluyen) o exentas de facturación. El chequeo de rol de arriba ya
+    # exige comisario+, pero eso no basta: un comisario de una org sin ese
+    # plan también queda bloqueado aquí.
+    org_ref = db.collection('organizations').document(org_id) if org_id else None
+    org_snap = org_ref.get() if org_ref else None
+    org = org_snap.to_dict() if org_snap and org_snap.exists else {}
+    is_billing_exempt = bool(org.get('billingExempt'))
+
+    if not caller_claims.get('platformOwner') and not is_billing_exempt and not org.get('aiEnabled'):
+        return _role_json({
+            'ok': False,
+            'error': 'La sugerencia con IA es parte del plan Pro + IA. '
+                     'Actualiza el plan de tu organización en Facturación para usarla.',
+        }, 402)
+
+    # Tope de uso mensual — acota el coste de Gemini incluso dentro de un
+    # plan de pago. billingExempt (GT7 ESP) no tiene tope. La transacción
+    # evita que dos llamadas casi simultáneas se cuelen ambas justo en el
+    # límite (leer-comprobar-incrementar no es atómico sin ella).
+    if org_ref and not is_billing_exempt:
+        cap = (org.get('limits') or {}).get('maxAiSuggestionsPerMonth', _AI_MONTHLY_CAP_DEFAULT)
+        current_month = datetime.now(timezone.utc).strftime('%Y-%m')
+
+        @fb_firestore.transactional
+        def _check_and_bump_ai_usage(transaction):
+            snap = org_ref.get(transaction=transaction)
+            usage = (snap.to_dict() or {}).get('aiUsage') or {}
+            count = usage.get('count', 0) if usage.get('month') == current_month else 0
+            if count >= cap:
+                return False
+            transaction.set(org_ref, {
+                'aiUsage': {'month': current_month, 'count': count + 1},
+                'updatedAt': fb_firestore.SERVER_TIMESTAMP,
+            }, merge=True)
+            return True
+
+        if not _check_and_bump_ai_usage(db.transaction()):
             return _role_json({
                 'ok': False,
-                'error': 'La sugerencia con IA es una función de los planes de pago (Starter/Pro). '
-                         'Actualiza el plan de tu organización en Facturación para usarla.',
-            }, 402)
+                'error': f'Se alcanzó el límite de {cap} sugerencias de IA este mes para tu organización. '
+                         'Vuelve a intentarlo el próximo mes, o contacta al Administrador de Plataforma.',
+            }, 429)
 
     claim_snap = champ_ref.collection('claims').document(claim_id).get()
     if not claim_snap.exists:

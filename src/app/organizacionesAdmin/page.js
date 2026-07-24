@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { FirebaseService } from '../services/firebaseService';
 
-const PLAN_LABELS = { free: 'Free', starter: 'Starter', pro: 'Pro' };
+const PLAN_LABELS = { free: 'Free', starter: 'Starter', pro: 'Pro', pro_ia: 'Pro + IA' };
 const PLAN_COLORS = {
     free: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
     starter: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
     pro: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
+    pro_ia: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
 };
 const STATUS_COLORS = {
     active: 'bg-green-500/20 text-green-300 border-green-500/30',
@@ -66,6 +67,7 @@ function GrantCreditsForm({ org, onCancel, onGranted }) {
                 <option value="free">Free</option>
                 <option value="starter">Starter</option>
                 <option value="pro">Pro</option>
+                <option value="pro_ia">Pro + IA</option>
             </select>
             <button type="submit" disabled={saving}
                 className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-medium rounded">

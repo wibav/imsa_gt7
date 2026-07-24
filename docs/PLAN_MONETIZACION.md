@@ -16,23 +16,46 @@ Fecha: 2026-07-02
 > `Notas/Proyectos/GT7 Championships/ADR/ADR-007-lotes-prepagados-vs-
 > suscripcion.md`.
 >
-> **Actualización 2026-07-24 — estado real de implementación:**
-> - **Pasarela elegida: Paddle** (MoR, resuelve el punto abierto del §3.2/§8).
->   Checkout (Paddle.js) + `functions/main.py:paddle_webhook` + promoción de
->   `organizations/{id}.plan` en Firestore ya están **implementados y probados
->   de punta a punta**. El botón de upgrade en `/facturacion` está apagado a
->   propósito (`UPGRADE_ENABLED = false`) hasta definir los **paquetes/lotes
->   concretos y sus precios** — hoy solo existe un único `priceId` de prueba.
->   Es el único punto pendiente de este documento (ver §8bis).
-> - **Modelo de créditos implementado**: `organizations/{id}.championshipCredits`
->   se descuenta 1 al crear cada campeonato/evento (Cloud Function con Admin
->   SDK, `firestore.rules` bloquea la creación en 0). El plan Free arranca con
->   1 crédito. `billingExempt: true` (GT7 ESP) omite el descuento.
-> - **Nueva función de pago: sugerencias de reclamaciones con IA (Gemini)**,
->   ver §9 — no estaba prevista en el plan original y se añade aquí porque
->   tiene coste variable real por llamada (facturado a nosotros por Google),
->   así que se restringe a organizaciones en plan de pago (Starter/Pro) o
->   `billingExempt`, igual que el resto de features de pago del documento.
+> **Actualización 2026-07-24 (v2) — modelo híbrido, ya decidido y
+> implementado:** se combinan **dos ejes de cobro independientes**, ambos
+> sobre **Paddle** (MoR):
+>
+> 1. **Lotes de créditos (pago único, no caduca)** — cuántos
+>    campeonatos/eventos puede crear la organización. Es el mecanismo del
+>    ADR-007 original. Independiente del plan mensual: cualquier org (incluso
+>    Free) puede comprar un lote.
+> 2. **Planes mensuales (suscripción recurrente)** — Starter/Pro/**Pro + IA**,
+>    reintroducidos porque §1.4 ya los tenía bien pensados para lo que NO es
+>    volumen: límites de pilotos/admins/comisarios, branding propio, URL
+>    personalizada, y ahora también las **sugerencias de reclamaciones con
+>    Gemini** (exclusivas del tier superior, ver §9).
+>
+> `organizations/{id}.plan` controla el eje 2 (`limits`, `aiEnabled`);
+> `organizations/{id}.championshipCredits` controla el eje 1. Son campos
+> independientes — el modelo de datos ya lo soportaba sin refactor.
+>
+> **Estado de implementación (completo):**
+> - `functions/main.py:paddle_webhook` procesa **ambos tipos de evento de
+>   Paddle**: `subscription.*` (resuelve el plan por el `price.id` de la
+>   suscripción contra `_PADDLE_PRICE_PLANS`, actualiza `plan`/`limits`/
+>   `aiEnabled`) y `transaction.completed`/`transaction.paid` (resuelve
+>   créditos por `price.id` contra `_PADDLE_PRICE_CREDITS`, suma
+>   `championshipCredits` de forma idempotente vía
+>   `paddleProcessedTransactions/{transactionId}`, a prueba de reintentos de
+>   Paddle).
+> - `/facturacion` (`src/app/facturacion/page.js`) muestra ambas secciones:
+>   "📦 Lotes de créditos" y "⭐ Planes mensuales", cada botón lanza
+>   `Paddle.Checkout.open()` con el `priceId` correspondiente.
+> - **Pendiente real, no de código**: crear los 6 precios en el Dashboard de
+>   Paddle (3 lotes + 3 planes, ver tabla §1.4bis) y sustituir los
+>   placeholders `pri_REEMPLAZAR_*` en `functions/main.py` y las variables
+>   `NEXT_PUBLIC_PADDLE_PRICE_ID_*` del entorno por los IDs reales. Hasta
+>   entonces cada botón muestra "Próximamente" (no rompe nada, solo no está
+>   activo).
+> - **Sugerencias de reclamaciones con IA (Gemini)**: exclusivas del plan
+>   **Pro + IA** (no de "cualquier plan de pago" como se planteó en la primera
+>   iteración de este documento) — ver §9, incluye tope de uso mensual para
+>   acotar el coste real de Gemini incluso dentro de ese plan.
 
 ---
 
@@ -67,17 +90,47 @@ notificaciones — sin planillas de Excel ni bots caseros."
 - **Patrocinadores / tiendas gaming** que corren ligas como marketing.
 - (Futuro) **Otros juegos** (ACC, iRacing, F1) reusando el motor.
 
-### 1.3 Modelo: SaaS por suscripción (alquiler mensual/anual)
-Cada organización paga una cuota recurrente. Los límites del plan (nº de
-campeonatos activos, pilotos, admins, comisarios, branding) definen el precio.
+### 1.3 Modelo: híbrido — lotes de créditos + planes mensuales
 
-### 1.4 Planes sugeridos
+> Ver nota de actualización 2026-07-24 (v2) al inicio del documento. Dos ejes
+> independientes: los **lotes** compran volumen (cuántos campeonatos/eventos
+> puedes crear, no caducan); los **planes mensuales** compran capacidad y
+> features (pilotos/admins/comisarios por campeonato, branding, IA).
 
-| Plan | Precio ref. (EUR/mes) | Campeonatos/eventos | Pilotos | Admins | Comisarios | Branding | URL propia |
-|------|----------------------|---------------------|---------|--------|-----------|----------|-----------|
-| **Free (prueba única)** | 0 € — **una sola vez** | **1 campeonato O 1 evento** | **15** (máx.) | 1 | 1 | "Powered by" visible | No |
-| **Starter** | 9–15 € | 3 activos | 60 | 3 | 5 | "Powered by" visible | No |
-| **Pro** | 29–39 € | Ilimitados | 200 | 10 | 15 | **Logo + colores propios** | **Sí: `trenkit.com/l/mi-liga`** |
+### 1.4 Planes mensuales (features/límites — eje recurrente)
+
+| Plan | Precio | Pilotos | Admins | Comisarios | Branding | URL propia | Sugerencias IA (Gemini) |
+|------|--------|---------|--------|-----------|----------|-----------|--------------------------|
+| **Free** | 0 €/mes | 15 (máx.) | 1 | 1 | "Powered by" visible | No | No |
+| **Starter** | 12 €/mes | 60 | 3 | 5 | "Powered by" visible | No | No |
+| **Pro** | 35 €/mes | 200 | 10 | 15 | **Logo + colores propios** | **Sí: `trenkit.com/l/mi-liga`** | No |
+| **Pro + IA** | 55 €/mes | 200 | 10 | 15 | Logo + colores propios | Sí | **Sí — hasta 60 sugerencias/mes** |
+
+- **Anual**: 2 meses gratis (~17% descuento) en cualquiera de los 3 planes de
+  pago — pendiente de crear el precio anual equivalente en Paddle cuando se
+  active esta opción (v1 lanza solo con ciclo mensual).
+- **Pro + IA no es un add-on activable sobre Pro**: es un plan propio con su
+  propio `priceId` — más simple de facturar y de mostrar en el checkout que
+  una suscripción con complementos.
+- **Tope de 60 sugerencias de IA/mes**: pensado para acotar el coste variable
+  de Gemini incluso dentro de un plan de pago (ver §9.3). No está pensado
+  como límite duro definitivo — se ajusta con datos reales de uso/coste una
+  vez haya organizaciones activas en este plan.
+
+### 1.4bis Lotes de créditos (volumen — eje de pago único)
+
+| Lote | Créditos (campeonatos/eventos) | Precio | €/crédito |
+|------|-------------------------------|--------|-----------|
+| **S** | 3 | 15 € | 5,0 € |
+| **M** | 10 | 40 € | 4,0 € |
+| **L** | 25 | 85 € | 3,4 € |
+
+- No caducan por tiempo (a diferencia de los planes, que si dejan de pagarse
+  pierden sus límites/features en el siguiente ciclo).
+- El descuento por volumen (S→L) empuja a comprar lotes más grandes sin
+  necesidad de un cuarto tier.
+- El plan Free arranca con **1 crédito** (su prueba única) — comprar un lote
+  no exige subir de plan mensual.
 
 - **Moneda: EUR** (resides en Portugal). **Ciclos: mensual y anual** (anual con
   descuento, ~2 meses gratis).
@@ -436,8 +489,9 @@ suspender/reactivar, métricas (MRR, churn, activación).
 **Todo decidido:**
 1. **Estrategia: validar primero** (Fase 0–2 → piloto manual con 1–2 ligas →
    luego billing/self-service). Ver §6.
-2. **Planes: Free (prueba única, 1 campeonato/evento, 15 pilotos) + Starter +
-   Pro.** Elite descartado. Se mantiene Starter.
+2. **Modelo híbrido: lotes de créditos (volumen) + planes mensuales
+   (features/límites)**, ver §1.3/§1.4/§1.4bis. Planes: Free (prueba única,
+   1 crédito, 15 pilotos) + Starter + Pro + **Pro + IA**. Elite descartado.
 3. **Moneda EUR**, ciclos **mensual y anual**.
 4. **Routing: URL con prefijo** `trenkit.com/l/mi-liga`. **Slug elegido por el
    cliente** (su equipo/club), validado (único, formato, prohibidos).
@@ -454,23 +508,26 @@ suspender/reactivar, métricas (MRR, churn, activación).
 10. **`wolcutor@gmail.com` es propietario de todo**: Administrador de Plataforma
     (control global) y además Organizador de `GT7 ESP` (§2.3).
 
-11. **Pasarela definitiva: Paddle** (MoR). Checkout + webhook + Firestore
-    probados de punta a punta. Solo falta definir los **paquetes/lotes y sus
-    precios reales** para activar el botón de upgrade (`UPGRADE_ENABLED` en
-    `/facturacion`).
-12. **Sugerencias de reclamaciones con IA (Gemini) son función de pago**: no
-    entran en el plan Free porque Gemini tiene coste variable real por
-    llamada. Ver §9.
+11. **Pasarela definitiva: Paddle** (MoR). Checkout + webhook (créditos
+    **y** suscripciones) + Firestore implementados de punta a punta.
+12. **Precios y paquetes concretos, decididos** (§1.4/§1.4bis): 3 lotes de
+    créditos (S/M/L) + 3 planes mensuales (Starter/Pro/Pro + IA).
+13. **Sugerencias de reclamaciones con IA (Gemini) son exclusivas del plan
+    Pro + IA** (no de "cualquier plan de pago") — tienen coste variable real
+    por llamada, y el plan Pro + IA existe específicamente para cubrirlo con
+    margen. Incluye tope de 60 sugerencias/mes por organización. Ver §9.
 
-**Único punto abierto:**
-- **Paquetes/lotes y precios concretos** (cuántos campeonatos/eventos por
-  lote, EUR por lote, si el add-on de IA del §9 va incluido en Pro o se cobra
-  aparte). No bloquea nada más: el resto de la infraestructura de cobro ya
-  está lista y probada.
+**Único punto abierto (no es de código, es operativo):**
+- Crear los **6 precios reales en el Dashboard de Paddle** (3 lotes
+  one-time + 3 planes recurring) y pegar sus `price_id` en
+  `functions/main.py` (`_PADDLE_PRICE_PLANS`/`_PADDLE_PRICE_CREDITS`) y en
+  las variables `NEXT_PUBLIC_PADDLE_PRICE_ID_*` del entorno del frontend.
+  Hasta entonces, cada botón de `/facturacion` muestra "Próximamente" sin
+  romper nada.
 
 ---
 
-## 9. Add-on de pago: sugerencia de reclamaciones con IA (Gemini)
+## 9. Función de pago: sugerencia de reclamaciones con IA (Gemini)
 
 > Añadido 2026-07-24, no estaba en el plan original — se documenta aquí
 > porque introduce el primer caso real de **coste variable por uso** de la
@@ -497,28 +554,41 @@ límite (cualquier organización Free podría generar llamadas ilimitadas).
 ### 9.3 Implementación del gating (hecho)
 - **Backend (fuente de verdad)**: `suggest_claim_resolution` resuelve el
   `orgId` del campeonato de la reclamación, lee `organizations/{orgId}` y
-  rechaza con `402` si `plan == 'free'` y no tiene `billingExempt: true`. Esto
-  se evalúa **después** del chequeo de rol (comisario+/platformOwner) — un rol
-  válido no basta si el plan de su organización no lo incluye.
+  rechaza con `402` si no tiene `aiEnabled: true` ni `billingExempt: true`.
+  `aiEnabled` lo pone el webhook de Paddle únicamente cuando el `price.id`
+  de la suscripción resuelve al plan `pro_ia` (`_PADDLE_PRICE_PLANS`) — no
+  es un chequeo genérico de "plan != free", es específico del tier superior.
+  Esto se evalúa **después** del chequeo de rol (comisario+/platformOwner) —
+  un rol válido no basta si el plan de su organización no lo incluye.
+- **Tope de uso mensual**: dentro de `organizations/{orgId}.aiUsage =
+  {month, count}`, incrementado en una transacción de Firestore antes de
+  llamar a Gemini (evita que dos llamadas casi simultáneas se cuelen ambas
+  justo en el límite). Por defecto 60 sugerencias/mes
+  (`_AI_MONTHLY_CAP_DEFAULT`), configurable por organización vía
+  `org.limits.maxAiSuggestionsPerMonth`. Las organizaciones
+  `billingExempt` no tienen tope. Al superarlo, devuelve `429`.
 - **Frontend (UX, no seguridad)**: `ResolveClaimModal`
   (`src/app/components/championship/PenaltiesTab.js`) recibe `org` y calcula
-  `aiAvailable = org.billingExempt || org.plan !== 'free'`; si es falso, el
+  `aiAvailable = org.billingExempt || org.plan === 'pro_ia'`; si es falso, el
   botón "Pedir sugerencia" queda deshabilitado y muestra
-  "🔒 Sugerencia IA (plan de pago)" con tooltip explicando que hay que
+  "🔒 Sugerencia IA (Pro + IA)" con tooltip explicando que hay que
   actualizar el plan. Esto solo evita una llamada inútil al backend — el
-  gating real está en la Cloud Function.
+  gating real está en la Cloud Function (402/429).
 - **`GEMINI_API_KEY`** vive en Secret Manager (mismo patrón que
   `TELEGRAM_BOT_TOKEN`/`PADDLE_WEBHOOK_SECRET`), nunca en el cliente.
+- **Otorgamiento manual** (`FirebaseService.grantChampionshipCredits` desde
+  `/organizacionesAdmin`): si el Administrador de Plataforma cambia el plan
+  de una org a mano (comp de cortesía, venta fuera de Paddle), también
+  actualiza `limits`/`aiEnabled` en el cliente a partir de un mapa
+  `PLAN_LIMITS` que debe mantenerse en sync con las constantes homónimas de
+  `functions/main.py` si cambian los límites de algún plan.
 
-### 9.4 Pendiente de decidir (junto al punto abierto del §8)
-- ¿Incluida en **Starter** también, o exclusiva de **Pro**? Hoy el gating del
-  backend permite cualquier plan pagado (`plan != 'free'`), es decir Starter
-  y Pro por igual — habría que ajustar el `if` en
-  `functions/main.py:suggest_claim_resolution` si se decide restringirla solo
-  a Pro.
-- ¿Límite de llamadas por organización/mes (para acotar el coste de Gemini
-  incluso en planes de pago) o coste ilimitado dentro del plan? Hoy no hay
-  ningún tope de uso, solo el gating binario por plan.
+### 9.4 Ajustable a futuro (no bloqueante)
+- El tope de 60 sugerencias/mes es una primera estimación conservadora, no un
+  número validado con datos reales de coste de Gemini por llamada de video —
+  revisar y ajustar cuando haya organizaciones activas en el plan Pro + IA.
+- Ciclo anual del plan Pro + IA (con descuento, como el resto de planes) aún
+  no tiene precio ni `price_id` — v1 lanza solo mensual.
 
 > Siguiente paso técnico recomendado: arrancar **Fase 0**, empezando por el
 > **control de peso de banners (500–800 KB)** —bajo riesgo y útil desde hoy— y
