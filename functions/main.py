@@ -709,23 +709,22 @@ _PRO_IA_PLAN_LIMITS = {
 #
 # Los `price_id` son públicos (no son secretos, van también en el frontend
 # como NEXT_PUBLIC_PADDLE_PRICE_ID_*), así que viven hardcodeados aquí igual
-# que el resto de constantes de negocio del archivo. Rellenar con los IDs
-# reales tras crearlos en el Dashboard de Paddle (Catalog → Prices) — uno de
-# tipo "Recurring" por cada plan mensual, uno de tipo "One-time" por cada
-# lote de créditos.
+# que el resto de constantes de negocio del archivo. Creados en Paddle LIVE
+# (producción, no sandbox) el 2026-07-24 vía API — 3 precios "Recurring"
+# (planes mensuales) + 3 "One-time" (lotes de créditos), todos en EUR.
 #
 # _PADDLE_PRICE_PLANS: precios recurrentes → (plan, límites, incluye IA)
 _PADDLE_PRICE_PLANS = {
-    'pri_REEMPLAZAR_STARTER_MENSUAL': ('starter', _STARTER_PLAN_LIMITS, False),
-    'pri_REEMPLAZAR_PRO_MENSUAL': ('pro', _PRO_PLAN_LIMITS, False),
-    'pri_REEMPLAZAR_PRO_IA_MENSUAL': ('pro_ia', _PRO_IA_PLAN_LIMITS, True),
+    'pri_01kyarfmr6whk90ts5cfqfmr2j': ('starter', _STARTER_PLAN_LIMITS, False),
+    'pri_01kyarfnbfhwjp4x4zcvnefnf1': ('pro', _PRO_PLAN_LIMITS, False),
+    'pri_01kyarfnyt8tgqdm2ym7yg0c28': ('pro_ia', _PRO_IA_PLAN_LIMITS, True),
 }
 
 # _PADDLE_PRICE_CREDITS: precios de pago único → créditos de campeonatos/eventos
 _PADDLE_PRICE_CREDITS = {
-    'pri_REEMPLAZAR_LOTE_S': 1,
-    'pri_REEMPLAZAR_LOTE_M': 5,
-    'pri_REEMPLAZAR_LOTE_L': 10,
+    'pri_01kyarf59chkh2bawqd6hm62ze': 1,
+    'pri_01kyarf5wxwys80vkb1n5m7fbq': 5,
+    'pri_01kyarf6gyp1bt7d9td4bhss3j': 10,
 }
 
 # Tope de sugerencias de IA por organización/mes en plan 'pro_ia' — acota el

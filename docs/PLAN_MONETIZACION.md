@@ -46,12 +46,20 @@ Fecha: 2026-07-02
 > - `/facturacion` (`src/app/facturacion/page.js`) muestra ambas secciones:
 >   "📦 Lotes de créditos" y "⭐ Planes mensuales", cada botón lanza
 >   `Paddle.Checkout.open()` con el `priceId` correspondiente.
-> - **Pendiente real, no de código**: crear los 6 precios en el Dashboard de
->   Paddle (3 lotes + 3 planes, ver tabla §1.4bis) y sustituir los
->   placeholders `pri_REEMPLAZAR_*` en `functions/main.py` y las variables
->   `NEXT_PUBLIC_PADDLE_PRICE_ID_*` del entorno por los IDs reales. Hasta
->   entonces cada botón muestra "Próximamente" (no rompe nada, solo no está
->   activo).
+> - **Catálogo real creado en Paddle LIVE (producción) el 2026-07-24**, vía
+>   API REST directa (no el MCP de Paddle, que dio error de autenticación) —
+>   6 productos + 6 precios (3 lotes one-time + 3 planes recurring, EUR),
+>   `price_id` reales ya en `functions/main.py` y `.env.production`. También
+>   se generó un client-side token Live nuevo y se creó un **notification
+>   destination Live** (`paddle_webhook`, eventos `subscription.*` +
+>   `transaction.completed`/`paid`) con su propio `PADDLE_WEBHOOK_SECRET`,
+>   rotado en Secret Manager — el anterior era de Sandbox. Checkout activo
+>   en `/facturacion` (ya no depende de ningún flag manual, solo de que el
+>   `priceId` de cada botón exista).
+> - **Pendiente real**: verificar de punta a punta con una compra real (no
+>   se puede probar con tarjetas de test en Live) — el propietario debe
+>   confirmarlo con la primera compra real de un cliente o una compra propia
+>   pequeña.
 > - **Sugerencias de reclamaciones con IA (Gemini)**: exclusivas del plan
 >   **Pro + IA** (no de "cualquier plan de pago" como se planteó en la primera
 >   iteración de este documento) — ver §9, incluye tope de uso mensual para
@@ -539,13 +547,13 @@ suspender/reactivar, métricas (MRR, churn, activación).
     por llamada, y el plan Pro + IA existe específicamente para cubrirlo con
     margen. Incluye tope de 80 sugerencias/mes por organización. Ver §9.
 
-**Único punto abierto (no es de código, es operativo):**
-- Crear los **6 precios reales en el Dashboard de Paddle** (3 lotes
-  one-time + 3 planes recurring) y pegar sus `price_id` en
-  `functions/main.py` (`_PADDLE_PRICE_PLANS`/`_PADDLE_PRICE_CREDITS`) y en
-  las variables `NEXT_PUBLIC_PADDLE_PRICE_ID_*` del entorno del frontend.
-  Hasta entonces, cada botón de `/facturacion` muestra "Próximamente" sin
-  romper nada.
+14. **Catálogo de Paddle LIVE creado y activo (2026-07-24)**: 6 productos +
+    6 precios reales, notification destination Live propio, checkout
+    funcionando en `/facturacion` sin flags manuales. Ver nota de
+    actualización al inicio del documento.
+
+**Único punto abierto**: verificar el checkout con una compra real (no se
+puede probar con tarjetas de test fuera de Sandbox).
 
 ---
 
