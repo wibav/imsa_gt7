@@ -1157,6 +1157,7 @@ function ClaimsSection({ claims, championshipId, championship, org, allDrivers, 
                 <ResolveClaimModal
                     claim={resolveModal}
                     championshipId={championshipId}
+                    org={org}
                     allDrivers={allDrivers}
                     tracks={tracks}
                     presets={config.presets?.filter(p => p.active) || []}
@@ -1171,7 +1172,11 @@ function ClaimsSection({ claims, championshipId, championship, org, allDrivers, 
 // ═══════════════════════════════════════════════
 // MODAL: Resolver Reclamación
 // ═══════════════════════════════════════════════
-function ResolveClaimModal({ claim, championshipId, allDrivers, tracks, presets, onClose, onResolve }) {
+function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, presets, onClose, onResolve }) {
+    // Gemini tiene coste por llamada, así que la sugerencia con IA solo está
+    // disponible en planes de pago (Starter/Pro) o exentos de facturación —
+    // el backend también lo valida (402), esto solo evita la llamada inútil.
+    const aiAvailable = Boolean(org?.billingExempt || (org?.plan && org.plan !== 'free'));
     const [resolution, setResolution] = useState('');
     const [aiSuggestion, setAiSuggestion] = useState(null);
     const [aiLoading, setAiLoading] = useState(false);
@@ -1309,11 +1314,13 @@ function ResolveClaimModal({ claim, championshipId, allDrivers, tracks, presets,
                             <button
                                 type="button"
                                 onClick={handleAskAi}
-                                disabled={aiLoading}
+                                disabled={aiLoading || !aiAvailable}
                                 className="text-xs px-2.5 py-1 bg-purple-600/20 hover:bg-purple-600/40 disabled:opacity-50 text-purple-300 rounded-lg transition-all"
-                                title="Analiza el video de evidencia (solo YouTube) y sugiere una resolución — no reemplaza tu criterio"
+                                title={aiAvailable
+                                    ? "Analiza el video de evidencia (solo YouTube) y sugiere una resolución — no reemplaza tu criterio"
+                                    : "Disponible en planes de pago (Starter/Pro) — actualiza el plan en Facturación"}
                             >
-                                {aiLoading ? '🤖 Analizando video...' : '🤖 Pedir sugerencia'}
+                                {aiLoading ? '🤖 Analizando video...' : (aiAvailable ? '🤖 Pedir sugerencia' : '🔒 Sugerencia IA (plan de pago)')}
                             </button>
                         </div>
                         <textarea

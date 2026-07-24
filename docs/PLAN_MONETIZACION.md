@@ -15,6 +15,24 @@ Fecha: 2026-07-02
 > routing, branding) sigue vigente sin cambios. Detalle técnico completo en
 > `Notas/Proyectos/GT7 Championships/ADR/ADR-007-lotes-prepagados-vs-
 > suscripcion.md`.
+>
+> **Actualización 2026-07-24 — estado real de implementación:**
+> - **Pasarela elegida: Paddle** (MoR, resuelve el punto abierto del §3.2/§8).
+>   Checkout (Paddle.js) + `functions/main.py:paddle_webhook` + promoción de
+>   `organizations/{id}.plan` en Firestore ya están **implementados y probados
+>   de punta a punta**. El botón de upgrade en `/facturacion` está apagado a
+>   propósito (`UPGRADE_ENABLED = false`) hasta definir los **paquetes/lotes
+>   concretos y sus precios** — hoy solo existe un único `priceId` de prueba.
+>   Es el único punto pendiente de este documento (ver §8bis).
+> - **Modelo de créditos implementado**: `organizations/{id}.championshipCredits`
+>   se descuenta 1 al crear cada campeonato/evento (Cloud Function con Admin
+>   SDK, `firestore.rules` bloquea la creación en 0). El plan Free arranca con
+>   1 crédito. `billingExempt: true` (GT7 ESP) omite el descuento.
+> - **Nueva función de pago: sugerencias de reclamaciones con IA (Gemini)**,
+>   ver §9 — no estaba prevista en el plan original y se añade aquí porque
+>   tiene coste variable real por llamada (facturado a nosotros por Google),
+>   así que se restringe a organizaciones en plan de pago (Starter/Pro) o
+>   `billingExempt`, igual que el resto de features de pago del documento.
 
 ---
 
@@ -274,19 +292,31 @@ carga**. Requisito: controlar el peso de cada imagen. Enfoques (combinables):
 
 ## 3. Cobro y suscripciones
 
-### 3.1 Mecánica técnica
-- **Stripe**: Checkout + Billing (suscripciones) + Customer Portal (el cliente
-  gestiona su tarjeta/plan). **Webhook** (Cloud Function `stripeWebhook`)
-  actualiza `organizations/{id}.status` y límites.
-- Estados que el webhook debe manejar: alta, pago exitoso, fallo de pago
-  (dunning → `past_due`), cancelación → `suspended` (datos en solo lectura, no
-  se borran de inmediato).
-- **Free de un solo uso**: no es una suscripción recurrente sino un derecho de
-  prueba consumible. Se marca en la organización (`freeTrialUsed: true`) al crear
-  su primer campeonato/evento; para crear más o volver a activar, hay que
-  suscribirse a un plan de pago.
-- **Enforcement de límites**: doble capa — UI (ocultar/avisar) + Security Rules /
-  Functions (impedir crear por encima del plan).
+### 3.1 Mecánica técnica (actualizado — ver nota ADR-007 al inicio del documento)
+
+> Esta sección describía originalmente Stripe + suscripción recurrente. Con
+> ADR-007 el cobro pasó a ser **venta de lotes prepagados vía Paddle (MoR)**,
+> ya implementado:
+
+- **Paddle** (Merchant of Record): `Paddle.Checkout.open()` en `/facturacion`
+  (`src/app/facturacion/page.js`) abre el checkout con `customData: { orgId }`.
+  Paddle cobra, calcula y remite el IVA/impuestos por nosotros.
+- **Webhook** (Cloud Function `paddle_webhook` en `functions/main.py`):
+  verifica la firma con `PADDLE_WEBHOOK_SECRET` (Secret Manager, antirreplay
+  de 5 min), promueve `organizations/{id}.plan` y **recarga
+  `championshipCredits`** según el lote comprado.
+- **No hay suscripción recurrente que cancelar/renovar**: los créditos no
+  caducan por tiempo. `status` (`trial|active|past_due|suspended`) queda para
+  uso futuro si se reintroduce algo recurrente (p. ej. un add-on mensual como
+  las sugerencias de IA, ver §9).
+- **Free de un solo uso**: se marca consumiendo el crédito inicial
+  (`championshipCredits` pasa de 1 a 0 al crear el primer campeonato/evento);
+  para crear más hace falta comprar un lote (plan de pago).
+- **Enforcement de límites**: doble capa — UI (ocultar/avisar en
+  `/facturacion` y formularios) + `firestore.rules` (`canCreateInOrg`, impide
+  crear con `championshipCredits <= 0` salvo `billingExempt`) + Cloud
+  Functions con Admin SDK para lo que las rules no pueden validar (contadores
+  agregados, límites de pilotos por evento).
 
 ### 3.2 Situación fiscal/legal (Portugal, sin empresa) — importante
 > Nota: orientación general, **no es asesoría fiscal**. Confirmar con un
@@ -359,7 +389,7 @@ suspender/reactivar, métricas (MRR, churn, activación).
 | **1. Modelo de Org** | Introducir tenant sin perder data | Entidad `organizations`, script de backfill `orgId` verificado contra backup (§2.2bis), tu comunidad migrada como "org #1" con tu equipo actual intacto | Alto |
 | **2. Auth org-scoped** | Permisos aislados | `memberships`, custom claims, rules que validan `orgId`+rol, invitaciones | Alto |
 | **3. Routing + Branding** | Cada liga se ve como suya | Resolución de tenant por path (`/mi-liga` con palabras reservadas), branding por org (logo+colores, plan Pro), OG dinámico | Medio |
-| **4. Billing** | Cobrar | Stripe Checkout + Portal + `stripeWebhook`, planes y límites aplicados (incl. Free de un solo uso) | Medio-Alto |
+| **4. Billing** | Cobrar | ✅ Implementado: Paddle Checkout + `paddle_webhook`, créditos por lote, Free de un solo uso. Pendiente solo definir paquetes/precios finales y activar `UPGRADE_ENABLED` (§8, §9) | Medio-Alto |
 | **5. Onboarding self-service** | Escalar sin ti | Registro→crea org→prueba→asistente, panel Platform Owner | Medio |
 
 > **Estrategia decidida: VALIDAR PRIMERO.** No construir billing self-service de
@@ -424,11 +454,71 @@ suspender/reactivar, métricas (MRR, churn, activación).
 10. **`wolcutor@gmail.com` es propietario de todo**: Administrador de Plataforma
     (control global) y además Organizador de `GT7 ESP` (§2.3).
 
-**Único punto abierto (lo investigas tú):**
-- **Pasarela definitiva**: revisar requisitos de registro de **Lemon Squeezy** y
-  **Paddle** (MoR) para un residente en Portugal sin empresa, y elegir. No
-  bloquea el arranque: el piloto se cobra manualmente (link de pago) mientras
-  tanto.
+11. **Pasarela definitiva: Paddle** (MoR). Checkout + webhook + Firestore
+    probados de punta a punta. Solo falta definir los **paquetes/lotes y sus
+    precios reales** para activar el botón de upgrade (`UPGRADE_ENABLED` en
+    `/facturacion`).
+12. **Sugerencias de reclamaciones con IA (Gemini) son función de pago**: no
+    entran en el plan Free porque Gemini tiene coste variable real por
+    llamada. Ver §9.
+
+**Único punto abierto:**
+- **Paquetes/lotes y precios concretos** (cuántos campeonatos/eventos por
+  lote, EUR por lote, si el add-on de IA del §9 va incluido en Pro o se cobra
+  aparte). No bloquea nada más: el resto de la infraestructura de cobro ya
+  está lista y probada.
+
+---
+
+## 9. Add-on de pago: sugerencia de reclamaciones con IA (Gemini)
+
+> Añadido 2026-07-24, no estaba en el plan original — se documenta aquí
+> porque introduce el primer caso real de **coste variable por uso** de la
+> plataforma (a diferencia del resto, que es coste fijo de infra por tenant,
+> §1.5).
+
+### 9.1 Qué hace
+En el modal de resolver una reclamación, el comisario puede pedir una
+sugerencia: la Cloud Function `suggest_claim_resolution`
+(`functions/main.py`) toma la evidencia en video (URLs de YouTube) de la
+reclamación, se la pasa a Gemini (`gemini-3.6-flash`, análisis nativo de URL
+de YouTube sin descarga/subida) junto con el contexto de la reclamación
+(reclamante, acusado, carrera, descripción), y devuelve una sugerencia en
+español (qué se observa, evaluación, sugerencia de resolución y severidad).
+El comisario decide siempre — no es un fallo automático.
+
+### 9.2 Por qué es de pago
+A diferencia de casi todo lo demás en esta plataforma (Firestore, Hosting,
+Functions con costo marginal por tenant muy bajo, §1.5), **cada llamada a
+Gemini tiene un coste real que pagamos nosotros a Google**, no el organizador.
+Ofrecerlo gratis en el plan Free rompería la unit economics del §1.5 sin
+límite (cualquier organización Free podría generar llamadas ilimitadas).
+
+### 9.3 Implementación del gating (hecho)
+- **Backend (fuente de verdad)**: `suggest_claim_resolution` resuelve el
+  `orgId` del campeonato de la reclamación, lee `organizations/{orgId}` y
+  rechaza con `402` si `plan == 'free'` y no tiene `billingExempt: true`. Esto
+  se evalúa **después** del chequeo de rol (comisario+/platformOwner) — un rol
+  válido no basta si el plan de su organización no lo incluye.
+- **Frontend (UX, no seguridad)**: `ResolveClaimModal`
+  (`src/app/components/championship/PenaltiesTab.js`) recibe `org` y calcula
+  `aiAvailable = org.billingExempt || org.plan !== 'free'`; si es falso, el
+  botón "Pedir sugerencia" queda deshabilitado y muestra
+  "🔒 Sugerencia IA (plan de pago)" con tooltip explicando que hay que
+  actualizar el plan. Esto solo evita una llamada inútil al backend — el
+  gating real está en la Cloud Function.
+- **`GEMINI_API_KEY`** vive en Secret Manager (mismo patrón que
+  `TELEGRAM_BOT_TOKEN`/`PADDLE_WEBHOOK_SECRET`), nunca en el cliente.
+
+### 9.4 Pendiente de decidir (junto al punto abierto del §8)
+- ¿Incluida en **Starter** también, o exclusiva de **Pro**? Hoy el gating del
+  backend permite cualquier plan pagado (`plan != 'free'`), es decir Starter
+  y Pro por igual — habría que ajustar el `if` en
+  `functions/main.py:suggest_claim_resolution` si se decide restringirla solo
+  a Pro.
+- ¿Límite de llamadas por organización/mes (para acotar el coste de Gemini
+  incluso en planes de pago) o coste ilimitado dentro del plan? Hoy no hay
+  ningún tope de uso, solo el gating binario por plan.
 
 > Siguiente paso técnico recomendado: arrancar **Fase 0**, empezando por el
 > **control de peso de banners (500–800 KB)** —bajo riesgo y útil desde hoy— y

@@ -982,6 +982,21 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
     if not caller_claims.get('platformOwner') and caller_rank < _ROLE_RANK['comisario']:
         return _role_json({'ok': False, 'error': 'Requiere rol de comisario en esta organización'}, 403)
 
+    # Gemini tiene coste por llamada (facturado a nosotros, no al organizador),
+    # así que esta función solo se sirve a organizaciones de plan de pago o
+    # exentas de facturación — el plan Free no la incluye. El chequeo de rol
+    # de arriba ya exige comisario+, pero eso no basta: un comisario de una
+    # org Free también quedaría bloqueado aquí.
+    if not caller_claims.get('platformOwner'):
+        org_snap = db.collection('organizations').document(org_id).get() if org_id else None
+        org = org_snap.to_dict() if org_snap and org_snap.exists else {}
+        if not org.get('billingExempt') and org.get('plan', 'free') == 'free':
+            return _role_json({
+                'ok': False,
+                'error': 'La sugerencia con IA es una función de los planes de pago (Starter/Pro). '
+                         'Actualiza el plan de tu organización en Facturación para usarla.',
+            }, 402)
+
     claim_snap = champ_ref.collection('claims').document(claim_id).get()
     if not claim_snap.exists:
         return _role_json({'ok': False, 'error': 'Reclamación no encontrada'}, 404)
