@@ -1156,6 +1156,7 @@ function ClaimsSection({ claims, championshipId, championship, org, allDrivers, 
             {resolveModal && (
                 <ResolveClaimModal
                     claim={resolveModal}
+                    championshipId={championshipId}
                     allDrivers={allDrivers}
                     tracks={tracks}
                     presets={config.presets?.filter(p => p.active) || []}
@@ -1170,8 +1171,11 @@ function ClaimsSection({ claims, championshipId, championship, org, allDrivers, 
 // ═══════════════════════════════════════════════
 // MODAL: Resolver Reclamación
 // ═══════════════════════════════════════════════
-function ResolveClaimModal({ claim, allDrivers, tracks, presets, onClose, onResolve }) {
+function ResolveClaimModal({ claim, championshipId, allDrivers, tracks, presets, onClose, onResolve }) {
     const [resolution, setResolution] = useState('');
+    const [aiSuggestion, setAiSuggestion] = useState(null);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiError, setAiError] = useState('');
     const [applyPenalty, setApplyPenalty] = useState(false);
     const [selectedPreset, setSelectedPreset] = useState(null);
     const [customMode, setCustomMode] = useState(false);
@@ -1183,6 +1187,20 @@ function ResolveClaimModal({ claim, allDrivers, tracks, presets, onClose, onReso
     // Backward compat: accusedNames[] o legacy accusedName string
     const accusedList = claim.accusedNames?.length > 0 ? claim.accusedNames : (claim.accusedName ? [claim.accusedName] : []);
     const [selectedAccused, setSelectedAccused] = useState(accusedList[0] || '');
+
+    const handleAskAi = async () => {
+        setAiLoading(true);
+        setAiError('');
+        setAiSuggestion(null);
+        try {
+            const data = await FirebaseService.suggestClaimResolution(championshipId, claim.id);
+            setAiSuggestion(data);
+        } catch (err) {
+            setAiError(err.message || 'No se pudo obtener la sugerencia');
+        } finally {
+            setAiLoading(false);
+        }
+    };
 
     const handleSelectPreset = (preset) => {
         setSelectedPreset(preset);
@@ -1286,13 +1304,48 @@ function ResolveClaimModal({ claim, allDrivers, tracks, presets, onClose, onReso
                     )}
 
                     <div>
-                        <label className="text-gray-400 text-sm block mb-1">Resolución *</label>
+                        <div className="flex items-center justify-between mb-1">
+                            <label className="text-gray-400 text-sm">Resolución *</label>
+                            <button
+                                type="button"
+                                onClick={handleAskAi}
+                                disabled={aiLoading}
+                                className="text-xs px-2.5 py-1 bg-purple-600/20 hover:bg-purple-600/40 disabled:opacity-50 text-purple-300 rounded-lg transition-all"
+                                title="Analiza el video de evidencia (solo YouTube) y sugiere una resolución — no reemplaza tu criterio"
+                            >
+                                {aiLoading ? '🤖 Analizando video...' : '🤖 Pedir sugerencia'}
+                            </button>
+                        </div>
                         <textarea
                             value={resolution}
                             onChange={e => setResolution(e.target.value)}
                             className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm h-20 resize-none"
                             placeholder="Describir la resolución..."
                         />
+
+                        {aiError && (
+                            <p className="text-orange-300 text-xs mt-1">⚠️ {aiError}</p>
+                        )}
+                        {aiSuggestion && (
+                            <div className="mt-2 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="text-purple-300 text-xs font-semibold">🤖 Sugerencia de Gemini (revísala, no es un fallo automático)</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setResolution(aiSuggestion.suggestion)}
+                                        className="text-xs px-2 py-0.5 bg-purple-600 hover:bg-purple-700 text-white rounded transition-all"
+                                    >
+                                        Usar como resolución
+                                    </button>
+                                </div>
+                                <p className="text-gray-300 text-xs whitespace-pre-line">{aiSuggestion.suggestion}</p>
+                                {aiSuggestion.skippedUrls?.length > 0 && (
+                                    <p className="text-gray-500 text-xs mt-2">
+                                        ⓘ No se analizaron (no son de YouTube): {aiSuggestion.skippedUrls.join(', ')}
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Toggle aplicar sanción */}

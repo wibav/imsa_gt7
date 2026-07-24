@@ -921,3 +921,142 @@ def paddle_webhook(req: https_fn.Request) -> https_fn.Response:
         )
 
     return https_fn.Response('ok', status=200)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Sugerencia de resolución de reclamaciones — Gemini (analiza el video de
+# evidencia por URL, sin descargarlo).
+#
+# Es una AYUDA, no un fallo automático: el comisario sigue siendo quien
+# decide. Solo puede analizar evidencia de YouTube — Gemini soporta pasar
+# una URL de YouTube directamente en el request (fileData.fileUri), sin
+# necesidad de descargar/subir el video. Otros orígenes (Twitch, TikTok,
+# etc., que sí aparecen en reclamaciones reales) se listan como omitidos.
+#
+# GEMINI_API_KEY vive en Secret Manager (mismo patrón que TELEGRAM_BOT_TOKEN
+# y PADDLE_WEBHOOK_SECRET):
+#   firebase functions:secrets:set GEMINI_API_KEY
+# (ejecutar en tu propia terminal; el valor nunca debe pegarse en el chat).
+# ══════════════════════════════════════════════════════════════════════════
+
+_GEMINI_MODEL = 'gemini-2.0-flash'
+
+
+def _is_youtube_url(url: str) -> bool:
+    return 'youtube.com' in url or 'youtu.be' in url
+
+
+@https_fn.on_request(region='us-central1', secrets=['GEMINI_API_KEY'], timeout_sec=120)
+def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
+    if req.method == 'OPTIONS':
+        return https_fn.Response('', status=204, headers=_ROLE_CORS)
+    if req.method != 'POST':
+        return _role_json({'ok': False, 'error': 'Method not allowed'}, 405)
+
+    auth_header = req.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return _role_json({'ok': False, 'error': 'Falta token de autorización'}, 401)
+
+    id_token = auth_header.split(' ', 1)[1]
+    try:
+        caller_claims = fb_auth.verify_id_token(id_token)
+    except Exception:
+        return _role_json({'ok': False, 'error': 'Token inválido o expirado'}, 401)
+
+    body = req.get_json(silent=True) or {}
+    championship_id = (body.get('championshipId') or '').strip()
+    claim_id = (body.get('claimId') or '').strip()
+    if not championship_id or not claim_id:
+        return _role_json({'ok': False, 'error': 'Falta championshipId o claimId'}, 400)
+
+    db = fb_firestore.client()
+    champ_ref = db.collection('championships').document(championship_id)
+    champ_snap = champ_ref.get()
+    if not champ_snap.exists:
+        return _role_json({'ok': False, 'error': 'Campeonato no encontrado'}, 404)
+    champ = champ_snap.to_dict()
+    org_id = champ.get('orgId')
+
+    caller_org_role = (caller_claims.get('orgs') or {}).get(org_id)
+    caller_rank = _ROLE_RANK.get(caller_org_role, 0)
+    if not caller_claims.get('platformOwner') and caller_rank < _ROLE_RANK['comisario']:
+        return _role_json({'ok': False, 'error': 'Requiere rol de comisario en esta organización'}, 403)
+
+    claim_snap = champ_ref.collection('claims').document(claim_id).get()
+    if not claim_snap.exists:
+        return _role_json({'ok': False, 'error': 'Reclamación no encontrada'}, 404)
+    claim = claim_snap.to_dict()
+
+    evidence = claim.get('evidence') or []
+    if isinstance(evidence, str):
+        evidence = [evidence] if evidence else []
+    youtube_urls = [u for u in evidence if u and _is_youtube_url(u)]
+    skipped_urls = [u for u in evidence if u and not _is_youtube_url(u)]
+
+    if not youtube_urls:
+        return _role_json({
+            'ok': False,
+            'error': 'No hay ningún video de YouTube en la evidencia de esta reclamación — Gemini solo puede '
+                     'analizar videos de YouTube por URL directa.',
+            'skippedUrls': skipped_urls,
+        }, 422)
+
+    accused = ', '.join(claim.get('accusedNames') or ([claim.get('accusedName')] if claim.get('accusedName') else []))
+    prompt_lines = [
+        'Eres un asistente para comisarios de una liga de sim racing de Gran Turismo 7. '
+        'Analiza el/los video(s) del incidente reportado y da una SUGERENCIA de resolución — '
+        'no un fallo definitivo, la decisión final la toma siempre el comisario humano.',
+        '',
+        f'Reclamante: {claim.get("reporterName") or "?"}',
+        f'Piloto(s) infractor(es): {accused or "?"}',
+        f'Carrera: {claim.get("trackName") or "?"} (ronda {claim.get("round") or "?"})',
+    ]
+    if claim.get('lap'):
+        prompt_lines.append(f'Vuelta reportada: {claim["lap"]}')
+    if claim.get('minute'):
+        prompt_lines.append(f'Minuto reportado: {claim["minute"]}')
+    prompt_lines += [
+        f'Descripción del reclamante: {claim.get("description") or ""}',
+        '',
+        'Responde en español, en máximo 150 palabras, con este formato:',
+        '1) Qué se observa en el video (momento aproximado del incidente).',
+        '2) Si parece un incidente de carrera, error de un piloto, o conducción peligrosa/evitable.',
+        '3) Sugerencia de resolución (aceptar o rechazar la reclamación) y, si aplica, '
+        'severidad orientativa (leve/moderada/grave).',
+    ]
+    prompt = '\n'.join(prompt_lines)
+
+    parts = [{'text': prompt}] + [{'fileData': {'fileUri': u}} for u in youtube_urls]
+
+    api_key = os.environ.get('GEMINI_API_KEY', '')
+    if not api_key:
+        return _role_json({'ok': False, 'error': 'GEMINI_API_KEY no configurada en Secret Manager'}, 500)
+
+    gemini_url = (
+        f'https://generativelanguage.googleapis.com/v1beta/models/{_GEMINI_MODEL}:generateContent'
+        f'?key={api_key}'
+    )
+    payload = json.dumps({'contents': [{'parts': parts}]}).encode('utf-8')
+    gemini_req = urllib.request.Request(
+        gemini_url, data=payload, headers={'Content-Type': 'application/json'}, method='POST'
+    )
+    try:
+        with urllib.request.urlopen(gemini_req, timeout=100) as resp:
+            result = json.loads(resp.read().decode('utf-8'))
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode('utf-8', errors='ignore')
+        return _role_json({'ok': False, 'error': f'Error de Gemini ({e.code}): {detail[:300]}'}, 502)
+    except Exception as e:
+        return _role_json({'ok': False, 'error': f'Error llamando a Gemini: {e}'}, 502)
+
+    try:
+        suggestion = result['candidates'][0]['content']['parts'][0]['text']
+    except (KeyError, IndexError, TypeError):
+        return _role_json({'ok': False, 'error': 'Respuesta inesperada de Gemini', 'raw': result}, 502)
+
+    return _role_json({
+        'ok': True,
+        'suggestion': suggestion.strip(),
+        'analyzedUrls': youtube_urls,
+        'skippedUrls': skipped_urls,
+    })

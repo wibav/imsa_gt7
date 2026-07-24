@@ -1818,4 +1818,30 @@ export class FirebaseService {
     }
     return data;
   }
+
+  // ══════════════════════════════════════════
+  // Sugerencia de resolución de reclamaciones (Gemini)
+  // ══════════════════════════════════════════
+
+  /** Pide a Gemini una sugerencia de resolución para un claim, analizando el
+   *  video de evidencia (solo YouTube) — ver functions/main.py:
+   *  suggest_claim_resolution. Requiere rol de comisario+ en la org del
+   *  campeonato. Es una AYUDA, no un fallo automático. */
+  static async suggestClaimResolution(championshipId, claimId) {
+    if (!auth.currentUser) throw new Error('Debes iniciar sesión');
+    const idToken = await auth.currentUser.getIdToken();
+    const res = await fetch('/api/suggest-claim-resolution', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ championshipId, claimId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'Error al pedir la sugerencia');
+    }
+    return data;
+  }
 }

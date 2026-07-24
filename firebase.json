@@ -29,6 +29,10 @@
         "function": "paddle_webhook"
       },
       {
+        "source": "/api/suggest-claim-resolution",
+        "function": "suggest_claim_resolution"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
