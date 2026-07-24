@@ -1726,10 +1726,10 @@ export class FirebaseService {
    *  _STARTER_PLAN_LIMITS, _PRO_PLAN_LIMITS, _PRO_IA_PLAN_LIMITS) — mantener
    *  ambos en sync si cambian los límites de algún plan. */
   static PLAN_LIMITS = {
-    free: { maxDrivers: 15, maxAdmins: 1, maxComisarios: 1 },
-    starter: { maxDrivers: 60, maxAdmins: 3, maxComisarios: 5 },
-    pro: { maxDrivers: 200, maxAdmins: 10, maxComisarios: 15 },
-    pro_ia: { maxDrivers: 200, maxAdmins: 10, maxComisarios: 15 },
+    free: { maxDrivers: 15, maxAdmins: 2, maxComisarios: 3 },
+    starter: { maxDrivers: 60, maxAdmins: 2, maxComisarios: 6 },
+    pro: { maxDrivers: 200, maxAdmins: 4, maxComisarios: 8 },
+    pro_ia: { maxDrivers: 200, maxAdmins: 4, maxComisarios: 12 },
   };
 
   /** Otorga un lote de créditos a una organización y/o le cambia el plan —

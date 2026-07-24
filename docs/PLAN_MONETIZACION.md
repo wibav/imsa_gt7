@@ -99,12 +99,12 @@ notificaciones — sin planillas de Excel ni bots caseros."
 
 ### 1.4 Planes mensuales (features/límites — eje recurrente)
 
-| Plan | Precio | Pilotos | Admins | Comisarios | Branding | URL propia | Sugerencias IA (Gemini) |
-|------|--------|---------|--------|-----------|----------|-----------|--------------------------|
-| **Free** | 0 €/mes | 15 (máx.) | 1 | 1 | "Powered by" visible | No | No |
-| **Starter** | 12 €/mes | 60 | 3 | 5 | "Powered by" visible | No | No |
-| **Pro** | 35 €/mes | 200 | 10 | 15 | **Logo + colores propios** | **Sí: `trenkit.com/l/mi-liga`** | No |
-| **Pro + IA** | 55 €/mes | 200 | 10 | 15 | Logo + colores propios | Sí | **Sí — hasta 60 sugerencias/mes** |
+| Plan | Precio | Pilotos | Admins (incl. owner) | Comisarios | Branding | URL propia | Sugerencias IA (Gemini) |
+|------|--------|---------|----------------------|-----------|----------|-----------|--------------------------|
+| **Free** (solo lotes) | 0 €/mes | 15 (máx.) | 2 | 3 | "Powered by" visible | No | No |
+| **Starter** | 12 €/mes | 60 | 2 | 6 | "Powered by" visible | No | No |
+| **Pro** | 35 €/mes | 200 | 4 | 8 | **Logo + colores propios** | **Sí: `trenkit.com/l/mi-liga`** | No |
+| **Pro + IA** | 55 €/mes | 200 | 4 | 12 | Logo + colores propios | Sí | **Sí — hasta 60 sugerencias/mes** |
 
 - **Anual**: 2 meses gratis (~17% descuento) en cualquiera de los 3 planes de
   pago — pendiente de crear el precio anual equivalente en Paddle cuando se
@@ -121,16 +121,22 @@ notificaciones — sin planillas de Excel ni bots caseros."
 
 | Lote | Créditos (campeonatos/eventos) | Precio | €/crédito |
 |------|-------------------------------|--------|-----------|
-| **S** | 3 | 15 € | 5,0 € |
-| **M** | 10 | 40 € | 4,0 € |
-| **L** | 25 | 85 € | 3,4 € |
+| **S** | 1 | 8 € | 8,0 € |
+| **M** | 5 | 30 € | 6,0 € |
+| **L** | 10 | 50 € | 5,0 € |
+
+> Precios de referencia — solo las **cantidades de créditos (1/5/10)** están
+> decididas; los importes en € son una propuesta a validar (mantienen el
+> descuento por volumen del diseño original).
 
 - No caducan por tiempo (a diferencia de los planes, que si dejan de pagarse
   pierden sus límites/features en el siguiente ciclo).
 - El descuento por volumen (S→L) empuja a comprar lotes más grandes sin
   necesidad de un cuarto tier.
 - El plan Free arranca con **1 crédito** (su prueba única) — comprar un lote
-  no exige subir de plan mensual.
+  no exige subir de plan mensual. Una organización que **solo compra lotes**
+  (sin suscribirse a Starter/Pro/Pro + IA) se queda con los límites de
+  pilotos/admins/comisarios del plan **Free** (§1.4).
 
 - **Moneda: EUR** (resides en Portugal). **Ciclos: mensual y anual** (anual con
   descuento, ~2 meses gratis).

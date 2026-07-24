@@ -675,27 +675,34 @@ _SLUG_RE = re.compile(r'^[a-z0-9-]+$')
 # ADR-007): cuántos campeonatos/eventos puede crear una org lo determina su
 # saldo `championshipCredits`, no un tope fijo por plan. Estos límites solo
 # cubren lo que sí sigue dependiendo del tier (pilotos, administradores).
-_FREE_PLAN_LIMITS = {
+# maxAdmins incluye al Organizador/owner de la liga (no es adicional a él).
+_FREE_PLAN_LIMITS = {  # solo lotes de créditos, sin plan mensual
     'maxDrivers': 15,
-    'maxAdmins': 1,
-    'maxComisarios': 1,
+    'maxAdmins': 2,
+    'maxComisarios': 3,
 }
 
 _STARTER_PLAN_LIMITS = {
     'maxDrivers': 60,
-    'maxAdmins': 3,
-    'maxComisarios': 5,
+    'maxAdmins': 2,
+    'maxComisarios': 6,
 }
 
 _PRO_PLAN_LIMITS = {
     'maxDrivers': 200,
-    'maxAdmins': 10,
-    'maxComisarios': 15,
+    'maxAdmins': 4,
+    'maxComisarios': 8,
 }
 
-# 'pro_ia' tiene los mismos límites de uso que 'pro' — la diferencia es que
-# además incluye las sugerencias de IA (ver _AI_MONTHLY_CAP más abajo).
-_PRO_IA_PLAN_LIMITS = _PRO_PLAN_LIMITS
+# 'pro_ia' comparte maxDrivers con 'pro' pero permite más comisarios (más
+# manos revisando reclamaciones, coherente con el volumen de sugerencias de
+# IA que puede llegar a pedir una liga grande) — además incluye la IA en sí
+# (ver _AI_MONTHLY_CAP más abajo).
+_PRO_IA_PLAN_LIMITS = {
+    'maxDrivers': 200,
+    'maxAdmins': 4,
+    'maxComisarios': 12,
+}
 
 # ══════════════════════════════════════════════════════════════════════════
 # Catálogo de precios de Paddle → qué desbloquea cada uno.
@@ -716,9 +723,9 @@ _PADDLE_PRICE_PLANS = {
 
 # _PADDLE_PRICE_CREDITS: precios de pago único → créditos de campeonatos/eventos
 _PADDLE_PRICE_CREDITS = {
-    'pri_REEMPLAZAR_LOTE_S': 3,
-    'pri_REEMPLAZAR_LOTE_M': 10,
-    'pri_REEMPLAZAR_LOTE_L': 25,
+    'pri_REEMPLAZAR_LOTE_S': 1,
+    'pri_REEMPLAZAR_LOTE_M': 5,
+    'pri_REEMPLAZAR_LOTE_L': 10,
 }
 
 # Tope de sugerencias de IA por organización/mes en plan 'pro_ia' — acota el

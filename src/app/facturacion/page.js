@@ -27,21 +27,21 @@ const PLANES = [
         label: 'Starter',
         price: '12 €/mes',
         priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_STARTER || '',
-        features: ['Hasta 60 pilotos', '3 administradores', '5 comisarios'],
+        features: ['Hasta 60 pilotos', '2 administradores (incl. owner)', '6 comisarios'],
     },
     {
         key: 'pro',
         label: 'Pro',
         price: '35 €/mes',
         priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_PRO || '',
-        features: ['Hasta 200 pilotos', '10 administradores', '15 comisarios', 'Branding propio (logo + colores)', 'URL personalizada'],
+        features: ['Hasta 200 pilotos', '4 administradores (incl. owner)', '8 comisarios', 'Branding propio (logo + colores)', 'URL personalizada'],
     },
     {
         key: 'pro_ia',
         label: 'Pro + IA',
         price: '55 €/mes',
         priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_PRO_IA || '',
-        features: ['Todo lo de Pro', '🤖 Sugerencia de resolución de reclamaciones con Gemini', 'Hasta 60 sugerencias de IA/mes'],
+        features: ['Hasta 200 pilotos', '4 administradores (incl. owner)', '12 comisarios', 'Branding + URL personalizada', '🤖 Sugerencia de resolución de reclamaciones con Gemini', 'Hasta 60 sugerencias de IA/mes'],
         highlight: true,
     },
 ];
@@ -50,9 +50,9 @@ const PLANES = [
 // puede crear la organización. Independiente del plan mensual: una org
 // Free puede comprar un lote sin pasar a Starter/Pro.
 const LOTES = [
-    { key: 'S', credits: 3, price: '15 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_S || '' },
-    { key: 'M', credits: 10, price: '40 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_M || '' },
-    { key: 'L', credits: 25, price: '85 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_L || '' },
+    { key: 'S', credits: 1, price: '8 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_S || '' },
+    { key: 'M', credits: 5, price: '30 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_M || '' },
+    { key: 'L', credits: 10, price: '50 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_L || '' },
 ];
 
 const PLAN_RANK = { free: 0, starter: 1, pro: 2, pro_ia: 3 };
