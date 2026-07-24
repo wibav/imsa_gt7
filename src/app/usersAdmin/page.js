@@ -38,6 +38,26 @@ export default function UsersAdmin() {
     const [emailFailedFor, setEmailFailedFor] = useState('');
     const [resendingEmail, setResendingEmail] = useState(false);
 
+    // Reenvío persistente por fila — a diferencia de `emailFailedFor` de
+    // arriba (que solo vive mientras dura la sesión y desaparece al
+    // recargar la página), esto permite reenviar el correo de
+    // contraseña a un admin/comisario **ya existente**, en cualquier
+    // momento, no solo justo después de crear la cuenta.
+    const [resendRowState, setResendRowState] = useState({}); // { [email]: { loading, message, isError } }
+
+    const handleResendRow = async (email) => {
+        setResendRowState(prev => ({ ...prev, [email]: { loading: true, message: '', isError: false } }));
+        try {
+            await resetPassword(email);
+            setResendRowState(prev => ({ ...prev, [email]: { loading: false, message: 'Correo reenviado ✅', isError: false } }));
+        } catch (err) {
+            setResendRowState(prev => ({
+                ...prev,
+                [email]: { loading: false, message: 'No se pudo enviar' + (err.code ? ` (${err.code})` : ''), isError: true },
+            }));
+        }
+    };
+
     const sendWelcomeEmail = async (email) => {
         try {
             await resetPassword(email);
@@ -321,6 +341,14 @@ export default function UsersAdmin() {
                                                 ✏️
                                             </button>
                                             <button
+                                                onClick={() => handleResendRow(a.email)}
+                                                disabled={resendRowState[a.email]?.loading}
+                                                className="px-3 py-1 bg-white/10 hover:bg-white/20 disabled:opacity-50 text-gray-300 hover:text-white rounded-lg text-sm transition-all"
+                                                title="Reenviar correo para definir/restablecer contraseña"
+                                            >
+                                                {resendRowState[a.email]?.loading ? '…' : '📩'}
+                                            </button>
+                                            <button
                                                 onClick={() => handleRemoveAdmin(a.email)}
                                                 className="px-3 py-1 bg-red-600/30 hover:bg-red-600/60 text-red-300 hover:text-white rounded-lg text-sm transition-all"
                                             >
@@ -329,6 +357,11 @@ export default function UsersAdmin() {
                                         </div>
                                     )}
                                 </div>
+                                {resendRowState[a.email]?.message && (
+                                    <p className={`text-xs mt-1 ${resendRowState[a.email].isError ? 'text-orange-300' : 'text-green-300'}`}>
+                                        {resendRowState[a.email].message}
+                                    </p>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -374,20 +407,35 @@ export default function UsersAdmin() {
                 ) : (
                     <div className="space-y-2">
                         {comisarios.map(c => (
-                            <div key={c.id} className="flex items-center justify-between bg-white/10 border border-white/10 rounded-lg px-4 py-3">
-                                <div>
-                                    <p className="text-white font-medium">{c.email}</p>
-                                    {c.displayName && <p className="text-gray-400 text-sm">{c.displayName}</p>}
+                            <div key={c.id} className="bg-white/10 border border-white/10 rounded-lg px-4 py-3">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-white font-medium">{c.email}</p>
+                                        {c.displayName && <p className="text-gray-400 text-sm">{c.displayName}</p>}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-xs rounded-full font-medium">Comisario</span>
+                                        <button
+                                            onClick={() => handleResendRow(c.email)}
+                                            disabled={resendRowState[c.email]?.loading}
+                                            className="px-3 py-1 bg-white/10 hover:bg-white/20 disabled:opacity-50 text-gray-300 hover:text-white rounded-lg text-sm transition-all"
+                                            title="Reenviar correo para definir/restablecer contraseña"
+                                        >
+                                            {resendRowState[c.email]?.loading ? '…' : '📩'}
+                                        </button>
+                                        <button
+                                            onClick={() => handleRemoveComisario(c.email)}
+                                            className="px-3 py-1 bg-red-600/30 hover:bg-red-600/60 text-red-300 hover:text-white rounded-lg text-sm transition-all"
+                                        >
+                                            Quitar rol
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-xs rounded-full font-medium">Comisario</span>
-                                    <button
-                                        onClick={() => handleRemoveComisario(c.email)}
-                                        className="px-3 py-1 bg-red-600/30 hover:bg-red-600/60 text-red-300 hover:text-white rounded-lg text-sm transition-all"
-                                    >
-                                        Quitar rol
-                                    </button>
-                                </div>
+                                {resendRowState[c.email]?.message && (
+                                    <p className={`text-xs mt-1 ${resendRowState[c.email].isError ? 'text-orange-300' : 'text-green-300'}`}>
+                                        {resendRowState[c.email].message}
+                                    </p>
+                                )}
                             </div>
                         ))}
                     </div>
