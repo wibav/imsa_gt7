@@ -296,7 +296,13 @@ export default function ChampionshipDetailPage() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
                 <div className="grid lg:grid-cols-4 gap-8">
                     {/* Main Content - 3 columns */}
-                    <div className="lg:col-span-3">
+                    {/* min-w-0: sin esto, un elemento con texto/URL largo sin
+                        wrap dentro de esta columna puede forzarla más ancha
+                        que el espacio disponible (los hijos de CSS grid no
+                        se achican por debajo de su ancho intrínseco por
+                        defecto) — empuja al sidebar fuera del viewport en
+                        vez de que el contenido haga wrap o scroll interno. */}
+                    <div className="lg:col-span-3 min-w-0">
                         {/* TAB: Clasificación */}
                         {activeTab === 'standings' && (
                             <div className="space-y-6">
@@ -1364,6 +1370,21 @@ export default function ChampionshipDetailPage() {
                                 <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
                                     ⚠️ Sanciones del Campeonato
                                 </h2>
+
+                                {/* Botón enviar reclamación — siempre al inicio del tab */}
+                                {championship.penaltiesConfig?.allowClaims && (
+                                    <div className="mb-6 bg-gradient-to-br from-orange-600/20 to-red-600/20 border border-orange-400/30 rounded-xl p-6 text-center">
+                                        <h3 className="text-white font-bold text-lg mb-2">📩 ¿Viste una infracción?</h3>
+                                        <p className="text-gray-300 text-sm mb-4">Reporta el incidente para que los directores de carrera lo revisen</p>
+                                        <button
+                                            onClick={() => setShowClaimForm(true)}
+                                            className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-6 py-3 rounded-lg font-bold transition-all"
+                                        >
+                                            📩 Realizar reclamación
+                                        </button>
+                                    </div>
+                                )}
+
                                 {penalties.filter(p => p.status === 'applied').length === 0 ? (
                                     <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
                                         <div className="text-4xl mb-3">✅</div>
@@ -1399,20 +1420,6 @@ export default function ChampionshipDetailPage() {
                                                 </div>
                                             );
                                         })}
-                                    </div>
-                                )}
-
-                                {/* Botón enviar reclamación */}
-                                {championship.penaltiesConfig?.allowClaims && (
-                                    <div className="mt-6 bg-gradient-to-br from-orange-600/20 to-red-600/20 border border-orange-400/30 rounded-xl p-6 text-center">
-                                        <h3 className="text-white font-bold text-lg mb-2">📩 ¿Viste una infracción?</h3>
-                                        <p className="text-gray-300 text-sm mb-4">Reporta el incidente para que los directores de carrera lo revisen</p>
-                                        <button
-                                            onClick={() => setShowClaimForm(true)}
-                                            className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-6 py-3 rounded-lg font-bold transition-all"
-                                        >
-                                            📩 Reportar Incidente
-                                        </button>
                                     </div>
                                 )}
 
@@ -1901,7 +1908,7 @@ export default function ChampionshipDetailPage() {
                     </div>
 
                     {/* Sidebar - 1 column */}
-                    <div className="lg:col-span-1">
+                    <div className="lg:col-span-1 min-w-0">
                         <div className="sticky top-24 space-y-6">
                             {/* Próxima Carrera */}
                             {nextRace && (
