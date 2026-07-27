@@ -15,6 +15,9 @@ const eslintConfig = [
     // Los archivos .old.js son backups, no código de producción
     ignores: ["**/*.old.js"],
   },
+  {
+    rules: { "no-undef": "error" },
+  },
 ];
 
 export default eslintConfig;
