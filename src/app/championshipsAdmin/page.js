@@ -1083,6 +1083,7 @@ function TeamsTab({ championshipId, teams, tracks, editMode, onUpdate, champions
 
 // Tab de Pistas con edición de puntajes
 function TracksTab({ championshipId, tracks, teams, championship, editMode, onUpdate, divisions = [] }) {
+    const { org } = useOrganization();
     // Estados para modal de asignación de posiciones
     const [showPositionsModal, setShowPositionsModal] = useState(false);
     const [selectedTrack, setSelectedTrack] = useState(null);
