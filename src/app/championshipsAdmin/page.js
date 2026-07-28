@@ -32,7 +32,7 @@ export default function ChampionshipDetail() {
     const championshipId = searchParams.get("id");
     const adminSection = searchParams.get("section") || 'campeonatos'; // 'campeonatos' | 'usuarios'
 
-    const { currentUser, isAdmin, isComisario, loading: authLoading } = useAuth();
+    const { currentUser, isAdmin, isComisario, canRefereeChampionship, loading: authLoading } = useAuth();
     const { championships, updateChampionship, deleteChampionship, loading: championshipsLoading } = useChampionship();
     const { org } = useOrganization();
 
@@ -49,14 +49,14 @@ export default function ChampionshipDetail() {
 
     // Sección activa del panel principal (cuando no hay championshipId)
     // Se lee desde el query param ?section= (ver AdminLayout)
-
-    // Si es comisario (sin admin), arrancar en la tab de pistas
-    useEffect(() => {
-        if (isComisario() && !isAdmin()) {
-            setActiveTab('tracks');
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    //
+    // Nota: NO hay un useEffect que fije `activeTab` al montar (existía uno
+    // que forzaba 'tracks' para comisarios, pero podía dejar seleccionada
+    // una pestaña que ya no existe en la lista final una vez que `tabs` se
+    // calcula más abajo — con la pestaña Pistas retirada del panel del
+    // comisario, ADR-009, ese bug se volvía alcanzable). En vez de mover el
+    // parche, se elimina la clase de bug: la pestaña realmente renderizada
+    // se DERIVA de `tabs` (ver `currentTab` más abajo), nunca se fuerza.
 
     // Redirigir si no está autenticado
     useEffect(() => {
@@ -156,6 +156,14 @@ export default function ChampionshipDetail() {
         );
     }
 
+    // Comisario "puro" (sin también ser admin) — gobierna qué ve en la
+    // lista de campeonatos y dentro de cada uno. Calculado aquí (antes del
+    // return de la lista) porque también filtra esa vista.
+    const userIsComisario = isComisario() && !isAdmin();
+    const visibleChampionships = userIsComisario
+        ? championships.filter(canRefereeChampionship)
+        : championships;
+
     // Si NO hay championshipId, mostrar el contenido según la sección activa
     if (!championshipId) {
         return (
@@ -165,23 +173,29 @@ export default function ChampionshipDetail() {
                 {adminSection === 'campeonatos' && (
                     <>
                         <div className="flex justify-between items-center mb-8">
-                            <h1 className="text-3xl font-bold text-white">🏆 Campeonatos</h1>
-                            <button
-                                onClick={() => router.push('/championshipsAdmin/new')}
-                                className="px-6 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg font-bold hover:from-orange-700 hover:to-red-700"
-                            >
-                                + Nuevo Campeonato
-                            </button>
+                            <h1 className="text-3xl font-bold text-white">
+                                {userIsComisario ? '🏁 Mis campeonatos' : '🏆 Campeonatos'}
+                            </h1>
+                            {!userIsComisario && (
+                                <button
+                                    onClick={() => router.push('/championshipsAdmin/new')}
+                                    className="px-6 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg font-bold hover:from-orange-700 hover:to-red-700"
+                                >
+                                    + Nuevo Campeonato
+                                </button>
+                            )}
                         </div>
                         {championshipsLoading ? (
                             <LoadingSkeleton variant="spinner" message="Cargando campeonatos..." />
-                        ) : championships.length === 0 ? (
+                        ) : visibleChampionships.length === 0 ? (
                             <div className="text-center py-12 text-gray-400">
-                                No hay campeonatos creados. Crea uno nuevo para comenzar.
+                                {userIsComisario
+                                    ? 'Todavía no tienes campeonatos asignados. Pide a un director de liga de tu organización que te asigne a uno para poder revisar sus reclamaciones.'
+                                    : 'No hay campeonatos creados. Crea uno nuevo para comenzar.'}
                             </div>
                         ) : (
                             <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                {championships.map((champ) => (
+                                {visibleChampionships.map((champ) => (
                                     <div
                                         key={champ.id}
                                         className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg overflow-hidden hover:border-orange-500/50 transition-all cursor-pointer"
@@ -240,18 +254,20 @@ export default function ChampionshipDetail() {
                                                     }}
                                                     className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all text-sm font-medium"
                                                 >
-                                                    📊 Ver Detalles
+                                                    {userIsComisario ? '⚠️ Reclamaciones' : '📊 Ver Detalles'}
                                                 </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        router.push(`/championshipsAdmin/edit?id=${champ.id}`);
-                                                    }}
-                                                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all text-sm font-medium"
-                                                >
-                                                    ✏️
-                                                </button>
-                                                {champ.status === 'draft' && (
+                                                {!userIsComisario && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            router.push(`/championshipsAdmin/edit?id=${champ.id}`);
+                                                        }}
+                                                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all text-sm font-medium"
+                                                    >
+                                                        ✏️
+                                                    </button>
+                                                )}
+                                                {!userIsComisario && champ.status === 'draft' && (
                                                     <button
                                                         onClick={async (e) => {
                                                             e.stopPropagation();
@@ -285,11 +301,29 @@ export default function ChampionshipDetail() {
         return null;
     }
 
+    // Deep link a un campeonato al que este comisario no está asignado
+    // (ADR-009) — la lista ya lo filtra, pero un link directo por URL debe
+    // seguir denegado. Solo aplica a un comisario "puro"; los admins pasan.
+    if (userIsComisario && !canRefereeChampionship(championship)) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-4">
+                <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-2xl p-10 text-center max-w-sm">
+                    <div className="text-5xl mb-4">🚫</div>
+                    <h2 className="text-2xl font-bold text-white mb-2">Acceso Denegado</h2>
+                    <p className="text-gray-400 text-sm mb-6">No estás asignado a este campeonato.</p>
+                    <button onClick={() => router.push('/championshipsAdmin')}
+                        className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-all">
+                        Ver mis campeonatos
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     // Construir tabs según el tipo de campeonato y el rol del usuario
-    const userIsComisario = isComisario() && !isAdmin();
     const tabs = [];
 
-    // Comisarios solo ven pistas y sanciones/reclamaciones
+    // Comisarios solo ven sanciones/reclamaciones
     if (!userIsComisario) {
         tabs.push({ id: 'info', label: '📋 Información', icon: '📋' });
     }
@@ -307,8 +341,14 @@ export default function ChampionshipDetail() {
         tabs.push({ id: 'drivers', label: '🏎️ Pilotos', icon: '🏎️', count: driversCount });
     }
 
-    // Pistas — visible para todos (admin y comisario)
-    tabs.push({ id: 'tracks', label: '🗺 Pistas', icon: '🗺', count: tracks.length });
+    // Pistas — solo admins. Antes era visible también para comisarios, pero
+    // el botón de guardar resultados exige isOrgAdmin en firestore.rules
+    // (nunca escribible por un comisario) — siempre fallaba. ADR-009
+    // aprovecha para quitarla del todo del panel del comisario, que además
+    // queda enfocado solo en reclamaciones.
+    if (!userIsComisario) {
+        tabs.push({ id: 'tracks', label: '🗺 Pistas', icon: '🗺', count: tracks.length });
+    }
 
     // Inscripciones solo para admins
     if (!userIsComisario && championship.registration?.enabled) {
@@ -392,14 +432,26 @@ export default function ChampionshipDetail() {
                     </div>
                 </div>
 
-                {/* Tabs */}
+                {/* Tabs — `currentTab` (no `activeTab` directo) evita seleccionar una
+                    pestaña que no existe en `tabs` para este rol/campeonato (p.ej.
+                    `activeTab` arranca en 'info', pero un comisario nunca tiene esa
+                    pestaña). Se deriva en vez de forzarse por efecto, para no
+                    reintroducir la clase de bug que tenía el useEffect que se quitó. */}
+                {tabs.length === 0 ? (
+                    <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-10 text-center text-gray-400">
+                        Este campeonato no tiene el sistema de sanciones activado. No hay nada que revisar aquí.
+                    </div>
+                ) : (() => {
+                    const currentTab = tabs.some(t => t.id === activeTab) ? activeTab : tabs[0].id;
+                    return (
+                <>
                 <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg mb-6">
                     <div className="flex overflow-x-auto">
                         {tabs.map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex-1 min-w-[120px] px-4 py-4 text-center transition-all border-b-2 relative ${activeTab === tab.id
+                                className={`flex-1 min-w-[120px] px-4 py-4 text-center transition-all border-b-2 relative ${currentTab === tab.id
                                     ? 'border-orange-500 text-white bg-white/10'
                                     : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
                                     }`}
@@ -426,7 +478,7 @@ export default function ChampionshipDetail() {
 
                 {/* Contenido de tabs */}
                 <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-6">
-                    {activeTab === 'info' && (
+                    {currentTab === 'info' && (
                         <InfoTab
                             championship={championship}
                             editMode={editMode}
@@ -434,7 +486,7 @@ export default function ChampionshipDetail() {
                         />
                     )}
 
-                    {activeTab === 'teams' && (
+                    {currentTab === 'teams' && (
                         <TeamsTab
                             championshipId={championshipId}
                             teams={teams}
@@ -445,7 +497,7 @@ export default function ChampionshipDetail() {
                         />
                     )}
 
-                    {activeTab === 'drivers' && (
+                    {currentTab === 'drivers' && (
                         <DriversTab
                             championshipId={championshipId}
                             championship={championship}
@@ -457,7 +509,7 @@ export default function ChampionshipDetail() {
                         />
                     )}
 
-                    {activeTab === 'tracks' && (
+                    {currentTab === 'tracks' && (
                         <TracksTab
                             championshipId={championshipId}
                             tracks={tracks}
@@ -469,7 +521,7 @@ export default function ChampionshipDetail() {
                         />
                     )}
 
-                    {activeTab === 'registrations' && (
+                    {currentTab === 'registrations' && (
                         <RegistrationsTab
                             championshipId={championshipId}
                             championship={championship}
@@ -478,7 +530,7 @@ export default function ChampionshipDetail() {
                         />
                     )}
 
-                    {activeTab === 'penalties' && (
+                    {currentTab === 'penalties' && (
                         <PenaltiesTab
                             championshipId={championshipId}
                             championship={championship}
@@ -489,7 +541,7 @@ export default function ChampionshipDetail() {
                         />
                     )}
 
-                    {activeTab === 'divisions' && (
+                    {currentTab === 'divisions' && (
                         <DivisionsTab
                             championshipId={championshipId}
                             championship={championship}
@@ -502,13 +554,16 @@ export default function ChampionshipDetail() {
                         />
                     )}
 
-                    {activeTab === 'cars' && (
+                    {currentTab === 'cars' && (
                         <CarUsageTab
                             championship={championship}
                             tracks={tracks}
                         />
                     )}
                 </div>
+                </>
+                    );
+                })()}
             </div>
         </div>
     );
@@ -759,6 +814,140 @@ function InfoTab({ championship, editMode, onUpdate }) {
                     </div>
                 </div>
             )}
+
+            {/* InfoTab solo se renderiza para admins (userIsComisario nunca
+                incluye 'info' en tabs) — no hace falta otro chequeo de rol aquí. */}
+            <ComisariosCard championship={championship} onUpdate={onUpdate} />
+        </div>
+    );
+}
+
+// ADR-009 — asignación de comisarios por campeonato. Vive en la tab
+// "Información" (no en /usersAdmin, que es org-scoped y por usuario; esto
+// es 1:N desde un campeonato concreto, y las asignaciones cambian a menudo
+// como para pasar por el wizard de 6 pasos de ChampionshipForm).
+function ComisariosCard({ championship, onUpdate }) {
+    const [candidates, setCandidates] = useState([]);
+    const [loadingCandidates, setLoadingCandidates] = useState(true);
+    // 'unrestricted' = comisarioUids ausente/null (cualquier comisario de la
+    // org puede actuar). 'restricted' = solo los uids marcados abajo.
+    const [mode, setMode] = useState(championship.comisarioUids == null ? 'unrestricted' : 'restricted');
+    const [selectedUids, setSelectedUids] = useState(() => new Set(championship.comisarioUids || []));
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+
+    useEffect(() => {
+        FirebaseService.getComisarios(championship.orgId)
+            .then(setCandidates)
+            .finally(() => setLoadingCandidates(false));
+    }, [championship.orgId]);
+
+    // uids ya asignados que ya no son comisarios de la org (rol revocado
+    // desde /usersAdmin sin limpiar este campeonato) — se muestran igual,
+    // marcados, para que el admin pueda destildarlos y limpiar.
+    const candidateUids = new Set(candidates.map(c => c.uid));
+    const orphanUids = [...selectedUids].filter(uid => !candidateUids.has(uid));
+
+    const toggleUid = (uid) => {
+        setSelectedUids(prev => {
+            const next = new Set(prev);
+            if (next.has(uid)) next.delete(uid); else next.add(uid);
+            return next;
+        });
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        setSaved(false);
+        try {
+            const comisarioUids = mode === 'unrestricted' ? null : [...selectedUids];
+            await FirebaseService.updateChampionship(championship.id, { comisarioUids });
+            setSaved(true);
+            onUpdate();
+        } catch (error) {
+            alert('Error al guardar la asignación de comisarios: ' + error.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="border-t border-white/10 pt-6">
+            <h2 className="text-2xl font-bold text-white mb-1">👮 Comisarios asignados</h2>
+            <p className="text-gray-400 text-sm mb-4">
+                Quién puede resolver reclamaciones y aplicar sanciones en este campeonato.
+            </p>
+
+            <div className="flex flex-col gap-2 mb-4">
+                <label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer">
+                    <input
+                        type="radio"
+                        checked={mode === 'unrestricted'}
+                        onChange={() => setMode('unrestricted')}
+                    />
+                    Todos los comisarios de la organización (sin restringir)
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-200 cursor-pointer">
+                    <input
+                        type="radio"
+                        checked={mode === 'restricted'}
+                        onChange={() => setMode('restricted')}
+                    />
+                    Restringir a comisarios concretos
+                </label>
+            </div>
+
+            {mode === 'restricted' && (
+                <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4">
+                    {loadingCandidates ? (
+                        <p className="text-gray-400 text-sm">Cargando comisarios de la organización...</p>
+                    ) : candidates.length === 0 && orphanUids.length === 0 ? (
+                        <p className="text-gray-500 text-sm">
+                            Esta organización todavía no tiene comisarios. Un director de liga puede agregarlos desde Usuarios.
+                        </p>
+                    ) : (
+                        <div className="space-y-2">
+                            {candidates.map(c => (
+                                <label key={c.uid} className="flex items-center gap-2 text-sm text-white cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedUids.has(c.uid)}
+                                        onChange={() => toggleUid(c.uid)}
+                                    />
+                                    {c.displayName || c.email}
+                                    {c.displayName && <span className="text-gray-500 text-xs">({c.email})</span>}
+                                </label>
+                            ))}
+                            {orphanUids.map(uid => (
+                                <label key={uid} className="flex items-center gap-2 text-sm text-orange-300 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedUids.has(uid)}
+                                        onChange={() => toggleUid(uid)}
+                                    />
+                                    usuario sin rol de comisario — quitar ({uid})
+                                </label>
+                            ))}
+                            {selectedUids.size === 0 && (
+                                <p className="text-orange-300 text-xs pt-2">
+                                    ⚠️ Sin nadie marcado, ningún comisario podrá actuar en este campeonato (los directores de liga/organizador siempre pueden).
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            <div className="flex items-center gap-3">
+                <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="px-5 py-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white font-medium rounded-lg transition-all"
+                >
+                    {saving ? 'Guardando...' : 'Guardar asignación'}
+                </button>
+                {saved && <span className="text-green-400 text-sm">✅ Guardado</span>}
+            </div>
         </div>
     );
 }

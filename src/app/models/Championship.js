@@ -53,6 +53,15 @@ export class Championship {
             : null;
         this.preQualy = data.preQualy || null;
         this.divisionsConfig = data.divisionsConfig || null;
+
+        // Asignación de comisarios (ADR-009): uids de los comisarios de la
+        // org autorizados a resolver reclamaciones/sanciones de ESTE
+        // campeonato. `null`/ausente = sin restringir (cualquier comisario
+        // de la org puede actuar, comportamiento legacy). `[]` = ninguno
+        // asignado — NO significa "todos". OJO: usar `?? null`, nunca
+        // `|| []` — con `|| []` se pierde la distinción ausente/vacío y el
+        // filtro de la UI degrada en silencio a "mostrar todo".
+        this.comisarioUids = data.comisarioUids ?? null;
     }
 
     /**
@@ -142,7 +151,8 @@ export class Championship {
             regulations: this.regulations,
             carUsageTracking: this.carUsageTracking,
             preQualy: this.preQualy,
-            divisionsConfig: this.divisionsConfig
+            divisionsConfig: this.divisionsConfig,
+            comisarioUids: this.comisarioUids
         };
     }
 

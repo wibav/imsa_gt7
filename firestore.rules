@@ -57,10 +57,33 @@ service cloud.firestore {
       return role == 'organizador' || role == 'director_liga' || role == 'comisario';
     }
 
+    // Documento completo del campeonato padre — un solo get() reutilizado
+    // tanto para orgId (aislamiento) como para comisarioUids (ADR-009,
+    // asignación por campeonato). Firestore memoiza get()s idénticos dentro
+    // de una misma evaluación, así que leer comisarioUids aquí no cuesta
+    // una lectura extra sobre lo que ya se pagaba antes.
+    function parentChampDoc(champId) {
+      return get(/databases/$(database)/documents/championships/$(champId)).data;
+    }
+
     // orgId del documento padre championships/{champId}, para las
     // subcolecciones que heredan su aislamiento (no llevan orgId propio).
     function parentChampOrgId(champId) {
-      return get(/databases/$(database)/documents/championships/$(champId)).data.orgId;
+      return parentChampDoc(champId).orgId;
+    }
+
+    // Autoridad para actuar (resolver reclamaciones, aplicar sanciones)
+    // sobre un campeonato concreto — ADR-009. director_liga/organizador
+    // siempre pueden, sin importar la asignación. Un comisario puede si
+    // `comisarioUids` está ausente/null (sin restringir — legacy y default
+    // de un campeonato recién creado) o si su uid está en la lista. `[]`
+    // bloquea a TODOS los comisarios (no es "todos", es "ninguno").
+    function canRefereeChamp(champId) {
+      let champ = parentChampDoc(champId);
+      let org = champ.orgId;
+      let assigned = champ.get('comisarioUids', null);
+      return isOrgAdmin(org)
+        || (isOrgComisario(org) && (assigned == null || request.auth.uid in assigned));
     }
 
     // orgId del documento padre events/{eventId}.
@@ -147,24 +170,27 @@ service cloud.firestore {
         allow write: if isOrgAdmin(parentChampOrgId(champId));
       }
 
-      // Sanciones: solo comisario+ de esa organización (se crean desde el
-      // panel admin, nunca por un piloto).
+      // Sanciones: solo comisarios ASIGNADOS a este campeonato (ADR-009;
+      // director_liga/organizador siempre pueden). Se crean desde el panel
+      // admin, nunca por un piloto. Nota: esto también cierra el bypass de
+      // "resolver una reclamación crea una sanción" — un comisario no
+      // asignado no puede escribir el penalty directamente tampoco.
       match /penalties/{penaltyId} {
         allow read: if true;
-        allow write: if isOrgComisario(parentChampOrgId(champId));
+        allow write: if canRefereeChamp(champId);
       }
       // Reclamaciones: cualquier piloto reporta un incidente sin sesión
       // iniciada (ClaimForm.js, "Reportar Incidente") — a diferencia de
       // penalties, `create` debe estar abierta al público. Lo único que se
       // protege es que nadie pueda crear un reclamo ya "resuelto" de
-      // entrada (status/resolvedBy/penaltyId) — eso es exclusivo de un
-      // comisario+ vía update/delete, igual que antes.
+      // entrada (status/resolvedBy/penaltyId). Resolver/rechazar (update,
+      // delete) exige estar asignado a este campeonato (ADR-009).
       match /claims/{claimId} {
         allow read: if true;
         allow create: if request.resource.data.get('status', 'pending') == 'pending'
           && request.resource.data.get('resolvedBy', '') in [null, '']
           && request.resource.data.get('penaltyId', null) == null;
-        allow update, delete: if isOrgComisario(parentChampOrgId(champId));
+        allow update, delete: if canRefereeChamp(champId);
       }
     }
 

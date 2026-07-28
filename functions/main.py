@@ -1136,6 +1136,18 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
     if not caller_claims.get('platformOwner') and caller_rank < _ROLE_RANK['comisario']:
         return _role_json({'ok': False, 'error': 'Requiere rol de comisario en esta organización'}, 403)
 
+    # Asignación por campeonato (ADR-009): un comisario (rango exacto, no
+    # director_liga/organizador que ya pasan por encima) solo puede pedir
+    # sugerencias en campeonatos a los que está asignado — igual que
+    # canRefereeChamp() en firestore.rules. `comisarioUids` ausente/null =
+    # sin restringir (legacy). Sin este chequeo, un comisario no asignado
+    # podría gastar la cuota mensual de IA de la org en un campeonato que no
+    # arbitra.
+    if not caller_claims.get('platformOwner') and caller_rank < _ROLE_RANK['director_liga']:
+        assigned = champ.get('comisarioUids')
+        if assigned is not None and caller_claims['uid'] not in assigned:
+            return _role_json({'ok': False, 'error': 'No estás asignado a este campeonato'}, 403)
+
     # Gemini tiene coste por llamada (facturado a nosotros, no al organizador),
     # así que esta función solo se sirve a organizaciones en el plan 'pro_ia'
     # (el tier superior que incluye IA — Starter y Pro "a secas" NO la

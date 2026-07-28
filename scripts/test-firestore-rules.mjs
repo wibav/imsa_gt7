@@ -88,6 +88,26 @@ async function main() {
             uid: 'uidComisario', orgId: 'gt7-esp', role: 'comisario', email: 'c@test.com',
         });
 
+        // Fixtures para asignación de comisarios por campeonato (ADR-009).
+        // champ1 se deja SIN el campo comisarioUids a propósito — es el
+        // fixture legacy que prueba que "campo ausente" sigue permitiendo a
+        // cualquier comisario de la org (comportamiento pre-ADR-009).
+        await db.doc('championships/champAsignado').set({
+            orgId: 'gt7-esp', name: 'Champ con comisario asignado', categories: ['Gr1'],
+            settings: { pointsSystem: {} }, drivers: [], registrations: [],
+            // uidComisarioOtraOrg está en la lista a propósito — prueba que
+            // la asignación NO basta por sí sola, sigue exigiendo
+            // isOrgComisario(org) (ver test de aislamiento cross-org).
+            comisarioUids: ['uidComisario', 'uidComisarioOtraOrg'],
+        });
+        await db.doc('championships/champSinComisarios').set({
+            orgId: 'gt7-esp', name: 'Champ sin comisarios (lista vacía)', categories: ['Gr1'],
+            settings: { pointsSystem: {} }, drivers: [], registrations: [],
+            comisarioUids: [],
+        });
+        await db.doc('championships/champAsignado/claims/claimAsignado').set({ status: 'pending' });
+        await db.doc('championships/champSinComisarios/claims/claimSinComisarios').set({ status: 'pending' });
+
         // Orgs para probar límites de plan (SPEC-6 / ADR-007 — lotes prepagados).
         await db.doc('organizations/free-org-used').set({ name: 'Free Usado', slug: 'free-org-used', plan: 'free', championshipCredits: 0 });
         await db.doc('organizations/free-org-fresh').set({ name: 'Free Sin Usar', slug: 'free-org-fresh', plan: 'free', championshipCredits: 1 });
@@ -107,6 +127,14 @@ async function main() {
     const dirLiga = testEnv.authenticatedContext('dirLigaUser', { orgs: { 'gt7-esp': 'director_liga' } }).firestore();
     const organizador = testEnv.authenticatedContext('organizadorUser', { orgs: { 'gt7-esp': 'organizador' } }).firestore();
     const comisario = testEnv.authenticatedContext('uidComisario', { orgs: { 'gt7-esp': 'comisario' } }).firestore();
+    // Segundo comisario de la MISMA org, pero no asignado a champAsignado —
+    // para probar que la asignación por campeonato (ADR-009) sí discrimina
+    // entre comisarios de una misma organización.
+    const comisario2 = testEnv.authenticatedContext('uidComisario2', { orgs: { 'gt7-esp': 'comisario' } }).firestore();
+    // Comisario de OTRA organización cuyo uid se cuela (a mano, maliciosamente)
+    // dentro de comisarioUids de un campeonato de gt7-esp — la asignación NO
+    // debe ser capaz de saltarse el aislamiento entre organizaciones.
+    const comisarioOtraOrgColado = testEnv.authenticatedContext('uidComisarioOtraOrg', { orgs: { 'otra-org': 'comisario' } }).firestore();
     // Un admin de OTRA organización — no debe poder tocar nada de gt7-esp.
     const dirLigaOtraOrg = testEnv.authenticatedContext('dirLigaOtraOrgUser', { orgs: { 'otra-org': 'director_liga' } }).firestore();
     // Roles para probar límites de plan (SPEC-6).
@@ -206,6 +234,52 @@ async function main() {
 
     await check('comisario de OTRA organización NO puede crear sanción en GT7 ESP (herencia de orgId del padre)', () =>
         assertFails(dirLigaOtraOrg.doc('championships/champ1/penalties/p3').set({ driver: 'z' })));
+
+    // ── Asignación de comisarios por campeonato (ADR-009) ──
+    await check('comisario ASIGNADO puede resolver una reclamación de su campeonato', () =>
+        assertSucceeds(comisario.doc('championships/champAsignado/claims/claimAsignado').update({ status: 'resolved', resolvedBy: 'uidComisario' })));
+
+    await check('comisario ASIGNADO puede crear una sanción en su campeonato', () =>
+        assertSucceeds(comisario.doc('championships/champAsignado/penalties/pAsignado').set({ driver: 'x', points: 5 })));
+
+    await check('comisario NO ASIGNADO (misma org) NO puede resolver una reclamación de ese campeonato', () =>
+        assertFails(comisario2.doc('championships/champAsignado/claims/claimAsignado').update({ status: 'resolved', resolvedBy: 'uidComisario2' })));
+
+    await check('comisario NO ASIGNADO (misma org) NO puede crear una sanción en ese campeonato', () =>
+        assertFails(comisario2.doc('championships/champAsignado/penalties/pNoAsignado').set({ driver: 'y' })));
+
+    await check('comisario NO ASIGNADO NO puede borrar una reclamación de ese campeonato', () =>
+        assertFails(comisario2.doc('championships/champAsignado/claims/claimAsignado').delete()));
+
+    await check('director_liga de GT7 ESP puede resolver reclamaciones aunque no esté en comisarioUids', () =>
+        assertSucceeds(dirLiga.doc('championships/champAsignado/claims/claimAsignado').update({ status: 'resolved', resolvedBy: 'dirLigaUser' })));
+
+    await check('organizador de GT7 ESP puede crear sanciones aunque no esté en comisarioUids', () =>
+        assertSucceeds(organizador.doc('championships/champAsignado/penalties/pOrganizador').set({ driver: 'z' })));
+
+    await check('LEGACY: cualquier comisario de la org puede resolver reclamaciones si comisarioUids está ausente (champ1)', () =>
+        assertSucceeds(comisario.doc('championships/champ1/claims/c1').update({ status: 'resolved', resolvedBy: 'uidComisario' })));
+
+    await check('LEGACY: un SEGUNDO comisario de la org también puede, si comisarioUids está ausente (champ1)', () =>
+        assertSucceeds(comisario2.doc('championships/champ1/penalties/pLegacy').set({ driver: 'x' })));
+
+    await check('comisarioUids=[] bloquea a TODOS los comisarios de la org (no es "todos", es "ninguno")', () =>
+        assertFails(comisario.doc('championships/champSinComisarios/claims/claimSinComisarios').update({ status: 'resolved' })));
+
+    await check('comisarioUids=[] NO bloquea a un admin (director_liga/organizador)', () =>
+        assertSucceeds(dirLiga.doc('championships/champSinComisarios/claims/claimSinComisarios').update({ status: 'resolved', resolvedBy: 'dirLigaUser' })));
+
+    await check('CROSS-ORG: estar en comisarioUids NO basta si no se es comisario de ESA organización', () =>
+        assertFails(comisarioOtraOrgColado.doc('championships/champAsignado/claims/claimAsignado').update({ status: 'resolved' })));
+
+    await check('un comisario NO puede auto-asignarse editando comisarioUids', () =>
+        assertFails(comisario.doc('championships/champAsignado').update({ comisarioUids: ['uidComisario', 'uidComisario2'] })));
+
+    await check('el flujo público de inscripción NO puede tocar comisarioUids junto con registrations', () =>
+        assertFails(anon.doc('championships/champAsignado').update({
+            registrations: [{ gt7Id: 'x' }],
+            comisarioUids: ['uidComisario2'],
+        })));
 
     // ── teams / tracks subcolecciones (heredan orgId del padre) ──
     await check('Anónimo NO puede escribir en championships/{id}/teams', () =>

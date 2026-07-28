@@ -51,7 +51,10 @@ export default function AdminLayout({ children }) {
             icon: '🏆',
             items: [
                 { name: 'Campeonatos', path: '/championshipsAdmin', icon: '🏁' },
-                { name: 'Crear Campeonato', path: '/championshipsAdmin/new', icon: '➕' },
+                // "Crear Campeonato" llevaba a un callejón sin salida para un
+                // comisario (ChampionshipForm no gatea rol, pero firestore.rules
+                // sí — la escritura siempre fallaba). ADR-009: gatear en el sidebar.
+                ...(isAdmin() ? [{ name: 'Crear Campeonato', path: '/championshipsAdmin/new', icon: '➕' }] : []),
                 ...(isAdmin() ? [{ name: 'Usuarios', path: '/usersAdmin', icon: '👥' }] : []),
                 ...(isAdmin() ? [{ name: 'Facturación', path: '/facturacion', icon: '💳' }] : []),
                 // Branding (logo/colores): exclusivo del Organizador — un
@@ -70,13 +73,17 @@ export default function AdminLayout({ children }) {
                 { name: 'Pistas GT7', path: '/tracksAdmin', icon: '🏁' },
             ]
         }] : []),
-        {
+        // Eventos: solo admins. /eventsAdmin ya gatea con
+        // <ProtectedRoute requireAdmin> (un comisario ve "Acceso Denegado"),
+        // así que mostrar el enlace en el sidebar era otro callejón sin
+        // salida — ADR-009.
+        ...(isAdmin() ? [{
             title: 'Gestión de Eventos',
             icon: '📅',
             items: [
                 { name: 'Eventos', path: '/eventsAdmin', icon: '🎪' },
             ]
-        },
+        }] : []),
         {
             title: 'Herramientas',
             icon: '⚙️',

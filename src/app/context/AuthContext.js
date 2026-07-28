@@ -96,6 +96,25 @@ export function AuthProvider({ children }) {
         return !!(currentUser && currentOrgRank() >= ROLE_RANK.comisario);
     };
 
+    // Autoridad para actuar (resolver reclamaciones, aplicar sanciones)
+    // sobre un campeonato concreto — ADR-009, asignación por campeonato.
+    // Réplica EXACTA de `canRefereeChamp()` en firestore.rules: admin de la
+    // org siempre puede; un comisario puede si `comisarioUids` está
+    // ausente/null (sin restringir, legacy) o si su uid está en la lista.
+    // Se centraliza aquí para que ningún gate de UI se desincronice de la
+    // regla real. `champ` es un objeto con `.orgId` y `.comisarioUids`
+    // (p.ej. una instancia de Championship o el doc crudo de Firestore).
+    const canRefereeChampionship = (champ) => {
+        if (!currentUser || !champ) return false;
+        const orgId = champ.orgId;
+        if (ROLE_RANK[(claims.orgs || {})[orgId]] >= ROLE_RANK.director_liga) return true;
+        if (ROLE_RANK[(claims.orgs || {})[orgId]] >= ROLE_RANK.comisario) {
+            const assigned = champ.comisarioUids;
+            return assigned == null || assigned.includes(currentUser.uid);
+        }
+        return false;
+    };
+
     // Administrador de Plataforma (dueño de trenkit) — rol de plataforma,
     // por encima de todas las organizaciones. Distinto de isAdmin() (que es
     // por-organización). Solo wolcutor@gmail.com lo tiene (otorgado una
@@ -159,6 +178,7 @@ export function AuthProvider({ children }) {
         logout,
         isAdmin,
         isComisario,
+        canRefereeChampionship,
         isPlatformOwner,
         currentOrgRole,
         myOrgIds,

@@ -6,7 +6,7 @@ import Image from 'next/image';
 
 export default function Navbar() {
     const [menuOpen, setMenuOpen] = useState(false);
-    const { currentUser, logout, isAdmin, myOrgIds } = useAuth();
+    const { currentUser, logout, isAdmin, isComisario, myOrgIds } = useAuth();
     const { org, isRootView } = useOrganization();
 
     // En la vista raíz (agregada, todas las orgs) un usuario logueado con
@@ -140,13 +140,17 @@ export default function Navbar() {
                         </button>
                     ))}
 
-                    {/* Admin Button Desktop */}
-                    {isAdmin() && (
+                    {/* Admin/Comisario Button Desktop — antes solo isAdmin(), así que
+                        un comisario no tenía NINGÚN enlace al panel y tenía que
+                        teclear la URL a mano (ADR-009). isComisario() ya es true
+                        para admins también, así que esto es un superconjunto, sin
+                        regresión para quien ya veía el botón. */}
+                    {isComisario() && (
                         <button
                             onClick={() => window.location.href = '/championshipsAdmin'}
                             className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 text-sm"
                         >
-                            ⚙️ Admin
+                            {isAdmin() ? '⚙️ Admin' : '⚠️ Reclamaciones'}
                         </button>
                     )}
 
@@ -191,12 +195,12 @@ export default function Navbar() {
                             </button>
                         ))}
 
-                        {isAdmin() && (
+                        {isComisario() && (
                             <button
                                 onClick={() => window.location.href = '/championshipsAdmin'}
                                 className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200"
                             >
-                                ⚙️ Admin
+                                {isAdmin() ? '⚙️ Admin' : '⚠️ Reclamaciones'}
                             </button>
                         )}
 
