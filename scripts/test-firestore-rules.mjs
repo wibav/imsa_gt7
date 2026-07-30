@@ -119,6 +119,19 @@ async function main() {
         await db.doc('events/eventLimited').set({
             orgId: 'limited-org', title: 'Evento Limitado', waitlistCount: 0, updatedAt: 'x', participantsCount: 2,
         });
+
+        // Fixtures para alegaciones (appeals, incidencia 3 / CA-3.18).
+        // champAppeals tiene allowAppeals:true; champ1 (arriba) no tiene
+        // penaltiesConfig en absoluto → allowAppeals por defecto false, se
+        // reutiliza para probar el gate de la feature apagada.
+        await db.doc('championships/champAppeals').set({
+            orgId: 'gt7-esp', name: 'Champ con alegaciones activas', categories: ['Gr1'],
+            settings: { pointsSystem: {} }, drivers: [], registrations: [],
+            penaltiesConfig: { enabled: true, allowAppeals: true, appealWindowHours: 48 },
+        });
+        await db.doc('championships/champAppeals/appeals/appealPending').set({
+            status: 'pending', claimId: 'claim1', appellantName: 'Piloto X', reason: 'Motivo de prueba suficientemente largo',
+        });
     });
 
     const anon = testEnv.unauthenticatedContext().firestore();
@@ -437,6 +450,67 @@ async function main() {
     await check('director_liga de org limitada puede editar el evento sin tocar participantsCount (sin límite de admin)', () =>
         assertSucceeds(dirLigaLimited.doc('events/eventLimited').set({
             orgId: 'limited-org', title: 'Evento Limitado editado', waitlistCount: 0, updatedAt: 'x', participantsCount: 2,
+        })));
+
+    // ── appeals (alegaciones sobre reclamaciones — incidencia 3, 3b.4) ──
+    // Caso 1: anónimo crea alegación 'pending' válida en champ con allowAppeals:true → permitido
+    await check('Anónimo crea una alegación pending válida en un champ con allowAppeals:true', () =>
+        assertSucceeds(anon.doc('championships/champAppeals/appeals/a1').set({
+            status: 'pending', claimId: 'claim1', appellantName: 'Piloto X',
+            reason: 'Motivo de prueba suficientemente largo para pasar el mínimo',
+        })));
+
+    // Caso 2: anónimo crea alegación con status:'upheld' → denegado
+    await check('Anónimo NO puede crear una alegación que ya llegue "upheld"', () =>
+        assertFails(anon.doc('championships/champAppeals/appeals/a2').set({
+            status: 'upheld', claimId: 'claim1', appellantName: 'Piloto X',
+            reason: 'Motivo de prueba suficientemente largo para pasar el mínimo',
+        })));
+
+    // Caso 3: anónimo crea alegación con resolvedBy → denegado
+    await check('Anónimo NO puede crear una alegación con resolvedBy ya puesto', () =>
+        assertFails(anon.doc('championships/champAppeals/appeals/a3').set({
+            status: 'pending', resolvedBy: 'alguien', claimId: 'claim1', appellantName: 'Piloto X',
+            reason: 'Motivo de prueba suficientemente largo para pasar el mínimo',
+        })));
+
+    // Caso 4: anónimo crea alegación en champ con allowAppeals:false → denegado
+    await check('Anónimo NO puede crear una alegación en un champ con allowAppeals:false (o ausente)', () =>
+        assertFails(anon.doc('championships/champ1/appeals/a4').set({
+            status: 'pending', claimId: 'claim1', appellantName: 'Piloto X',
+            reason: 'Motivo de prueba suficientemente largo para pasar el mínimo',
+        })));
+
+    // Caso 5: anónimo crea alegación con reason sobredimensionado → denegado
+    await check('Anónimo NO puede crear una alegación con "reason" fuera de los límites de tamaño', () =>
+        assertFails(anon.doc('championships/champAppeals/appeals/a5').set({
+            status: 'pending', claimId: 'claim1', appellantName: 'Piloto X',
+            reason: 'x'.repeat(5000),
+        })));
+
+    // Caso 6: comisario asignado intenta resolver una alegación → denegado
+    // (el test que protege ADR-009 — un comisario no debe poder revocar sus propias sanciones)
+    await check('Un comisario NO puede resolver (update) una alegación, aunque esté asignado al campeonato', () =>
+        assertFails(comisario.doc('championships/champAppeals/appeals/appealPending').update({
+            status: 'upheld', resolvedBy: 'uidComisario', resolvedAt: new Date().toISOString(),
+        })));
+
+    // Caso 7: director_liga resuelve → permitido
+    await check('Un director_liga de la misma org SÍ puede resolver una alegación', () =>
+        assertSucceeds(dirLiga.doc('championships/champAppeals/appeals/appealPending').update({
+            status: 'upheld', resolvedBy: 'dirLigaUser', resolvedAt: new Date().toISOString(),
+        })));
+
+    // Caso 8: director_liga de otra org → denegado
+    await check('Un director_liga de OTRA organización NO puede resolver una alegación de GT7 ESP', () =>
+        assertFails(dirLigaOtraOrg.doc('championships/champAppeals/appeals/appealPending').update({
+            status: 'overturned', resolvedBy: 'dirLigaOtraOrgUser', resolvedAt: new Date().toISOString(),
+        })));
+
+    // Caso 9: anónimo intenta update sobre una alegación → denegado
+    await check('Anónimo NO puede hacer update sobre una alegación existente', () =>
+        assertFails(anon.doc('championships/champAppeals/appeals/appealPending').update({
+            status: 'dismissed',
         })));
 
     // ── catch-all ──

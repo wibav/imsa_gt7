@@ -13,6 +13,7 @@ import DivisionsTab from '../components/championship/DivisionsTab';
 import { DEFAULT_SPRINT_POINTS } from '../utils/constants';
 import { notifyResultsSaved, notifyRegistrationUpdated } from '../utils/telegram';
 import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations } from '../utils/carUsageCalculator';
+import { isPenaltyCounting } from '../models/Penalty';
 
 /** Convierte "M:SS.mmm" o "SS.mmm" a milisegundos para sort correcto de tiempos */
 function parseTimeToMs(str) {
@@ -368,7 +369,7 @@ export default function ChampionshipDetail() {
             id: 'penalties',
             label: '⚠️ Sanciones',
             icon: '⚠️',
-            count: penalties.filter(p => p.status === 'applied').length
+            count: penalties.filter(p => isPenaltyCounting(p)).length
         });
     }
 
@@ -451,7 +452,7 @@ export default function ChampionshipDetail() {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex-1 min-w-[120px] px-4 py-4 text-center transition-all border-b-2 relative ${currentTab === tab.id
+                                className={`flex-1 min-w-[120px] px-4 py-4 text-center whitespace-nowrap transition-all border-b-2 relative ${currentTab === tab.id
                                     ? 'border-orange-500 text-white bg-white/10'
                                     : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
                                     }`}

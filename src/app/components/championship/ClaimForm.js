@@ -3,14 +3,33 @@ import { useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { notifyClaimCreated } from '../../utils/telegram';
 
-const HOURS_LIMIT = 72;
+// D3.2: la pantalla anunciaba 48h mientras el código realmente aplicaba
+// 72h (dos plazos distintos en la misma pantalla). Se unifica en una sola
+// constante — 48h es el plazo real acordado — y todo texto visible se
+// deriva de ella, sin literales sueltos.
+const HOURS_LIMIT = 48;
 
-/** Verifica si una carrera sigue dentro del plazo de 48h para reclamaciones */
+/**
+ * Verifica si una carrera sigue dentro del plazo de reclamación.
+ * D3.4: `track.date` es un string "YYYY-MM-DD" sin hora; `new Date(track.date)`
+ * lo interpreta como medianoche UTC, desplazando el plazo real varias horas
+ * en zonas horarias negativas (Chile, UTC-3/-4). Se normaliza al FIN del día
+ * de la carrera en hora LOCAL (23:59:59 local), de forma que el plazo
+ * completo de HOURS_LIMIT corra a partir de ahí.
+ *
+ * Remediación BUG-2: anclar el fin de ventana al FIN de día de la carrera
+ * (23:59:59 local) implica que, para una carrera de HOY, ese ancla está en
+ * el futuro respecto a "ahora" — cualquier comprobación de límite inferior
+ * (diffHours >= 0) rechazaba incorrectamente reclamaciones hechas el mismo
+ * día, justo después de la carrera. La ventana es reclamable desde el
+ * momento de la carrera hasta HOURS_LIMIT horas después del fin de ese día;
+ * solo importa el límite superior (deadline).
+ */
 function isClaimable(track) {
     if (!track.date) return false;
-    const raceDate = new Date(track.date);
-    const diffHours = (Date.now() - raceDate.getTime()) / (1000 * 60 * 60);
-    return diffHours >= 0 && diffHours <= HOURS_LIMIT;
+    const raceEndLocal = new Date(`${track.date}T23:59:59`);
+    const deadline = new Date(raceEndLocal.getTime() + HOURS_LIMIT * 60 * 60 * 1000);
+    return Date.now() <= deadline.getTime();
 }
 
 /**
@@ -23,7 +42,7 @@ function isClaimable(track) {
 export default function ClaimForm({ championshipId, championship, teams = [], tracks = [], onClose, onSubmitted }) {
     const [form, setForm] = useState({
         reporterName: '',
-        reporterPSN: '',
+        reporterPsnId: '',
         accusedNames: [],
         trackId: '',
         trackName: '',
@@ -131,7 +150,9 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
                     <h3 className="text-xl font-bold text-white mb-2">Reclamación Enviada</h3>
                     <p className="text-gray-400 text-sm mb-6">
                         Tu reporte ha sido registrado y será revisado por los comisarios de carrera.
-                        Recibirás una resolución próximamente.
+                        No se envía ninguna notificación automática: consulta la sección
+                        &quot;Sanciones → Reclamaciones Resueltas&quot; de este campeonato para ver la resolución
+                        (incluye fecha y hora) cuando esté disponible.
                     </p>
                     <button
                         onClick={onClose}
@@ -153,7 +174,7 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
                         <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">✕</button>
                     </div>
                     <p className="text-gray-400 text-sm mt-1">
-                        Solo disponible hasta <strong className="text-orange-400">48 horas</strong> después de cada carrera
+                        Solo disponible hasta <strong className="text-orange-400">{HOURS_LIMIT} horas</strong> después de cada carrera
                     </p>
                 </div>
 
@@ -202,8 +223,8 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
                             <label className="text-gray-400 text-sm block mb-1">Tu PSN / ID (opcional)</label>
                             <input
                                 type="text"
-                                value={form.reporterPSN}
-                                onChange={e => setForm(prev => ({ ...prev, reporterPSN: e.target.value }))}
+                                value={form.reporterPsnId}
+                                onChange={e => setForm(prev => ({ ...prev, reporterPsnId: e.target.value }))}
                                 className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm"
                                 placeholder="PSN o identificador"
                             />

@@ -1,11 +1,13 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import {
     PENALTY_PRESETS, DEFAULT_PENALTIES_CONFIG,
-    PENALTY_TYPE_CONFIG, SEVERITY_CONFIG, CLAIM_STATUS_CONFIG
+    PENALTY_TYPE_CONFIG, SEVERITY_CONFIG, CLAIM_STATUS_CONFIG, APPEAL_STATUS_CONFIG,
+    isPenaltyCounting
 } from '../../models/Penalty';
-import { notifyPenaltyApplied, notifyClaimResolved } from '../../utils/telegram';
+import { notifyPenaltyApplied, notifyClaimResolved, notifyAppealResolved } from '../../utils/telegram';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Tab de Sanciones para el admin de campeonatos.
@@ -21,9 +23,17 @@ export default function PenaltiesTab({
 }) {
     const [penalties, setPenalties] = useState([]);
     const [claims, setClaims] = useState([]);
+    const [appeals, setAppeals] = useState([]);
     const [loading, setLoading] = useState(true);
     // Comisarios aterrizan en 'claims'; admins en 'penalties'
     const [activeSection, setActiveSection] = useState(isAdminUser ? 'penalties' : 'claims'); // penalties | config | claims
+    const activeTabRef = useRef(null);
+    // Auto-scroll a la pestaña activa (relevante para el comisario, que
+    // aterriza en 'claims' — la última de la lista). `block:'nearest'` evita
+    // que el navegador desplace verticalmente toda la página al montar.
+    useEffect(() => {
+        activeTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }, [activeSection]);
     const [showApplyModal, setShowApplyModal] = useState(false);
     const [showClaimResolveModal, setShowClaimResolveModal] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -41,12 +51,18 @@ export default function PenaltiesTab({
     }, [championship?.orgId]);
 
     // Config local del sistema de sanciones
+    // ⚠️ handleSaveConfig sobrescribe TODO el objeto penaltiesConfig con este
+    // useState (sin merge). Cualquier campo que exista en Firestore pero no
+    // esté declarado aquí se BORRA en silencio al guardar — por eso
+    // allowAppeals/appealWindowHours deben estar aquí, no solo en el JSX.
     const [config, setConfig] = useState({
         enabled: championship?.penaltiesConfig?.enabled ?? false,
         warningThreshold: championship?.penaltiesConfig?.warningThreshold ?? 8,
         autoDisqualifyThreshold: championship?.penaltiesConfig?.autoDisqualifyThreshold ?? 16,
         autoPointsPenalty: championship?.penaltiesConfig?.autoPointsPenalty ?? 10,
         allowClaims: championship?.penaltiesConfig?.allowClaims ?? false,
+        allowAppeals: championship?.penaltiesConfig?.allowAppeals ?? DEFAULT_PENALTIES_CONFIG.allowAppeals,
+        appealWindowHours: championship?.penaltiesConfig?.appealWindowHours ?? DEFAULT_PENALTIES_CONFIG.appealWindowHours,
         presets: championship?.penaltiesConfig?.presets || DEFAULT_PENALTIES_CONFIG.presets
     });
 
@@ -59,12 +75,14 @@ export default function PenaltiesTab({
         if (!championshipId) return;
         setLoading(true);
         try {
-            const [penaltiesData, claimsData] = await Promise.all([
+            const [penaltiesData, claimsData, appealsData] = await Promise.all([
                 FirebaseService.getPenaltiesByChampionship(championshipId).catch(() => []),
-                FirebaseService.getClaimsByChampionship(championshipId).catch(() => [])
+                FirebaseService.getClaimsByChampionship(championshipId).catch(() => []),
+                FirebaseService.getAppealsByChampionship(championshipId).catch(() => [])
             ]);
             setPenalties(penaltiesData);
             setClaims(claimsData);
+            setAppeals(appealsData);
         } catch (error) {
             console.error('Error loading penalties:', error);
         } finally {
@@ -138,7 +156,7 @@ export default function PenaltiesTab({
 
     // Calcular resumen de warnings acumulados
     const warningsSummary = {};
-    penalties.filter(p => p.status === 'applied').forEach(p => {
+    penalties.filter(p => isPenaltyCounting(p)).forEach(p => {
         if (!warningsSummary[p.driverName]) warningsSummary[p.driverName] = { warnings: 0, points: 0, count: 0 };
         warningsSummary[p.driverName].warnings += (p.warningPoints || 0);
         warningsSummary[p.driverName].points += (p.points || 0);
@@ -160,11 +178,11 @@ export default function PenaltiesTab({
                         ⚠️ Sistema de Sanciones
                     </h2>
                     <p className="text-gray-400 text-sm mt-1">
-                        {penalties.filter(p => p.status === 'applied').length} sanciones activas
+                        {penalties.filter(p => isPenaltyCounting(p)).length} sanciones activas
                         {pendingClaims > 0 && ` • ${pendingClaims} reclamaciones pendientes`}
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto justify-end">
                     <label className="flex items-center gap-2 cursor-pointer">
                         <input
                             type="checkbox"
@@ -195,16 +213,17 @@ export default function PenaltiesTab({
             {config.enabled && (
                 <>
                     {/* Sub-tabs */}
-                    <div className="flex gap-2 border-b border-white/10 pb-2">
+                    <div className="flex gap-2 overflow-x-auto border-b border-white/10 pb-2">
                         {[
-                            { id: 'penalties', label: '⚠️ Sanciones', count: penalties.filter(p => p.status === 'applied').length },
+                            { id: 'penalties', label: '⚠️ Sanciones', count: penalties.filter(p => isPenaltyCounting(p)).length },
                             ...(isAdminUser ? [{ id: 'config', label: '⚙️ Configuración' }] : []),
                             { id: 'claims', label: '📩 Reclamaciones', count: pendingClaims || undefined }
                         ].map(tab => (
                             <button
                                 key={tab.id}
+                                ref={activeSection === tab.id ? activeTabRef : null}
                                 onClick={() => setActiveSection(tab.id)}
-                                className={`px-4 py-2 rounded-t-lg text-sm font-medium transition-all ${activeSection === tab.id
+                                className={`px-4 py-2 rounded-t-lg text-sm font-medium whitespace-nowrap flex-shrink-0 transition-all ${activeSection === tab.id
                                     ? 'bg-white/10 text-white border-b-2 border-orange-500'
                                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                                     }`}
@@ -299,6 +318,11 @@ export default function PenaltiesTab({
                                                             {isRevoked && (
                                                                 <span className="text-xs px-2 py-0.5 rounded bg-gray-500/30 text-gray-400 line-through">
                                                                     REVOCADA
+                                                                </span>
+                                                            )}
+                                                            {penalty.status === 'appealed' && (
+                                                                <span className="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">
+                                                                    ⚖️ En disputa
                                                                 </span>
                                                             )}
                                                         </div>
@@ -428,6 +452,38 @@ export default function PenaltiesTab({
                                 </div>
                             </div>
 
+                            {/* Toggle alegaciones (apelaciones) — CA-3.4/CA-3.7 */}
+                            <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white">⚖️ Alegaciones</h3>
+                                        <p className="text-gray-400 text-sm mt-1">
+                                            Permitir que el piloto sancionado (o el reclamante rechazado) alegue contra una resolución
+                                        </p>
+                                    </div>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={config.allowAppeals}
+                                            onChange={(e) => setConfig(prev => ({ ...prev, allowAppeals: e.target.checked }))}
+                                            className="w-5 h-5 rounded"
+                                        />
+                                        <span className="text-white">Activar</span>
+                                    </label>
+                                </div>
+                                {config.allowAppeals && (
+                                    <div className="mt-4">
+                                        <label className="text-gray-400 text-sm block mb-1">Plazo para alegar (horas desde la resolución)</label>
+                                        <input
+                                            type="number" min="1" max="720"
+                                            value={config.appealWindowHours}
+                                            onChange={e => setConfig(prev => ({ ...prev, appealWindowHours: parseInt(e.target.value) || 48 }))}
+                                            className="w-32 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Catálogo de Presets */}
                             <div className="bg-white/5 border border-white/10 rounded-xl p-6">
                                 <h3 className="text-lg font-bold text-white mb-4">📋 Catálogo de Sanciones Predefinidas</h3>
@@ -512,12 +568,15 @@ export default function PenaltiesTab({
                     {activeSection === 'claims' && (
                         <ClaimsSection
                             claims={claims}
+                            appeals={appeals}
+                            penalties={penalties}
                             championshipId={championshipId}
                             championship={championship}
                             org={org}
                             allDrivers={allDrivers}
                             tracks={completedTracks}
                             config={config}
+                            isAdminUser={isAdminUser}
                             onReload={loadData}
                             onUpdate={onUpdate}
                         />
@@ -909,13 +968,16 @@ function formatClaimForShare(claim, championshipName) {
     );
 }
 
-function ClaimsSection({ claims, championshipId, championship, org, allDrivers, tracks, config, onReload, onUpdate }) {
+function ClaimsSection({ claims, appeals = [], penalties = [], championshipId, championship, org, allDrivers, tracks, config, isAdminUser = false, onReload, onUpdate }) {
+    const { currentUser, isAdmin } = useAuth();
     const [resolveModal, setResolveModal] = useState(null);
     const [rejectModal, setRejectModal] = useState(null);
     const [rejectReason, setRejectReason] = useState('');
     const [rejectSaving, setRejectSaving] = useState(false);
     const [copiedAll, setCopiedAll] = useState(false);
     const [copiedId, setCopiedId] = useState(null);
+    const [resolveAppealModal, setResolveAppealModal] = useState(null);
+    const [admittingId, setAdmittingId] = useState(null);
 
     const championshipName = championship?.name || championshipId;
     const pendingClaims = claims.filter(c => c.status === 'pending' || c.status === 'reviewing');
@@ -938,7 +1000,10 @@ function ClaimsSection({ claims, championshipId, championship, org, allDrivers, 
     const whatsappShareUrl = (claim) =>
         `https://wa.me/?text=${encodeURIComponent(formatClaimForShare(claim, championshipName))}`;
 
-    if (!config.allowClaims) {
+    // E3.10: si se desactivó allowClaims mientras había alegaciones abiertas,
+    // estas siguen siendo resolubles desde el admin — solo se cierra la
+    // creación de nuevas reclamaciones/alegaciones.
+    if (!config.allowClaims && appeals.length === 0) {
         return (
             <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
                 <div className="text-4xl mb-3">📩</div>
@@ -959,10 +1024,16 @@ function ClaimsSection({ claims, championshipId, championship, org, allDrivers, 
 
     const handleResolveClaim = async (claimId, resolution, penaltyData) => {
         try {
+            // D3.3: resolvedBy nunca se persistía pese a existir en el modelo
+            // y ser vigilado por firestore.rules en el create — sin este dato
+            // es imposible aplicar "la alegación la revisa alguien distinto
+            // de quien resolvió" (CA-3.11). Se guarda el uid (no el email):
+            // es lo que compara firestore.rules y lo que canRefereeChampionship
+            // ya usa en toda la app.
             const updates = {
-                status: 'resolved',
                 resolution,
-                resolvedAt: new Date().toISOString()
+                resolvedAt: new Date().toISOString(),
+                resolvedBy: currentUser?.uid || ''
             };
 
             // Si se aplica sanción desde la reclamación
@@ -996,8 +1067,159 @@ function ClaimsSection({ claims, championshipId, championship, org, allDrivers, 
         }
     };
 
+    // ── Alegaciones (apelaciones) ──
+    // S3.8: la transición de claim/penalty a 'appealed' la ejecuta el
+    // comisario/admin al ADMITIR A TRÁMITE la alegación — no automáticamente
+    // al crearla (el `create` público de `appeals` no puede tocar `claims`
+    // ni `penalties`, CA-3.19). Es también el único filtro humano de
+    // admisibilidad, dado que no hay autenticación de pilotos (P3.1).
+    const handleAdmitAppeal = async (appeal) => {
+        const claim = claims.find(c => c.id === appeal.claimId);
+        if (!claim) { alert('❌ La reclamación asociada ya no existe'); return; }
+        setAdmittingId(appeal.id);
+        try {
+            await FirebaseService.updateAppeal(championshipId, appeal.id, { status: 'reviewing' });
+            await FirebaseService.updateClaim(championshipId, claim.id, { status: 'appealed' });
+            if (claim.penaltyId) {
+                await FirebaseService.updatePenalty(championshipId, claim.penaltyId, {
+                    status: 'appealed',
+                    appealReason: appeal.reason || ''
+                });
+            }
+            onReload();
+            if (onUpdate) onUpdate();
+        } catch (error) {
+            alert('❌ Error al admitir la alegación: ' + error.message);
+        } finally {
+            setAdmittingId(null);
+        }
+    };
+
+    // CA-3.11: resuelve un director_liga/organizador — nunca un comisario, y
+    // nunca quien dictó la resolución original de la reclamación.
+    const canResolveAppeal = (appeal) => {
+        const claim = claims.find(c => c.id === appeal.claimId);
+        if (!isAdmin()) return false;
+        if (claim?.resolvedBy && currentUser?.uid && claim.resolvedBy === currentUser.uid) return false;
+        return true;
+    };
+
+    const handleResolveAppeal = async (appeal, { outcome, resolution, newPenaltyData }) => {
+        const claim = claims.find(c => c.id === appeal.claimId);
+        const originalPenalty = claim?.penaltyId ? penalties.find(p => p.id === claim.penaltyId) : null;
+        try {
+            // E3.7: resolución transaccional — re-lee y exige status='pending'
+            // antes de escribir, para que dos admins resolviendo a la vez no
+            // generen dos sanciones sustitutivas duplicadas.
+            await FirebaseService.resolveAppealTransactional(championshipId, appeal.id, {
+                status: outcome === 'uphold' ? 'upheld' : outcome === 'dismiss' ? 'dismissed' : 'overturned',
+                resolution,
+                resolvedBy: currentUser?.uid || ''
+            });
+
+            if (outcome === 'uphold' || outcome === 'dismiss') {
+                // Vuelve a la resolución original (accepted/rejected) y la
+                // sanción (si existe) vuelve a 'applied'.
+                if (claim) {
+                    await FirebaseService.updateClaim(championshipId, claim.id, {
+                        status: claim.penaltyId ? 'accepted' : 'rejected'
+                    });
+                }
+                if (originalPenalty) {
+                    await FirebaseService.updatePenalty(championshipId, originalPenalty.id, { status: 'applied', appealReason: '' });
+                }
+            } else if (outcome === 'revoke' || outcome === 'modify') {
+                if (claim) {
+                    await FirebaseService.updateClaim(championshipId, claim.id, { status: 'overturned' });
+                }
+                if (originalPenalty) {
+                    await FirebaseService.updatePenalty(championshipId, originalPenalty.id, { status: 'revoked' });
+                }
+                if (outcome === 'modify' && newPenaltyData) {
+                    await FirebaseService.createPenalty(championshipId, {
+                        ...newPenaltyData,
+                        claimId: claim?.id || null
+                    });
+                }
+            }
+
+            notifyAppealResolved({
+                championshipName: championship?.name || championshipId,
+                appellantName: appeal.appellantName,
+                status: outcome === 'uphold' ? 'upheld' : outcome === 'dismiss' ? 'dismissed' : 'overturned',
+                resolution,
+                orgName: org?.name,
+            });
+
+            onReload();
+            if (onUpdate) onUpdate();
+            setResolveAppealModal(null);
+        } catch (error) {
+            alert('❌ Error al resolver la alegación: ' + error.message);
+        }
+    };
+
     return (
         <div className="space-y-4">
+            {/* ═══════ Alegaciones (apelaciones) ═══════ */}
+            {config.allowAppeals && appeals.length > 0 && (
+                <div className="space-y-3">
+                    <h3 className="text-lg font-bold text-white">⚖️ Alegaciones</h3>
+                    <div className="space-y-3">
+                        {appeals.map(appeal => {
+                            const statusCfg = APPEAL_STATUS_CONFIG[appeal.status] || APPEAL_STATUS_CONFIG.pending;
+                            const claim = claims.find(c => c.id === appeal.claimId);
+                            return (
+                                <div key={appeal.id} className="bg-white/5 border border-purple-500/20 rounded-xl p-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                <span className={`text-xs px-2 py-0.5 rounded ${statusCfg.bg} ${statusCfg.color}`}>
+                                                    {statusCfg.label}
+                                                </span>
+                                                <span className="text-white font-bold text-sm">{appeal.appellantName}</span>
+                                                {claim && <span className="text-gray-500 text-xs">sobre reclamación de {claim.reporterName}</span>}
+                                            </div>
+                                            <p className="text-gray-300 text-sm">{appeal.reason}</p>
+                                            {appeal.resolution && (
+                                                <div className="mt-2 p-2 bg-white/5 rounded text-xs text-gray-300">
+                                                    💬 <strong>Resolución:</strong> {appeal.resolution}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-col gap-1 flex-shrink-0">
+                                            {appeal.status === 'pending' && (
+                                                <button
+                                                    onClick={() => handleAdmitAppeal(appeal)}
+                                                    disabled={admittingId === appeal.id}
+                                                    className="text-xs px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 disabled:opacity-50 text-blue-400 rounded transition-all"
+                                                >
+                                                    📋 Admitir a trámite
+                                                </button>
+                                            )}
+                                            {(appeal.status === 'pending' || appeal.status === 'reviewing') && (
+                                                canResolveAppeal(appeal) ? (
+                                                    <button
+                                                        onClick={() => setResolveAppealModal(appeal)}
+                                                        className="text-xs px-3 py-1.5 bg-green-600/20 hover:bg-green-600/40 text-green-400 rounded transition-all"
+                                                    >
+                                                        ⚖️ Resolver
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-xs px-3 py-1.5 text-gray-500" title="Solo un director de liga/organizador distinto de quien resolvió la reclamación original puede resolver la alegación">
+                                                        🔒 Sin permiso
+                                                    </span>
+                                                )
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 className="text-lg font-bold text-white">📩 Reclamaciones Recibidas</h3>
                 {pendingClaims.length > 0 && (
@@ -1175,6 +1397,161 @@ function ClaimsSection({ claims, championshipId, championship, org, allDrivers, 
                     onResolve={handleResolveClaim}
                 />
             )}
+
+            {/* Modal resolver alegación (apelación) */}
+            {resolveAppealModal && (
+                <ResolveAppealModal
+                    appeal={resolveAppealModal}
+                    allDrivers={allDrivers}
+                    presets={config.presets?.filter(p => p.active) || []}
+                    onClose={() => setResolveAppealModal(null)}
+                    onResolve={(payload) => handleResolveAppeal(resolveAppealModal, payload)}
+                />
+            )}
+        </div>
+    );
+}
+
+// ═══════════════════════════════════════════════
+// MODAL: Resolver Alegación (apelación)
+// ═══════════════════════════════════════════════
+/**
+ * CA-3.12: el resolutor elige exactamente uno de 4 resultados. En todos los
+ * casos la motivación es obligatoria, mismo patrón que el modal de rechazo
+ * de reclamaciones.
+ */
+function ResolveAppealModal({ appeal, allDrivers, presets, onClose, onResolve }) {
+    const [outcome, setOutcome] = useState('uphold'); // uphold | revoke | modify | dismiss
+    const [resolution, setResolution] = useState('');
+    const [saving, setSaving] = useState(false);
+    // Solo se usa si outcome === 'modify'
+    const [newPenalty, setNewPenalty] = useState({ driverName: '', name: '', points: 0, warningPoints: 0, type: 'points', severity: 'moderate' });
+
+    const OUTCOMES = [
+        { id: 'uphold', label: '✅ Confirmar resolución original', hint: 'La sanción vuelve a "applied" (o sigue sin existir)' },
+        { id: 'revoke', label: '🚫 Revocar la sanción', hint: 'La sanción original pasa a "revocada"' },
+        { id: 'modify', label: '✏️ Modificar la sanción', hint: 'Revoca la original y crea una nueva con los valores corregidos' },
+        { id: 'dismiss', label: '🗂️ Inadmitir por forma', hint: 'Fuera de plazo, sin legitimación o duplicada' },
+    ];
+
+    const handleSubmit = async () => {
+        if (!resolution.trim()) return alert('Escribe una motivación');
+        if (outcome === 'modify' && (!newPenalty.driverName || !newPenalty.name)) {
+            return alert('Completa el piloto y el nombre de la sanción modificada');
+        }
+        setSaving(true);
+        try {
+            await onResolve({
+                outcome,
+                resolution: resolution.trim(),
+                newPenaltyData: outcome === 'modify' ? newPenalty : null
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+            <div className="bg-slate-800 rounded-2xl border border-white/20 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                <div className="p-6 border-b border-white/10">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-bold text-white">⚖️ Resolver Alegación</h3>
+                        <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">✕</button>
+                    </div>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-sm">
+                        <div className="text-white font-bold">{appeal.appellantName}</div>
+                        <div className="text-gray-400 text-xs mt-1">{appeal.reason}</div>
+                    </div>
+
+                    <div className="space-y-2">
+                        {OUTCOMES.map(o => (
+                            <button
+                                key={o.id}
+                                type="button"
+                                onClick={() => setOutcome(o.id)}
+                                className={`w-full text-left p-3 rounded-lg border transition-all ${outcome === o.id
+                                    ? 'bg-purple-600/20 border-purple-500/50 text-white'
+                                    : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                                    }`}
+                            >
+                                <div className="font-semibold text-sm">{o.label}</div>
+                                <div className="text-gray-500 text-xs mt-0.5">{o.hint}</div>
+                            </button>
+                        ))}
+                    </div>
+
+                    {outcome === 'modify' && (
+                        <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 space-y-2">
+                            <div>
+                                <label className="text-gray-400 text-xs block mb-1">Piloto *</label>
+                                <select
+                                    value={newPenalty.driverName}
+                                    onChange={e => setNewPenalty(prev => ({ ...prev, driverName: e.target.value }))}
+                                    className="w-full bg-white/10 border border-white/20 rounded px-2 py-1.5 text-white text-xs"
+                                >
+                                    <option value="" className="bg-slate-800">Seleccionar...</option>
+                                    {allDrivers.map(d => (
+                                        <option key={d.name} value={d.name} className="bg-slate-800">{d.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-gray-400 text-xs block mb-1">Nombre de la sanción corregida *</label>
+                                <input
+                                    type="text"
+                                    value={newPenalty.name}
+                                    onChange={e => setNewPenalty(prev => ({ ...prev, name: e.target.value }))}
+                                    className="w-full bg-white/10 border border-white/20 rounded px-2 py-1.5 text-white text-xs"
+                                    placeholder="Ej: Contacto menor (reducida)"
+                                    list="appeal-presets"
+                                />
+                                <datalist id="appeal-presets">
+                                    {presets.map(p => <option key={p.id} value={p.name} />)}
+                                </datalist>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="text-gray-400 text-xs block mb-1">Puntos a deducir</label>
+                                    <input type="number" min="0" max="50" value={newPenalty.points}
+                                        onChange={e => setNewPenalty(prev => ({ ...prev, points: parseInt(e.target.value) || 0 }))}
+                                        className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs" />
+                                </div>
+                                <div>
+                                    <label className="text-gray-400 text-xs block mb-1">Pts amonestación</label>
+                                    <input type="number" min="0" max="10" value={newPenalty.warningPoints}
+                                        onChange={e => setNewPenalty(prev => ({ ...prev, warningPoints: parseInt(e.target.value) || 0 }))}
+                                        className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs" />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="text-gray-400 text-sm block mb-1">Motivación *</label>
+                        <textarea
+                            value={resolution}
+                            onChange={e => setResolution(e.target.value)}
+                            className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm h-24 resize-none"
+                            placeholder="Explica la decisión tomada sobre la alegación..."
+                        />
+                    </div>
+                </div>
+                <div className="p-6 border-t border-white/10 flex gap-3 justify-end">
+                    <button onClick={onClose} className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all">
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={handleSubmit}
+                        disabled={saving || !resolution.trim()}
+                        className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold transition-all disabled:opacity-50"
+                    >
+                        {saving ? '⏳...' : '⚖️ Resolver Alegación'}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }

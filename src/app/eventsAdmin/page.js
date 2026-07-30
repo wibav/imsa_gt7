@@ -9,6 +9,7 @@ import {
     EVENT_TYPES, getDefaultRounds
 } from "../utils";
 import { validateImageFile, compressImage } from "../utils/imageCompression";
+import StandardRoomSection from "../components/event/StandardRoomSection";
 
 // ============================
 // DEFAULTS
@@ -352,12 +353,28 @@ function EventForm({ event, onSave, onCancel, saving }) {
         });
     };
 
-    // Handle eventType change
+    // Handle eventType change (CA-1.11): avisar antes de destruir resultados
+    // en cualquiera de los dos sentidos — hoy ambos se sobrescriben en
+    // silencio y son la principal vía de pérdida de datos de esta pantalla.
     const handleEventTypeChange = (newType) => {
-        updateField('eventType', newType);
         if (newType === 'standard') {
+            // eliminatoria/doble_eliminatoria → standard: se borran TODAS las
+            // salas y sus resultados (updateField('rounds', [])). Es el
+            // camino con pérdida de datos real.
+            const hasRoomResults = (form.rounds || []).some(r => (r.rooms || []).some(room => (room.results || []).length > 0));
+            if (hasRoomResults && !confirm('Este evento tiene resultados cargados en sus salas. Cambiar a "Estándar" eliminará TODAS las rondas, salas y sus resultados. ¿Continuar?')) {
+                return;
+            }
+            updateField('eventType', newType);
             updateField('rounds', []);
         } else {
+            // standard → eliminatoria/doble_eliminatoria: los resultados de
+            // event.results[] quedan fuera de la vista de rondas (no se
+            // borran, pero dejan de mostrarse en el admin/público estándar).
+            if ((form.results || []).length > 0 && !confirm('Este evento tiene resultados cargados en la Sala Única. Al cambiar el tipo de evento dejarán de mostrarse (no se borran, pero la vista pasa a ser de rondas/salas). ¿Continuar?')) {
+                return;
+            }
+            updateField('eventType', newType);
             const rounds = getDefaultRounds(newType, form.maxParticipants ? Math.ceil(form.maxParticipants / 2) : 15);
             updateField('rounds', rounds);
         }
@@ -458,10 +475,12 @@ function EventForm({ event, onSave, onCancel, saving }) {
         setForm(prev => ({ ...prev, participants: list, waitlist: wl }));
     };
 
-    // Results
+    // Results (Sala Única de eventos estándar) — persisten en event.results[]
+    // (S1.2), nunca en rounds[]. Elevados a paridad con los handlers de sala
+    // de eliminatoria (moveRoomResult / generateRoomResultsFromParticipants).
     const addResult = () => {
         const results = [...(form.results || [])];
-        results.push({ driverName: '', position: results.length + 1, psnId: '' });
+        results.push({ driverName: '', position: results.length + 1, psnId: '', fastestLap: false, polePosition: false, dnf: false });
         updateField('results', results);
     };
     const updateResult = (idx, key, value) => {
@@ -474,6 +493,38 @@ function EventForm({ event, onSave, onCancel, saving }) {
         results.splice(idx, 1);
         results.forEach((r, i) => r.position = i + 1);
         updateField('results', results);
+    };
+    const moveResult = (idx, direction) => {
+        setForm(prev => {
+            const results = [...(prev.results || [])];
+            const newIdx = idx + direction;
+            if (newIdx < 0 || newIdx >= results.length) return prev;
+            [results[idx], results[newIdx]] = [results[newIdx], results[idx]];
+            results.forEach((r, i) => r.position = i + 1);
+            return { ...prev, results };
+        });
+    };
+    // E1.2: fallback a psnId cuando gt7Id está vacío, para no generar un
+    // driverName vacío que rompa el cruce de nombres del motor de
+    // clasificaciones. E1.4/E1.9: pide confirmación si ya hay resultados
+    // (hace el doble clic idempotente de hecho).
+    const generateResultsFromParticipants = () => {
+        if ((form.results || []).length > 0 && !confirm('Ya hay resultados cargados. ¿Sobrescribirlos con la lista de participantes?')) {
+            return;
+        }
+        setForm(prev => {
+            const participants = prev.participants || [];
+            if (participants.length === 0) return prev;
+            const results = participants.map((p, i) => ({
+                driverName: p.gt7Id || p.name || p.psnId || '',
+                psnId: p.psnId || '',
+                position: i + 1,
+                fastestLap: false,
+                polePosition: false,
+                dnf: false
+            }));
+            return { ...prev, results };
+        });
     };
 
     const handleSubmit = () => {
@@ -1217,39 +1268,20 @@ function EventForm({ event, onSave, onCancel, saving }) {
                 </CollapsibleSection>
             )}
 
-            {/* ========== SECTION 12: RESULTS (completed events — standard type) ========== */}
-            {form.status === 'completed' && (form.eventType || 'standard') === 'standard' && (
-                <CollapsibleSection title="Resultados del Evento" icon="🏁" defaultOpen={true} badge={form.results?.length ? `${form.results.length} posiciones` : null}>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                            <span className="text-gray-300 text-sm">Registra las posiciones finales</span>
-                            <button type="button" onClick={addResult} className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition-colors">
-                                ➕ Añadir Resultado
-                            </button>
-                        </div>
-                        {(form.results || []).length > 0 && (
-                            <div className="bg-white/5 rounded-lg p-2">
-                                <div className="flex gap-2 items-center px-2 py-1.5 text-xs text-gray-500 font-semibold uppercase border-b border-white/10 mb-1">
-                                    <span className="w-8 text-center">Pos</span>
-                                    <span className="flex-1">Piloto</span>
-                                    <span className="w-36">PSN ID</span>
-                                    <span className="w-8"></span>
-                                </div>
-                                <div className="space-y-1">
-                                    {form.results.map((r, idx) => (
-                                        <div key={idx} className="flex gap-2 items-center px-2 py-1 hover:bg-white/5 rounded">
-                                            <span className={`text-sm w-8 text-center font-bold ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-gray-300' : idx === 2 ? 'text-orange-400' : 'text-gray-500'}`}>
-                                                {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
-                                            </span>
-                                            <input type="text" className="flex-1 bg-white/10 border border-white/20 rounded p-2 text-white text-sm focus:border-orange-500 outline-none" value={r.driverName || ''} onChange={(e) => updateResult(idx, 'driverName', e.target.value)} placeholder="Nombre del piloto" />
-                                            <input type="text" className="w-36 bg-white/10 border border-white/20 rounded p-2 text-white text-sm focus:border-orange-500 outline-none" value={r.psnId || ''} onChange={(e) => updateResult(idx, 'psnId', e.target.value)} placeholder="PSN ID" />
-                                            <button type="button" onClick={() => removeResult(idx)} className="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white w-8 h-8 rounded flex items-center justify-center transition-colors flex-shrink-0">×</button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
+            {/* ========== SECTION 12: SALA ÚNICA (eventos estándar) ========== */}
+            {/* CA-1.1/S1.3: visible en cualquier `status`, no solo `completed` —
+                el gate anterior era parte del problema reportado, no una regla
+                de negocio. (form.eventType || 'standard'): retrocompat con
+                documentos sin eventType (E1.8). */}
+            {(form.eventType || 'standard') === 'standard' && (
+                <CollapsibleSection title="Sala Única" icon="🏟️" defaultOpen={true} badge={form.results?.length ? `${form.results.length} posiciones` : null}>
+                    <StandardRoomSection
+                        form={form}
+                        updateStreaming={updateStreaming}
+                        resultHandlers={{ addResult, updateResult, removeResult, moveResult, generateResultsFromParticipants }}
+                        labelCls={labelCls}
+                        inputCls={inputCls}
+                    />
                 </CollapsibleSection>
             )}
 

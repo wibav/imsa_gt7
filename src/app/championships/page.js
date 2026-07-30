@@ -23,11 +23,12 @@ import DriverStatsPanel from "../components/championship/DriverStatsPanel";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
 import RegistrationForm from "../components/championship/RegistrationForm";
 import ClaimForm from '../components/championship/ClaimForm';
+import AppealForm, { getAppealWindowStatus, getEligibleAppellants } from '../components/championship/AppealForm';
 import CarDeclarationModal from '../components/championship/CarDeclarationModal';
 import ExportableStandings from '../components/championship/ExportableStandings';
 import RaceBriefing from '../components/championship/RaceBriefing';
 import { STREAMING_PLATFORMS } from '../utils/constants';
-import { SEVERITY_CONFIG } from '../models/Penalty';
+import { SEVERITY_CONFIG, isPenaltyCounting } from '../models/Penalty';
 import { getInvalidatedEntries, flattenRegistrations } from '../utils/carUsageCalculator';
 
 export default function ChampionshipDetailPage() {
@@ -45,8 +46,10 @@ export default function ChampionshipDetailPage() {
     const [showRegistration, setShowRegistration] = useState(false);
     const [showClaimForm, setShowClaimForm] = useState(false);
     const [showCarDeclaration, setShowCarDeclaration] = useState(false);
+    const [appealFormClaim, setAppealFormClaim] = useState(null);
     const [penalties, setPenalties] = useState([]);
     const [claims, setClaims] = useState([]);
+    const [appeals, setAppeals] = useState([]);
     const [divisions, setDivisions] = useState([]);
     const [selectedDivision, setSelectedDivision] = useState('all');
 
@@ -67,13 +70,14 @@ export default function ChampionshipDetailPage() {
         setTracks([]);
 
         try {
-            const [champData, teamsData, tracksData, penaltiesData, divisionsData, claimsData] = await Promise.all([
+            const [champData, teamsData, tracksData, penaltiesData, divisionsData, claimsData, appealsData] = await Promise.all([
                 FirebaseService.getChampionship(championshipId),
                 FirebaseService.getTeamsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getTracksByChampionship(championshipId).catch(() => []),
                 FirebaseService.getPenaltiesByChampionship(championshipId).catch(() => []),
                 FirebaseService.getDivisionsByChampionship(championshipId).catch(() => []),
-                FirebaseService.getClaimsByChampionship(championshipId).catch(() => [])
+                FirebaseService.getClaimsByChampionship(championshipId).catch(() => []),
+                FirebaseService.getAppealsByChampionship(championshipId).catch(() => [])
             ]);
 
             setChampionship(champData);
@@ -82,6 +86,7 @@ export default function ChampionshipDetailPage() {
             setPenalties(penaltiesData || []);
             setDivisions(divisionsData || []);
             setClaims(claimsData || []);
+            setAppeals(appealsData || []);
         } catch (error) {
             console.error("Error loading championship data:", error);
         } finally {
@@ -1385,14 +1390,14 @@ export default function ChampionshipDetailPage() {
                                     </div>
                                 )}
 
-                                {penalties.filter(p => p.status === 'applied').length === 0 ? (
+                                {penalties.filter(p => isPenaltyCounting(p)).length === 0 ? (
                                     <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
                                         <div className="text-4xl mb-3">✅</div>
                                         <p className="text-gray-400">Sin sanciones registradas</p>
                                     </div>
                                 ) : (
                                     <div className="space-y-3">
-                                        {penalties.filter(p => p.status === 'applied').map(penalty => {
+                                        {penalties.filter(p => isPenaltyCounting(p)).map(penalty => {
                                             const severityConfig = SEVERITY_CONFIG[penalty.severity] || SEVERITY_CONFIG.minor;
                                             return (
                                                 <div key={penalty.id}
@@ -1404,6 +1409,11 @@ export default function ChampionshipDetailPage() {
                                                                 <span className={`text-xs px-2 py-0.5 rounded ${severityConfig.bg} ${severityConfig.color}`}>
                                                                     {severityConfig.label}
                                                                 </span>
+                                                                {penalty.status === 'appealed' && (
+                                                                    <span className="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">
+                                                                        ⚖️ En disputa
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             <div className="text-white text-sm">{penalty.name}</div>
                                                             {penalty.description && <div className="text-gray-400 text-xs mt-1">{penalty.description}</div>}
@@ -1423,10 +1433,18 @@ export default function ChampionshipDetailPage() {
                                     </div>
                                 )}
 
-                                {/* Historial de reclamaciones resueltas */}
+                                {/* Historial de reclamaciones resueltas — CA-3.15: cadena
+                                    cronológica completa (reclamación → resolución →
+                                    alegación → resolución de la alegación), sin pisar
+                                    ninguna motivación. CA-3.17: fecha+hora de resolución,
+                                    plazo restante y acceso al formulario de alegación. */}
                                 {championship.penaltiesConfig?.allowClaims && (() => {
-                                    const resolved = claims.filter(c => c.status === 'accepted' || c.status === 'rejected');
+                                    const resolved = claims.filter(c =>
+                                        ['accepted', 'rejected', 'appealed', 'upheld', 'overturned'].includes(c.status));
                                     if (resolved.length === 0) return null;
+                                    const appealWindowHours = championship.penaltiesConfig?.appealWindowHours || 48;
+                                    const allowAppeals = championship.penaltiesConfig?.allowAppeals === true;
+                                    const isRejectedLike = (status) => status === 'rejected';
                                     return (
                                         <div className="mt-8">
                                             <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
@@ -1436,43 +1454,86 @@ export default function ChampionshipDetailPage() {
                                                 {resolved
                                                     .slice()
                                                     .sort((a, b) => new Date(b.resolvedAt || b.createdAt) - new Date(a.resolvedAt || a.createdAt))
-                                                    .map(claim => (
-                                                        <div
-                                                            key={claim.id}
-                                                            className={`rounded-xl p-4 border ${claim.status === 'accepted'
-                                                                ? 'bg-green-900/20 border-green-400/30'
-                                                                : 'bg-red-900/20 border-red-400/30'
-                                                                }`}
-                                                        >
-                                                            <div className="flex items-start justify-between gap-3">
-                                                                <div className="flex-1">
-                                                                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                                                                        <span className={`text-xs px-2 py-0.5 rounded font-semibold ${claim.status === 'accepted' ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
-                                                                            {claim.status === 'accepted' ? '✅ Aceptada' : '❌ Rechazada'}
-                                                                        </span>
-                                                                        <span className="text-white font-bold text-sm">
-                                                                            {claim.reporterName} → {(claim.accusedNames?.length > 0 ? claim.accusedNames : [claim.accusedName]).join(', ')}
-                                                                        </span>
-                                                                    </div>
-                                                                    {claim.trackName && (
-                                                                        <div className="text-gray-400 text-xs mb-1">
-                                                                            🏁 R{claim.round} - {claim.trackName}
-                                                                            {claim.lap && ` • Vuelta ${claim.lap}`}
+                                                    .map(claim => {
+                                                        const claimAppeals = appeals.filter(a => a.claimId === claim.id);
+                                                        const windowStatus = getAppealWindowStatus(claim, appealWindowHours);
+                                                        const eligible = getEligibleAppellants(claim);
+                                                        const canAppeal = allowAppeals
+                                                            && windowStatus.claimable
+                                                            && eligible.length > 0
+                                                            && eligible.some(name => !claimAppeals.some(a => a.appellantName === name))
+                                                            && !['appealed', 'upheld', 'overturned'].includes(claim.status);
+                                                        return (
+                                                            <div
+                                                                key={claim.id}
+                                                                className={`rounded-xl p-4 border ${isRejectedLike(claim.status)
+                                                                    ? 'bg-red-900/20 border-red-400/30'
+                                                                    : 'bg-green-900/20 border-green-400/30'
+                                                                    }`}
+                                                            >
+                                                                <div className="flex items-start justify-between gap-3">
+                                                                    <div className="flex-1">
+                                                                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                                            <span className={`text-xs px-2 py-0.5 rounded font-semibold ${isRejectedLike(claim.status) ? 'bg-red-500/20 text-red-300' : 'bg-green-500/20 text-green-300'}`}>
+                                                                                {claim.status === 'accepted' && '✅ Aceptada'}
+                                                                                {claim.status === 'rejected' && '❌ Rechazada'}
+                                                                                {claim.status === 'appealed' && '⚖️ En disputa (alegada)'}
+                                                                                {claim.status === 'upheld' && '⚖️ Resolución confirmada'}
+                                                                                {claim.status === 'overturned' && '⚖️ Resolución revocada'}
+                                                                            </span>
+                                                                            <span className="text-white font-bold text-sm">
+                                                                                {claim.reporterName} → {(claim.accusedNames?.length > 0 ? claim.accusedNames : [claim.accusedName]).join(', ')}
+                                                                            </span>
                                                                         </div>
-                                                                    )}
-                                                                    <p className="text-gray-300 text-sm">{claim.description}</p>
-                                                                    {claim.resolution && (
-                                                                        <div className={`mt-2 p-2 rounded text-xs ${claim.status === 'accepted' ? 'bg-green-500/10 text-green-200' : 'bg-red-500/10 text-red-200'}`}>
-                                                                            💬 <strong>Resolución:</strong> {claim.resolution}
+                                                                        {claim.trackName && (
+                                                                            <div className="text-gray-400 text-xs mb-1">
+                                                                                🏁 R{claim.round} - {claim.trackName}
+                                                                                {claim.lap && ` • Vuelta ${claim.lap}`}
+                                                                            </div>
+                                                                        )}
+                                                                        <p className="text-gray-300 text-sm">{claim.description}</p>
+                                                                        {claim.resolution && (
+                                                                            <div className={`mt-2 p-2 rounded text-xs ${isRejectedLike(claim.status) ? 'bg-red-500/10 text-red-200' : 'bg-green-500/10 text-green-200'}`}>
+                                                                                💬 <strong>Resolución:</strong> {claim.resolution}
+                                                                            </div>
+                                                                        )}
+                                                                        <div className="text-gray-500 text-xs mt-2">
+                                                                            📅 {new Date(claim.resolvedAt || claim.createdAt).toLocaleString('es-ES')}
+                                                                            {allowAppeals && windowStatus.claimable && (
+                                                                                <span className="ml-2 text-orange-300">· Quedan {Math.floor(windowStatus.hoursRemaining)} h para alegar</span>
+                                                                            )}
                                                                         </div>
-                                                                    )}
-                                                                    <div className="text-gray-500 text-xs mt-2">
-                                                                        📅 {new Date(claim.resolvedAt || claim.createdAt).toLocaleDateString('es-ES')}
+
+                                                                        {/* Cadena de alegaciones sobre esta reclamación */}
+                                                                        {claimAppeals.length > 0 && (
+                                                                            <div className="mt-3 pl-3 border-l-2 border-purple-500/30 space-y-2">
+                                                                                {claimAppeals.map(appeal => (
+                                                                                    <div key={appeal.id} className="text-xs">
+                                                                                        <div className="text-purple-300 font-semibold">
+                                                                                            ⚖️ Alegación de {appeal.appellantName} — {appeal.status}
+                                                                                        </div>
+                                                                                        <div className="text-gray-400">{appeal.reason}</div>
+                                                                                        {appeal.resolution && (
+                                                                                            <div className="text-gray-300 mt-1">💬 {appeal.resolution}</div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+
+                                                                        {canAppeal && (
+                                                                            <button
+                                                                                onClick={() => setAppealFormClaim(claim)}
+                                                                                className="mt-3 text-xs px-3 py-1.5 bg-orange-600/80 hover:bg-orange-600 text-white rounded-lg font-semibold transition-all"
+                                                                            >
+                                                                                ⚖️ Alegar
+                                                                            </button>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                             </div>
                                         </div>
                                     );
@@ -2078,6 +2139,19 @@ export default function ChampionshipDetailPage() {
                     teams={teams}
                     tracks={tracks}
                     onClose={() => setShowClaimForm(false)}
+                    onSubmitted={() => loadChampionshipData()}
+                />
+            )}
+
+            {/* Modal de Alegación (apelación) sobre una reclamación resuelta */}
+            {appealFormClaim && (
+                <AppealForm
+                    championshipId={championshipId}
+                    championship={championship}
+                    claim={appealFormClaim}
+                    existingAppeals={appeals}
+                    appealWindowHours={championship.penaltiesConfig?.appealWindowHours || 48}
+                    onClose={() => setAppealFormClaim(null)}
                     onSubmitted={() => loadChampionshipData()}
                 />
             )}

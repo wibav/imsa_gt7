@@ -558,51 +558,98 @@ function EventDetailContent() {
                     </div>
                 )}
 
-                {/* Results (standard events) */}
-                {hasResults && eventStatus === "completed" && !isMultiRound && (
-                    <div className="bg-gradient-to-br from-yellow-600/10 to-orange-600/10 border border-yellow-500/30 rounded-xl p-6">
-                        <h2 className="text-lg font-bold text-yellow-300 mb-4 flex items-center gap-2">
-                            🏆 Resultados
-                        </h2>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b border-yellow-500/20 text-gray-400">
-                                        <th className="text-left py-2 px-3">Pos</th>
-                                        <th className="text-left py-2 px-3">Piloto</th>
-                                        {event.results.some(r => r.psnId) && <th className="text-left py-2 px-3">PSN ID</th>}
-                                        {event.results.some(r => r.points) && <th className="text-center py-2 px-3">Puntos</th>}
-                                        <th className="text-center py-2 px-3">Extras</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {event.results.map((r, idx) => (
-                                        <tr
-                                            key={idx}
-                                            className={`border-b border-white/5 transition-colors ${idx === 0 ? "bg-yellow-500/10" : idx === 1 ? "bg-gray-400/10" : idx === 2 ? "bg-orange-500/10" : "hover:bg-white/5"
-                                                }`}
-                                        >
-                                            <td className="py-3 px-3 font-bold text-white">
-                                                {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `${idx + 1}°`}
-                                            </td>
-                                            <td className="py-3 px-3 text-white font-semibold">{r.driverName || "-"}</td>
-                                            {event.results.some(r => r.psnId) && (
-                                                <td className="py-3 px-3 text-gray-400">{r.psnId || "-"}</td>
-                                            )}
-                                            {event.results.some(r => r.points) && (
-                                                <td className="py-3 px-3 text-center text-orange-300 font-bold">{r.points || "-"}</td>
-                                            )}
-                                            <td className="py-3 px-3 text-center">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    {r.fastestLap && <span title="Vuelta Rápida" className="text-purple-400">⚡</span>}
-                                                    {r.polePosition && <span title="Pole Position" className="text-yellow-400">🅿️</span>}
-                                                    {r.dnf && <span title="DNF" className="text-red-400 text-xs font-bold">DNF</span>}
-                                                </div>
-                                            </td>
-                                        </tr>
+                {/* Sala Única (eventos estándar) — CA-1.8: bloque con participantes
+                    y, si hay resultados, pestañas Participantes/Resultados
+                    equivalentes a las de las salas de eliminatoria. No se
+                    renderiza si no hay ni participantes ni resultados. */}
+                {!isMultiRound && (hasResults || participantCount > 0) && (
+                    <div className="bg-gradient-to-br from-yellow-600/10 to-orange-600/10 border border-yellow-500/30 rounded-xl overflow-hidden">
+                        <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 px-4 py-3 border-b border-white/10">
+                            <h3 className="text-white font-bold flex items-center gap-2">
+                                🏟️ Sala Única
+                                {event.streaming?.casterName && <span className="text-xs bg-white/10 text-gray-300 px-2 py-0.5 rounded-full">🎙️ {event.streaming.casterName}</span>}
+                                {event.streaming?.hostName && <span className="text-xs bg-white/10 text-gray-300 px-2 py-0.5 rounded-full">🎮 {event.streaming.hostName}</span>}
+                            </h3>
+                            {event.streaming?.url && (
+                                <a href={event.streaming.url} target="_blank" rel="noopener noreferrer" className="text-xs text-red-400 hover:text-red-300 mt-1 inline-flex items-center gap-1">
+                                    📺 Ver Stream
+                                </a>
+                            )}
+                        </div>
+                        <div className="p-4">
+                            {/* Tabs — solo si hay resultados, igual que en las salas de eliminatoria */}
+                            {hasResults && (
+                                <div className="flex gap-2 mb-4 border-b border-white/10 pb-2">
+                                    <button
+                                        onClick={() => setRoomTabs({ ...roomTabs, standard: 'participants' })}
+                                        className={`px-3 py-2 text-sm font-semibold transition-colors ${roomTabs.standard !== 'results' ? 'text-orange-400 border-b-2 border-orange-400' : 'text-gray-400 hover:text-gray-300'}`}
+                                    >
+                                        👥 Participantes ({participantCount})
+                                    </button>
+                                    <button
+                                        onClick={() => setRoomTabs({ ...roomTabs, standard: 'results' })}
+                                        className={`px-3 py-2 text-sm font-semibold transition-colors ${roomTabs.standard === 'results' ? 'text-orange-400 border-b-2 border-orange-400' : 'text-gray-400 hover:text-gray-300'}`}
+                                    >
+                                        🏆 Resultados ({event.results.length})
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Participantes */}
+                            {roomTabs.standard !== 'results' && event.participants?.length > 0 && (
+                                <ul className="space-y-2.5">
+                                    {event.participants.map((p, pIdx) => (
+                                        <li key={p.id || pIdx} className="flex items-start gap-3">
+                                            <span className="text-orange-400 text-lg leading-none pt-0.5">•</span>
+                                            <span className="text-white font-medium">{p.gt7Id || p.psnId || `Piloto ${pIdx + 1}`}</span>
+                                        </li>
                                     ))}
-                                </tbody>
-                            </table>
+                                </ul>
+                            )}
+
+                            {/* Resultados */}
+                            {hasResults && roomTabs.standard === 'results' && (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b border-yellow-500/20 text-gray-400">
+                                                <th className="text-left py-2 px-3">Pos</th>
+                                                <th className="text-left py-2 px-3">Piloto</th>
+                                                {event.results.some(r => r.psnId) && <th className="text-left py-2 px-3">PSN ID</th>}
+                                                {event.results.some(r => r.points) && <th className="text-center py-2 px-3">Puntos</th>}
+                                                <th className="text-center py-2 px-3">Extras</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {event.results.map((r, idx) => (
+                                                <tr
+                                                    key={idx}
+                                                    className={`border-b border-white/5 transition-colors ${idx === 0 ? "bg-yellow-500/10" : idx === 1 ? "bg-gray-400/10" : idx === 2 ? "bg-orange-500/10" : "hover:bg-white/5"
+                                                        }`}
+                                                >
+                                                    <td className="py-3 px-3 font-bold text-white">
+                                                        {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `${idx + 1}°`}
+                                                    </td>
+                                                    <td className="py-3 px-3 text-white font-semibold">{r.driverName || "-"}</td>
+                                                    {event.results.some(r => r.psnId) && (
+                                                        <td className="py-3 px-3 text-gray-400">{r.psnId || "-"}</td>
+                                                    )}
+                                                    {event.results.some(r => r.points) && (
+                                                        <td className="py-3 px-3 text-center text-orange-300 font-bold">{r.points || "-"}</td>
+                                                    )}
+                                                    <td className="py-3 px-3 text-center">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            {r.fastestLap && <span title="Vuelta Rápida" className="text-purple-400">⚡</span>}
+                                                            {r.polePosition && <span title="Pole Position" className="text-yellow-400">🅿️</span>}
+                                                            {r.dnf && <span title="DNF" className="text-red-400 text-xs font-bold">DNF</span>}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

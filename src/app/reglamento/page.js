@@ -45,7 +45,7 @@ const DEFAULT_SECTIONS = [
                 items: [
                     "Toda comunicación oficial se realiza por los canales designados por la organización (Comunidad de Whatsapp (Comisarios)).",
                     "Las quejas, reclamaciones o disputas NUNCA deben resolverse en chat público, redes sociales o durante la retransmisión. Existe un procedimiento formal de reclamaciones (ver sección correspondiente).",
-                    "Las decisiones de los comisarios y la organización son definitivas una vez publicadas. No se admiten apelaciones salvo nuevas pruebas contundentes."
+                    "Las decisiones de los comisarios y la organización son definitivas una vez publicadas, salvo que el campeonato tenga habilitado el sistema de alegaciones — en ese caso, el piloto sancionado (o el reclamante, si su reclamación fue rechazada) puede presentar una alegación formal dentro del plazo configurado. Mientras la alegación esté en curso, la sanción original sigue aplicándose."
                 ]
             }
         ]
@@ -369,9 +369,17 @@ const DEFAULT_SECTIONS = [
                 items: [
                     "La organización revisará la evidencia presentada y complementará con la repetición de la retransmisión en directo si está disponible.",
                     "La resolución se publicará en un plazo máximo de 48 horas con la decisión tomada.",
-                    "Las decisiones de los comisarios son DEFINITIVAS. No se admiten apelaciones salvo nuevas pruebas contundentes.",
-                    "Solicitar una sanción falsa o infundada conlleva -5 puntos para el reclamante.",
-                    "Si un piloto no está de acuerdo con una resolución, debe comunicarlo por mensaje privado a la organización, NUNCA en público."
+                    "Solicitar una sanción falsa o infundada conlleva -5 puntos para el reclamante."
+                ]
+            },
+            {
+                subtitle: "Alegación (apelación) de una resolución",
+                items: [
+                    "Si el campeonato tiene habilitado el sistema de alegaciones, el piloto sancionado (cuando la reclamación fue aceptada) o el reclamante (cuando fue rechazada) puede presentar una alegación formal sobre la resolución, dentro del plazo configurado por la organización (por defecto, 48 horas desde la resolución).",
+                    "La alegación la resuelve una autoridad superior a la que dictó la resolución original: siempre un director de liga u organizador, nunca un comisario, y nunca quien resolvió la reclamación en primer lugar.",
+                    "Mientras la alegación está en curso, la sanción sigue restando puntos en la clasificación con normalidad — se marca públicamente como \"⚖️ En disputa\", pero no se suspende su efecto.",
+                    "La resolución de la alegación es definitiva: puede confirmar la resolución original, revocar la sanción, modificarla, o inadmitir la alegación por forma (fuera de plazo, sin legitimación, duplicada). No existe una segunda instancia de apelación.",
+                    "Si no se presenta alegación dentro del plazo, o el campeonato no tiene el sistema habilitado, la resolución original es definitiva."
                 ]
             }
         ]

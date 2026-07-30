@@ -12,6 +12,8 @@
  * Portado y adaptado de hgt_gt7/standingsCalculator.js
  */
 
+import { isPenaltyCounting } from '../models/Penalty.js';
+
 /**
  * Calcula la clasificación avanzada con estadísticas y desempate.
  * Usa track.results.racePositions como fuente de posiciones detalladas
@@ -358,7 +360,7 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
         normalizedStatsKeys[normalizeName(k)] = k;
     });
 
-    const activePenalties = penalties.filter(p => p.status === 'applied');
+    const activePenalties = penalties.filter(p => isPenaltyCounting(p));
 
     activePenalties.forEach(penalty => {
         if (!penalty.driverName) return;

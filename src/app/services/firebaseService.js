@@ -30,7 +30,7 @@ import { app, auth } from "../api/firebase/firebaseConfig";
 // y en Python, con solo un comentario pidiendo mantenerlos en sync.
 import PLAN_LIMITS_JSON from "../../../functions/planLimits.json";
 import { Championship, Team, Track, Event } from "../models/Championship";
-import { Penalty, Claim } from "../models/Penalty";
+import { Penalty, Claim, Appeal } from "../models/Penalty";
 
 const db = getFirestore(app);
 const storage = getStorage(app);
@@ -988,6 +988,77 @@ export class FirebaseService {
       return { success: true };
     } catch (error) {
       console.error("Error updating claim:", error);
+      throw error;
+    }
+  }
+
+  // ========================================
+  // APPEALS METHODS (subcolección championships/{id}/appeals)
+  // ========================================
+
+  static async createAppeal(championshipId, appealData) {
+    try {
+      const appeal = new Appeal({ ...appealData, championshipId });
+      const validation = appeal.validate();
+      if (!validation.isValid) throw new Error(validation.errors.join(', '));
+      const docRef = await addDoc(
+        collection(db, "championships", championshipId, "appeals"),
+        appeal.toFirestore()
+      );
+      return { success: true, id: docRef.id };
+    } catch (error) {
+      console.error("Error creating appeal:", error);
+      throw error;
+    }
+  }
+
+  static async getAppealsByChampionship(championshipId) {
+    try {
+      // Consulta de un solo campo (orderBy) — no hay firestore.indexes.json
+      // configurado en el proyecto, así que no hay vía para desplegar
+      // índices compuestos (where + orderBy distintos campos fallaría).
+      const col = collection(db, "championships", championshipId, "appeals");
+      const q = query(col, orderBy("createdAt", "desc"));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => Appeal.fromFirestore(doc.id, doc.data()));
+    } catch (error) {
+      console.error("Error fetching appeals:", error);
+      throw error;
+    }
+  }
+
+  static async updateAppeal(championshipId, appealId, updates) {
+    try {
+      const docRef = doc(db, "championships", championshipId, "appeals", appealId);
+      await updateDoc(docRef, { ...updates, updatedAt: new Date().toISOString() });
+      return { success: true };
+    } catch (error) {
+      console.error("Error updating appeal:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Resuelve una alegación de forma segura frente a doble resolución
+   * concurrente (E3.7): re-lee el documento dentro de la transacción y
+   * exige que siga en 'pending' antes de escribir. Sin esto, dos admins
+   * resolviendo a la vez podrían crear dos sanciones sustitutivas
+   * descontando puntos por duplicado.
+   */
+  static async resolveAppealTransactional(championshipId, appealId, updates) {
+    const appealRef = doc(db, "championships", championshipId, "appeals", appealId);
+    try {
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(appealRef);
+        if (!snap.exists()) throw new Error("La alegación ya no existe");
+        if (!['pending', 'reviewing'].includes(snap.data().status)) {
+          throw new Error("Esta alegación ya fue resuelta por otra persona");
+        }
+        tx.update(appealRef, { ...updates, updatedAt: new Date().toISOString() });
+      });
+      return { success: true };
+    } catch (error) {
+      console.error("Error resolving appeal:", error);
       throw error;
     }
   }

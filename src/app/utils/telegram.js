@@ -78,6 +78,27 @@ export function notifyClaimResolved({ championshipName, status, reporterName, ac
     );
 }
 
+export function notifyAppealCreated({ championshipName, appellantName, reason, orgName }) {
+    return sendTelegramNotification(
+        `⚖️ <b>Nueva alegación</b>\n` +
+        orgTag(orgName) +
+        `🏆 ${championshipName}\n` +
+        `👤 ${appellantName}\n` +
+        `📝 ${reason}`
+    );
+}
+
+export function notifyAppealResolved({ championshipName, appellantName, status, resolution, orgName }) {
+    const statusLabel = { upheld: 'Confirmada', overturned: 'Revocada/Modificada', dismissed: 'Inadmitida' }[status] || status;
+    return sendTelegramNotification(
+        `⚖️ <b>Alegación resuelta — ${statusLabel}</b>\n` +
+        orgTag(orgName) +
+        `🏆 ${championshipName}\n` +
+        `👤 ${appellantName}` +
+        (resolution ? `\n💬 ${resolution}` : '')
+    );
+}
+
 export function notifyEventRegistration({ eventTitle, gt7Id, psnId, name, waitlisted, position, orgName }) {
     const driver = gt7Id || name || psnId || 'Piloto';
     const psnInfo = psnId && psnId !== driver ? ` (PSN: ${psnId})` : '';

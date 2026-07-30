@@ -68,6 +68,22 @@ export class Penalty {
 }
 
 /**
+ * Helper compartido: ¿esta sanción cuenta como activa (descuenta puntos,
+ * se muestra en los resúmenes/listas públicas)? CA-3.9/S3.6: una sanción
+ * `appealed` SIGUE descontando puntos, igual que `applied` — la alegación
+ * no la suspende. Solo `revoked` (y cualquier estado futuro no listado)
+ * queda fuera.
+ *
+ * Único punto de verdad para esta regla: hay 7 sitios en el repo que antes
+ * comparaban `status === 'applied'` a secas; usarlos todos evita que
+ * alguno quede desincronizado y el comportamiento se invierta en silencio
+ * (ver plan de implementación, riesgo R3.1).
+ */
+export function isPenaltyCounting(penalty) {
+    return penalty?.status === 'applied' || penalty?.status === 'appealed';
+}
+
+/**
  * Modelo de Reclamación pública.
  * Los pilotos pueden reportar incidentes para que los admins revisen.
  */
@@ -99,7 +115,12 @@ export class Claim {
             : (data.evidence ? [data.evidence] : []);
 
         // Estado
-        this.status = data.status || 'pending';       // 'pending' | 'reviewing' | 'accepted' | 'rejected' | 'resolved'
+        // 'resolved' es histórico/no usado (siempre se sobrescribe por
+        // accepted/rejected en handleResolveClaim); 'appealed' = hay una
+        // alegación abierta sobre esta reclamación; 'upheld'/'overturned' =
+        // la alegación se resolvió confirmando o revocando la decisión
+        // original (ver Appeal más abajo).
+        this.status = data.status || 'pending';       // 'pending' | 'reviewing' | 'accepted' | 'rejected' | 'resolved' | 'appealed' | 'upheld' | 'overturned'
         this.resolution = data.resolution || '';       // Descripción de la resolución
         this.penaltyId = data.penaltyId || null;      // Sanción creada como resultado (si aplica)
         this.resolvedBy = data.resolvedBy || '';
@@ -128,6 +149,66 @@ export class Claim {
 
     static fromFirestore(id, data) {
         return new Claim({ id, ...data });
+    }
+}
+
+/**
+ * Modelo de Alegación (apelación) sobre la resolución de una reclamación.
+ * Documento en la subcolección championships/{id}/appeals/{appealId} —
+ * deliberadamente NO son campos añadidos a `claims` (S3.9): evita ampliar
+ * los permisos de escritura pública sobre `claims`, permite más de una
+ * alegación por reclamación, y preserva el histórico sin pisar la
+ * resolución original.
+ */
+export class Appeal {
+    constructor(data = {}) {
+        this.id = data.id || null;
+        this.championshipId = data.championshipId || null;
+        this.claimId = data.claimId || null;
+        this.penaltyId = data.penaltyId || null;
+
+        // Quién alega
+        this.appellantName = data.appellantName || '';
+        this.appellantPsnId = data.appellantPsnId || '';
+        this.appellantRole = data.appellantRole || 'accused'; // 'accused' | 'reporter'
+
+        // Contenido de la alegación
+        this.reason = data.reason || '';
+        this.evidence = Array.isArray(data.evidence)
+            ? data.evidence
+            : (data.evidence ? [data.evidence] : []);
+
+        // Estado
+        this.status = data.status || 'pending'; // 'pending' | 'reviewing' | 'upheld' | 'overturned' | 'dismissed'
+        this.resolution = data.resolution || '';
+        this.resolvedBy = data.resolvedBy || '';
+        this.resolvedAt = data.resolvedAt || null;
+
+        // Metadata
+        this.createdAt = data.createdAt || new Date().toISOString();
+        this.updatedAt = data.updatedAt || new Date().toISOString();
+    }
+
+    validate() {
+        const errors = [];
+        if (!this.claimId) errors.push('La alegación debe referenciar una reclamación');
+        if (!this.appellantName) errors.push('El nombre del alegante es requerido');
+        if (!this.reason || !this.reason.trim()) errors.push('El motivo de la alegación es requerido');
+        if (this.reason && this.reason.length > 4000) errors.push('El motivo es demasiado largo (máx. 4000 caracteres)');
+        return { isValid: errors.length === 0, errors };
+    }
+
+    // ⚠️ `{...this}` — cualquier campo que no esté declarado en el
+    // constructor de arriba se pierde en silencio (es exactamente D3.1).
+    toFirestore() {
+        const data = { ...this };
+        delete data.id;
+        data.updatedAt = new Date().toISOString();
+        return data;
+    }
+
+    static fromFirestore(id, data) {
+        return new Appeal({ id, ...data });
     }
 }
 
@@ -270,6 +351,8 @@ export const DEFAULT_PENALTIES_CONFIG = {
     autoDisqualifyThreshold: 16, // Puntos de amonestación para descalificación
     autoPointsPenalty: 10,     // Puntos deducidos al alcanzar warningThreshold
     allowClaims: false,        // Permitir reclamaciones públicas
+    allowAppeals: false,       // Permitir alegaciones sobre reclamaciones resueltas (S3.3)
+    appealWindowHours: 48,     // Plazo, en horas desde resolvedAt, para alegar (S3.2)
     presets: PENALTY_PRESETS.map(p => ({ ...p, active: true }))
 };
 
@@ -297,5 +380,16 @@ export const CLAIM_STATUS_CONFIG = {
     reviewing: { label: 'En Revisión', color: 'text-blue-400', bg: 'bg-blue-500/20' },
     accepted: { label: 'Aceptada', color: 'text-green-400', bg: 'bg-green-500/20' },
     rejected: { label: 'Rechazada', color: 'text-red-400', bg: 'bg-red-500/20' },
-    resolved: { label: 'Resuelta', color: 'text-gray-400', bg: 'bg-gray-500/20' }
+    resolved: { label: 'Resuelta', color: 'text-gray-400', bg: 'bg-gray-500/20' },
+    appealed: { label: '⚖️ En disputa (alegada)', color: 'text-purple-400', bg: 'bg-purple-500/20' },
+    upheld: { label: '⚖️ Resolución confirmada', color: 'text-green-400', bg: 'bg-green-500/20' },
+    overturned: { label: '⚖️ Resolución revocada', color: 'text-orange-400', bg: 'bg-orange-500/20' }
+};
+
+export const APPEAL_STATUS_CONFIG = {
+    pending: { label: 'Pendiente', color: 'text-yellow-400', bg: 'bg-yellow-500/20' },
+    reviewing: { label: 'En Revisión', color: 'text-blue-400', bg: 'bg-blue-500/20' },
+    upheld: { label: 'Confirmada la resolución original', color: 'text-green-400', bg: 'bg-green-500/20' },
+    overturned: { label: 'Revocada/Modificada', color: 'text-orange-400', bg: 'bg-orange-500/20' },
+    dismissed: { label: 'Inadmitida', color: 'text-gray-400', bg: 'bg-gray-500/20' }
 };
