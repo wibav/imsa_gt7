@@ -12,7 +12,8 @@
     "prerender": "node scripts/prerender-content.js",
     "deploy": "./scripts/deploy.sh",
     "setup-env": "./scripts/setup-env.sh",
-    "audit:championships": "node scripts/audit-championships.js"
+    "audit:championships": "node scripts/audit-championships.js",
+    "audit:events": "node scripts/audit-event-results-order.js"
   },
   "dependencies": {
     "firebase": "^11.8.1",

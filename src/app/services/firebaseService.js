@@ -31,6 +31,7 @@ import { app, auth } from "../api/firebase/firebaseConfig";
 import PLAN_LIMITS_JSON from "../../../functions/planLimits.json";
 import { Championship, Team, Track, Event } from "../models/Championship";
 import { Penalty, Claim, Appeal } from "../models/Penalty";
+import { sortSubcollectionDocs } from "../utils/subcollectionOrder";
 
 const db = getFirestore(app);
 const storage = getStorage(app);
@@ -134,13 +135,26 @@ export class FirebaseService {
         this._loadEventRounds(String(eventId))
       ]);
 
+      // CA-2.6: cada _loadEvent* devuelve {items, error} en vez de tragar la
+      // excepción y devolver [] — un [] indistinguible de "no había datos"
+      // es lo que habilitaba la vía de pérdida de datos silenciosa (guardar
+      // encima de una lectura fallida borra los datos reales, ver
+      // _saveEventResults). _loadErrors se descarta explícitamente en
+      // saveEvent antes de escribir — nunca debe llegar a Firestore.
+      const loadErrors = [];
+      if (participants.error) loadErrors.push('participants');
+      if (waitlist.error) loadErrors.push('waitlist');
+      if (results.error) loadErrors.push('results');
+      if (rounds.error) loadErrors.push('rounds');
+
       // Subcollections tienen prioridad; si están vacías, usar el doc principal (estructura vieja)
       return {
         ...baseEventData,
-        participants: participants.length > 0 ? participants : (baseEventData.participants || []),
-        waitlist: waitlist.length > 0 ? waitlist : (baseEventData.waitlist || []),
-        results: results.length > 0 ? results : (baseEventData.results || []),
-        rounds: rounds.length > 0 ? rounds : (baseEventData.rounds || [])
+        participants: participants.items.length > 0 ? participants.items : (baseEventData.participants || []),
+        waitlist: waitlist.items.length > 0 ? waitlist.items : (baseEventData.waitlist || []),
+        results: results.items.length > 0 ? results.items : (baseEventData.results || []),
+        rounds: rounds.items.length > 0 ? rounds.items : (baseEventData.rounds || []),
+        ...(loadErrors.length > 0 ? { _loadErrors: loadErrors } : {})
       };
     } catch (error) {
       console.error("Error fetching event:", error);
@@ -148,17 +162,21 @@ export class FirebaseService {
     }
   }
 
-  // Cargar participantes desde subcollection
+  // Cargar participantes desde subcollection. Orden fiel vía
+  // sortSubcollectionDocs (ver comentario ahí para el bug que arregla) —
+  // antes ordenaba por `a.id.localeCompare(b.id)`, que rompe a partir de 11
+  // documentos (p10 < p2 lexicográficamente).
   static async _loadEventParticipants(eventId) {
     try {
       const subcolRef = collection(db, "events", eventId, "participants");
       const snapshot = await getDocs(subcolRef);
-      return snapshot.docs
-        .sort((a, b) => a.id.localeCompare(b.id))
-        .map(doc => doc.data());
+      return {
+        items: sortSubcollectionDocs(snapshot.docs, { prefix: 'p' }).map(doc => doc.data()),
+        error: null
+      };
     } catch (error) {
       console.error("Error loading participants:", error);
-      return [];
+      return { items: [], error };
     }
   }
 
@@ -167,12 +185,13 @@ export class FirebaseService {
     try {
       const subcolRef = collection(db, "events", eventId, "waitlist");
       const snapshot = await getDocs(subcolRef);
-      return snapshot.docs
-        .sort((a, b) => a.id.localeCompare(b.id))
-        .map(doc => doc.data());
+      return {
+        items: sortSubcollectionDocs(snapshot.docs, { prefix: 'w', orderField: 'waitlistPosition' }).map(doc => doc.data()),
+        error: null
+      };
     } catch (error) {
       console.error("Error loading waitlist:", error);
-      return [];
+      return { items: [], error };
     }
   }
 
@@ -181,12 +200,13 @@ export class FirebaseService {
     try {
       const subcolRef = collection(db, "events", eventId, "results");
       const snapshot = await getDocs(subcolRef);
-      return snapshot.docs
-        .sort((a, b) => a.id.localeCompare(b.id))
-        .map(doc => doc.data());
+      return {
+        items: sortSubcollectionDocs(snapshot.docs, { prefix: 'r', orderField: 'position' }).map(doc => doc.data()),
+        error: null
+      };
     } catch (error) {
       console.error("Error loading results:", error);
-      return [];
+      return { items: [], error };
     }
   }
 
@@ -195,12 +215,13 @@ export class FirebaseService {
     try {
       const subcolRef = collection(db, "events", eventId, "rounds");
       const snapshot = await getDocs(subcolRef);
-      return snapshot.docs
-        .sort((a, b) => a.id.localeCompare(b.id))
-        .map(doc => doc.data());
+      return {
+        items: sortSubcollectionDocs(snapshot.docs, { prefix: 'rnd', orderField: 'roundNumber' }).map(doc => doc.data()),
+        error: null
+      };
     } catch (error) {
       console.error("Error loading rounds:", error);
-      return [];
+      return { items: [], error };
     }
   }
 
@@ -227,12 +248,19 @@ export class FirebaseService {
             this._loadEventRounds(docSnap.id)
           ]);
 
+          const loadErrors = [];
+          if (participants.error) loadErrors.push('participants');
+          if (waitlist.error) loadErrors.push('waitlist');
+          if (results.error) loadErrors.push('results');
+          if (rounds.error) loadErrors.push('rounds');
+
           return {
             ...data,
-            participants: participants.length > 0 ? participants : (data.participants || []),
-            waitlist: waitlist.length > 0 ? waitlist : (data.waitlist || []),
-            results: results.length > 0 ? results : (data.results || []),
-            rounds: rounds.length > 0 ? rounds : (data.rounds || [])
+            participants: participants.items.length > 0 ? participants.items : (data.participants || []),
+            waitlist: waitlist.items.length > 0 ? waitlist.items : (data.waitlist || []),
+            results: results.items.length > 0 ? results.items : (data.results || []),
+            rounds: rounds.items.length > 0 ? rounds.items : (data.rounds || []),
+            ...(loadErrors.length > 0 ? { _loadErrors: loadErrors } : {})
           };
         })
       );
@@ -260,8 +288,12 @@ export class FirebaseService {
     try {
       const eventId = String(event.id);
 
-      // Separar datos grandes que irán en subcollections
-      const { participants, waitlist, results, rounds, ...baseEventData } = event;
+      // Separar datos grandes que irán en subcollections. `_loadErrors`
+      // (CA-2.6, banner de error de lectura) y `_uid` (identidad estable de
+      // fila usada por PositionInput/key en la UI) son transitorios de
+      // cliente — NUNCA deben persistirse en Firestore, se descartan aquí
+      // explícitamente.
+      const { participants, waitlist, results, rounds, _loadErrors, ...baseEventData } = event;
 
       // Agregar timestamp — orgId siempre se estampa aquí (no se confía en
       // que el estado de la UI lo preserve; saveEvent reemplaza el doc completo)
@@ -341,9 +373,14 @@ export class FirebaseService {
       const deletePromises = existing.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(deletePromises);
 
-      const savePromises = results.map((r, idx) =>
-        setDoc(doc(subcolRef, `r${idx}`), { ...r, position: idx + 1, savedAt: new Date().toISOString() })
-      );
+      // `_uid` es una identidad estable generada en cliente (Bloque 3, ver
+      // eventsAdmin/page.js) solo para que React no pierda el foco al
+      // reordenar filas — nunca debe persistirse en Firestore, se descarta
+      // aquí explícitamente antes de escribir.
+      const savePromises = results.map((r, idx) => {
+        const { _uid, ...cleanResult } = r;
+        return setDoc(doc(subcolRef, `r${idx}`), { ...cleanResult, position: idx + 1, savedAt: new Date().toISOString() });
+      });
       await Promise.all(savePromises);
     } catch (error) {
       console.error("Error saving results:", error);
@@ -424,8 +461,8 @@ export class FirebaseService {
         this._loadEventWaitlist(eventId_str)
       ]);
 
-      const currentParticipants = subParticipants.length > 0 ? subParticipants : (eventData.participants || []);
-      const currentWaitlist = subWaitlist.length > 0 ? subWaitlist : (eventData.waitlist || []);
+      const currentParticipants = subParticipants.items.length > 0 ? subParticipants.items : (eventData.participants || []);
+      const currentWaitlist = subWaitlist.items.length > 0 ? subWaitlist.items : (eventData.waitlist || []);
 
       // Verificar si el participante ya existe
       const existsInMain = currentParticipants.some(p => p.gt7Id === participantData.gt7Id);

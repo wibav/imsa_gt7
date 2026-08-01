@@ -9,7 +9,20 @@ import {
     EVENT_TYPES, getDefaultRounds
 } from "../utils";
 import { validateImageFile, compressImage } from "../utils/imageCompression";
+import { reorderByPosition } from "../utils/eventResultsOrder";
 import StandardRoomSection from "../components/event/StandardRoomSection";
+
+// Identidad estable de fila para la sección Resultados (Bloque 3): generada
+// solo en cliente al crear/normalizar un resultado, nunca persistida (ver
+// firebaseService.js _saveEventResults, que la descarta explícitamente
+// antes de escribir). Sin esto, `key={idx}` hace que React reutilice nodos
+// DOM al reordenar por desplazamiento y el input de posición pierde el foco
+// a mitad de escritura.
+const makeResultUid = () => (
+    typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `uid_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+);
 
 // ============================
 // DEFAULTS
@@ -156,7 +169,11 @@ function EventForm({ event, onSave, onCancel, saving }) {
         registration: { ...DEFAULT_REGISTRATION, ...(event?.registration || {}) },
         weather: { ...DEFAULT_WEATHER, ...(event?.weather || {}) },
         rounds: event?.rounds || [],
-        waitlist: event?.waitlist || []
+        waitlist: event?.waitlist || [],
+        // _uid nunca viene persistido (ver firebaseService.js) — se asigna
+        // aquí una sola vez al cargar el formulario, estable durante toda
+        // la sesión de edición.
+        results: (event?.results || []).map(r => ({ ...r, _uid: r._uid || makeResultUid() }))
     }));
     const [newCar, setNewCar] = useState('');
     const isEditing = Boolean(event?.title);
@@ -479,20 +496,26 @@ function EventForm({ event, onSave, onCancel, saving }) {
     // (S1.2), nunca en rounds[]. Elevados a paridad con los handlers de sala
     // de eliminatoria (moveRoomResult / generateRoomResultsFromParticipants).
     const addResult = () => {
-        const results = [...(form.results || [])];
-        results.push({ driverName: '', position: results.length + 1, psnId: '', fastestLap: false, polePosition: false, dnf: false });
-        updateField('results', results);
+        setForm(prev => {
+            const results = [...(prev.results || [])];
+            results.push({ _uid: makeResultUid(), driverName: '', position: results.length + 1, psnId: '', fastestLap: false, polePosition: false, dnf: false });
+            return { ...prev, results };
+        });
     };
     const updateResult = (idx, key, value) => {
-        const results = [...(form.results || [])];
-        results[idx] = { ...results[idx], [key]: value };
-        updateField('results', results);
+        setForm(prev => {
+            const results = [...(prev.results || [])];
+            results[idx] = { ...results[idx], [key]: value };
+            return { ...prev, results };
+        });
     };
     const removeResult = (idx) => {
-        const results = [...(form.results || [])];
-        results.splice(idx, 1);
-        results.forEach((r, i) => r.position = i + 1);
-        updateField('results', results);
+        setForm(prev => {
+            const results = (prev.results || [])
+                .filter((_, i) => i !== idx)
+                .map((r, i) => ({ ...r, position: i + 1 }));
+            return { ...prev, results };
+        });
     };
     const moveResult = (idx, direction) => {
         setForm(prev => {
@@ -500,8 +523,24 @@ function EventForm({ event, onSave, onCancel, saving }) {
             const newIdx = idx + direction;
             if (newIdx < 0 || newIdx >= results.length) return prev;
             [results[idx], results[newIdx]] = [results[newIdx], results[idx]];
-            results.forEach((r, i) => r.position = i + 1);
-            return { ...prev, results };
+            const reindexed = results.map((r, i) => ({ ...r, position: i + 1 }));
+            return { ...prev, results: reindexed };
+        });
+    };
+    // Bloque 3 (input de posición): desplazamiento puro vía reorderByPosition
+    // (src/app/utils/eventResultsOrder.js) — mueve el resultado en `idx` a la
+    // posición 1-based `rawPos`, reacomodando al resto por desplazamiento
+    // (nunca intercambio), así que no puede haber posiciones duplicadas ni
+    // huecos. `rawPos` inválido (vacío, no numérico, fuera de rango) se
+    // clampa dentro del propio helper.
+    const setResultPosition = (idx, rawPos) => {
+        setForm(prev => {
+            const results = prev.results || [];
+            const n = results.length;
+            if (n === 0) return prev;
+            const parsed = parseInt(rawPos, 10);
+            const targetPos = Number.isFinite(parsed) ? parsed : idx + 1;
+            return { ...prev, results: reorderByPosition(results, idx, targetPos) };
         });
     };
     // E1.2: fallback a psnId cuando gt7Id está vacío, para no generar un
@@ -516,6 +555,7 @@ function EventForm({ event, onSave, onCancel, saving }) {
             const participants = prev.participants || [];
             if (participants.length === 0) return prev;
             const results = participants.map((p, i) => ({
+                _uid: makeResultUid(),
                 driverName: p.gt7Id || p.name || p.psnId || '',
                 psnId: p.psnId || '',
                 position: i + 1,
@@ -527,14 +567,34 @@ function EventForm({ event, onSave, onCancel, saving }) {
         });
     };
 
+    // CA-2.6: si alguna subcolección falló al leer, `event._loadErrors`
+    // (armado por getEvent/getEvents, ver firebaseService.js) llega aquí
+    // dentro de `event` y sobrevive al spread inicial del form. Bloquear
+    // Guardar en ese estado evita la vía de pérdida de datos más grave del
+    // plan: guardar con un array vacío que en realidad es "no se pudo leer"
+    // borraría los datos reales (_saveEventResults borra la subcolección
+    // completa antes de reescribir).
+    const hasLoadError = (form._loadErrors || []).length > 0;
+    // Traducción de las claves de subcolección de `_loadErrors` a nombres
+    // legibles en español, para el tooltip de los botones Guardar y el
+    // banner global (ver más abajo, justo debajo del header del form).
+    const loadErrorLabels = { participants: 'participantes', waitlist: 'lista de espera', results: 'resultados', rounds: 'rondas' };
+    const loadErrorNamesEs = (form._loadErrors || []).map(key => loadErrorLabels[key] || key).join(', ');
+    const saveDisabledTitle = hasLoadError ? `No se puede guardar: error al cargar ${loadErrorNamesEs}` : undefined;
+
     const handleSubmit = () => {
         if (!form.title?.trim()) { alert('El título es obligatorio'); return; }
         if (!form.date) { alert('La fecha es obligatoria'); return; }
+        if (hasLoadError) { alert('⚠️ No se pudieron cargar algunos datos del evento (' + form._loadErrors.join(', ') + '). Guardar está deshabilitado para no borrarlos — recarga la página e inténtalo de nuevo.'); return; }
         onSave(form);
     };
 
     // ---- FORM INPUTS (reusable classes) ----
     const inputCls = "w-full bg-white/10 border border-white/30 rounded-lg p-3 text-white placeholder-white/40 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none transition-colors";
+    // CA-1.1/CA-1.2: escala de Participantes (p-2 text-sm), unificada para
+    // el input Piloto/PSN de Resultados y el ancho de PSN — ver
+    // StandardRoomSection.js.
+    const rowInputCls = "bg-white/10 border border-white/20 rounded p-2 text-white text-sm focus:border-orange-500 outline-none";
     const labelCls = "block text-gray-300 font-semibold mb-1 text-sm";
 
     return (
@@ -549,12 +609,24 @@ function EventForm({ event, onSave, onCancel, saving }) {
                 </div>
                 <button
                     onClick={handleSubmit}
-                    disabled={saving}
+                    disabled={saving || hasLoadError}
+                    title={saveDisabledTitle}
                     className="px-3 md:px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 text-white font-bold rounded-lg transition-all flex items-center gap-1 md:gap-2 text-xs md:text-base flex-shrink-0"
                 >
                     {saving ? '⏳' : '💾'} <span className="hidden md:inline">{saving ? 'Guardando...' : 'Guardar'}</span>
                 </button>
             </div>
+
+            {/* CA-2.6: banner global de error de lectura — visible sin importar
+                qué sección/pestaña esté mirando el usuario, a diferencia del
+                banner específico de resultsLoadFailed en StandardRoomSection
+                (que solo cubre la subcolección `results`). Cubre las 4
+                subcolecciones que puede reportar `_loadErrors`. */}
+            {hasLoadError && (
+                <p className="text-red-300 text-xs md:text-sm bg-red-500/10 border border-red-500/40 rounded-lg px-3 py-2">
+                    ⚠️ Error al cargar: {loadErrorNamesEs}. Guardar está deshabilitado hasta recargar la página.
+                </p>
+            )}
 
             {/* ========== SECTION 1: BASIC INFO ========== */}
             <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-3 md:p-6 space-y-3 md:space-y-4">
@@ -1012,8 +1084,8 @@ function EventForm({ event, onSave, onCancel, saving }) {
                                 {form.participants.map((p, idx) => (
                                     <div key={p.id || idx} className="flex gap-2 items-center px-2 py-1 hover:bg-white/5 rounded">
                                         <span className="text-gray-500 text-xs w-6 text-center">{idx + 1}</span>
-                                        <input type="text" className="w-50 bg-white/10 border border-white/20 rounded p-2 text-white text-sm focus:border-orange-500 outline-none" value={p.gt7Id || p.name || ''} onChange={(e) => updateParticipant(idx, 'gt7Id', e.target.value)} placeholder="GT7 ID" />
-                                        <input type="text" className="w-50 bg-white/10 border border-white/20 rounded p-2 text-white text-sm focus:border-orange-500 outline-none" value={p.psnId || ''} onChange={(e) => updateParticipant(idx, 'psnId', e.target.value)} placeholder="PSN ID" />
+                                        <input type="text" className={`w-50 ${rowInputCls}`} value={p.gt7Id || p.name || ''} onChange={(e) => updateParticipant(idx, 'gt7Id', e.target.value)} placeholder="GT7 ID" />
+                                        <input type="text" className={`w-50 ${rowInputCls}`} value={p.psnId || ''} onChange={(e) => updateParticipant(idx, 'psnId', e.target.value)} placeholder="PSN ID" />
                                         <button type="button" onClick={() => removeParticipant(idx)} className="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white w-8 h-8 rounded flex items-center justify-center transition-colors flex-shrink-0">×</button>
                                     </div>
                                 ))}
@@ -1222,7 +1294,12 @@ function EventForm({ event, onSave, onCancel, saving }) {
                                                 )}
                                             </div>
 
-                                            {/* Room Results */}
+                                            {/* Room Results — fuera de alcance de este cambio (ver §6 del
+                                                documento de requerimientos): mismo patrón visual/de
+                                                reordenamiento que la Sala Única de eventos estándar antes
+                                                del fix. Ticket futuro: extraer a un componente compartido y
+                                                reusar `rowInputCls` (definido más arriba en este archivo) +
+                                                el input de posición de StandardRoomSection.js aquí también. */}
                                             <div>
                                                 <div className="flex items-center justify-between mb-2">
                                                     <span className="text-gray-400 text-xs font-semibold uppercase">Resultados</span>
@@ -1278,9 +1355,11 @@ function EventForm({ event, onSave, onCancel, saving }) {
                     <StandardRoomSection
                         form={form}
                         updateStreaming={updateStreaming}
-                        resultHandlers={{ addResult, updateResult, removeResult, moveResult, generateResultsFromParticipants }}
+                        resultHandlers={{ addResult, updateResult, removeResult, moveResult, setResultPosition, generateResultsFromParticipants }}
                         labelCls={labelCls}
                         inputCls={inputCls}
+                        rowInputCls={rowInputCls}
+                        loadErrors={form._loadErrors || []}
                     />
                 </CollapsibleSection>
             )}
@@ -1292,7 +1371,8 @@ function EventForm({ event, onSave, onCancel, saving }) {
                 </button>
                 <button
                     onClick={handleSubmit}
-                    disabled={saving}
+                    disabled={saving || hasLoadError}
+                    title={saveDisabledTitle}
                     className="px-4 md:px-8 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl text-sm md:text-base"
                 >
                     {saving ? '⏳' : '💾'} <span className="hidden sm:inline">{saving ? 'Guardando...' : 'Guardar Evento'}</span><span className="sm:hidden">{saving ? 'Guardando' : 'Guardar'}</span>
