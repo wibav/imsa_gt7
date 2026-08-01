@@ -7,6 +7,7 @@ import Navbar from "../components/Navbar";
 import RegistrationModal from "../components/RegistrationModal";
 import DynamicOGTags from "../components/DynamicOGTags";
 import ExportableEventResults from "../components/ExportableEventResults";
+import ShareButton from "../components/ShareButton";
 import { notifyEventRegistration } from "../utils/telegram";
 import {
     EVENT_STATUSES,
@@ -257,6 +258,13 @@ function EventDetailContent() {
                         <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-white drop-shadow-lg line-clamp-2">
                             {event.title}
                         </h1>
+                        <div className="mt-4">
+                            <ShareButton
+                                type="event"
+                                id={eventId}
+                                title={event.title}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>

@@ -27,6 +27,7 @@ import AppealForm, { getAppealWindowStatus, getEligibleAppellants } from '../com
 import CarDeclarationModal from '../components/championship/CarDeclarationModal';
 import ExportableStandings from '../components/championship/ExportableStandings';
 import RaceBriefing from '../components/championship/RaceBriefing';
+import ShareButton from '../components/ShareButton';
 import { STREAMING_PLATFORMS } from '../utils/constants';
 import { SEVERITY_CONFIG, isPenaltyCounting } from '../models/Penalty';
 import { getInvalidatedEntries, flattenRegistrations } from '../utils/carUsageCalculator';
@@ -238,29 +239,38 @@ export default function ChampionshipDetailPage() {
                                 </div>
                             </div>
 
-                            {isAdmin() && (
-                                <button
-                                    onClick={() => router.push(`/championshipsAdmin?id=${championshipId}`)}
-                                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
-                                >
-                                    ⚙️ Admin
-                                </button>
-                            )}
+                            <div className="flex items-center gap-3">
+                                {/* Botón Compartir */}
+                                <ShareButton
+                                    type="championship"
+                                    id={championshipId}
+                                    title={championship.name}
+                                />
 
-                            {/* Botón Ver en Vivo */}
-                            {hasStreaming && (
-                                <a
-                                    href={championship.streaming.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${isLive
-                                        ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
-                                        : 'bg-white/10 hover:bg-white/20 border border-white/30 text-white'
-                                        }`}
-                                >
-                                    {streamPlatform?.icon || '📺'} {isLive ? 'Ver en Vivo' : 'Ver Stream'}
-                                </a>
-                            )}
+                                {isAdmin() && (
+                                    <button
+                                        onClick={() => router.push(`/championshipsAdmin?id=${championshipId}`)}
+                                        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+                                    >
+                                        ⚙️ Admin
+                                    </button>
+                                )}
+
+                                {/* Botón Ver en Vivo */}
+                                {hasStreaming && (
+                                    <a
+                                        href={championship.streaming.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${isLive
+                                            ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
+                                            : 'bg-white/10 hover:bg-white/20 border border-white/30 text-white'
+                                            }`}
+                                    >
+                                        {streamPlatform?.icon || '📺'} {isLive ? 'Ver en Vivo' : 'Ver Stream'}
+                                    </a>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1745,7 +1755,7 @@ export default function ChampionshipDetailPage() {
                                             ? flatRegs.find(r =>
                                                 (r.gt7Id === currentUser.displayName || r.psnId === currentUser.displayName || r.email === currentUser.email) &&
                                                 (r.status === 'approved' || !championship.registration?.requiresApproval)
-                                              )
+                                            )
                                             : null;
                                         const hasDeclared = !isFixed && (myReg?.declaredCars || []).length > 0;
 
@@ -2118,7 +2128,7 @@ export default function ChampionshipDetailPage() {
                     ? (championship.registrations || []).find(r =>
                         (r.gt7Id === currentUser.displayName || r.psnId === currentUser.displayName || r.email === currentUser.email) &&
                         (r.status === 'approved' || !championship.registration?.requiresApproval)
-                      )
+                    )
                     : null;
                 if (!myReg) return null;
                 return (
