@@ -368,7 +368,16 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
         // 1. Coincidencia exacta
         let stat = driverStats[penalty.driverName];
 
-        // 2. Coincidencia normalizada (cubre guiones unicode, espacios invisibles, mayúsculas)
+        // 2. Alias de registro (psnId ↔ gt7Id) — mismo mapa que resuelve track.points.
+        // Necesario porque las sanciones suelen guardarse con el nombre tal como lo
+        // escribió el reclamante (a menudo el psnId), mientras que en modo divisiones
+        // driverStats queda indexado por el gt7Id canónico.
+        if (!stat) {
+            const canonical = aliasToCanonical[penalty.driverName];
+            if (canonical) stat = driverStats[canonical];
+        }
+
+        // 3. Coincidencia normalizada (cubre guiones unicode, espacios invisibles, mayúsculas)
         if (!stat) {
             const realKey = normalizedStatsKeys[normalizeName(penalty.driverName)];
             if (realKey) stat = driverStats[realKey];
