@@ -49,6 +49,7 @@ const PLANES = [
         priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_PRO_IA || '',
         features: ['Hasta 200 pilotos', '4 administradores (incl. owner)', '12 comisarios', 'Branding + URL personalizada', '🤖 Sugerencia de resolución de reclamaciones con IA', 'Hasta 80 sugerencias de IA/mes'],
         highlight: true,
+        badge: 'Más popular',
     },
 ];
 
@@ -57,8 +58,8 @@ const PLANES = [
 // Free puede comprar un lote sin pasar a Starter/Pro.
 const LOTES = [
     { key: 'S', credits: 1, price: '4 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_S || '' },
-    { key: 'M', credits: 5, price: '15 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_M || '' },
-    { key: 'L', credits: 10, price: '25 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_L || '' },
+    { key: 'M', credits: 5, price: '15 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_M || '', savingsPct: 25 },
+    { key: 'L', credits: 10, price: '25 €', priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_ID_LOTE_L || '', savingsPct: 37 },
 ];
 
 const PLAN_RANK = { free: 0, starter: 1, pro: 2, pro_ia: 3 };
@@ -183,18 +184,32 @@ export default function FacturacionPage() {
 
             {isOrganizador && paddleConfigured && (
                 <>
+                    {/* Orientación rápida: torneo puntual vs liga recurrente */}
+                    <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-8 text-sm text-gray-300">
+                        <span className="text-white font-medium">¿No sabes qué necesitas?</span>{' '}
+                        ¿Vas a organizar un torneo puntual? Compra un <span className="text-orange-300">lote de créditos</span>.
+                        {' '}¿Vas a llevar una liga con temporada regular? Suscríbete a un <span className="text-orange-300">plan mensual</span>.
+                    </div>
+
                     {/* Lotes de créditos — pago único, no caduca, independiente del plan */}
                     <section className="mb-10">
                         <h2 className="text-white font-semibold mb-1">📦 Lotes de créditos</h2>
+                        <p className="text-gray-400 text-sm mb-1">
+                            Cada crédito equivale a un campeonato o evento nuevo, con calendario, clasificaciones, sanciones y comisarios incluidos. No caducan.
+                        </p>
                         <p className="text-gray-400 text-sm mb-4">
-                            Cada crédito equivale a un campeonato o evento nuevo. No caducan.
+                            Comprar cualquier lote elimina el límite de pilotos por campeonato, en cualquier plan — incluido Free.
                         </p>
                         <div className="grid sm:grid-cols-3 gap-3">
                             {LOTES.map(lote => (
                                 <div key={lote.key} className="bg-white/5 border border-white/10 rounded-lg p-4 flex flex-col">
                                     <p className="text-white font-bold text-xl">{lote.credits}</p>
-                                    <p className="text-gray-400 text-xs mb-3">campeonatos/eventos</p>
-                                    <p className="text-orange-300 font-semibold mb-3">{lote.price}</p>
+                                    <p className="text-gray-400 text-xs mb-1">campeonatos/eventos</p>
+                                    {lote.savingsPct && (
+                                        <p className="text-green-400 text-xs font-semibold mb-1">Ahorra {lote.savingsPct}%</p>
+                                    )}
+                                    <p className="text-orange-300 font-semibold mb-1">{lote.price}</p>
+                                    <p className="text-gray-500 text-xs mb-3">No caducan</p>
                                     <button
                                         onClick={() => handlePurchase(`lote-${lote.key}`, lote.priceId)}
                                         disabled={!paddleReady || !lote.priceId || checkoutKey === `lote-${lote.key}`}
@@ -221,8 +236,13 @@ export default function FacturacionPage() {
                                 return (
                                     <div
                                         key={p.key}
-                                        className={`rounded-lg p-4 flex flex-col border ${p.highlight ? 'bg-purple-500/10 border-purple-500/30' : 'bg-white/5 border-white/10'}`}
+                                        className={`relative rounded-lg p-4 flex flex-col border ${p.highlight ? 'bg-purple-500/10 border-purple-500/30' : 'bg-white/5 border-white/10'}`}
                                     >
+                                        {p.badge && (
+                                            <span className="absolute -top-2.5 right-3 px-2 py-0.5 bg-purple-500 text-white text-[10px] font-bold rounded-full">
+                                                {p.badge}
+                                            </span>
+                                        )}
                                         <p className="text-white font-bold">{p.label}</p>
                                         <p className="text-orange-300 font-semibold mb-2">{p.price}</p>
                                         <ul className="text-gray-400 text-xs space-y-1 mb-3 flex-1">
