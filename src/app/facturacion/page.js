@@ -221,6 +221,9 @@ export default function FacturacionPage() {
                                 </div>
                             ))}
                         </div>
+                        <p className="text-gray-500 text-xs mt-3">
+                            ¿Organizas más de 2-3 campeonatos al año? Puede salirte más a cuenta un plan mensual — compara precios y qué incluye cada uno más abajo.
+                        </p>
                     </section>
 
                     {/* Planes mensuales — suscripción recurrente, desbloquea límites/branding/IA */}
