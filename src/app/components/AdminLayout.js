@@ -55,14 +55,20 @@ export default function AdminLayout({ children }) {
                 // comisario (ChampionshipForm no gatea rol, pero firestore.rules
                 // sí — la escritura siempre fallaba). ADR-009: gatear en el sidebar.
                 ...(isAdmin() ? [{ name: 'Crear Campeonato', path: '/championshipsAdmin/new', icon: '➕' }] : []),
-                ...(isAdmin() ? [{ name: 'Usuarios', path: '/usersAdmin', icon: '👥' }] : []),
-                ...(isAdmin() ? [{ name: 'Facturación', path: '/facturacion', icon: '💳' }] : []),
-                // Branding (logo/colores): exclusivo del Organizador — un
-                // director_liga administra campeonatos pero no la identidad
-                // de la organización ni su plan.
-                ...(currentOrgRole() === 'organizador' ? [{ name: 'Mi Organización', path: '/organizacionAdmin', icon: '🎨' }] : []),
             ]
         },
+        // Eventos: solo admins. /eventsAdmin ya gatea con
+        // <ProtectedRoute requireAdmin> (un comisario ve "Acceso Denegado"),
+        // así que mostrar el enlace en el sidebar era otro callejón sin
+        // salida — ADR-009. Va justo después de Campeonatos: mismo tipo de
+        // contenido (gestión de competiciones), no de cuenta/organización.
+        ...(isAdmin() ? [{
+            title: 'Gestión de Eventos',
+            icon: '📅',
+            items: [
+                { name: 'Eventos', path: '/eventsAdmin', icon: '🎪' },
+            ]
+        }] : []),
         // Catálogo de pistas: gestión exclusiva del Administrador de
         // Plataforma (asignar imágenes es un recurso global compartido
         // entre todas las organizaciones, no de una liga en particular).
@@ -73,15 +79,21 @@ export default function AdminLayout({ children }) {
                 { name: 'Pistas GT7', path: '/tracksAdmin', icon: '🏁' },
             ]
         }] : []),
-        // Eventos: solo admins. /eventsAdmin ya gatea con
-        // <ProtectedRoute requireAdmin> (un comisario ve "Acceso Denegado"),
-        // así que mostrar el enlace en el sidebar era otro callejón sin
-        // salida — ADR-009.
+        // Cuenta/organización: agrupa lo que es de la cuenta en sí (usuarios,
+        // plan y pago, branding), separado de la gestión de contenido de
+        // arriba (campeonatos/eventos/pistas) — antes vivía mezclado dentro
+        // de "Gestión de Campeonatos", lo que hacía parecer que Facturación
+        // o Usuarios eran parte de un campeonato en particular.
         ...(isAdmin() ? [{
-            title: 'Gestión de Eventos',
-            icon: '📅',
+            title: 'Cuenta',
+            icon: '🏢',
             items: [
-                { name: 'Eventos', path: '/eventsAdmin', icon: '🎪' },
+                { name: 'Usuarios', path: '/usersAdmin', icon: '👥' },
+                { name: 'Facturación', path: '/facturacion', icon: '💳' },
+                // Branding (logo/colores): exclusivo del Organizador — un
+                // director_liga administra campeonatos pero no la identidad
+                // de la organización ni su plan.
+                ...(currentOrgRole() === 'organizador' ? [{ name: 'Mi Organización', path: '/organizacionAdmin', icon: '🎨' }] : []),
             ]
         }] : []),
         {
