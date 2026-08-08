@@ -2,7 +2,8 @@
  * Championship Model
  * Modelo de datos para el sistema de múltiples campeonatos
  */
-import { STATUS_SEMANTIC_COLORS, STATUS_LABELS } from '../utils/constants';
+import { STATUS_SEMANTIC_COLORS, STATUS_LABELS } from '../utils/constants.js';
+import { REGULATIONS_MAX_BYTES, regulationsByteSize } from '../utils/regulations.js';
 
 export class Championship {
     constructor(data = {}) {
@@ -38,6 +39,10 @@ export class Championship {
         this.streaming = data.streaming || null;
         this.penaltiesConfig = data.penaltiesConfig || null;
         this.regulations = data.regulations || null;
+        // 'html' si viene del editor WYSIWYG; documentos legacy (sin el
+        // campo) con regulations no vacío se asumen 'plain' — preserva el
+        // render actual como texto sin marcado.
+        this.regulationsFormat = data.regulationsFormat === 'html' ? 'html' : (data.regulations ? 'plain' : null);
         this.carUsageTracking = data.carUsageTracking
             ? {
                 enabled: data.carUsageTracking.enabled ?? false,
@@ -116,6 +121,14 @@ export class Championship {
             }
         }
 
+        if (this.regulations) {
+            const bytes = regulationsByteSize(this.regulations);
+            if (bytes > REGULATIONS_MAX_BYTES) {
+                const kb = (bytes / 1024).toFixed(1);
+                errors.push(`El reglamento supera el máximo de 100 KB (actual: ${kb} KB). Reduce el contenido.`);
+            }
+        }
+
         return {
             isValid: errors.length === 0,
             errors
@@ -149,6 +162,7 @@ export class Championship {
             streaming: this.streaming,
             penaltiesConfig: this.penaltiesConfig,
             regulations: this.regulations,
+            regulationsFormat: this.regulationsFormat,
             carUsageTracking: this.carUsageTracking,
             preQualy: this.preQualy,
             divisionsConfig: this.divisionsConfig,

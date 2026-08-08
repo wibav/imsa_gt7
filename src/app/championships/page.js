@@ -31,6 +31,9 @@ import ShareButton from '../components/ShareButton';
 import { STREAMING_PLATFORMS } from '../utils/constants';
 import { SEVERITY_CONFIG, isPenaltyCounting } from '../models/Penalty';
 import { getInvalidatedEntries, flattenRegistrations } from '../utils/carUsageCalculator';
+import { isRegulationsEmpty } from '../utils/regulations';
+import RegulationsView from '../components/championship/RegulationsView';
+import RegulationsPdfButton from '../components/championship/RegulationsPdfButton';
 
 export default function ChampionshipDetailPage() {
     const searchParams = useSearchParams();
@@ -1736,11 +1739,14 @@ export default function ChampionshipDetailPage() {
                                     )}
 
                                     {/* Reglamentación */}
-                                    {championship.regulations && (
-                                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
-                                            <h3 className="text-xl font-bold text-white mb-4">📜 Reglamentación</h3>
+                                    {!isRegulationsEmpty(championship.regulations, championship.regulationsFormat) && (
+                                        <div id="reglamento" className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
+                                            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                                                <h3 className="text-xl font-bold text-white">📜 Reglamentación</h3>
+                                                <RegulationsPdfButton championship={championship} compact />
+                                            </div>
                                             <div className="bg-white/5 rounded-lg p-4">
-                                                <p className="text-gray-200 whitespace-pre-line text-sm leading-relaxed">{championship.regulations}</p>
+                                                <RegulationsView regulations={championship.regulations} format={championship.regulationsFormat} />
                                             </div>
                                         </div>
                                     )}

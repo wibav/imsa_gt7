@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { useChampionship } from '../../context/ChampionshipContext';
@@ -9,8 +10,15 @@ import { FirebaseService } from '../../services/firebaseService';
 import { GT7_TRACKS, TYRE_OPTIONS, DAMAGE_OPTIONS, STREAMING_PLATFORMS, WEATHER_CONDITION_OPTIONS, WEATHER_TRANSITION_OPTIONS, START_TIME_OPTIONS, TIME_MULTIPLIER_OPTIONS, DEFAULT_SPRINT_POINTS, DEFAULT_DIVISIONS_CONFIG, WEATHER_TIME_OPTIONS } from '../../utils/constants';
 import { DEFAULT_PENALTIES_CONFIG } from '../../models/Penalty';
 import { validateImageFile, compressImage } from '../../utils/imageCompression';
+import { REGULATIONS_MAX_BYTES, regulationsByteSize, normalizeRegulationsForSave } from '../../utils/regulations';
+import { sanitizeRegulationsHtml } from '../../utils/regulationsSanitize';
 import LoadingSkeleton from '../common/LoadingSkeleton';
 import ErrorMessage from '../common/ErrorMessage';
+
+const RegulationsEditor = dynamic(() => import('./RegulationsEditor'), {
+    ssr: false,
+    loading: () => <div className="regulations-rich regulations-rich--editor animate-pulse h-40" />
+});
 
 // ============================================================
 // Constantes locales del formulario
@@ -104,6 +112,7 @@ function getEmptyFormData() {
         },
         penaltiesConfig: { ...DEFAULT_PENALTIES_CONFIG },
         regulations: '',
+        regulationsFormat: null,
         carUsageTracking: {
             enabled: false,
             mode: 'declared',
@@ -357,6 +366,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                 presets: champ.penaltiesConfig?.presets || DEFAULT_PENALTIES_CONFIG.presets
             },
             regulations: champ.regulations || '',
+            regulationsFormat: champ.regulationsFormat === 'html' ? 'html' : (champ.regulations ? 'plain' : null),
             carUsageTracking: {
                 enabled: champ.carUsageTracking?.enabled || false,
                 mode: champ.carUsageTracking?.mode || 'declared',
@@ -783,6 +793,13 @@ export default function ChampionshipForm({ isEditing = false }) {
                         });
                     }
                 }
+                if (formData.regulations) {
+                    const bytes = regulationsByteSize(formData.regulations);
+                    if (bytes > REGULATIONS_MAX_BYTES) {
+                        const kb = (bytes / 1024).toFixed(1);
+                        errors.push(`El reglamento supera el máximo de 100 KB (actual: ${kb} KB). Reduce el contenido.`);
+                    }
+                }
                 break;
         }
         setFormErrors(errors);
@@ -919,11 +936,18 @@ export default function ChampionshipForm({ isEditing = false }) {
                 bannerUrl = await FirebaseService.uploadImage(bannerFile, path);
             }
 
+            const { regulations, regulationsFormat } = normalizeRegulationsForSave({
+                html: formData.regulationsFormat === 'html' ? sanitizeRegulationsHtml(formData.regulations) : formData.regulations,
+                format: formData.regulationsFormat
+            });
+
             const championshipData = {
                 ...formData,
                 banner: bannerUrl,
                 startDate: formData.startDate ? new Date(formData.startDate).toISOString() : null,
                 endDate: formData.endDate ? new Date(formData.endDate).toISOString() : null,
+                regulations,
+                regulationsFormat,
             };
 
             const { tracks: tracksData, teams: teamsData, ...championshipDataCore } = championshipData;
@@ -2128,15 +2152,14 @@ export default function ChampionshipForm({ isEditing = false }) {
                                 {/* Reglamentación del Campeonato */}
                                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
                                     <h3 className="text-xl font-bold text-white mb-2">📜 Reglamentación</h3>
-                                    <p className="text-gray-300 text-sm mb-4">Texto general de reglas visibles para todos los participantes</p>
-                                    <textarea
-                                        value={formData.regulations || ''}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, regulations: e.target.value }))}
-                                        rows={6}
-                                        placeholder={`Ej:\n1. Respeto entre pilotos en todo momento\n2. No se permite contacto intencional\n3. Respetar banderas azules\n4. Penalización por cortar pista\n5. El admin tiene la última palabra en disputas`}
-                                        className="w-full px-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y font-mono text-sm"
+                                    <p className="text-gray-300 text-sm mb-4">Reglas visibles para todos los participantes. Se puede descargar como PDF.</p>
+                                    <RegulationsEditor
+                                        value={formData.regulations}
+                                        format={formData.regulationsFormat}
+                                        maxBytes={REGULATIONS_MAX_BYTES}
+                                        onChange={(html) => setFormData(prev => ({ ...prev, regulations: html, regulationsFormat: 'html' }))}
                                     />
-                                    <p className="text-xs text-gray-400 mt-2">Este texto se mostrará en la sección pública del campeonato</p>
+                                    <p className="text-xs text-gray-400 mt-2">Este contenido se mostrará en la sección pública del campeonato</p>
                                 </div>
 
                                 {/* Tracking de Uso de Autos */}

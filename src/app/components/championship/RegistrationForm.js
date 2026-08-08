@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { sendTelegramNotification } from '../../utils/telegram';
+import { isRegulationsEmpty } from '../../utils/regulations';
+import RegulationsPdfButton from './RegulationsPdfButton';
 
 /**
  * Formulario público de inscripción a un campeonato.
@@ -72,6 +74,8 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
             if (dupes.length > 0) return `La categoría "${dupes[0]}" está asignada a más de un piloto`;
         }
 
+        if (registration.acceptRules && !formData.acceptedRules) return 'Debes aceptar el reglamento del campeonato';
+
         return null;
     };
 
@@ -108,7 +112,8 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                         psnId: d.psnId.trim(),
                         category: d.category,
                         declaredCars: []
-                    }))
+                    })),
+                    ...(registration.acceptRules ? { acceptedRules: true, acceptedRulesAt: new Date().toISOString() } : {})
                 };
                 await FirebaseService.submitRegistration(championship.id, data);
                 sendTelegramNotification(
@@ -123,6 +128,10 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                 visibleFields.forEach(f => {
                     if (formData[f] !== undefined) data[f] = formData[f].trim ? formData[f].trim() : formData[f];
                 });
+                if (registration.acceptRules) {
+                    data.acceptedRules = true;
+                    data.acceptedRulesAt = new Date().toISOString();
+                }
                 await FirebaseService.submitRegistration(championship.id, data);
                 const gt7Id = data.gt7Id || '?';
                 const psnId = data.psnId ? ` (PSN: ${data.psnId})` : '';
@@ -215,6 +224,7 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
 
     // Categorías disponibles para el selector (todas las del campeonato)
     const allCategories = championship.categories || [];
+    const hasRegulations = !isRegulationsEmpty(championship.regulations, championship.regulationsFormat);
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
@@ -401,17 +411,36 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
 
                     {/* Aceptar reglamento */}
                     {registration.acceptRules && (
-                        <label className="flex items-start gap-3 p-3 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10 transition-all">
-                            <input
-                                type="checkbox"
-                                name="acceptedRules"
-                                checked={formData.acceptedRules}
-                                onChange={handleChange}
-                                className="mt-1 w-4 h-4 accent-orange-500" />
-                            <span className="text-sm text-gray-300">
-                                He leído y acepto el <span className="text-orange-400 font-medium">reglamento del campeonato</span> y me comprometo a seguir las reglas establecidas.
-                            </span>
-                        </label>
+                        <div className="space-y-2">
+                            <label className="flex items-start gap-3 p-3 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10 transition-all">
+                                <input
+                                    type="checkbox"
+                                    name="acceptedRules"
+                                    checked={formData.acceptedRules}
+                                    onChange={handleChange}
+                                    className="mt-1 w-4 h-4 accent-orange-500" />
+                                <span className="text-sm text-gray-300">
+                                    He leído y acepto el{' '}
+                                    {hasRegulations ? (
+                                        <a
+                                            href={`/championships/?id=${championship.id}#reglamento`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={e => e.stopPropagation()}
+                                            className="text-orange-400 font-medium underline hover:text-orange-300"
+                                        >
+                                            reglamento del campeonato
+                                        </a>
+                                    ) : (
+                                        <span className="text-orange-400 font-medium">reglamento del campeonato</span>
+                                    )}
+                                    {' '}y me comprometo a seguir las reglas establecidas.
+                                </span>
+                            </label>
+                            {hasRegulations && (
+                                <RegulationsPdfButton championship={championship} compact />
+                            )}
+                        </div>
                     )}
 
                     {/* Submit */}

@@ -13,14 +13,22 @@
     "deploy": "./scripts/deploy.sh",
     "setup-env": "./scripts/setup-env.sh",
     "audit:championships": "node scripts/audit-championships.js",
-    "audit:events": "node scripts/audit-event-results-order.js"
+    "audit:events": "node scripts/audit-event-results-order.js",
+    "test:regulations": "node scripts/test-regulations-sanitize-qa.mjs && node scripts/test-regulations-legacy-qa.mjs && node scripts/test-regulations-pdf-doc-qa.mjs"
   },
   "dependencies": {
+    "@tiptap/core": "^3.29.2",
+    "@tiptap/pm": "^3.29.2",
+    "@tiptap/react": "^3.29.2",
+    "@tiptap/starter-kit": "^3.29.2",
+    "dompurify": "^3.4.13",
     "firebase": "^11.8.1",
     "html-to-image": "^1.11.13",
+    "html-to-pdfmake": "^2.5.33",
     "imagetracerjs": "^1.2.6",
     "jimp": "^0.16.13",
     "next": "^15.5.15",
+    "pdfmake": "^0.3.11",
     "potrace": "^2.1.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
@@ -34,6 +42,7 @@
     "eslint": "~9.39.4",
     "eslint-config-next": "^15.5.15",
     "firebase-admin": "^13.6.0",
+    "jsdom": "^30.0.1",
     "tailwindcss": "^4",
     "typescript": "~5.9.3"
   }

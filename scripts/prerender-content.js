@@ -246,6 +246,29 @@ function buildEventsContent(championships) {
     return html;
 }
 
+/**
+ * Extrae texto plano aproximado de HTML del reglamento de campeonato (CJS,
+ * sin DOM). Es una copia simplificada de `regulationsHtmlToPlainText` en
+ * `src/app/utils/regulations.js` (ESM, no importable desde este script
+ * CommonJS) — si cambia el esquema de tags permitidos allá, sincronizar aquí.
+ */
+function stripTags(html) {
+    if (!html) return '';
+    let text = String(html);
+    text = text.replace(/<br\s*\/?>/gi, '\n');
+    text = text.replace(/<\/(p|h3|h4|li|ul|ol)>/gi, '\n');
+    text = text.replace(/<[^>]*>/g, '');
+    text = text
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/&amp;/gi, '&');
+    text = text.replace(/\n{3,}/g, '\n\n').split('\n').map(l => l.trim()).join('\n').trim();
+    return text;
+}
+
 function buildReglamentoContent(championships) {
     const withRegs = championships.filter(c => c.regulations && String(c.regulations).trim());
     let html = `<h1>Reglamento oficial de GT7 Championships</h1>`;
@@ -253,7 +276,8 @@ function buildReglamentoContent(championships) {
     if (withRegs.length === 0) return html; // al menos el encabezado da contexto
     withRegs.forEach(c => {
         html += `<h2>Reglamento — ${esc(c.name)}</h2>`;
-        html += `<p>${esc(c.regulations).replace(/\n/g, '<br>')}</p>`;
+        const plainText = c.regulationsFormat === 'html' ? stripTags(c.regulations) : String(c.regulations);
+        html += `<p>${esc(plainText).replace(/\n/g, '<br>')}</p>`;
     });
     return html;
 }
