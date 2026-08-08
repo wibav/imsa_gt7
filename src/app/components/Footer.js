@@ -32,6 +32,15 @@ export default function Footer() {
                             <li>
                                 <Link href="https://imsa.trenkit.com" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Sitio oficial</Link>
                             </li>
+                            <li>
+                                <Link href="/terminos" className="hover:text-white transition-colors">Términos de Servicio</Link>
+                            </li>
+                            <li>
+                                <Link href="/privacidad" className="hover:text-white transition-colors">Política de Privacidad</Link>
+                            </li>
+                            <li>
+                                <Link href="/reembolsos" className="hover:text-white transition-colors">Política de Reembolso</Link>
+                            </li>
                         </ul>
                     </div>
 
