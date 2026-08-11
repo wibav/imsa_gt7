@@ -383,6 +383,31 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
     );
 }
 
+// Alias psnId/name → gt7Id canónico, igual criterio que standingsCalculator
+// (championship.registrations es la única fuente que conoce los 3
+// identificadores de un mismo piloto). Sin esto, sumar divisiones y
+// resultados de carrera como fuentes (ver comentario de getAllDrivers)
+// duplica al piloto: una fila con su psnId (como vive en division.drivers[])
+// y otra con su gt7Id (como vive en championship.drivers).
+function buildAliasToGt7Id(championship) {
+    const aliasToCanonical = {};
+    const registerAliases = (name, psnId, gt7Id) => {
+        const canonical = gt7Id || name || psnId;
+        if (!canonical) return;
+        [name, psnId, gt7Id].forEach(alias => {
+            if (alias && alias !== canonical) aliasToCanonical[alias] = canonical;
+        });
+    };
+    (championship?.registrations || []).forEach(reg => {
+        if (Array.isArray(reg.drivers) && reg.drivers.length > 0) {
+            reg.drivers.forEach(d => registerAliases(d.name, d.psnId, d.gt7Id));
+        } else {
+            registerAliases(reg.name, reg.psnId, reg.gt7Id);
+        }
+    });
+    return aliasToCanonical;
+}
+
 // D3.5: championship.drivers[] NO es el roster completo. En campeonatos con
 // divisiones (salas), DivisionsTab asigna pilotos directo a
 // division.drivers[] (ver DivisionsTab.js handleAssignDriver/moveDriver) sin
@@ -393,13 +418,19 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
 // a propósito). El selector de reclamos necesita ver a "cualquiera que
 // participa", no solo el roster plano: se suman también los nombres de
 // division.drivers[] y los que aparecen en track.results/track.points
-// (igual que hace standingsCalculator para armar la clasificación).
+// (igual que hace standingsCalculator para armar la clasificación). Todo
+// nombre se resuelve a su GT7 ID canónico antes de agregarse, para no
+// mostrar al mismo piloto dos veces bajo psnId y gt7Id.
 function getAllDrivers(championship, teams, tracks = [], divisions = []) {
+    const aliasToGt7Id = buildAliasToGt7Id(championship);
+    const resolve = (name) => aliasToGt7Id[name] || name;
+
     const drivers = [];
     const addDriver = (name, team = '') => {
-        if (!name) return;
-        if (!drivers.find(x => x.name === name)) {
-            drivers.push({ name, team });
+        const canonical = resolve(name);
+        if (!canonical) return;
+        if (!drivers.find(x => x.name === canonical)) {
+            drivers.push({ name: canonical, team });
         }
     };
 
