@@ -110,7 +110,7 @@ export default function ChampionshipDetailPage() {
                     <div className="text-white text-xl font-bold mb-4">Campeonato no encontrado</div>
                     <button
                         onClick={() => router.push('/')}
-                        className="bg-gradient-to-r from-orange-600 to-red-600 text-white px-6 py-3 rounded-lg font-bold"
+                        className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-6 py-3 rounded-lg font-bold transition-all"
                     >
                         Volver al Inicio
                     </button>
@@ -2154,6 +2154,7 @@ export default function ChampionshipDetailPage() {
                     championship={championship}
                     teams={teams}
                     tracks={tracks}
+                    divisions={divisions}
                     onClose={() => setShowClaimForm(false)}
                     onSubmitted={() => loadChampionshipData()}
                 />

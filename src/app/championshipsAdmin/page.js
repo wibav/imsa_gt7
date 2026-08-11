@@ -1208,7 +1208,7 @@ function TeamsTab({ championshipId, teams, tracks, editMode, onUpdate, champions
 
             {/* Modal para agregar piloto */}
             {showAddDriverModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="bg-slate-800 border border-white/30 rounded-lg p-6 w-full max-w-md">
                         <h3 className="text-xl font-bold text-white mb-4">Agregar Piloto</h3>
 

@@ -191,7 +191,7 @@ export default function AdminLayout({ children }) {
             <div className={`fixed inset-0 z-40 md:hidden ${sidebarOpen ? 'block' : 'hidden'}`}>
                 {/* Overlay */}
                 <div
-                    className="absolute inset-0 bg-black/50"
+                    className="absolute inset-0 bg-black/70 backdrop-blur-sm"
                     onClick={() => setSidebarOpen(false)}
                 ></div>
                 {/* Drawer */}

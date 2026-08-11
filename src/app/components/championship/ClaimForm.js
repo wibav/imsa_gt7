@@ -39,7 +39,7 @@ function isClaimable(track) {
  * - Solo disponible 48h después de la carrera
  * - Campos opcionales: URL de video, vuelta, minuto de carrera
  */
-export default function ClaimForm({ championshipId, championship, teams = [], tracks = [], onClose, onSubmitted }) {
+export default function ClaimForm({ championshipId, championship, teams = [], tracks = [], divisions = [], onClose, onSubmitted }) {
     const [form, setForm] = useState({
         reporterName: '',
         reporterPsnId: '',
@@ -58,7 +58,7 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
     const [submitted, setSubmitted] = useState(false);
     const [errors, setErrors] = useState([]);
 
-    const allDrivers = getAllDrivers(championship, teams);
+    const allDrivers = getAllDrivers(championship, teams, tracks, divisions);
 
     // Solo carreras dentro del plazo de 48h (no se requiere que ya tengan puntos cargados)
     const claimableTracks = tracks
@@ -383,22 +383,51 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
     );
 }
 
-function getAllDrivers(championship, teams) {
+// D3.5: championship.drivers[] NO es el roster completo. En campeonatos con
+// divisiones (salas), DivisionsTab asigna pilotos directo a
+// division.drivers[] (ver DivisionsTab.js handleAssignDriver/moveDriver) sin
+// tocar championship.drivers — ese piloto puede estar aprobado, corriendo y
+// puntuando en su división y jamás aparecer en championship.drivers. Un
+// piloto también puede quedar solo en resultados ya corridos si fue dado de
+// baja después de correr (withdrawRegistration preserva track.points/results
+// a propósito). El selector de reclamos necesita ver a "cualquiera que
+// participa", no solo el roster plano: se suman también los nombres de
+// division.drivers[] y los que aparecen en track.results/track.points
+// (igual que hace standingsCalculator para armar la clasificación).
+function getAllDrivers(championship, teams, tracks = [], divisions = []) {
     const drivers = [];
+    const addDriver = (name, team = '') => {
+        if (!name) return;
+        if (!drivers.find(x => x.name === name)) {
+            drivers.push({ name, team });
+        }
+    };
+
     if (teams.length > 0) {
         teams.forEach(team => {
-            (team.drivers || []).forEach(d => {
-                drivers.push({ name: d.name, team: team.name });
-            });
+            (team.drivers || []).forEach(d => addDriver(d.name, team.name));
         });
     }
     if (championship?.drivers?.length > 0) {
         championship.drivers.forEach(d => {
-            const name = typeof d === 'string' ? d : d.name;
-            if (!drivers.find(x => x.name === name)) {
-                drivers.push({ name, team: '' });
-            }
+            addDriver(typeof d === 'string' ? d : d.name);
         });
     }
+
+    divisions.forEach(div => {
+        (div.drivers || []).forEach(name => addDriver(name));
+    });
+
+    tracks.forEach(track => {
+        const results = track?.results || {};
+        const resultMaps = results.divisions && Object.keys(results.divisions).length > 0
+            ? Object.values(results.divisions)
+            : [results];
+        resultMaps.forEach(r => {
+            Object.keys(r?.racePositions || {}).forEach(name => addDriver(name));
+        });
+        Object.keys(track?.points || {}).forEach(name => addDriver(name));
+    });
+
     return drivers;
 }

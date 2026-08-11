@@ -66,7 +66,7 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
     const isError = registrationMessage?.startsWith("❌");
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-slate-800 border border-white/10 rounded-xl p-6 max-w-md w-full shadow-2xl">
 
                 {/* Pantalla de confirmación */}

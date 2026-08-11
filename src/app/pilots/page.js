@@ -147,7 +147,7 @@ export default function PilotsPage() {
                         <div className="text-white text-xl font-bold mb-4">Piloto no encontrado</div>
                         <button
                             onClick={() => router.push('/pilots')}
-                            className="bg-gradient-to-r from-orange-600 to-red-600 text-white px-6 py-3 rounded-lg font-bold"
+                            className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-6 py-3 rounded-lg font-bold transition-all"
                         >
                             Ver todos los pilotos
                         </button>
