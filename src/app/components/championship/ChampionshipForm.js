@@ -615,6 +615,24 @@ export default function ChampionshipForm({ isEditing = false }) {
         }));
     };
 
+    // Copia toda la config de la última ronda cargada (categoría, tipo de
+    // carrera, vueltas/duración, reglas, autos permitidos) salvo circuito,
+    // imagen, fecha y número de ronda — esos se mantienen como estén en el
+    // form actual, ya que cambian ronda a ronda.
+    const handleCopyPreviousTrack = () => {
+        const prevTrack = formData.tracks[formData.tracks.length - 1];
+        if (!prevTrack) return;
+        setTrackFormData(prev => ({
+            ...prevTrack,
+            name: prev.name,
+            layoutImage: prev.layoutImage,
+            date: prev.date,
+            round: prev.round,
+            rules: { ...prevTrack.rules },
+            allowedCars: [...(prevTrack.allowedCars || [])],
+        }));
+    };
+
     const handleSaveTrack = () => {
         if (!trackFormData.name) {
             alert('Debe seleccionar un circuito');
@@ -2743,11 +2761,20 @@ export default function ChampionshipForm({ isEditing = false }) {
                         <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 rounded-xl border border-white/30 shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
                             {/* Header */}
                             <div className="sticky top-0 bg-gradient-to-r from-slate-900 to-blue-900 border-b border-white/20 z-10">
-                                <div className="flex justify-between items-center px-6 pt-6 pb-4">
+                                <div className="flex justify-between items-center px-6 pt-6 pb-4 gap-4">
                                     <h3 className="text-2xl font-bold text-white">
                                         {editingTrackIndex !== null ? '✏️ Editar Circuito' : '➕ Agregar Circuito'}
                                     </h3>
-                                    <button onClick={handleCloseTrackModal} className="text-white hover:text-red-400 text-3xl transition-colors">×</button>
+                                    <div className="flex items-center gap-3">
+                                        {editingTrackIndex === null && formData.tracks.length > 0 && (
+                                            <button type="button" onClick={handleCopyPreviousTrack}
+                                                title={`Copia la configuración de la Ronda ${formData.tracks[formData.tracks.length - 1].round} (todo excepto circuito y fecha)`}
+                                                className="px-3 py-1.5 bg-blue-600/80 hover:bg-blue-600 text-white text-sm rounded-lg font-medium transition-all whitespace-nowrap">
+                                                📋 Copiar Ronda {formData.tracks[formData.tracks.length - 1].round}
+                                            </button>
+                                        )}
+                                        <button onClick={handleCloseTrackModal} className="text-white hover:text-red-400 text-3xl transition-colors">×</button>
+                                    </div>
                                 </div>
                                 {/* Tabs del modal */}
                                 <div className="flex border-t border-white/10">
