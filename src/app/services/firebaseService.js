@@ -85,7 +85,9 @@ export class FirebaseService {
     }
   }
 
-  // Obtener todas las pistas
+  // Obtener todas las pistas (orden alfabético — Firestore las devuelve en
+  // orden de id, no de nombre, y todos los selectores del catálogo cuelgan
+  // de este método)
   static async getTracks() {
     try {
       const tracksCol = collection(db, "tracks");
@@ -94,6 +96,7 @@ export class FirebaseService {
         id: doc.id,
         ...doc.data()
       }));
+      tracks.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       return tracks;
     } catch (error) {
       console.error("Error fetching tracks: ", error);

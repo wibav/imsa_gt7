@@ -50,10 +50,9 @@ export default function TracksAdminPage() {
 
     // Firestore es la única fuente del catálogo (121 layouts oficiales de
     // GT7 sincronizados vía scripts/sync-official-tracks-catalog.js) — ya
-    // no hace falta fusionar con una lista estática de respaldo.
-    const tracks = useMemo(() => {
-        return [...firestoreTracks].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    }, [firestoreTracks]);
+    // no hace falta fusionar con una lista estática de respaldo, y
+    // FirebaseService.getTracks() ya devuelve orden alfabético.
+    const tracks = firestoreTracks;
 
     const openCreateModal = () => {
         setEditingTrack(null);
