@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { FirebaseService } from '../../services/firebaseService';
 import {
-    GT7_TRACKS,
     TYRE_OPTIONS,
     DAMAGE_OPTIONS,
     START_TIME_OPTIONS,
@@ -288,24 +287,9 @@ export default function TrackFormModal({ track, championship, onSave, onClose })
                                             className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                                         >
                                             <option value="" className="bg-slate-800">Seleccionar circuito...</option>
-                                            {firebaseTracks.length > 0 && (
-                                                <optgroup label="🖼️ Circuitos con Imagen" className="bg-slate-800">
-                                                    {firebaseTracks.map(t => (
-                                                        <option key={t.id} value={t.name} className="bg-slate-800">{t.name} ✨</option>
-                                                    ))}
-                                                </optgroup>
-                                            )}
-                                            {(() => {
-                                                const dbNames = firebaseTracks.map(t => t.name);
-                                                const remaining = GT7_TRACKS.filter(n => !dbNames.includes(n));
-                                                return remaining.length > 0 ? (
-                                                    <optgroup label="🎮 Gran Turismo 7" className="bg-slate-800">
-                                                        {remaining.map(n => (
-                                                            <option key={n} value={n} className="bg-slate-800">{n}</option>
-                                                        ))}
-                                                    </optgroup>
-                                                ) : null;
-                                            })()}
+                                            {firebaseTracks.map(t => (
+                                                <option key={t.id} value={t.name} className="bg-slate-800">{t.name}{t.layoutImage ? ' ✨' : ''}</option>
+                                            ))}
                                         </select>
                                         {form.name && (
                                             <div className="mt-2 space-y-1">

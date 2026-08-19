@@ -103,87 +103,10 @@ export const RESULT_COLORS = {
  */
 export const getResultColors = (index) => RESULT_COLORS[index] || RESULT_COLORS.default;
 
-/**
- * Lista completa de circuitos de Gran Turismo 7
- * Fuente única de verdad para todos los formularios y el admin de pistas
- */
-export const GT7_TRACKS = [
-    "Alsace - Village",
-    "Autodrome Lago Maggiore - East",
-    "Autodrome Lago Maggiore - GP",
-    "Autodrome Lago Maggiore - West",
-    "Autopolis - International Racing Course",
-    "Autopolis - Shortcut",
-    "Autódromo de Interlagos",
-    "Barcelona-Catalunya - GP",
-    "Barcelona-Catalunya - No Chicane",
-    "BB Raceway",
-    "Blue Moon Bay Speedway",
-    "Blue Moon Bay Speedway - Infield A",
-    "Blue Moon Bay Speedway - Infield B",
-    "Brands Hatch - GP",
-    "Brands Hatch - Indy",
-    "Broad Bean Raceway",
-    "Circuit de la Sarthe (Le Mans)",
-    "Circuit de la Sarthe - No Chicane",
-    "Circuit de Sainte-Croix - A",
-    "Circuit de Sainte-Croix - B",
-    "Circuit de Sainte-Croix - C",
-    "Circuit de Spa-Francorchamps",
-    "Circuit Gilles Villeneuve",
-    "Colorado Springs - Club",
-    "Colorado Springs - Lake",
-    "Daytona International Speedway - Oval",
-    "Daytona International Speedway - Road Course",
-    "Deep Forest Raceway",
-    "Dragon Trail - Gardens",
-    "Dragon Trail - Seaside",
-    "Dragon Trail - Seaside Reverse",
-    "Fishermans Ranch",
-    "Fuji International Speedway",
-    "Goodwood Motor Circuit",
-    "Grand Valley - East",
-    "Grand Valley - Highway 1",
-    "Grand Valley - South",
-    "High Speed Ring",
-    "Kyoto Driving Park - Miyabi",
-    "Kyoto Driving Park - Yamagiwa",
-    "Laguna Seca",
-    "Lake Louise - Long Track",
-    "Lake Louise - Short Track",
-    "Lake Louise - Tri-Oval",
-    "Le Mans - Circuit Bugatti",
-    "Michelin Raceway Road Atlanta",
-    "Monza",
-    "Monza - No Chicane",
-    "Mount Panorama (Bathurst)",
-    "Northern Isle Speedway",
-    "Nürburgring - 24h",
-    "Nürburgring - GP",
-    "Nürburgring - Nordschleife",
-    "Red Bull Ring",
-    "Red Bull Ring - Short Track",
-    "Sardegna - Road Track A",
-    "Sardegna - Road Track B",
-    "Sardegna - Road Track C",
-    "Sardegna - Windmills",
-    "Special Stage Route X",
-    "Suzuka Circuit",
-    "Tokyo Expressway - Central Clockwise",
-    "Tokyo Expressway - Central Counterclockwise",
-    "Tokyo Expressway - East Clockwise",
-    "Tokyo Expressway - East Counterclockwise",
-    "Tokyo Expressway - South Clockwise",
-    "Tokyo Expressway - South Counterclockwise",
-    "Trial Mountain Circuit",
-    "Tsukuba Circuit",
-    "Watkins Glen International",
-    "Watkins Glen International - Short Course",
-    "Willow Springs - Big Willow",
-    "Willow Springs - Horse Thief Mile",
-    "Willow Springs - Streets of Willow",
-    "Yas Marina Circuit"
-];
+// GT7_TRACKS fue removida (agosto 2026): el catálogo de circuitos ahora
+// vive completo en Firestore (colección `tracks`, 121 layouts oficiales
+// sincronizados vía scripts/sync-official-tracks-catalog.js) — usar
+// FirebaseService.getTracks() en vez de una constante estática.
 
 // ================================
 // Event Constants

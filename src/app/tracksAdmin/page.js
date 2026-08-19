@@ -3,16 +3,9 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import { FirebaseService } from "../services/firebaseService";
-import { GT7_TRACKS } from "../utils/constants";
 import { validateImageFile, compressImage } from "../utils/imageCompression";
 import Image from "next/image";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
-
-/**
- * Normaliza un nombre de pista para comparación (quita acentos, minúsculas, etc.)
- */
-const normalizeTrackName = (name) =>
-    (name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 
 export default function TracksAdminPage() {
     const router = useRouter();
@@ -55,41 +48,11 @@ export default function TracksAdminPage() {
         }
     };
 
-    /**
-     * Fusiona las pistas de Firestore con la lista completa de GT7.
-     * Las pistas de GT7 que no existen en Firestore se muestran como "sin imagen".
-     */
+    // Firestore es la única fuente del catálogo (121 layouts oficiales de
+    // GT7 sincronizados vía scripts/sync-official-tracks-catalog.js) — ya
+    // no hace falta fusionar con una lista estática de respaldo.
     const tracks = useMemo(() => {
-        // Mapa normalizado de pistas ya guardadas en Firestore
-        const firestoreMap = new Map();
-        firestoreTracks.forEach(t => {
-            firestoreMap.set(normalizeTrackName(t.name), t);
-        });
-
-        // Empezar con las pistas de Firestore
-        const merged = [...firestoreTracks];
-
-        // Agregar pistas de GT7_TRACKS que no están en Firestore
-        let nextId = firestoreTracks.length > 0
-            ? Math.max(...firestoreTracks.map(t => Number(t.id) || 0)) + 1
-            : 1;
-
-        GT7_TRACKS.forEach(trackName => {
-            const normalized = normalizeTrackName(trackName);
-            if (!firestoreMap.has(normalized)) {
-                merged.push({
-                    id: `gt7_${nextId++}`,
-                    name: trackName,
-                    country: '',
-                    layoutImage: '',
-                    _isVirtual: true // No guardada aún en Firestore
-                });
-            }
-        });
-
-        // Ordenar alfabéticamente
-        merged.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        return merged;
+        return [...firestoreTracks].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }, [firestoreTracks]);
 
     const openCreateModal = () => {
@@ -147,32 +110,19 @@ export default function TracksAdminPage() {
             };
 
             if (editingTrack) {
-                if (editingTrack._isVirtual) {
-                    // Pista virtual de GT7 → crear nueva en Firestore
-                    const newId = firestoreTracks.length > 0
-                        ? Math.max(...firestoreTracks.map(t => Number(t.id) || 0)) + 1
-                        : 1;
-                    trackData.id = newId;
-                    trackData.createdAt = new Date().toISOString();
-                    const updatedTracks = [...firestoreTracks, trackData];
-                    await FirebaseService.saveTracks(updatedTracks);
-                    alert('✅ Pista guardada correctamente');
-                } else {
-                    // Actualizar pista existente en Firestore directamente por su ID
-                    // (evita el problema de tipo numérico/string en la comparación)
-                    const updatedTrack = {
-                        ...editingTrack,  // conserva createdAt y otros campos
-                        ...trackData,     // sobreescribe con los nuevos valores (incluye layoutImage)
-                        id: editingTrack.id,
-                    };
-                    delete updatedTrack._isVirtual; // nunca persistir el flag virtual
-                    await FirebaseService.saveTracks([updatedTrack]);
-                    // Propagar el layoutImage a todos los campeonatos que usen este circuito
-                    if (updatedTrack.layoutImage) {
-                        await FirebaseService.propagateTrackImage(updatedTrack.name, updatedTrack.layoutImage);
-                    }
-                    alert('✅ Pista actualizada correctamente');
+                // Actualizar pista existente en Firestore directamente por su ID
+                // (evita el problema de tipo numérico/string en la comparación)
+                const updatedTrack = {
+                    ...editingTrack,  // conserva createdAt y otros campos
+                    ...trackData,     // sobreescribe con los nuevos valores (incluye layoutImage)
+                    id: editingTrack.id,
+                };
+                await FirebaseService.saveTracks([updatedTrack]);
+                // Propagar el layoutImage a todos los campeonatos que usen este circuito
+                if (updatedTrack.layoutImage) {
+                    await FirebaseService.propagateTrackImage(updatedTrack.name, updatedTrack.layoutImage);
                 }
+                alert('✅ Pista actualizada correctamente');
             } else {
                 // Crear nueva pista
                 const newId = firestoreTracks.length > 0
@@ -194,11 +144,6 @@ export default function TracksAdminPage() {
     };
 
     const handleDeleteTrack = async (track) => {
-        if (track._isVirtual) {
-            alert('Esta pista es parte del catálogo GT7 y no se puede eliminar. Solo se pueden eliminar pistas personalizadas.');
-            return;
-        }
-
         if (!confirm(`¿Estás seguro de eliminar la pista "${track.name}"?\n\nEsta acción no se puede deshacer y puede afectar campeonatos que usen esta pista.`)) {
             return;
         }
@@ -383,11 +328,6 @@ export default function TracksAdminPage() {
                                             <span className="text-xs text-red-300 font-medium">Sin imagen asignada</span>
                                         </div>
                                     )}
-                                    {track._isVirtual && (
-                                        <span className="absolute top-2 left-2 bg-blue-600/80 text-white text-xs px-2 py-0.5 rounded">
-                                            Catálogo GT7
-                                        </span>
-                                    )}
                                 </div>
 
                                 {/* Info */}
@@ -403,7 +343,7 @@ export default function TracksAdminPage() {
                                                 ⚠️ Sin imagen
                                             </span>
                                         )}
-                                        {track._isVirtual && !track.country && (
+                                        {!track.country && (
                                             <span className="bg-yellow-600/30 text-yellow-200 px-2 py-1 rounded">
                                                 📝 Sin país
                                             </span>
@@ -421,14 +361,12 @@ export default function TracksAdminPage() {
                                         >
                                             {!track.layoutImage ? '📷 Asignar imagen' : '✏️ Editar'}
                                         </button>
-                                        {!track._isVirtual && (
-                                            <button
-                                                onClick={() => handleDeleteTrack(track)}
-                                                className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all"
-                                            >
-                                                🗑️
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={() => handleDeleteTrack(track)}
+                                            className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all"
+                                        >
+                                            🗑️
+                                        </button>
                                     </div>
                                 </div>
                             </div>

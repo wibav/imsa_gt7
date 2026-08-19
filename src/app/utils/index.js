@@ -15,7 +15,6 @@ export {
     getPositionDisplay,
     RESULT_COLORS,
     getResultColors,
-    GT7_TRACKS,
     EVENT_TYPES,
     getDefaultRounds,
     EVENT_STATUSES,

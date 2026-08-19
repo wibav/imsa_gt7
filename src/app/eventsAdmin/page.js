@@ -4,7 +4,7 @@ import { FirebaseService } from "../services/firebaseService";
 import ProtectedRoute from "../components/ProtectedRoute";
 import Image from "next/image";
 import {
-    GT7_TRACKS, EVENT_STATUSES, EVENT_CATEGORIES, EVENT_FORMATS,
+    EVENT_STATUSES, EVENT_CATEGORIES, EVENT_FORMATS,
     STREAMING_PLATFORMS, TYRE_OPTIONS, DAMAGE_OPTIONS, WEATHER_TIME_OPTIONS,
     EVENT_TYPES, getDefaultRounds
 } from "../utils";
@@ -176,7 +176,17 @@ function EventForm({ event, onSave, onCancel, saving }) {
         results: (event?.results || []).map(r => ({ ...r, _uid: r._uid || makeResultUid() }))
     }));
     const [newCar, setNewCar] = useState('');
+    const [firebaseTracks, setFirebaseTracks] = useState([]);
     const isEditing = Boolean(event?.title);
+
+    // Catálogo de circuitos (121 layouts oficiales de GT7, ver
+    // scripts/sync-official-tracks-catalog.js) — única fuente, sin fallback
+    // a una lista estática.
+    useEffect(() => {
+        FirebaseService.getTracks()
+            .then(setFirebaseTracks)
+            .catch(error => console.error('Error loading tracks:', error));
+    }, []);
 
     const updateField = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
     const updateRules = (key, value) => setForm(prev => ({ ...prev, rules: { ...prev.rules, [key]: value } }));
@@ -712,7 +722,7 @@ function EventForm({ event, onSave, onCancel, saving }) {
                     <label className={labelCls}>Circuito</label>
                     <select className={inputCls} value={form.track || ''} onChange={(e) => updateField('track', e.target.value)}>
                         <option value="">Selecciona un circuito</option>
-                        {GT7_TRACKS.map(t => <option key={t} value={t}>{t}</option>)}
+                        {firebaseTracks.map(t => <option key={t.id} value={t.name}>{t.name}{t.layoutImage ? ' ✨' : ''}</option>)}
                     </select>
                 </div>
 

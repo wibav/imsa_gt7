@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useChampionship } from '../../context/ChampionshipContext';
 import { Championship } from '../../models/Championship';
 import { FirebaseService } from '../../services/firebaseService';
-import { GT7_TRACKS, TYRE_OPTIONS, DAMAGE_OPTIONS, STREAMING_PLATFORMS, WEATHER_CONDITION_OPTIONS, WEATHER_TRANSITION_OPTIONS, START_TIME_OPTIONS, TIME_MULTIPLIER_OPTIONS, DEFAULT_SPRINT_POINTS, DEFAULT_DIVISIONS_CONFIG, WEATHER_TIME_OPTIONS } from '../../utils/constants';
+import { TYRE_OPTIONS, DAMAGE_OPTIONS, STREAMING_PLATFORMS, WEATHER_CONDITION_OPTIONS, WEATHER_TRANSITION_OPTIONS, START_TIME_OPTIONS, TIME_MULTIPLIER_OPTIONS, DEFAULT_SPRINT_POINTS, DEFAULT_DIVISIONS_CONFIG, WEATHER_TIME_OPTIONS } from '../../utils/constants';
 import { DEFAULT_PENALTIES_CONFIG } from '../../models/Penalty';
 import { validateImageFile, compressImage } from '../../utils/imageCompression';
 import { REGULATIONS_MAX_BYTES, regulationsByteSize, normalizeRegulationsForSave } from '../../utils/regulations';
@@ -1763,18 +1763,9 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                         }))}
                                                         className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
                                                         <option value="" className="bg-slate-800">Seleccionar circuito...</option>
-                                                        {firebaseTracks.length > 0 && (
-                                                            <optgroup label="🖼️ Circuitos con Imagen" className="bg-slate-800">
-                                                                {firebaseTracks.map(t => (
-                                                                    <option key={t.id} value={t.name} className="bg-slate-800">{t.name} ✨</option>
-                                                                ))}
-                                                            </optgroup>
-                                                        )}
-                                                        <optgroup label="🎮 Gran Turismo 7" className="bg-slate-800">
-                                                            {GT7_TRACKS.filter(n => !firebaseTracks.map(t => t.name).includes(n)).map(t => (
-                                                                <option key={t} value={t} className="bg-slate-800">{t}</option>
-                                                            ))}
-                                                        </optgroup>
+                                                        {firebaseTracks.map(t => (
+                                                            <option key={t.id} value={t.name} className="bg-slate-800">{t.name}{t.layoutImage ? ' ✨' : ''}</option>
+                                                        ))}
                                                     </select>
                                                 </div>
 
@@ -2807,24 +2798,9 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                 onChange={(e) => handleSelectTrack(e.target.value)}
                                                 className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
                                                 <option value="" className="bg-slate-800">Seleccionar circuito...</option>
-                                                {firebaseTracks.length > 0 && (
-                                                    <optgroup label="🖼️ Circuitos con Imagen" className="bg-slate-800">
-                                                        {firebaseTracks.map(track => (
-                                                            <option key={track.id} value={track.name} className="bg-slate-800">{track.name} ✨</option>
-                                                        ))}
-                                                    </optgroup>
-                                                )}
-                                                {(() => {
-                                                    const dbNames = firebaseTracks.map(t => t.name);
-                                                    const remaining = GT7_TRACKS.filter(name => !dbNames.includes(name));
-                                                    return remaining.length > 0 ? (
-                                                        <optgroup label="🎮 Gran Turismo 7" className="bg-slate-800">
-                                                            {remaining.map(track => (
-                                                                <option key={track} value={track} className="bg-slate-800">{track}</option>
-                                                            ))}
-                                                        </optgroup>
-                                                    ) : null;
-                                                })()}
+                                                {firebaseTracks.map(track => (
+                                                    <option key={track.id} value={track.name} className="bg-slate-800">{track.name}{track.layoutImage ? ' ✨' : ''}</option>
+                                                ))}
                                             </select>
                                             {trackFormData.name && (
                                                 <div className="mt-2 space-y-1">
