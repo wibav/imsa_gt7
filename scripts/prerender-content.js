@@ -36,7 +36,19 @@ const STATIC_ROUTES = [
     { path: '/reglamento/', priority: '0.6', changefreq: 'monthly' },
     { path: '/equipamiento/', priority: '0.6', changefreq: 'monthly' },
     { path: '/tools/', priority: '0.5', changefreq: 'monthly' },
+    { path: '/terminos/', priority: '0.3', changefreq: 'yearly' },
+    { path: '/privacidad/', priority: '0.3', changefreq: 'yearly' },
+    { path: '/reembolsos/', priority: '0.3', changefreq: 'yearly' },
 ];
+
+// Links a las páginas legales, en <a href> real dentro del <noscript> — sin
+// esto, el HTML crudo (sin ejecutar JS) del sitio no contiene ningún link a
+// términos/privacidad/reembolsos en ninguna página, ni siquiera en las
+// páginas legales mismas (todo el árbol cuelga de ClientLayout/providers
+// "use client", así que el <body> real llega vacío a cualquier crawler que
+// no ejecute JS — incluido el que usa Paddle para aprobar el dominio del
+// checkout). Se inyecta en la home y en las páginas legales.
+const LEGAL_LINKS_HTML = `<p><a href="/terminos/">Términos de Servicio</a> · <a href="/privacidad/">Política de Privacidad</a> · <a href="/reembolsos/">Política de Reembolso</a></p>`;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -211,6 +223,7 @@ function buildHomeContent(championships) {
         });
         html += `</ul>`;
     }
+    html += LEGAL_LINKS_HTML;
     return html;
 }
 
@@ -280,6 +293,10 @@ function buildReglamentoContent(championships) {
         html += `<p>${esc(plainText).replace(/\n/g, '<br>')}</p>`;
     });
     return html;
+}
+
+function buildLegalContent(title, description) {
+    return `<h1>${esc(title)}</h1><p>${esc(description)}</p>${LEGAL_LINKS_HTML}`;
 }
 
 // ── JSON-LD (datos estructurados) ────────────────────────────────────────────
@@ -429,6 +446,18 @@ async function main() {
     injectIntoFile('pilots/index.html', buildPilotsContent(championships), null);
     injectIntoFile('events/index.html', buildEventsContent(championships), null);
     injectIntoFile('reglamento/index.html', buildReglamentoContent(championships), null);
+    injectIntoFile('terminos/index.html', buildLegalContent(
+        'Términos de Servicio',
+        'Términos y condiciones de uso de la plataforma GT7 Championships (Trenkit).'
+    ), null);
+    injectIntoFile('privacidad/index.html', buildLegalContent(
+        'Política de Privacidad',
+        'Cómo tratamos tus datos personales en GT7 Championships (Trenkit).'
+    ), null);
+    injectIntoFile('reembolsos/index.html', buildLegalContent(
+        'Política de Reembolso',
+        'Condiciones de reembolso para lotes de créditos y planes mensuales de GT7 Championships (Trenkit).'
+    ), null);
 
     console.log('[prerender] Completado.');
 }
