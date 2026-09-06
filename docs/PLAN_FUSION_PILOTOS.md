@@ -6,6 +6,15 @@ y propagar la unificación a campeonatos y eventos.
 
 Estado: **propuesta, sin implementar**. La fase 0 (inventario) ya existe.
 
+> **Quién decide.** El sistema solo *propone* candidatos; ninguna fusión ocurre
+> sin confirmación explícita del Administrador de Plataforma. No hay fusión
+> automática ni acción masiva, en ninguna fase. El heurístico se equivoca
+> —hay falsos positivos demostrados en §5— y una fusión errónea corrompe una
+> clasificación ya publicada, así que la lista de candidatos es un punto de
+> partida para el ojo humano, no un veredicto. También se puede fusionar a mano
+> lo que el heurístico no detectó: si alguien cambió su GT7 ID por otro sin
+> parecido alguno, no hay similitud que lo delate y solo lo sabe el organizador.
+
 ---
 
 ## 1. El problema, con números
