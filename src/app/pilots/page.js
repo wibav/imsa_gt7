@@ -44,6 +44,11 @@ export default function PilotsPage() {
                 return { championship: champ, teams, tracks, penalties };
             });
 
+            // Identidades fusionadas a mano: mandan sobre lo que digan las
+            // inscripciones. Si la lectura falla, getPilotIdentities devuelve
+            // [] y todo se comporta como antes de existir la fusión.
+            const identities = await FirebaseService.getPilotIdentities();
+
             const allDetails = await Promise.all(detailsPromises);
             setChampionshipDetails(allDetails);
 
@@ -57,7 +62,7 @@ export default function PilotsPage() {
             // piloto se listaba con el identificador con el que se hubiera
             // inscrito — normalmente el psnId — y uno que figurase por psnId
             // en un campeonato y por gt7Id en otro salía como dos pilotos.
-            const gt7Map = buildGt7IdMap(allDetails.map(d => d.championship));
+            const gt7Map = buildGt7IdMap(allDetails.map(d => d.championship), identities);
             const pilotMap = {};
 
             allDetails.forEach(({ championship, teams, tracks, penalties }) => {

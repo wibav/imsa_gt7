@@ -152,6 +152,37 @@ export class FirebaseService {
     }
   }
 
+  // ══════════════════════════════════════════
+  // Identidades de piloto (fusión de nombres)
+  // Ver docs/PLAN_FUSION_PILOTOS.md
+  // ══════════════════════════════════════════
+
+  // Cacheada como getCars(): se pide en cada pantalla que muestre nombres de
+  // piloto y solo cambia cuando el Administrador de Plataforma fusiona algo.
+  // Se guarda la promesa, no el resultado, para que varias llamadas
+  // simultáneas compartan una sola lectura.
+  static _identitiesPromise = null;
+
+  static async getPilotIdentities() {
+    if (!FirebaseService._identitiesPromise) {
+      FirebaseService._identitiesPromise = (async () => {
+        const snapshot = await getDocs(collection(db, "pilotIdentities"));
+        return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      })().catch(error => {
+        FirebaseService._identitiesPromise = null;
+        // Un fallo aquí NO debe tumbar la página: sin identidades, los nombres
+        // se muestran como siempre se han mostrado.
+        console.error("Error fetching pilot identities: ", error);
+        return [];
+      });
+    }
+    return FirebaseService._identitiesPromise;
+  }
+
+  static invalidatePilotIdentitiesCache() {
+    FirebaseService._identitiesPromise = null;
+  }
+
   static async saveTracks(tracks) {
     try {
       const promises = tracks.map(track =>

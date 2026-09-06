@@ -62,6 +62,8 @@ export default function ChampionshipDetailPage() {
     const [claims, setClaims] = useState([]);
     const [appeals, setAppeals] = useState([]);
     const [divisions, setDivisions] = useState([]);
+    // Identidades de piloto fusionadas (ver docs/PLAN_FUSION_PILOTOS.md)
+    const [pilotIdentities, setPilotIdentities] = useState([]);
     const [selectedDivision, setSelectedDivision] = useState('all');
     // Declaraciones de autos: subcolección aparte, ver firestore.rules
     const [declarations, setDeclarations] = useState({});
@@ -83,7 +85,7 @@ export default function ChampionshipDetailPage() {
         setTracks([]);
 
         try {
-            const [champData, teamsData, tracksData, penaltiesData, divisionsData, claimsData, appealsData, declarationsData] = await Promise.all([
+            const [champData, teamsData, tracksData, penaltiesData, divisionsData, claimsData, appealsData, declarationsData, identitiesData] = await Promise.all([
                 FirebaseService.getChampionship(championshipId),
                 FirebaseService.getTeamsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getTracksByChampionship(championshipId).catch(() => []),
@@ -91,7 +93,8 @@ export default function ChampionshipDetailPage() {
                 FirebaseService.getDivisionsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getClaimsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getAppealsByChampionship(championshipId).catch(() => []),
-                FirebaseService.getDeclarations(championshipId).catch(() => ({}))
+                FirebaseService.getDeclarations(championshipId).catch(() => ({})),
+                FirebaseService.getPilotIdentities()
             ]);
             setDeclarations(declarationsData || {});
 
@@ -102,6 +105,7 @@ export default function ChampionshipDetailPage() {
             setDivisions(divisionsData || []);
             setClaims(claimsData || []);
             setAppeals(appealsData || []);
+            setPilotIdentities(identitiesData || []);
         } catch (error) {
             console.error("Error loading championship data:", error);
         } finally {
@@ -145,7 +149,7 @@ export default function ChampionshipDetailPage() {
     // Nombre → GT7 ID. Helper compartido con la página de pilotos para que
     // todas las listas coteen igual (y cubre también pilotos de equipo, que
     // el mapeo anterior aquí se saltaba).
-    const driverGt7Map = buildGt7IdMap(championship);
+    const driverGt7Map = buildGt7IdMap(championship, pilotIdentities);
 
     // ── Entradas invalidadas por uso de autos ──
     // Las declaraciones viven en su propia subcolección, así que se vuelcan

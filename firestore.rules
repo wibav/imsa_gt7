@@ -305,6 +305,14 @@ service cloud.firestore {
     // juego (574 coches con clase, PR, potencia, peso) reutilizable por
     // cualquier liga. Lo alimenta scripts/sync-official-cars-catalog.js con
     // credenciales de admin; por UI nadie lo edita.
+    // Identidades de piloto: qué nombres son la misma persona.
+    // Lectura pública porque la web resuelve los nombres al pintarlos; solo
+    // el Administrador de Plataforma fusiona (ver docs/PLAN_FUSION_PILOTOS.md).
+    match /pilotIdentities/{identityId} {
+      allow read: if true;
+      allow write: if isPlatformOwner();
+    }
+
     match /cars/{carId} {
       allow read: if true;
       allow write: if isPlatformOwner();

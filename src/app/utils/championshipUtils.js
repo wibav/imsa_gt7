@@ -61,10 +61,19 @@ export const calculateProgress = (tracks, championship) => {
  *
  * Acepta un campeonato o una lista (la página de pilotos agrega varios).
  *
+ * El segundo argumento son las identidades fusionadas a mano desde
+ * /pilotsAdmin (colección `pilotIdentities`). Se aplican DESPUÉS de las
+ * inscripciones y mandan sobre ellas: una fusión confirmada por el
+ * Administrador de Plataforma sabe más que lo que se tecleó al inscribirse.
+ *
+ * Sin identidades el resultado es exactamente el de antes: la fusión es
+ * aditiva y no puede alterar el histórico por sí sola.
+ *
  * @param {Object|Array} championships
+ * @param {Array} [identities] - Documentos de `pilotIdentities`
  * @returns {Object} { [nombreOPsn]: gt7Id }
  */
-export const buildGt7IdMap = (championships) => {
+export const buildGt7IdMap = (championships, identities = []) => {
     const lista = Array.isArray(championships) ? championships : [championships];
     const map = {};
     lista.filter(Boolean).forEach(champ => {
@@ -81,7 +90,47 @@ export const buildGt7IdMap = (championships) => {
             });
         });
     });
-    return map;
+    return applyPilotIdentities(map, identities);
+};
+
+/**
+ * Superpone las identidades fusionadas sobre un mapa de alias.
+ *
+ * Además de mapear cada alias al nombre canónico, reescribe las entradas que
+ * ya apuntaban a un alias fusionado: si las inscripciones decían
+ * `Dayo → Hgt_dayo21` y la identidad canoniza `Hgt_dayo21 → HGT_dayo21`,
+ * `Dayo` tiene que acabar en `HGT_dayo21`, no quedarse a medio camino.
+ *
+ * @param {Object} map - Mapa alias → nombre (se copia, no se muta)
+ * @param {Array} identities
+ */
+export const applyPilotIdentities = (map = {}, identities = []) => {
+    if (!identities || identities.length === 0) return map;
+
+    const resultado = { ...map };
+    const canonicoDe = {};
+
+    identities.filter(Boolean).forEach(ident => {
+        const canonical = String(ident.canonical || '').trim();
+        if (!canonical) return;
+        (ident.aliases || []).forEach(alias => {
+            const limpio = String(alias || '').trim();
+            if (!limpio || limpio === canonical) return;
+            canonicoDe[limpio] = canonical;
+        });
+    });
+
+    Object.entries(canonicoDe).forEach(([alias, canonical]) => {
+        resultado[alias] = canonical;
+    });
+
+    // Segundo paso: encadenar los alias que apuntaban a un nombre ya fusionado.
+    Object.keys(resultado).forEach(alias => {
+        const destino = resultado[alias];
+        if (canonicoDe[destino]) resultado[alias] = canonicoDe[destino];
+    });
+
+    return resultado;
 };
 
 /** Nombre a mostrar de un piloto: su GT7 ID si se conoce. */
