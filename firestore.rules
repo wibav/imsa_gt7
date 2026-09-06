@@ -142,11 +142,20 @@ service cloud.firestore {
       // debe respetar el límite de pilotos del plan (ej. 15 en Free), y
       // `drivers` solo puede crecer (nunca reducirse) por esta vía, para
       // que un registrante anónimo no pueda vaciar el roster de nadie.
+      //
+      // `registrations` solo puede CRECER DE UNA EN UNA por esta vía:
+      // onlyAffects() mira qué claves cambian, no su contenido, así que sin
+      // esta condición cualquier anónimo podía reenviar el array entero
+      // reescrito — cambiando el `status` de otros, renombrando pilotos o
+      // vaciándolo de golpe. El único flujo público legítimo que lo toca es
+      // el alta de una inscripción (arrayUnion de un elemento). Editar,
+      // aprobar o dar de baja pasa siempre por la rama de admin.
       allow update: if (isOrgAdmin(resource.data.orgId) && request.resource.data.orgId == resource.data.orgId)
         || (
           onlyAffects(['registrations', 'drivers'])
           && withinDriverLimit(resource.data.orgId, request.resource.data.registrations.size())
           && request.resource.data.drivers.size() >= resource.data.drivers.size()
+          && request.resource.data.registrations.size() == resource.data.registrations.size() + 1
         );
       allow delete: if isOrgAdmin(resource.data.orgId);
 
@@ -168,6 +177,27 @@ service cloud.firestore {
       match /events/{subEventId} {
         allow read: if true;
         allow write: if isOrgAdmin(parentChampOrgId(champId));
+      }
+
+      // ── declarations/{registrationId} ─────────────────────────────────
+      // Declaración de autos de cada piloto (carUsageTracking en modo
+      // 'declared'). Vive aquí y no dentro de championships.registrations[]
+      // justamente para no tener que abrir ese array a escritura pública:
+      // aislada en su propio documento, lo peor que puede hacer un anónimo
+      // es tocar una declaración, no el estado ni la identidad de nadie.
+      //
+      // Sigue sin haber autenticación de piloto (se inscriben sin cuenta),
+      // así que cualquiera puede editar la declaración de cualquiera — es
+      // el mismo nivel de confianza que las reclamaciones. El límite real
+      // de autos por piloto y la fecha tope se validan en el cliente; aquí
+      // solo se acota la forma para que nadie meta basura.
+      match /declarations/{registrationId} {
+        allow read: if true;
+        allow create, update: if request.resource.data.keys().hasOnly(['cars', 'updatedAt'])
+          && request.resource.data.cars is list
+          && request.resource.data.cars.size() <= 20
+          && request.resource.data.updatedAt is string;
+        allow delete: if isOrgAdmin(parentChampOrgId(champId));
       }
 
       // Sanciones: solo comisarios ASIGNADOS a este campeonato (ADR-009;
@@ -266,6 +296,16 @@ service cloud.firestore {
     // Plataforma (petición explícita de producto: es un recurso compartido
     // por todas las ligas, no de una organización en particular).
     match /tracks/{trackId} {
+      allow read: if true;
+      allow write: if isPlatformOwner();
+    }
+
+    // ── cars/{id} (catálogo GLOBAL de coches de GT7) ─────────────────────
+    // Mismo criterio que `tracks`: sin orgId, es el catálogo oficial del
+    // juego (574 coches con clase, PR, potencia, peso) reutilizable por
+    // cualquier liga. Lo alimenta scripts/sync-official-cars-catalog.js con
+    // credenciales de admin; por UI nadie lo edita.
+    match /cars/{carId} {
       allow read: if true;
       allow write: if isPlatformOwner();
     }

@@ -188,13 +188,32 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                     <h3 className="text-xl font-bold text-white mb-2">
                         {registration.requiresApproval ? '¡Inscripción enviada!' : '¡Inscripción confirmada!'}
                     </h3>
-                    <p className="text-gray-300 mb-6">
+                    <p className="text-gray-300 mb-4">
                         {registration.requiresApproval
                             ? 'Tu solicitud será revisada por los administradores. Te notificaremos cuando sea aprobada.'
                             : isTeamMode
                                 ? '¡El equipo está registrado! Ya pueden participar en el campeonato.'
                                 : '¡Bienvenido al campeonato! Ya estás registrado.'}
                     </p>
+
+                    {/* Si el campeonato exige declarar autos, es un paso pendiente con
+                        fecha límite que el piloto no tiene por qué descubrir solo: sin
+                        este aviso la sección queda enterrada en la pestaña Información. */}
+                    {championship.carUsageTracking?.enabled
+                        && championship.carUsageTracking.mode !== 'fixed'
+                        && (
+                            <div className="mb-6 p-4 bg-orange-900/30 border border-orange-500/40 rounded-lg text-left">
+                                <p className="text-orange-200 text-sm font-semibold mb-1">
+                                    🚗 Te falta un paso: declarar tus autos
+                                </p>
+                                <p className="text-orange-100/80 text-xs">
+                                    Este campeonato limita a {championship.carUsageTracking.maxCarsPerDriver ?? 3} autos por piloto.
+                                    {championship.carUsageTracking.declarationDeadline
+                                        ? ` Tienes hasta el ${new Date(championship.carUsageTracking.declarationDeadline + 'T23:59:59').toLocaleDateString('es-ES')} para declararlos`
+                                        : ' Declara los tuyos'} en la pestaña <strong>Información → Uso de Autos</strong>.
+                                </p>
+                            </div>
+                        )}
                     <button onClick={onClose}
                         className="px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg transition-all font-bold">
                         Entendido

@@ -25,6 +25,7 @@ import {
   deleteObject
 } from "firebase/storage";
 import { app, auth } from "../api/firebase/firebaseConfig";
+import { declarationDocId } from "../utils/carUsageCalculator";
 // Fuente única de límites por plan, compartida con functions/main.py (que
 // la importa desde el mismo archivo) — antes vivían duplicados a mano aquí
 // y en Python, con solo un comentario pidiendo mantenerlos en sync.
@@ -102,6 +103,34 @@ export class FirebaseService {
       console.error("Error fetching tracks: ", error);
       throw error;
     }
+  }
+
+  // Catálogo global de coches de GT7 (574, con carClass/PR/potencia/peso),
+  // sincronizado por scripts/sync-official-cars-catalog.js. Orden alfabético
+  // por el mismo motivo que getTracks().
+  //
+  // Cacheado en memoria durante la sesión: son 574 documentos que solo
+  // cambian cuando se re-sincroniza el catálogo (tras una actualización del
+  // juego), y se piden en cada apertura del modal de declaración y del
+  // formulario de campeonato. Se guarda la promesa, no el resultado, para
+  // que varias llamadas simultáneas compartan una sola lectura.
+  static _carsPromise = null;
+
+  static async getCars() {
+    if (!FirebaseService._carsPromise) {
+      FirebaseService._carsPromise = (async () => {
+        const snapshot = await getDocs(collection(db, "cars"));
+        const cars = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        cars.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        return cars;
+      })().catch(error => {
+        // No cachear el fallo: el siguiente intento debe poder reintentar.
+        FirebaseService._carsPromise = null;
+        console.error("Error fetching cars: ", error);
+        throw error;
+      });
+    }
+    return FirebaseService._carsPromise;
   }
 
   // Guardar pistas
@@ -1635,14 +1664,49 @@ export class FirebaseService {
 
   /**
    * Guarda la declaración de autos de un piloto inscrito.
-   * Llama a updateRegistrationData internamente — método semántico para la Fase B.
+   *
+   * Soporta las dos formas de inscripción:
+   *   - Individual: `registrations[i].declaredCars`.
+   *   - Equipo: el piloto vive en `registrations[i].drivers[j]`, y
+   *     flattenRegistrations() le asigna el id sintético
+   *     `${reg.id}_${gt7Id||psnId}` (ver carUsageCalculator.js). Escribir con
+   *     ese id contra el array de nivel superior no encontraría nada y la
+   *     declaración se perdía en silencio, así que aquí se resuelve el
+   *     piloto dentro de drivers[].
    *
    * @param {string} championshipId
-   * @param {string} registrationId - r.id de la entrada en registrations[]
+   * @param {string} registrationId - r.id de registrations[], o el id plano de un piloto de equipo
    * @param {string[]} declaredCars - Array de nombres de autos declarados
    */
   static async saveDeclaredCars(championshipId, registrationId, declaredCars) {
-    return FirebaseService.updateRegistrationData(championshipId, registrationId, { declaredCars });
+    const ref = doc(
+      db, 'championships', championshipId,
+      'declarations', declarationDocId(registrationId)
+    );
+    await setDoc(ref, {
+      cars: declaredCars,
+      updatedAt: new Date().toISOString(),
+    });
+    return { success: true };
+  }
+
+  /**
+   * Declaraciones de autos de un campeonato.
+   * @returns {Promise<Object>} { [docId]: string[] } — cruzar con
+   *          declarationDocId(reg.id), o usar applyDeclarations().
+   */
+  static async getDeclarations(championshipId) {
+    try {
+      const snapshot = await getDocs(
+        collection(db, 'championships', championshipId, 'declarations')
+      );
+      const map = {};
+      snapshot.forEach(d => { map[d.id] = d.data().cars || []; });
+      return map;
+    } catch (error) {
+      console.error('Error fetching declarations:', error);
+      return {};
+    }
   }
 
   // ========================================

@@ -31,6 +31,100 @@ export function flattenRegistrations(registrations = []) {
 }
 
 /**
+ * Id del documento de declaración para una inscripción.
+ *
+ * El id de un piloto de equipo es sintético (`${reg.id}_${gt7Id||psnId}`, ver
+ * flattenRegistrations) y el gt7Id lo escribe el propio piloto, así que puede
+ * traer barras — que Firestore no admite en un id de documento. Se sustituyen
+ * de forma determinista para que guardar y leer usen siempre la misma clave.
+ */
+export function declarationDocId(registrationId) {
+    return String(registrationId || '').replace(/\//g, '_');
+}
+
+/**
+ * Vuelca las declaraciones (subcolección `declarations`) sobre las
+ * inscripciones ya aplanadas, dejando `declaredCars` donde el resto del
+ * código lo espera.
+ *
+ * Si una inscripción no tiene documento en la subcolección se respeta su
+ * `declaredCars` embebido: es el formato antiguo, previo a mover las
+ * declaraciones fuera del array de inscripciones.
+ *
+ * @param {Array}  flatRegs     - salida de flattenRegistrations()
+ * @param {Object} declarations - { [docId]: string[] }
+ */
+export function applyDeclarations(flatRegs = [], declarations = {}) {
+    if (!declarations || Object.keys(declarations).length === 0) return flatRegs;
+    return flatRegs.map(reg => {
+        const cars = declarations[declarationDocId(reg.id)];
+        return cars ? { ...reg, declaredCars: cars } : reg;
+    });
+}
+
+/**
+ * Categoría del campeonato → clase de coche del catálogo oficial de GT7.
+ * El juego usa "Gr.4"/"Gr.N"; la app guarda "Gr4"/"Street" en
+ * championship.categories, así que hace falta traducir para cruzar ambos.
+ * ("Street" son los coches de calle, que en GT7 son la clase Gr.N.)
+ */
+export const CATEGORY_TO_CAR_CLASS = {
+    Gr1: 'Gr.1',
+    Gr2: 'Gr.2',
+    Gr3: 'Gr.3',
+    Gr4: 'Gr.4',
+    GrB: 'Gr.B',
+    Street: 'Gr.N',
+};
+
+/**
+ * Coches del catálogo oficial que corresponden a unas categorías dadas.
+ * Si ninguna categoría mapea a una clase de GT7 (categorías propias de la
+ * liga), no se acota: se devuelve el catálogo entero, que sigue siendo una
+ * lista válida de coches del juego.
+ *
+ * La usan tanto el selector del organizador como el del piloto, para que
+ * ambos ofrezcan exactamente lo mismo.
+ *
+ * @param {string[]} categories - championship.categories
+ * @param {Array}    allCars    - catálogo global (FirebaseService.getCars())
+ */
+export function getCarsForCategories(categories = [], allCars = []) {
+    const classes = new Set(
+        (categories || []).map(cat => CATEGORY_TO_CAR_CLASS[cat]).filter(Boolean)
+    );
+    if (classes.size === 0) return allCars;
+    return allCars.filter(c => classes.has(c.carClass));
+}
+
+/**
+ * Coches que un piloto puede declarar en este campeonato.
+ *
+ * Prioridad:
+ *   1. `carUsageTracking.carCatalog` si el organizador definió una lista
+ *      concreta (gana siempre: puede ser un subconjunto muy acotado).
+ *   2. Si no, los del catálogo oficial que correspondan a las categorías del
+ *      campeonato (ej. categories:["Gr4"] → los 34 Gr.4).
+ *
+ * Devuelve [] solo si no hay catálogo cargado (colección vacía o fallo de
+ * lectura), que es la señal para caer a texto libre.
+ *
+ * @param {Object} championship
+ * @param {Array}  allCars - catálogo global (FirebaseService.getCars())
+ * @returns {Array<{name: string, carClass?: string, manufacturer?: string, pp?: number}>}
+ */
+export function getAllowedCars(championship, allCars = []) {
+    const catalog = championship?.carUsageTracking?.carCatalog || [];
+    if (catalog.length > 0) {
+        // El catálogo del organizador son nombres sueltos: se enriquecen con
+        // los datos oficiales cuando el nombre coincide, si no van pelados.
+        const byName = new Map(allCars.map(c => [c.name, c]));
+        return catalog.map(name => byName.get(name) || { name });
+    }
+    return getCarsForCategories(championship?.categories, allCars);
+}
+
+/**
  * Motor de cómputo y validación del uso de autos por piloto.
  *
  * Trabaja sobre track.carsUsed (guardado al ingresar resultados)

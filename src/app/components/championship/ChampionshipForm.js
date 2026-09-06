@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
@@ -12,6 +12,7 @@ import { DEFAULT_PENALTIES_CONFIG } from '../../models/Penalty';
 import { validateImageFile, compressImage } from '../../utils/imageCompression';
 import { REGULATIONS_MAX_BYTES, regulationsByteSize, normalizeRegulationsForSave } from '../../utils/regulations';
 import { sanitizeRegulationsHtml } from '../../utils/regulationsSanitize';
+import { getCarsForCategories } from '../../utils/carUsageCalculator';
 import LoadingSkeleton from '../common/LoadingSkeleton';
 import ErrorMessage from '../common/ErrorMessage';
 
@@ -245,6 +246,10 @@ export default function ChampionshipForm({ isEditing = false }) {
     const [trackFormData, setTrackFormData] = useState(null);
     const [showImportModal, setShowImportModal] = useState(false);
 
+    // Catálogo oficial de coches (para el selector del catálogo del campeonato)
+    const [firebaseCars, setFirebaseCars] = useState([]);
+    const [newCatalogCar, setNewCatalogCar] = useState('');
+
     // Stepper, para centrar el paso activo al avanzar en pantallas estrechas
     const stepperRef = useRef(null);
 
@@ -265,6 +270,13 @@ export default function ChampionshipForm({ isEditing = false }) {
         loadFirebaseTracks();
     }, []);
 
+    // Cargar catálogo oficial de coches de GT7
+    useEffect(() => {
+        FirebaseService.getCars()
+            .then(setFirebaseCars)
+            .catch(error => console.error('Error loading cars:', error));
+    }, []);
+
     // Mantener visible el paso activo del stepper (en móvil no caben los 6).
     // Se busca por atributo en vez de con un ref condicional: el ref se
     // reasigna entre elementos en cada cambio de paso y no era fiable.
@@ -276,6 +288,15 @@ export default function ChampionshipForm({ isEditing = false }) {
             ?.querySelector(`[data-step="${currentStep}"]`)
             ?.scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' });
     }, [currentStep]);
+
+    // Coches que corresponden a las categorías elegidas para el campeonato
+    // (ej. categorías ["Gr4"] → los 34 Gr.4 del catálogo oficial). Misma
+    // función que usa el modal del piloto, para que ambos selectores
+    // ofrezcan exactamente lo mismo.
+    const categoryCars = useMemo(
+        () => getCarsForCategories(formData?.categories, firebaseCars),
+        [formData?.categories, firebaseCars]
+    );
 
     // [EDIT] Cargar circuitos del campeonato
     useEffect(() => {
@@ -2310,29 +2331,39 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                     }
                                                 </label>
                                                 <div className="flex gap-2 mb-2">
-                                                    <input type="text" placeholder="Ej: Mazda RX-Vision GT3"
-                                                        id="carCatalogInput"
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') {
-                                                                e.preventDefault();
-                                                                const v = e.target.value.trim();
-                                                                if (v && !(formData.carUsageTracking?.carCatalog || []).includes(v)) {
-                                                                    setFormData(prev => ({
-                                                                        ...prev,
-                                                                        carUsageTracking: {
-                                                                            ...prev.carUsageTracking,
-                                                                            carCatalog: [...(prev.carUsageTracking?.carCatalog || []), v]
-                                                                        }
-                                                                    }));
-                                                                    e.target.value = '';
-                                                                }
-                                                            }
-                                                        }}
-                                                        className="flex-1 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                                                    {/* Si el catálogo oficial no cargó (colección vacía o fallo de
+                                                        lectura) se vuelve a texto libre: en modo 'fixed' este campo es
+                                                        obligatorio y un selector vacío dejaría el campeonato sin poder
+                                                        configurarse. */}
+                                                    {categoryCars.length > 0 ? (
+                                                        <select
+                                                            value={newCatalogCar}
+                                                            onChange={(e) => setNewCatalogCar(e.target.value)}
+                                                            className="flex-1 min-w-0 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500">
+                                                            <option value="" className="bg-slate-800">
+                                                                {`Selecciona un auto (${categoryCars.length} de ${(formData.categories || []).join(', ')})...`}
+                                                            </option>
+                                                            {categoryCars
+                                                                .filter(c => !(formData.carUsageTracking?.carCatalog || []).includes(c.name))
+                                                                .map(c => (
+                                                                    <option key={c.id} value={c.name} className="bg-slate-800">
+                                                                        {c.name}{c.pp ? ` — PR ${c.pp}` : ''}
+                                                                    </option>
+                                                                ))}
+                                                        </select>
+                                                    ) : (
+                                                        <input type="text"
+                                                            value={newCatalogCar}
+                                                            onChange={(e) => setNewCatalogCar(e.target.value)}
+                                                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('addCatalogCarBtn')?.click(); } }}
+                                                            placeholder="Ej: Mazda RX-Vision GT3"
+                                                            className="flex-1 min-w-0 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                                                    )}
                                                     <button type="button"
+                                                        id="addCatalogCarBtn"
+                                                        disabled={!newCatalogCar.trim()}
                                                         onClick={() => {
-                                                            const input = document.getElementById('carCatalogInput');
-                                                            const v = input?.value.trim();
+                                                            const v = newCatalogCar.trim();
                                                             if (v && !(formData.carUsageTracking?.carCatalog || []).includes(v)) {
                                                                 setFormData(prev => ({
                                                                     ...prev,
@@ -2341,10 +2372,10 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                                         carCatalog: [...(prev.carUsageTracking?.carCatalog || []), v]
                                                                     }
                                                                 }));
-                                                                if (input) input.value = '';
+                                                                setNewCatalogCar('');
                                                             }
                                                         }}
-                                                        className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors">
+                                                        className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm rounded-lg transition-colors whitespace-nowrap">
                                                         + Auto
                                                     </button>
                                                 </div>
@@ -2367,7 +2398,9 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                     </div>
                                                 ) : (
                                                     <p className="text-xs text-gray-500">
-                                                        Si lo dejas vacío los pilotos podrán escribir cualquier nombre de auto. Agrega autos para restringir la selección.
+                                                        {categoryCars.length > 0
+                                                            ? `Si lo dejas vacío, los pilotos podrán elegir entre los ${categoryCars.length} autos de la categoría del campeonato. Agrega autos aquí solo para restringirlo más.`
+                                                            : 'El catálogo oficial no está disponible: escribe los nombres a mano. Si lo dejas vacío, los pilotos podrán escribir cualquier nombre de auto.'}
                                                     </p>
                                                 )}
                                             </div>

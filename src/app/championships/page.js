@@ -30,7 +30,7 @@ import RaceBriefing from '../components/championship/RaceBriefing';
 import ShareButton from '../components/ShareButton';
 import { STREAMING_PLATFORMS, STATUS_LABELS } from '../utils/constants';
 import { SEVERITY_CONFIG, isPenaltyCounting } from '../models/Penalty';
-import { getInvalidatedEntries, flattenRegistrations } from '../utils/carUsageCalculator';
+import { getInvalidatedEntries, flattenRegistrations, applyDeclarations } from '../utils/carUsageCalculator';
 import { isRegulationsEmpty } from '../utils/regulations';
 import RegulationsView from '../components/championship/RegulationsView';
 import RegulationsPdfButton from '../components/championship/RegulationsPdfButton';
@@ -56,6 +56,8 @@ export default function ChampionshipDetailPage() {
     const [appeals, setAppeals] = useState([]);
     const [divisions, setDivisions] = useState([]);
     const [selectedDivision, setSelectedDivision] = useState('all');
+    // Declaraciones de autos: subcolección aparte, ver firestore.rules
+    const [declarations, setDeclarations] = useState({});
 
     useEffect(() => {
         if (championshipId) {
@@ -74,15 +76,17 @@ export default function ChampionshipDetailPage() {
         setTracks([]);
 
         try {
-            const [champData, teamsData, tracksData, penaltiesData, divisionsData, claimsData, appealsData] = await Promise.all([
+            const [champData, teamsData, tracksData, penaltiesData, divisionsData, claimsData, appealsData, declarationsData] = await Promise.all([
                 FirebaseService.getChampionship(championshipId),
                 FirebaseService.getTeamsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getTracksByChampionship(championshipId).catch(() => []),
                 FirebaseService.getPenaltiesByChampionship(championshipId).catch(() => []),
                 FirebaseService.getDivisionsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getClaimsByChampionship(championshipId).catch(() => []),
-                FirebaseService.getAppealsByChampionship(championshipId).catch(() => [])
+                FirebaseService.getAppealsByChampionship(championshipId).catch(() => []),
+                FirebaseService.getDeclarations(championshipId).catch(() => ({}))
             ]);
+            setDeclarations(declarationsData || {});
 
             setChampionship(champData);
             setTeams(teamsData || []);
@@ -131,7 +135,13 @@ export default function ChampionshipDetailPage() {
     });
 
     // ── Entradas invalidadas por uso de autos ──
-    const flatRegs = flattenRegistrations(championship?.registrations || []);
+    // Las declaraciones viven en su propia subcolección, así que se vuelcan
+    // aquí sobre las inscripciones para que todo lo de abajo siga leyendo
+    // `declaredCars` sin enterarse de dónde salió.
+    const flatRegs = applyDeclarations(
+        flattenRegistrations(championship?.registrations || []),
+        declarations
+    );
     const invalidatedEntries = championship?.carUsageTracking?.enabled
         ? getInvalidatedEntries(tracks, championship.carUsageTracking, flatRegs)
         : new Set();
@@ -1762,24 +1772,31 @@ export default function ChampionshipDetailPage() {
                                         const isFixed = cat.mode === 'fixed';
                                         const deadline = !isFixed && cat.declarationDeadline ? new Date(cat.declarationDeadline + 'T23:59:59') : null;
                                         const deadlinePassed = deadline && new Date() > deadline;
+                                        // Los pilotos se inscriben sin cuenta, así que normalmente
+                                        // no hay sesión con la que reconocerlos: el botón se muestra
+                                        // a cualquier visitante mientras haya inscritos, y es dentro
+                                        // del modal donde el piloto se identifica.
+                                        const eligible = flatRegs.filter(r =>
+                                            r.status === 'approved' || !championship.registration?.requiresApproval
+                                        );
                                         const myReg = currentUser
-                                            ? flatRegs.find(r =>
-                                                (r.gt7Id === currentUser.displayName || r.psnId === currentUser.displayName || r.email === currentUser.email) &&
-                                                (r.status === 'approved' || !championship.registration?.requiresApproval)
+                                            ? eligible.find(r =>
+                                                r.gt7Id === currentUser.displayName || r.psnId === currentUser.displayName || r.email === currentUser.email
                                             )
                                             : null;
                                         const hasDeclared = !isFixed && (myReg?.declaredCars || []).length > 0;
+                                        const declaredCount = eligible.filter(r => (r.declaredCars || []).length > 0).length;
 
                                         return (
                                             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
                                                 <div className="flex items-start justify-between mb-4">
                                                     <h3 className="text-xl font-bold text-white">🚗 Uso de Autos</h3>
-                                                    {!isFixed && myReg && (
+                                                    {!isFixed && eligible.length > 0 && (
                                                         <button
                                                             onClick={() => setShowCarDeclaration(true)}
-                                                            className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${deadlinePassed ? 'bg-gray-600 text-gray-300 cursor-not-allowed' : hasDeclared ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-orange-600 hover:bg-orange-700 text-white'}`}
+                                                            className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${deadlinePassed ? 'bg-gray-600 hover:bg-gray-700 text-gray-200' : hasDeclared ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-orange-600 hover:bg-orange-700 text-white'}`}
                                                         >
-                                                            {deadlinePassed ? '🔒 Ver declaración' : hasDeclared ? '✏️ Editar declaración' : '📋 Declarar mis autos'}
+                                                            {deadlinePassed ? '🔒 Ver declaraciones' : hasDeclared ? '✏️ Editar declaración' : '📋 Declarar mis autos'}
                                                         </button>
                                                     )}
                                                 </div>
@@ -1825,6 +1842,14 @@ export default function ChampionshipDetailPage() {
                                                                 </span>
                                                             </div>
                                                         )}
+                                                        {eligible.length > 0 && (
+                                                            <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                                                <span className="text-gray-300">Pilotos que ya declararon</span>
+                                                                <span className={`font-semibold ${declaredCount === eligible.length ? 'text-green-400' : 'text-orange-400'}`}>
+                                                                    {declaredCount} / {eligible.length}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                         {myReg && hasDeclared && (
                                                             <div className="p-3 bg-green-900/20 border border-green-500/20 rounded-lg">
                                                                 <p className="text-green-300 text-sm font-medium mb-1">✅ Tus autos declarados:</p>
@@ -1834,6 +1859,35 @@ export default function ChampionshipDetailPage() {
                                                                     ))}
                                                                 </div>
                                                             </div>
+                                                        )}
+
+                                                        {/* Declaraciones de todos: los pilotos no tienen cuenta, así que
+                                                            sin esta lista no había forma de comprobar lo declarado sin
+                                                            reabrir el modal y volver a identificarse. Además da
+                                                            transparencia: cada uno ve con qué corren los demás. */}
+                                                        {declaredCount > 0 && (
+                                                            <details className="bg-white/5 rounded-lg">
+                                                                <summary className="p-3 cursor-pointer text-gray-300 hover:text-white text-sm select-none">
+                                                                    🏎️ Ver autos declarados por los pilotos ({declaredCount})
+                                                                </summary>
+                                                                <div className="px-3 pb-3 space-y-2 max-h-72 overflow-y-auto">
+                                                                    {eligible
+                                                                        .filter(r => (r.declaredCars || []).length > 0)
+                                                                        .map(r => (
+                                                                            <div key={r.id} className="border-t border-white/10 pt-2">
+                                                                                <p className="text-white text-sm font-medium">
+                                                                                    {r.gt7Id || r.psnId || r.name}
+                                                                                    {r.teamName && <span className="text-gray-400 font-normal"> — {r.teamName}</span>}
+                                                                                </p>
+                                                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                                                    {r.declaredCars.map((car, i) => (
+                                                                                        <span key={i} className="px-2 py-0.5 bg-white/10 border border-white/20 text-gray-200 text-xs rounded-full">{car}</span>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                </div>
+                                                            </details>
                                                         )}
                                                         <p className="text-gray-400 text-xs">
                                                             Cada piloto puede usar el mismo auto un máximo de {cat.maxUsesPerCar} veces durante el campeonato.
@@ -2135,17 +2189,25 @@ export default function ChampionshipDetailPage() {
 
             {/* Modal de Declaración de Autos */}
             {showCarDeclaration && championship?.carUsageTracking?.enabled && (() => {
+                // Inscritos que pueden declarar (aprobados, o todos si el
+                // campeonato es de auto-aprobación).
+                const eligible = flatRegs.filter(r =>
+                    r.status === 'approved' || !championship.registration?.requiresApproval
+                );
+                // Si el visitante tiene sesión y coincide con un inscrito, se
+                // le abre ya su propia declaración; si no (el caso normal: los
+                // pilotos se inscriben sin cuenta), se identifica eligiéndose
+                // de la lista dentro del modal.
                 const myReg = currentUser
-                    ? (championship.registrations || []).find(r =>
-                        (r.gt7Id === currentUser.displayName || r.psnId === currentUser.displayName || r.email === currentUser.email) &&
-                        (r.status === 'approved' || !championship.registration?.requiresApproval)
+                    ? eligible.find(r =>
+                        r.gt7Id === currentUser.displayName || r.psnId === currentUser.displayName || r.email === currentUser.email
                     )
                     : null;
-                if (!myReg) return null;
                 return (
                     <CarDeclarationModal
                         championship={championship}
                         registration={myReg}
+                        registrations={eligible}
                         onClose={() => setShowCarDeclaration(false)}
                         onSuccess={() => { loadChampionshipData(); setShowCarDeclaration(false); }}
                     />
