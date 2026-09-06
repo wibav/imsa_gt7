@@ -18,12 +18,42 @@ export default function TracksAdminPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [imageFilter, setImageFilter] = useState('all'); // 'all' | 'with' | 'without'
     const [syncing, setSyncing] = useState(false);
+    const [syncProgress, setSyncProgress] = useState({ done: 0, total: 0 });
 
     const [trackForm, setTrackForm] = useState({
         name: '',
         country: '',
         layoutImage: ''
     });
+
+    // Rutas de Storage subidas DENTRO de este modal y todavía no guardadas en
+    // Firestore. Si el usuario cierra sin guardar, quita la imagen o sube otra
+    // encima, esos objetos quedarían en el bucket sin que ningún documento los
+    // cite. Solo se borran estas: una imagen que ya venía en la pista puede
+    // estar propagada a los campeonatos (propagateTrackImage) y borrarla
+    // rompería esas tarjetas.
+    const [pendingUploads, setPendingUploads] = useState([]);
+
+    /** Borra de Storage las subidas de esta sesión que no se han guardado. */
+    const discardPendingUploads = async (paths) => {
+        for (const path of paths) {
+            try {
+                await FirebaseService.deleteImage(path);
+            } catch (error) {
+                // Que no se pueda limpiar no debe impedir cerrar el modal:
+                // el objeto quedará como huérfano y lo recogerá
+                // scripts/audit-storage-images.js.
+                console.warn('No se pudo borrar la imagen sin usar:', path, error);
+            }
+        }
+    };
+
+    const closeModal = async () => {
+        const toDiscard = pendingUploads;
+        setPendingUploads([]);
+        setShowModal(false);
+        await discardPendingUploads(toDiscard);
+    };
 
     useEffect(() => {
         if (!authLoading && !currentUser) {
@@ -56,6 +86,7 @@ export default function TracksAdminPage() {
 
     const openCreateModal = () => {
         setEditingTrack(null);
+        setPendingUploads([]);
         setTrackForm({
             name: '',
             country: '',
@@ -66,6 +97,7 @@ export default function TracksAdminPage() {
 
     const openEditModal = (track) => {
         setEditingTrack(track);
+        setPendingUploads([]);
         setTrackForm({
             name: track.name || '',
             country: track.country || '',
@@ -82,17 +114,45 @@ export default function TracksAdminPage() {
             validateImageFile(file);
             setUploadingImage(true);
             const compressed = await compressImage(file);
-            const timestamp = Date.now();
-            const path = `tracks/${timestamp}_${compressed.name.replace(/\s/g, '_')}`;
 
-            const downloadURL = await FirebaseService.uploadImage(compressed, path);
-            setTrackForm(prev => ({ ...prev, layoutImage: downloadURL }));
-            alert('✅ Imagen subida correctamente');
+            // El objeto se nombra por el hash de su contenido: volver a subir
+            // el mismo layout no crea una segunda copia en el bucket.
+            const { url, path, reused } = await FirebaseService.uploadImageDeduped(
+                compressed, 'tracks', compressed.name
+            );
+
+            // Si ya se había subido otra imagen en este mismo modal, esa queda
+            // sin usar: se descarta antes de perder su ruta.
+            const previous = pendingUploads.filter(p => p !== path);
+            setPendingUploads(reused ? [] : [path]);
+            await discardPendingUploads(previous);
+
+            setTrackForm(prev => ({ ...prev, layoutImage: url }));
+            alert(reused
+                ? '✅ Esta imagen ya estaba en el almacenamiento: se ha reutilizado.'
+                : '✅ Imagen subida correctamente');
         } catch (error) {
             console.error('Error uploading image:', error);
             alert('Error al subir la imagen: ' + error.message);
         } finally {
             setUploadingImage(false);
+            // Permite volver a elegir el mismo archivo tras un fallo (el input
+            // no dispara change si el valor no cambia).
+            e.target.value = '';
+        }
+    };
+
+    /**
+     * Quita la imagen del formulario. Si se acababa de subir en este modal,
+     * también se borra del bucket; si ya venía guardada, solo se desasocia
+     * (puede estar propagada a campeonatos).
+     */
+    const handleRemoveImage = async () => {
+        const current = FirebaseService.storagePathFromUrl(trackForm.layoutImage);
+        setTrackForm(prev => ({ ...prev, layoutImage: '' }));
+        if (current && pendingUploads.includes(current)) {
+            setPendingUploads(prev => prev.filter(p => p !== current));
+            await discardPendingUploads([current]);
         }
     };
 
@@ -100,6 +160,29 @@ export default function TracksAdminPage() {
         if (!trackForm.name || !trackForm.country) {
             alert('Por favor completa los campos obligatorios: Nombre y País');
             return;
+        }
+
+        // Los campeonatos referencian los circuitos por NOMBRE, no por id
+        // (propagateTrackImage compara nombres normalizados). Dos pistas con
+        // el mismo nombre es justo el desorden que se depuró al migrar el
+        // catálogo oficial, así que se corta aquí.
+        const normalized = trackForm.name.trim().toLowerCase();
+        const clash = firestoreTracks.find(
+            t => (t.name || '').trim().toLowerCase() === normalized && t.id !== editingTrack?.id
+        );
+        if (clash) {
+            alert(`Ya existe una pista llamada "${clash.name}". Usa un nombre distinto (por ejemplo incluyendo la variante del trazado).`);
+            return;
+        }
+
+        // Cambiar el nombre rompe esa misma referencia por nombre: los
+        // campeonatos que ya usan la pista dejarían de encontrarla.
+        if (editingTrack && editingTrack.name && editingTrack.name !== trackForm.name) {
+            const ok = confirm(
+                `Vas a renombrar "${editingTrack.name}" a "${trackForm.name}".\n\n` +
+                'Los campeonatos guardan el circuito por su nombre, así que los que ya usen el anterior dejarán de sincronizar su imagen. ¿Continuar?'
+            );
+            if (!ok) return;
         }
 
         try {
@@ -123,17 +206,24 @@ export default function TracksAdminPage() {
                 }
                 alert('✅ Pista actualizada correctamente');
             } else {
-                // Crear nueva pista
-                const newId = firestoreTracks.length > 0
-                    ? Math.max(...firestoreTracks.map(t => Number(t.id) || 0)) + 1
-                    : 1;
-                trackData.id = newId;
+                // Crear nueva pista. Los ids del catálogo son numéricos
+                // (1..121, los asigna scripts/sync-official-tracks-catalog.js);
+                // se ignoran los no numéricos en vez de contarlos como 0, que
+                // haría que el siguiente id pisara una pista existente.
+                const numericIds = firestoreTracks
+                    .map(t => Number(t.id))
+                    .filter(n => Number.isFinite(n));
+                trackData.id = numericIds.length ? Math.max(...numericIds) + 1 : 1;
                 trackData.createdAt = new Date().toISOString();
-                const updatedTracks = [...firestoreTracks, trackData];
-                await FirebaseService.saveTracks(updatedTracks);
+                // Solo la pista nueva: pasar el catálogo entero reescribía las
+                // 121 pistas en cada alta.
+                await FirebaseService.saveTracks([trackData]);
                 alert('✅ Pista creada correctamente');
             }
 
+            // La imagen ya está referenciada desde Firestore: deja de ser una
+            // subida pendiente de descartar.
+            setPendingUploads([]);
             setShowModal(false);
             fetchTracks();
         } catch (error) {
@@ -148,8 +238,10 @@ export default function TracksAdminPage() {
         }
 
         try {
-            const updatedTracks = firestoreTracks.filter(t => t.id !== track.id);
-            await FirebaseService.saveTracks(updatedTracks);
+            // Borrado real del documento. Antes se guardaba la lista filtrada
+            // con saveTracks(), que solo hace setDoc: la pista seguía en
+            // Firestore aunque el mensaje dijera lo contrario.
+            await FirebaseService.deleteTrackFromCatalog(track.id);
             alert('✅ Pista eliminada correctamente');
             fetchTracks();
         } catch (error) {
@@ -192,8 +284,16 @@ export default function TracksAdminPage() {
         if (!confirm(`\u00bfSincronizar las im\u00e1genes de ${tracksToSync.length} pistas a todos los campeonatos?\n\nEsto actualizar\u00e1 el layoutImage en todos los campeonatos que usen esas pistas.`)) return;
         try {
             setSyncing(true);
+            setSyncProgress({ done: 0, total: tracksToSync.length });
+            // Secuencial a propósito: cada propagateTrackImage recorre todos
+            // los campeonatos y sus subcolecciones, y lanzarlas en paralelo
+            // multiplica las lecturas sin ganar nada. A cambio se informa del
+            // avance, porque con ~20 pistas la operación tarda minutos.
+            let done = 0;
             for (const track of tracksToSync) {
                 await FirebaseService.propagateTrackImage(track.name, track.layoutImage);
+                done += 1;
+                setSyncProgress({ done, total: tracksToSync.length });
             }
             alert(`\u2705 Sincronizaci\u00f3n completada: ${tracksToSync.length} pistas propagadas a todos los campeonatos.`);
         } catch (error) {
@@ -217,15 +317,15 @@ export default function TracksAdminPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 p-8">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 p-4 sm:p-8">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h1 className="text-4xl font-bold text-white flex items-center gap-3">
+                        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white flex items-center gap-3">
                             🏁 Administrar Pistas Globales
                         </h1>
-                        <p className="text-gray-300 mt-2">
+                        <p className="text-gray-300 text-sm sm:text-base mt-2">
                             Catálogo maestro de pistas de Gran Turismo 7 • {tracks.length} pistas totales
                             <span className="mx-2">•</span>
                             <span className="text-green-400">{tracksWithImage} con imagen</span>
@@ -233,14 +333,16 @@ export default function TracksAdminPage() {
                             <span className="text-red-400">{tracksWithoutImage} sin imagen</span>
                         </p>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-3">
                         <button
                             onClick={handleSyncAll}
                             disabled={syncing}
                             className="px-5 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 disabled:opacity-50 text-white font-bold rounded-lg transition-all"
                             title="Propaga las im\u00e1genes actuales del cat\u00e1logo a todos los campeonatos"
                         >
-                            {syncing ? '⏳ Sincronizando...' : '🔄 Sincronizar Imágenes'}
+                            {syncing
+                                ? `⏳ Sincronizando ${syncProgress.done}/${syncProgress.total}...`
+                                : '🔄 Sincronizar Imágenes'}
                         </button>
                         <button
                             onClick={openCreateModal}
@@ -252,17 +354,17 @@ export default function TracksAdminPage() {
                 </div>
 
                 {/* Filtros de imagen */}
-                <div className="flex gap-2 mb-4">
+                <div className="flex flex-wrap gap-2 mb-4">
                     {[
-                        { key: 'all', label: `Todas (${tracks.length})`, color: 'orange' },
-                        { key: 'with', label: `Con imagen (${tracksWithImage})`, color: 'green' },
-                        { key: 'without', label: `Sin imagen (${tracksWithoutImage})`, color: 'red' },
-                    ].map(({ key, label, color }) => (
+                        { key: 'all', label: `Todas (${tracks.length})`, active: 'bg-orange-600' },
+                        { key: 'with', label: `Con imagen (${tracksWithImage})`, active: 'bg-green-600' },
+                        { key: 'without', label: `Sin imagen (${tracksWithoutImage})`, active: 'bg-red-600' },
+                    ].map(({ key, label, active }) => (
                         <button
                             key={key}
                             onClick={() => setImageFilter(key)}
                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${imageFilter === key
-                                ? `bg-${color}-600 text-white`
+                                ? `${active} text-white`
                                 : 'bg-white/10 text-gray-300 hover:bg-white/20'
                                 }`}
                         >
@@ -272,7 +374,7 @@ export default function TracksAdminPage() {
                 </div>
 
                 {/* Buscador y filtros */}
-                <div className="mb-6 flex gap-4">
+                <div className="mb-6 flex flex-col sm:flex-row gap-3 sm:gap-4">
                     <div className="flex-1 relative">
                         <input
                             type="text"
@@ -382,7 +484,7 @@ export default function TracksAdminPage() {
                                     {editingTrack ? '✏️ Editar Pista' : '➕ Nueva Pista'}
                                 </h3>
                                 <button
-                                    onClick={() => setShowModal(false)}
+                                    onClick={closeModal}
                                     className="text-gray-400 hover:text-white text-2xl"
                                 >
                                     ✕
@@ -430,7 +532,7 @@ export default function TracksAdminPage() {
                                                 className="object-contain p-2"
                                             />
                                             <button
-                                                onClick={() => setTrackForm(prev => ({ ...prev, layoutImage: '' }))}
+                                                onClick={handleRemoveImage}
                                                 className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-sm"
                                             >
                                                 🗑️ Quitar
@@ -449,7 +551,7 @@ export default function TracksAdminPage() {
                                         <p className="text-sm text-orange-400 mt-2">⏳ Subiendo imagen...</p>
                                     )}
                                     <p className="text-xs text-gray-400 mt-2">
-                                        Formatos: JPG, PNG, SVG. Máximo 5MB.
+                                        Formatos: JPG, PNG, SVG. Máximo 10MB (se comprime automáticamente).
                                     </p>
                                 </div>
                             </div>
@@ -463,7 +565,7 @@ export default function TracksAdminPage() {
                                     {editingTrack ? '💾 Guardar Cambios' : '➕ Crear Pista'}
                                 </button>
                                 <button
-                                    onClick={() => setShowModal(false)}
+                                    onClick={closeModal}
                                     className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-lg transition-all"
                                 >
                                     Cancelar
