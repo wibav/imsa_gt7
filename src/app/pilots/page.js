@@ -6,6 +6,7 @@ import { calculateAdvancedStandings } from "../utils/standingsCalculator";
 import { formatDateFull } from "../utils/dateUtils";
 import { getPositionDisplay, getPositionBg } from "../utils/constants";
 import { buildGt7IdMap } from "../utils/championshipUtils";
+import { buildPilotEventHistory, resumirEventos } from "../utils/pilotEvents";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
 
 /**
@@ -45,6 +46,10 @@ export default function PilotsPage() {
 
             const allDetails = await Promise.all(detailsPromises);
             setChampionshipDetails(allDetails);
+
+            // Los eventos sueltos no entran en ninguna clasificación, así que
+            // se cargan aparte para el historial del perfil.
+            const events = await FirebaseService.getEvents().catch(() => []);
 
             // Agregar stats globales por piloto.
             // Se normaliza al GT7 ID (cotejando contra las inscripciones de
@@ -124,6 +129,8 @@ export default function PilotsPage() {
                 });
             });
 
+            const eventosPorPiloto = buildPilotEventHistory(events, gt7Map);
+
             // Convertir Sets a Arrays y ordenar por puntos totales
             const statsArray = Object.values(pilotMap).map(p => ({
                 ...p,
@@ -131,7 +138,17 @@ export default function PilotsPage() {
                 teams: [...p.teams],
                 categories: [...p.categories],
                 championsCount: p.championships.filter(c => c.finalPosition === 1).length,
-                avgPointsPerRace: p.totalRaces > 0 ? (p.totalPoints / p.totalRaces).toFixed(1) : '0'
+                avgPointsPerRace: p.totalRaces > 0 ? (p.totalPoints / p.totalRaces).toFixed(1) : '0',
+                // El piloto puede figurar en los eventos por su psnId aunque
+                // aquí ya esté normalizado al GT7 ID. Se fusionan las listas de
+                // todos sus alias (no basta con quedarse con la primera que
+                // aparezca: puede haber participaciones repartidas) y se
+                // deduplica por evento.
+                events: Object.values(
+                    [p.name, ...p.aliases]
+                        .flatMap(alias => eventosPorPiloto[alias] || [])
+                        .reduce((acc, evento) => ({ ...acc, [evento.id]: evento }), {})
+                ).sort((a, b) => (b.date || '').localeCompare(a.date || ''))
             })).sort((a, b) => b.totalPoints - a.totalPoints);
 
             setGlobalStats(statsArray);
@@ -282,6 +299,69 @@ export default function PilotsPage() {
                             </div>
                         ))}
                     </div>
+
+                    {/* Historial de eventos sueltos. Solo se pinta si el
+                        piloto ha corrido alguno: la mayoría de perfiles
+                        antiguos no tienen ninguno y una sección vacía solo
+                        estorba. */}
+                    {pilot.events.length > 0 && (() => {
+                        const resumen = resumirEventos(pilot.events);
+                        return (
+                            <>
+                                <h2 className="text-2xl font-bold text-white mt-8 mb-4 flex items-center gap-2">
+                                    🎪 Eventos disputados ({resumen.total})
+                                </h2>
+                                {resumen.conResultado > 0 && (
+                                    <p className="text-gray-400 text-sm -mt-2 mb-4">
+                                        {resumen.victorias > 0 && <span className="text-yellow-400 mr-3">🏆 {resumen.victorias} victorias</span>}
+                                        {resumen.podios > 0 && <span className="text-gray-300 mr-3">🥇 {resumen.podios} podios</span>}
+                                        <span>Resultados publicados en {resumen.conResultado} de {resumen.total}</span>
+                                    </p>
+                                )}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {pilot.events.map(evento => (
+                                        <div
+                                            key={evento.id}
+                                            className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-5 border border-white/10 hover:border-orange-500/30 transition-all cursor-pointer"
+                                            onClick={() => router.push(`/events?id=${evento.id}`)}
+                                        >
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="text-base font-bold text-white mb-1">{evento.title}</h3>
+                                                    <div className="flex items-center gap-3 text-sm text-gray-400 flex-wrap">
+                                                        {evento.date && <span>📅 {formatDateFull(evento.date)}</span>}
+                                                        {evento.track && <span className="truncate">🏁 {evento.track}</span>}
+                                                    </div>
+                                                    <div className="flex items-center gap-3 text-xs text-gray-500 mt-2 flex-wrap">
+                                                        {evento.category && <span>🏷️ {evento.category}</span>}
+                                                        {evento.participantes > 0 && <span>👥 {evento.participantes} inscritos</span>}
+                                                        {evento.pole && <span className="text-purple-400">⏱️ Pole</span>}
+                                                        {evento.fastestLap && <span className="text-cyan-400">⚡ V. rápida</span>}
+                                                    </div>
+                                                </div>
+                                                <div className="text-right flex-shrink-0">
+                                                    {evento.dnf ? (
+                                                        <span className="text-red-400 text-sm font-bold">💀 DNF</span>
+                                                    ) : evento.position != null ? (
+                                                        <>
+                                                            <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-lg font-bold ${getPositionBg(evento.position)}`}>
+                                                                {getPositionDisplay(evento.position)}
+                                                            </div>
+                                                            <div className="text-gray-500 text-xs mt-1">de {evento.totalResultados}</div>
+                                                        </>
+                                                    ) : (
+                                                        // Muchos eventos nunca llegan a publicar resultados:
+                                                        // se dice, en vez de dejar el hueco vacío.
+                                                        <span className="text-gray-500 text-xs">Sin resultados</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        );
+                    })()}
 
                     {/* Botón volver */}
                     <div className="mt-8 flex gap-4">
