@@ -10,6 +10,8 @@ import {
     localRaceTime,
     calculateProgress,
     getNextRace,
+    getNextEvent,
+    buildGt7IdMap,
     getStandings,
     getDriverStandings,
     getPositionBg,
@@ -127,14 +129,16 @@ export default function ChampionshipDetailPage() {
 
     const standings = getStandings(championship, teams, tracks);
     const nextRace = getNextRace(tracks);
+    // La Pre-Qualy va antes que la Ronda 1: si sigue pendiente, es ella lo
+    // próximo que el piloto necesita saber, no la carrera.
+    const nextEvent = getNextEvent(championship, tracks);
     const progress = calculateProgress(tracks, championship);
 
     // Mapa driverName → gt7Id desde registrations (para display en tablas)
-    const driverGt7Map = {};
-    (championship.registrations || []).forEach(r => {
-        const key = r.name || r.psnId || r.gt7Id;
-        if (key && r.gt7Id) driverGt7Map[key] = r.gt7Id;
-    });
+    // Nombre → GT7 ID. Helper compartido con la página de pilotos para que
+    // todas las listas coteen igual (y cubre también pilotos de equipo, que
+    // el mapeo anterior aquí se saltaba).
+    const driverGt7Map = buildGt7IdMap(championship);
 
     // ── Entradas invalidadas por uso de autos ──
     // Las declaraciones viven en su propia subcolección, así que se vuelcan
@@ -1029,6 +1033,7 @@ export default function ChampionshipDetailPage() {
                                 <DriverStatsPanel
                                     driverStandings={advancedDriverStandings}
                                     stats={driverStats}
+                                    driverGt7Map={driverGt7Map}
                                 />
                             </div>
                         )}
@@ -2049,48 +2054,95 @@ export default function ChampionshipDetailPage() {
                     {/* Sidebar - 1 column */}
                     <div className="lg:col-span-1 min-w-0">
                         <div className="sticky top-24 space-y-6">
-                            {/* Próxima Carrera */}
-                            {nextRace && (
-                                <div className="bg-gradient-to-br from-orange-600 to-red-600 rounded-xl p-6 shadow-xl">
-                                    <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-                                        🏁 Próxima Carrera
-                                    </h3>
-                                    <div className="space-y-3">
-                                        <div>
-                                            <div className="text-white/80 text-sm mb-1">Ronda {nextRace.round}</div>
-                                            <div className="text-white font-bold text-xl">{nextRace.name}</div>
-                                        </div>
-                                        <div className="text-white/90 text-sm">
-                                            📅 {formatDateFull(nextRace.date)}
-                                        </div>
-                                        {(() => {
-                                            const hora = getRaceTime(championship, nextRace);
-                                            const local = localRaceTime(nextRace.date, hora);
-                                            return (
-                                                <div className="text-white/90 text-sm">
-                                                    🕐 {hora}h <span className="opacity-70">(España)</span>
-                                                    {local && <span className="opacity-70"> · {local}h tu hora</span>}
+                            {/* Próximo evento: Pre-Qualy si está pendiente, si no la carrera */}
+                            {nextEvent && (() => {
+                                const esPq = nextEvent.tipo === 'prequaly';
+                                const t = nextEvent.track;
+                                const hora = getRaceTime(championship, t);
+                                const local = localRaceTime(nextEvent.date, hora);
+                                return (
+                                    <div className={`rounded-xl p-6 shadow-xl bg-gradient-to-br ${esPq ? 'from-purple-600 to-indigo-700' : 'from-orange-600 to-red-600'}`}>
+                                        <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
+                                            {esPq ? '🎯 Pre-Qualy' : '🏁 Próxima Carrera'}
+                                        </h3>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <div className="text-white/80 text-sm mb-1">
+                                                    {esPq ? 'Clasificatoria previa' : `Ronda ${t.round}`}
                                                 </div>
-                                            );
-                                        })()}
-                                        {nextRace.country && (
+                                                <div className="text-white font-bold text-xl">{nextEvent.name}</div>
+                                            </div>
                                             <div className="text-white/90 text-sm">
-                                                📍 {nextRace.country}
+                                                📅 {formatDateFull(nextEvent.date)}
                                             </div>
-                                        )}
-                                        {nextRace.layoutImage && (
-                                            <div className="relative w-full h-32 bg-black/30 rounded-lg overflow-hidden mt-4">
-                                                <Image
-                                                    src={nextRace.layoutImage}
-                                                    alt={nextRace.name}
-                                                    fill
-                                                    className="object-contain p-2"
-                                                />
+                                            <div className="text-white/90 text-sm">
+                                                🕐 {hora}h <span className="opacity-70">(España)</span>
+                                                {local && <span className="opacity-70"> · {local}h tu hora</span>}
                                             </div>
-                                        )}
+                                            {!esPq && t.country && (
+                                                <div className="text-white/90 text-sm">
+                                                    📍 {t.country}
+                                                </div>
+                                            )}
+                                            {esPq && (
+                                                <p className="text-white/80 text-xs">
+                                                    Se disputa antes de la Ronda 1 y define el reparto de salas.
+                                                </p>
+                                            )}
+                                            {!esPq && t.layoutImage && (
+                                                <div className="relative w-full h-32 bg-black/30 rounded-lg overflow-hidden mt-4">
+                                                    <Image
+                                                        src={t.layoutImage}
+                                                        alt={t.name}
+                                                        fill
+                                                        className="object-contain p-2"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                );
+                            })()}
+
+                            {/* Declaración de autos — la sección completa vive en la
+                                pestaña Información, a media página: sin este acceso en
+                                la barra lateral (siempre visible) los pilotos no la
+                                encontraban. */}
+                            {championship.carUsageTracking?.enabled
+                                && championship.carUsageTracking.mode !== 'fixed'
+                                && (() => {
+                                    const cat = championship.carUsageTracking;
+                                    const elegibles = flatRegs.filter(r =>
+                                        r.status === 'approved' || !championship.registration?.requiresApproval
+                                    );
+                                    if (elegibles.length === 0) return null;
+                                    const declarados = elegibles.filter(r => (r.declaredCars || []).length > 0).length;
+                                    const limite = cat.declarationDeadline
+                                        ? new Date(cat.declarationDeadline + 'T23:59:59')
+                                        : null;
+                                    const vencido = limite && new Date() > limite;
+                                    return (
+                                        <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-4">
+                                            <h3 className="text-white font-bold mb-2">🚗 Tus autos</h3>
+                                            <p className="text-gray-300 text-sm mb-3">
+                                                {vencido
+                                                    ? 'El plazo para declarar ya terminó.'
+                                                    : `Declara los ${cat.maxCarsPerDriver ?? 3} autos con los que vas a competir${limite ? ` antes del ${limite.toLocaleDateString('es-ES')}` : ''}.`}
+                                            </p>
+                                            <button
+                                                onClick={() => setShowCarDeclaration(true)}
+                                                className={`w-full px-4 py-2 rounded-lg font-semibold text-sm transition-all ${vencido
+                                                    ? 'bg-white/10 hover:bg-white/20 text-white'
+                                                    : 'bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white'}`}
+                                            >
+                                                {vencido ? '🔒 Ver declaraciones' : '📋 Declarar mis autos'}
+                                            </button>
+                                            <p className="text-gray-400 text-xs mt-2 text-center">
+                                                {declarados} de {elegibles.length} pilotos ya declararon
+                                            </p>
+                                        </div>
+                                    );
+                                })()}
 
                             {/* Progreso rápido */}
                             <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-4">

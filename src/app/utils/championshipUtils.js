@@ -51,6 +51,76 @@ export const calculateProgress = (tracks, championship) => {
  * @param {Array} tracks - Array de pistas del campeonato
  * @returns {Object|null} Próxima pista o null
  */
+/**
+ * Mapa `nombre o psnId` → `GT7 ID`, a partir de las inscripciones.
+ *
+ * Todo el modelo se cruza por nombre (no hay ids relacionales) y ese nombre
+ * puede ser el psnId, el nombre real o el gt7Id según cómo se inscribiera
+ * cada piloto. Para que las listas no muestren unas veces el PSN y otras el
+ * GT7 ID, se cotejan contra las inscripciones y se muestra siempre el GT7 ID.
+ *
+ * Acepta un campeonato o una lista (la página de pilotos agrega varios).
+ *
+ * @param {Object|Array} championships
+ * @returns {Object} { [nombreOPsn]: gt7Id }
+ */
+export const buildGt7IdMap = (championships) => {
+    const lista = Array.isArray(championships) ? championships : [championships];
+    const map = {};
+    lista.filter(Boolean).forEach(champ => {
+        (champ.registrations || []).forEach(reg => {
+            // Inscripción de equipo: cada piloto trae sus propios ids
+            const entradas = Array.isArray(reg.drivers) && reg.drivers.length > 0
+                ? reg.drivers
+                : [reg];
+            entradas.forEach(e => {
+                if (!e.gt7Id) return;
+                [e.name, e.psnId].forEach(alias => {
+                    if (alias && alias !== e.gt7Id) map[alias] = e.gt7Id;
+                });
+            });
+        });
+    });
+    return map;
+};
+
+/** Nombre a mostrar de un piloto: su GT7 ID si se conoce. */
+export const displayDriverName = (name, gt7Map = {}) => gt7Map[name] || name;
+
+/**
+ * Próximo evento del campeonato: la Pre-Qualy si está pendiente y cae antes
+ * que la siguiente carrera, o la carrera en caso contrario.
+ *
+ * La Pre-Qualy se considera pendiente mientras no tenga resultados cargados.
+ * Sin esto la tarjeta anunciaba la Ronda 1 aunque la Pre-Qualy fuese antes,
+ * que es justo lo que el piloto necesita saber primero.
+ *
+ * @returns {{tipo: 'prequaly'|'carrera', date: string, name: string, track?: Object}|null}
+ */
+export const getNextEvent = (championship, tracks) => {
+    const nextRace = getNextRace(tracks);
+
+    const pq = championship?.preQualy;
+    const pqPendiente = pq?.enabled
+        && pq.date
+        && (pq.results || []).length === 0;
+
+    if (pqPendiente) {
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        const fechaPq = new Date(pq.date + 'T00:00:00');
+        const yaPaso = fechaPq < hoy;
+        const antesQueLaCarrera = !nextRace || fechaPq <= new Date(nextRace.date + 'T00:00:00');
+        // Si ya pasó la fecha pero siguen sin cargarse resultados, se sigue
+        // anunciando: es información pendiente, no caducada.
+        if (!yaPaso && antesQueLaCarrera) {
+            return { tipo: 'prequaly', date: pq.date, name: pq.track || 'Pre-Qualy', prequaly: pq };
+        }
+    }
+
+    return nextRace ? { tipo: 'carrera', date: nextRace.date, name: nextRace.name, track: nextRace } : null;
+};
+
 export const getNextRace = (tracks) => {
     if (!tracks || tracks.length === 0) return null;
 

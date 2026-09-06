@@ -8,7 +8,15 @@ export {
     raceDateTime,
     localRaceTime,
 } from './dateUtils';
-export { calculateProgress, getNextRace, getStandings, getDriverStandings } from './championshipUtils';
+export {
+    calculateProgress,
+    getNextRace,
+    getNextEvent,
+    getStandings,
+    getDriverStandings,
+    buildGt7IdMap,
+    displayDriverName,
+} from './championshipUtils';
 export { calculateAdvancedStandings, getDriverStats, compareDrivers, getStandingsByCategory } from './standingsCalculator';
 export { flattenRegistrations } from './carUsageCalculator';
 export { compressImage, validateImageFile } from './imageCompression';

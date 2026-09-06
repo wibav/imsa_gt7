@@ -5,6 +5,7 @@ import { FirebaseService } from "../services/firebaseService";
 import { calculateAdvancedStandings } from "../utils/standingsCalculator";
 import { formatDateFull } from "../utils/dateUtils";
 import { getPositionDisplay, getPositionBg } from "../utils/constants";
+import { buildGt7IdMap } from "../utils/championshipUtils";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
 
 /**
@@ -45,16 +46,24 @@ export default function PilotsPage() {
             const allDetails = await Promise.all(detailsPromises);
             setChampionshipDetails(allDetails);
 
-            // Agregar stats globales por piloto
+            // Agregar stats globales por piloto.
+            // Se normaliza al GT7 ID (cotejando contra las inscripciones de
+            // TODOS los campeonatos, igual que la clasificación): antes cada
+            // piloto se listaba con el identificador con el que se hubiera
+            // inscrito — normalmente el psnId — y uno que figurase por psnId
+            // en un campeonato y por gt7Id en otro salía como dos pilotos.
+            const gt7Map = buildGt7IdMap(allDetails.map(d => d.championship));
             const pilotMap = {};
 
             allDetails.forEach(({ championship, teams, tracks, penalties }) => {
                 const { driverStandings } = calculateAdvancedStandings(championship, teams, tracks, penalties);
 
                 driverStandings.forEach(driver => {
-                    if (!pilotMap[driver.name]) {
-                        pilotMap[driver.name] = {
-                            name: driver.name,
+                    const nombre = gt7Map[driver.name] || driver.name;
+                    if (!pilotMap[nombre]) {
+                        pilotMap[nombre] = {
+                            name: nombre,
+                            aliases: new Set(),
                             totalPoints: 0,
                             totalWins: 0,
                             totalPodiums: 0,
@@ -69,7 +78,10 @@ export default function PilotsPage() {
                         };
                     }
 
-                    const pilot = pilotMap[driver.name];
+                    const pilot = pilotMap[nombre];
+                    // Se guardan los alias para que los enlaces antiguos
+                    // (?name=psnId) sigan resolviendo al piloto correcto.
+                    if (driver.name !== nombre) pilot.aliases.add(driver.name);
                     pilot.totalPoints += driver.totalPoints;
                     pilot.totalWins += driver.wins;
                     pilot.totalPodiums += driver.podiums;
@@ -115,6 +127,7 @@ export default function PilotsPage() {
             // Convertir Sets a Arrays y ordenar por puntos totales
             const statsArray = Object.values(pilotMap).map(p => ({
                 ...p,
+                aliases: [...p.aliases],
                 teams: [...p.teams],
                 categories: [...p.categories],
                 championsCount: p.championships.filter(c => c.finalPosition === 1).length,
@@ -137,7 +150,9 @@ export default function PilotsPage() {
     // VISTA DETALLE DE UN PILOTO
     // ═══════════════════════════════════════
     if (selectedPilot) {
-        const pilot = globalStats.find(p => p.name === selectedPilot);
+        const pilot = globalStats.find(p =>
+            p.name === selectedPilot || (p.aliases || []).includes(selectedPilot)
+        );
 
         if (!pilot) {
             return (

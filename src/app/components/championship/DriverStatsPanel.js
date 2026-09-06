@@ -4,7 +4,10 @@
  * Panel de estadísticas detalladas de pilotos.
  * Muestra rankings por victorias, podiums, poles, vueltas rápidas y récords.
  */
-export default function DriverStatsPanel({ driverStandings = [], stats = null }) {
+export default function DriverStatsPanel({ driverStandings = [], stats = null, driverGt7Map = {} }) {
+    // Igual que StandingsTable: se muestra el GT7 ID, no el psnId con el que
+    // el piloto pudiera haberse inscrito.
+    const nombre = (n) => driverGt7Map[n] || n;
     if (!stats || driverStandings.length === 0) {
         return (
             <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
@@ -27,7 +30,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null })
                             <div className="text-yellow-400 text-xs font-semibold uppercase tracking-wider mb-1">
                                 Mejor Puntuación en Carrera
                             </div>
-                            <div className="text-white font-bold text-lg">{records.bestSingleRace.driver}</div>
+                            <div className="text-white font-bold text-lg">{nombre(records.bestSingleRace.driver)}</div>
                             <div className="text-yellow-300 text-2xl font-bold">{records.bestSingleRace.points} pts</div>
                         </div>
                     )}
@@ -37,7 +40,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null })
                             <div className="text-blue-400 text-xs font-semibold uppercase tracking-wider mb-1">
                                 Más Consistente
                             </div>
-                            <div className="text-white font-bold text-lg">{records.mostConsistent.name}</div>
+                            <div className="text-white font-bold text-lg">{nombre(records.mostConsistent.name)}</div>
                             <div className="text-blue-300 text-2xl font-bold">
                                 {records.mostConsistent.races > 0
                                     ? (records.mostConsistent.totalPoints / records.mostConsistent.races).toFixed(1)
@@ -51,7 +54,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null })
                             <div className="text-red-400 text-xs font-semibold uppercase tracking-wider mb-1">
                                 Más Abandonos
                             </div>
-                            <div className="text-white font-bold text-lg">{records.mostDNFs.name}</div>
+                            <div className="text-white font-bold text-lg">{nombre(records.mostDNFs.name)}</div>
                             <div className="text-red-300 text-2xl font-bold">{records.mostDNFs.dnfs} DNFs</div>
                         </div>
                     )}
@@ -62,6 +65,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null })
             <div className="grid md:grid-cols-2 gap-6">
                 {/* Top Victorias */}
                 <StatRankingCard
+                    driverGt7Map={driverGt7Map}
                     title="Victorias"
                     icon="🏆"
                     items={topWinners}
@@ -71,6 +75,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null })
                 />
                 {/* Top Podiums */}
                 <StatRankingCard
+                    driverGt7Map={driverGt7Map}
                     title="Podiums"
                     icon="🥇"
                     items={topPodiums}
@@ -80,6 +85,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null })
                 />
                 {/* Top Poles */}
                 <StatRankingCard
+                    driverGt7Map={driverGt7Map}
                     title="Pole Positions"
                     icon="⚡"
                     items={topPoles}
@@ -89,6 +95,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null })
                 />
                 {/* Top Vueltas Rápidas */}
                 <StatRankingCard
+                    driverGt7Map={driverGt7Map}
                     title="Vueltas Rápidas"
                     icon="⏱️"
                     items={topFastestLaps}
@@ -132,7 +139,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null })
                                                 <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                                                     style={{ backgroundColor: d.teamColor }} />
                                             )}
-                                            <span className="font-semibold truncate max-w-[140px]">{d.name}</span>
+                                            <span className="font-semibold truncate max-w-[140px]">{nombre(d.name)}</span>
                                         </div>
                                     </td>
                                     <td className="px-4 py-3 text-gray-400 text-xs hidden md:table-cell truncate max-w-[100px]">
@@ -171,7 +178,8 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null })
 /**
  * Card de ranking para una estadística específica.
  */
-function StatRankingCard({ title, icon, items, valueKey, colorClass, bgClass }) {
+function StatRankingCard({ title, icon, items, valueKey, colorClass, bgClass, driverGt7Map = {} }) {
+    const nombre = (n) => driverGt7Map[n] || n;
     if (!items || items.length === 0) {
         return (
             <div className="bg-white/5 border border-white/10 rounded-xl p-5">
@@ -200,7 +208,7 @@ function StatRankingCard({ title, icon, items, valueKey, colorClass, bgClass }) 
                                     <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                                         style={{ backgroundColor: d.teamColor }} />
                                 )}
-                                <span className="text-white text-sm font-medium">{d.name}</span>
+                                <span className="text-white text-sm font-medium">{nombre(d.name)}</span>
                             </div>
                         </div>
                         <span className={`font-bold text-lg ${colorClass}`}>{d[valueKey]}</span>
