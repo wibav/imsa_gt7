@@ -121,6 +121,50 @@ export const getNextEvent = (championship, tracks) => {
     return nextRace ? { tipo: 'carrera', date: nextRace.date, name: nextRace.name, track: nextRace } : null;
 };
 
+/**
+ * Estado de las inscripciones de un campeonato.
+ *
+ * Existe porque la lógica estaba duplicada y divergía: la tarjeta miraba plazo
+ * y cupos, y el panel de la página de detalle solo miraba `enabled` y el
+ * estado — así que un campeonato ya disputado seguía ofreciendo "Inscribirme".
+ *
+ * Un campeonato con todas las carreras puntuadas se considera terminado
+ * aunque su `status` siga en "active": nadie cambia el estado a mano al
+ * acabar la última carrera, y ese es justo el caso que se colaba.
+ *
+ * @param {Object} championship
+ * @param {Array} tracks - Pistas del campeonato (para saber si ya se corrió)
+ * @returns {{abierta: boolean, motivo: string|null, etiqueta: string,
+ *            inscritos: number, cupos: number}}
+ */
+export const getRegistrationState = (championship, tracks = []) => {
+    const reg = championship?.registration || {};
+    const cupos = reg.maxParticipants || 0;
+
+    const inscritos = (championship?.registrations || []).filter(
+        r => r.status === 'approved' || (!reg.requiresApproval && r.status !== 'rejected')
+    ).length;
+
+    const cerrada = (motivo, etiqueta) => ({ abierta: false, motivo, etiqueta, inscritos, cupos });
+
+    if (!reg.enabled) return cerrada('deshabilitada', 'Inscripción cerrada');
+    if (['completed', 'archived'].includes(championship?.status)) {
+        return cerrada('finalizado', 'Campeonato finalizado');
+    }
+
+    const progreso = calculateProgress(tracks, championship);
+    if (tracks.length > 0 && progreso.completed >= progreso.total) {
+        return cerrada('finalizado', 'Campeonato finalizado');
+    }
+
+    if (reg.deadline && new Date() > new Date(reg.deadline + 'T23:59:59')) {
+        return cerrada('plazo', 'Plazo de inscripción vencido');
+    }
+    if (cupos > 0 && inscritos >= cupos) return cerrada('completo', 'Inscripción cerrada');
+
+    return { abierta: true, motivo: null, etiqueta: 'Inscripción abierta', inscritos, cupos };
+};
+
 export const getNextRace = (tracks) => {
     if (!tracks || tracks.length === 0) return null;
 

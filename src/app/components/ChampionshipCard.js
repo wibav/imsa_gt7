@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { calculateProgress, getNextRace } from "../utils/championshipUtils";
+import { calculateProgress, getNextEvent, getRegistrationState } from "../utils/championshipUtils";
 import { formatDateShort } from "../utils/dateUtils";
 import { STATUS_COLORS, STATUS_LABELS } from "../utils/constants";
 import StatusBadge from "./common/StatusBadge";
@@ -20,17 +20,12 @@ export { calculateProgress } from "../utils/championshipUtils";
 export default function ChampionshipCard({ championship, tracks = [], orgName = null, onClick, onRegister }) {
     const router = useRouter();
     const progress = calculateProgress(tracks, championship);
-    const nextRace = getNextRace(tracks);
+    // Próximo EVENTO, no próxima carrera: si la Pre-Qualy está pendiente y cae
+    // antes, es lo que el piloto necesita ver primero.
+    const nextEvent = getNextEvent(championship, tracks);
 
-    const registrationEnabled = championship.registration?.enabled && !['completed', 'archived'].includes(championship.status);
-    const approvedCount = registrationEnabled
-        ? (championship.registrations || []).filter(r => r.status === 'approved' || (!championship.registration?.requiresApproval && r.status !== 'rejected')).length
-        : 0;
-    const maxParticipants = championship.registration?.maxParticipants || 0;
-    const isFull = maxParticipants > 0 && approvedCount >= maxParticipants;
-    const deadline = championship.registration?.deadline;
-    const deadlinePassed = deadline ? new Date() > new Date(deadline + 'T23:59:59') : false;
-    const canRegister = registrationEnabled && !isFull && !deadlinePassed;
+    const registro = getRegistrationState(championship, tracks);
+    const canRegister = registro.abierta;
 
     const handleClick = () => {
         if (onClick) {
@@ -145,17 +140,19 @@ export default function ChampionshipCard({ championship, tracks = [], orgName = 
                     </div>
                 </div>
 
-                {/* Próxima carrera */}
-                {nextRace && (
+                {/* Próximo evento */}
+                {nextEvent && (
                     <div className="bg-gradient-to-r from-orange-600/20 to-red-600/20 border border-orange-400/30 rounded-lg p-3 mb-4">
                         <div className="flex items-center justify-between">
                             <div className="flex-1 min-w-0">
-                                <div className="text-orange-300 text-xs font-semibold mb-1">🏁 Próxima Carrera</div>
-                                <div className="text-white font-bold text-sm truncate">{nextRace.name}</div>
+                                <div className="text-orange-300 text-xs font-semibold mb-1">
+                                    {nextEvent.tipo === 'prequaly' ? '⏱️ Pre-Qualy' : '🏁 Próxima Carrera'}
+                                </div>
+                                <div className="text-white font-bold text-sm truncate">{nextEvent.name}</div>
                             </div>
                             <div className="text-right ml-2">
                                 <div className="text-orange-200 text-sm font-semibold">
-                                    {formatDateShort(nextRace.date)}
+                                    {formatDateShort(nextEvent.date)}
                                 </div>
                             </div>
                         </div>
@@ -169,23 +166,23 @@ export default function ChampionshipCard({ championship, tracks = [], orgName = 
                     </p>
                 )}
 
-                {/* Inscripción abierta: conteo de cupos */}
-                {registrationEnabled && (
+                {/* Estado de la inscripción */}
+                {championship.registration?.enabled && (
                     <div className={`flex items-center justify-between rounded-lg px-3 py-2 mb-4 ${
-                        isFull || deadlinePassed
-                            ? 'bg-red-500/10 border border-red-400/30'
-                            : 'bg-green-500/10 border border-green-400/30'
+                        registro.abierta
+                            ? 'bg-green-500/10 border border-green-400/30'
+                            : 'bg-red-500/10 border border-red-400/30'
                     }`}>
                         <div className="flex items-center gap-2 text-sm">
-                            <span className={isFull || deadlinePassed ? 'text-red-400' : 'text-green-400'}>📝</span>
-                            <span className={`font-semibold ${isFull || deadlinePassed ? 'text-red-300' : 'text-green-300'}`}>
-                                {isFull ? 'Inscripción cerrada' : deadlinePassed ? 'Plazo vencido' : 'Inscripción abierta'}
+                            <span className={registro.abierta ? 'text-green-400' : 'text-red-400'}>📝</span>
+                            <span className={`font-semibold ${registro.abierta ? 'text-green-300' : 'text-red-300'}`}>
+                                {registro.etiqueta}
                             </span>
                         </div>
-                        {maxParticipants > 0 && (
+                        {registro.cupos > 0 && (
                             <div className="flex items-center gap-2 text-sm">
-                                <span className="text-gray-300">👥 {approvedCount}/{maxParticipants}</span>
-                                {isFull && <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-medium">LLENO</span>}
+                                <span className="text-gray-300">👥 {registro.inscritos}/{registro.cupos}</span>
+                                {registro.motivo === 'completo' && <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-medium">LLENO</span>}
                             </div>
                         )}
                     </div>

@@ -13,6 +13,7 @@ import {
     calculateProgress,
     getNextRace,
     getNextEvent,
+    getRegistrationState,
     buildGt7IdMap,
     getStandings,
     getDriverStandings,
@@ -135,6 +136,10 @@ export default function ChampionshipDetailPage() {
     // próximo que el piloto necesita saber, no la carrera.
     const nextEvent = getNextEvent(championship, tracks);
     const progress = calculateProgress(tracks, championship);
+    // Mismo cálculo que usa la tarjeta del listado: este panel solo miraba
+    // `enabled` y el estado, así que un campeonato ya disputado seguía
+    // ofreciendo "Inscribirme".
+    const registro = getRegistrationState(championship, tracks);
 
     // Mapa driverName → gt7Id desde registrations (para display en tablas)
     // Nombre → GT7 ID. Helper compartido con la página de pilotos para que
@@ -2178,7 +2183,7 @@ export default function ChampionshipDetailPage() {
                             </div>
 
                             {/* Inscripción */}
-                            {championship.registration?.enabled && !['completed', 'archived'].includes(championship.status) && (
+                            {championship.registration?.enabled && registro.abierta && (
                                 <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-400/30 rounded-xl p-6">
                                     <h3 className="text-white font-bold text-lg mb-2 flex items-center gap-2">
                                         📝 Inscríbete
@@ -2213,6 +2218,32 @@ export default function ChampionshipDetailPage() {
                                     >
                                         🏁 Inscribirme
                                     </button>
+                                </div>
+                            )}
+
+                            {/* Inscripción cerrada: se dice por qué, en vez de
+                                hacer desaparecer el bloque sin explicación. */}
+                            {championship.registration?.enabled && !registro.abierta && (
+                                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                                    <div className="flex items-center gap-2 text-gray-300 font-semibold">
+                                        <span>🔒</span>
+                                        <span>{registro.etiqueta}</span>
+                                    </div>
+                                    {registro.motivo === 'plazo' && championship.registration?.deadline && (
+                                        <p className="text-sm text-gray-400 mt-2">
+                                            El plazo terminó el {new Date(championship.registration.deadline + 'T00:00:00').toLocaleDateString('es-ES')}.
+                                        </p>
+                                    )}
+                                    {registro.motivo === 'completo' && (
+                                        <p className="text-sm text-gray-400 mt-2">
+                                            Se han cubierto las {registro.cupos} plazas disponibles.
+                                        </p>
+                                    )}
+                                    {registro.motivo === 'finalizado' && (
+                                        <p className="text-sm text-gray-400 mt-2">
+                                            Todas las carreras se han disputado.
+                                        </p>
+                                    )}
                                 </div>
                             )}
 

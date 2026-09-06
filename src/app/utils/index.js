@@ -14,6 +14,7 @@ export {
     calculateProgress,
     getNextRace,
     getNextEvent,
+    getRegistrationState,
     getStandings,
     getDriverStandings,
     buildGt7IdMap,
