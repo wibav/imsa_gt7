@@ -51,8 +51,9 @@ export default function OrganizacionAdmin() {
             validateImageFile(file);
             setUploading(true);
             const compressed = await compressImage(file);
-            const path = `organizations/${orgId}/branding/logo_${Date.now()}`;
-            const url = await FirebaseService.uploadImage(compressed, path);
+            const { url } = await FirebaseService.uploadImageDeduped(
+                compressed, `organizations/${orgId}/branding`, compressed.name
+            );
             setLogoUrl(url);
         } catch (err) {
             setError(err.message || 'No se pudo subir el logo.');

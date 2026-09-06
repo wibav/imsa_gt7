@@ -211,8 +211,9 @@ export default function TrackFormModal({ track, championship, onSave, onClose })
             validateImageFile(file);
             setUploadingImage(true);
             const compressed = await compressImage(file);
-            const path = `tracks/${Date.now()}_${compressed.name.replace(/\s/g, '_')}`;
-            const url = await FirebaseService.uploadImage(compressed, path);
+            // Nombre por hash de contenido: subir el mismo layout dos veces
+            // reutiliza el objeto en vez de duplicarlo en el bucket.
+            const { url } = await FirebaseService.uploadImageDeduped(compressed, 'tracks', compressed.name);
             setForm(prev => ({ ...prev, layoutImage: url }));
         } catch (err) {
             alert('Error al subir imagen: ' + err.message);

@@ -134,6 +134,24 @@ export class FirebaseService {
   }
 
   // Guardar pistas
+  /**
+   * Borra una pista del catálogo global.
+   *
+   * Existe porque saveTracks() solo escribe (setDoc por pista): pasarle la
+   * lista ya filtrada —como hacía /tracksAdmin— reescribía las 120 pistas
+   * supervivientes y dejaba intacta la que se quería eliminar, mientras la UI
+   * anunciaba "eliminada correctamente".
+   */
+  static async deleteTrackFromCatalog(trackId) {
+    try {
+      await deleteDoc(doc(collection(db, "tracks"), String(trackId)));
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting track: ", error);
+      throw error;
+    }
+  }
+
   static async saveTracks(tracks) {
     try {
       const promises = tracks.map(track =>
@@ -1719,6 +1737,63 @@ export class FirebaseService {
    * @param {string} path - Ruta en Storage (ej: "championships/champ123/banners/banner.jpg")
    * @returns {Promise<string>} URL de descarga de la imagen
    */
+  /**
+   * Sube una imagen nombrando el objeto por el hash de su contenido, de forma
+   * que subir dos veces el mismo archivo reutiliza el objeto existente en vez
+   * de crear una copia.
+   *
+   * El patrón anterior (`${Date.now()}_${nombre}`) garantizaba un nombre único
+   * por subida, así que cada reintento —o cada organizador que sube el mismo
+   * layout oficial— dejaba un duplicado byte a byte en el bucket. Con el hash
+   * como nombre la operación es idempotente: mismo contenido, misma ruta.
+   *
+   * No sustituye a la limpieza de huérfanos (scripts/audit-storage-images.js):
+   * evita duplicados, no imágenes que dejan de estar referenciadas.
+   *
+   * @param {File|Blob} file
+   * @param {string} folder - Carpeta destino, sin barra final (ej: "tracks")
+   * @param {string} [displayName] - Nombre legible a conservar en la ruta
+   * @returns {Promise<{url: string, path: string, reused: boolean}>}
+   */
+  static async uploadImageDeduped(file, folder, displayName) {
+    const buffer = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest('SHA-256', buffer);
+    const hash = Array.from(new Uint8Array(digest))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+      .slice(0, 16);
+
+    // El nombre legible es solo para poder identificar el archivo desde la
+    // consola de Firebase; quien determina la identidad del objeto es el hash.
+    const safeName = String(displayName || file.name || 'imagen')
+      .replace(/[^\w.\-]+/g, '_')
+      .slice(-60);
+    const path = `${folder.replace(/\/$/, '')}/${hash}_${safeName}`;
+
+    const storageRef = ref(storage, path);
+    try {
+      const url = await getDownloadURL(storageRef);
+      return { url, path, reused: true };
+    } catch {
+      // No existe todavía (o no se pudo leer): se sube.
+    }
+    const snapshot = await uploadBytes(storageRef, file);
+    const url = await getDownloadURL(snapshot.ref);
+    return { url, path, reused: false };
+  }
+
+  /**
+   * Ruta del objeto en Storage a partir de su URL de descarga, o null si la
+   * URL no es de este bucket (imágenes externas pegadas a mano).
+   *
+   * Cuidado con los paréntesis: encodeURIComponent no escapa ( ) . ! * ' ~, y
+   * los nombres tipo "Captura de pantalla a la(s) 5.22.png" son habituales aquí.
+   */
+  static storagePathFromUrl(url) {
+    const m = /firebasestorage\.googleapis\.com\/v0\/b\/[^/]+\/o\/([^?"'\s]+)/.exec(url || '');
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
   static async uploadImage(file, path) {
     try {
       const storageRef = ref(storage, path);

@@ -991,11 +991,13 @@ export default function ChampionshipForm({ isEditing = false }) {
             // Banner
             let bannerUrl = isEditing ? formData.banner : '';
             if (bannerFile) {
-                const fileName = `${Date.now()}_${bannerFile.name}`;
-                const path = isEditing
-                    ? `championships/${championshipId}/banners/${fileName}`
-                    : `championships/banners/${fileName}`;
-                bannerUrl = await FirebaseService.uploadImage(bannerFile, path);
+                const folder = isEditing
+                    ? `championships/${championshipId}/banners`
+                    : 'championships/banners';
+                const uploaded = await FirebaseService.uploadImageDeduped(
+                    bannerFile, folder, bannerFile.name
+                );
+                bannerUrl = uploaded.url;
             }
 
             const { regulations, regulationsFormat } = normalizeRegulationsForSave({

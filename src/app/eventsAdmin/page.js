@@ -413,8 +413,9 @@ function EventForm({ event, onSave, onCancel, saving }) {
         try {
             validateImageFile(file);
             const compressed = await compressImage(file);
-            const path = `events/${form.id || 'new'}/banner_${Date.now()}`;
-            const url = await FirebaseService.uploadImage(compressed, path);
+            const { url } = await FirebaseService.uploadImageDeduped(
+                compressed, `events/${form.id || 'new'}`, compressed.name
+            );
             updateField('banner', url);
         } catch (err) {
             if (err.message?.includes('imagen') || err.message?.includes('MB')) {
