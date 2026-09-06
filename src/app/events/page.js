@@ -18,6 +18,7 @@ import {
     DAMAGE_OPTIONS,
     WEATHER_TIME_OPTIONS,
     EVENT_TYPES,
+    localRaceTime,
 } from "../utils";
 
 function EventDetailContent() {
@@ -319,7 +320,15 @@ function EventDetailContent() {
                             </h2>
                             <div className="space-y-4">
                                 <InfoRow icon="📅" label="Fecha" value={formatDate(event.date)} />
-                                {event.hour && <InfoRow icon="🕐" label="Hora" value={event.hour} />}
+                                {event.hour && (() => {
+                                    // Igual que en la ficha de campeonato: hora española
+                                    // y, si el visitante está en otra zona, su hora local.
+                                    const local = localRaceTime(event.date, event.hour);
+                                    return (
+                                        <InfoRow icon="🕐" label="Hora"
+                                            value={`${event.hour}h (España)${local ? ` · ${local}h tu hora` : ''}`} />
+                                    );
+                                })()}
                                 {event.track && <InfoRow icon="🏁" label="Circuito" value={event.track} />}
                                 {fmt && <InfoRow icon="🎮" label="Formato" value={fmt.icon ? `${fmt.icon} ${fmt.label}` : fmt.label} />}
                                 {maxP > 0 && (

@@ -160,7 +160,10 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                         {event.hour && (
                             <>
                                 <span className="text-gray-500">•</span>
-                                <span className="text-sm">🕐 {event.hour}</span>
+                                {/* Misma convención que en campeonatos: la hora es
+                                    siempre española, y conviene decirlo porque hay
+                                    pilotos fuera de España. */}
+                                <span className="text-sm">🕐 {event.hour}h <span className="text-gray-400">(España)</span></span>
                             </>
                         )}
                     </div>
