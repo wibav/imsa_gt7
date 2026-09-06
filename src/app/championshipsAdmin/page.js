@@ -12,7 +12,7 @@ import PenaltiesTab from '../components/championship/PenaltiesTab';
 import DivisionsTab from '../components/championship/DivisionsTab';
 import { DEFAULT_SPRINT_POINTS } from '../utils/constants';
 import { notifyResultsSaved, notifyRegistrationUpdated } from '../utils/telegram';
-import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations } from '../utils/carUsageCalculator';
+import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations, applyDeclarations } from '../utils/carUsageCalculator';
 import { isPenaltyCounting } from '../models/Penalty';
 
 /** Convierte "M:SS.mmm" o "SS.mmm" a milisegundos para sort correcto de tiempos */
@@ -46,6 +46,8 @@ export default function ChampionshipDetail() {
     const [editMode, setEditMode] = useState(false);
     const [penalties, setPenalties] = useState([]);
     const [divisions, setDivisions] = useState([]);
+    // Declaraciones de autos: subcolección aparte, ver firestore.rules
+    const [declarations, setDeclarations] = useState({});
     const [championshipsTeams, setChampionshipsTeams] = useState({}); // Equipos por campeonato
 
     // Sección activa del panel principal (cuando no hay championshipId)
@@ -100,14 +102,16 @@ export default function ChampionshipDetail() {
 
         try {
             // Cargar todo en paralelo
-            const [champData, teamsData, tracksData, eventsData, penaltiesData, divisionsData] = await Promise.all([
+            const [champData, teamsData, tracksData, eventsData, penaltiesData, divisionsData, declarationsData] = await Promise.all([
                 FirebaseService.getChampionship(championshipId),
                 FirebaseService.getTeamsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getTracksByChampionship(championshipId).catch(() => []),
                 FirebaseService.getEventsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getPenaltiesByChampionship(championshipId).catch(() => []),
-                FirebaseService.getDivisionsByChampionship(championshipId).catch(() => [])
+                FirebaseService.getDivisionsByChampionship(championshipId).catch(() => []),
+                FirebaseService.getDeclarations(championshipId).catch(() => ({}))
             ]);
+            setDeclarations(declarationsData || {});
 
             setChampionship(champData);
             setTeams(teamsData || []);
@@ -517,6 +521,7 @@ export default function ChampionshipDetail() {
                             teams={teams}
                             championship={championship}
                             divisions={divisions}
+                            declarations={declarations}
                             editMode={editMode}
                             onUpdate={loadChampionshipData}
                         />
@@ -559,6 +564,7 @@ export default function ChampionshipDetail() {
                         <CarUsageTab
                             championship={championship}
                             tracks={tracks}
+                            declarations={declarations}
                         />
                     )}
                 </div>
@@ -1272,7 +1278,7 @@ function TeamsTab({ championshipId, teams, tracks, editMode, onUpdate, champions
 }
 
 // Tab de Pistas con edición de puntajes
-function TracksTab({ championshipId, tracks, teams, championship, editMode, onUpdate, divisions = [] }) {
+function TracksTab({ championshipId, tracks, teams, championship, editMode, onUpdate, divisions = [], declarations = {} }) {
     const { org } = useOrganization();
     // Estados para modal de asignación de posiciones
     const [showPositionsModal, setShowPositionsModal] = useState(false);
@@ -1508,7 +1514,11 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                         carsUsed,
                         currentUsage,
                         championship.carUsageTracking,
-                        championship.registrations || []
+                        // Aplanado: en campeonatos por equipos los pilotos viven en
+                        // registrations[].drivers[], así que sin esto nunca se
+                        // encontraban sus declaredCars y la regla "usó un auto no
+                        // declarado" jamás saltaba (las standings públicas sí aplanan).
+                        applyDeclarations(flattenRegistrations(championship.registrations || []), declarations)
                     );
                     // No bloquear: avisar y guardar de todas formas (los puntos se invalidan en standings)
                     setCarUsageErrors(violations);
@@ -1582,7 +1592,8 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                         carsUsed,
                         currentUsage,
                         championship.carUsageTracking,
-                        championship.registrations || []
+                        // Aplanado por el mismo motivo que en el modo divisiones
+                        applyDeclarations(flattenRegistrations(championship.registrations || []), declarations)
                     );
                     setCarUsageErrors(violations);
                 }
@@ -1990,9 +2001,15 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                             {championship?.carUsageTracking?.enabled && (() => {
                                 const cat = championship.carUsageTracking;
                                 const catalog = cat.carCatalog || [];
-                                // Mapa driver → declaredCars para mostrar opciones del piloto
+                                // Mapa driver → declaredCars para mostrar opciones del piloto.
+                                // Aplanado (equipos) + volcado de la subcolección `declarations`,
+                                // que es donde viven las declaraciones desde que dejaron de
+                                // guardarse dentro de championship.registrations[].
                                 const declaredMap = {};
-                                (championship.registrations || []).forEach(reg => {
+                                applyDeclarations(
+                                    flattenRegistrations(championship.registrations || []),
+                                    declarations
+                                ).forEach(reg => {
                                     const key = reg.gt7Id || reg.name || reg.psnId;
                                     if (key && reg.declaredCars?.length > 0) {
                                         declaredMap[key] = reg.declaredCars;
@@ -2487,9 +2504,18 @@ function EventsTab({ championshipId, events, onUpdate }) {
                     </div>
                 ))}
             </div>
-            <p className="text-gray-400 mt-4 text-center">
-                🚧 Gestión completa de eventos próximamente (FASE 3)
-            </p>
+            {/* Esta pestaña es solo lectura: la gestión real de eventos (crear,
+                editar, resultados, salas) vive en /eventsAdmin, así que en vez
+                de anunciar un "próximamente" que ya existe, se enlaza allí. */}
+            <div className="mt-6 text-center">
+                <a href="/eventsAdmin"
+                    className="inline-block px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white text-sm font-semibold rounded-lg transition-all">
+                    📅 Gestionar eventos
+                </a>
+                <p className="text-gray-400 text-xs mt-2">
+                    Aquí solo se listan; la creación y edición se hace en Gestión de Eventos.
+                </p>
+            </div>
         </div>
     );
 }
@@ -2934,9 +2960,15 @@ function RegistrationsTab({ championshipId, championship, divisions = [], onUpda
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab: Panel de uso de autos (Fase 4)
 // ─────────────────────────────────────────────────────────────────────────────
-function CarUsageTab({ championship, tracks }) {
+function CarUsageTab({ championship, tracks, declarations = {} }) {
     const cat = championship.carUsageTracking || {};
-    const registrations = championship.registrations || [];
+    // Aplanado: sin esto los pilotos de campeonatos por equipos (que viven en
+    // registrations[].drivers[]) aparecían siempre como "sin declaración".
+    // Y volcado de la subcolección `declarations`, donde vive lo declarado.
+    const registrations = applyDeclarations(
+        flattenRegistrations(championship.registrations || []),
+        declarations
+    );
     const maxUses = cat.maxUsesPerCar ?? 2;
     const maxCars = cat.maxCarsPerDriver ?? 3;
     const alertAt = cat.alertThreshold ?? 1;
