@@ -1,4 +1,7 @@
-const CACHE_NAME = 'gt7-champs-v1';
+// Subir esta versión purga la caché anterior al activarse el nuevo SW (ver
+// el listener 'activate'). Hacerlo cuando cambie la estrategia de caché o si
+// hay que forzar que los usuarios suelten assets viejos.
+const CACHE_NAME = 'gt7-champs-v2';
 
 // Archivos del shell de la app que siempre deben estar disponibles offline
 const PRECACHE_ASSETS = [
@@ -52,8 +55,12 @@ self.addEventListener('fetch', (event) => {
     // Network-first para navegación HTML (para que siempre cargue la última versión)
     if (request.mode === 'navigate') {
         event.respondWith(
-            fetch(request)
-                .catch(() => caches.match('/'))
+            // `cache: 'no-store'` salta la caché HTTP del navegador: sin esto,
+            // aunque la estrategia sea network-first, el propio fetch podía
+            // devolver una copia cacheada y el usuario seguía viendo la versión
+            // anterior tras un deploy.
+            fetch(request, { cache: 'no-store' })
+                .catch(() => fetch(request).catch(() => caches.match('/')))
         );
         return;
     }
