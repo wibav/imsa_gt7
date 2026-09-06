@@ -28,7 +28,7 @@ import CarDeclarationModal from '../components/championship/CarDeclarationModal'
 import ExportableStandings from '../components/championship/ExportableStandings';
 import RaceBriefing from '../components/championship/RaceBriefing';
 import ShareButton from '../components/ShareButton';
-import { STREAMING_PLATFORMS } from '../utils/constants';
+import { STREAMING_PLATFORMS, STATUS_LABELS } from '../utils/constants';
 import { SEVERITY_CONFIG, isPenaltyCounting } from '../models/Penalty';
 import { getInvalidatedEntries, flattenRegistrations } from '../utils/carUsageCalculator';
 import { isRegulationsEmpty } from '../utils/regulations';
@@ -215,8 +215,13 @@ export default function ChampionshipDetailPage() {
                             <span className="text-orange-400">{championship.name}</span>
                         </div>
 
-                        {/* Título y info */}
-                        <div className="flex items-end justify-between gap-4">
+                        {/* Título y info — en móvil se apila: con los botones en la
+                            misma fila la cabecera desbordaba el viewport y, al
+                            ensanchar el documento, descuadraba TODOS los modales
+                            de esta página (inscripción, reclamación, declaración
+                            de autos), además de dejar "Ver Stream" fuera de
+                            pantalla e inalcanzable (body tiene overflow-x hidden). */}
+                        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
                             <div>
                                 <h1 className="text-4xl sm:text-5xl font-bold text-white mb-2">
                                     {championship.name}
@@ -242,7 +247,7 @@ export default function ChampionshipDetailPage() {
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 flex-wrap">
                                 {/* Botón Compartir */}
                                 <ShareButton
                                     type="championship"
@@ -1578,7 +1583,7 @@ export default function ChampionshipDetailPage() {
                                             </div>
                                             <div>
                                                 <div className="text-gray-400 text-sm mb-1">Estado</div>
-                                                <div className="text-white font-semibold capitalize">{championship.status}</div>
+                                                <div className="text-white font-semibold">{STATUS_LABELS[championship.status] || championship.status}</div>
                                             </div>
                                             {championship.startDate && (
                                                 <div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
@@ -245,6 +245,9 @@ export default function ChampionshipForm({ isEditing = false }) {
     const [trackFormData, setTrackFormData] = useState(null);
     const [showImportModal, setShowImportModal] = useState(false);
 
+    // Stepper, para centrar el paso activo al avanzar en pantallas estrechas
+    const stepperRef = useRef(null);
+
     // ============================================================
     // Effects
     // ============================================================
@@ -261,6 +264,18 @@ export default function ChampionshipForm({ isEditing = false }) {
         };
         loadFirebaseTracks();
     }, []);
+
+    // Mantener visible el paso activo del stepper (en móvil no caben los 6).
+    // Se busca por atributo en vez de con un ref condicional: el ref se
+    // reasigna entre elementos en cada cambio de paso y no era fiable.
+    // `behavior: 'auto'` a propósito — el desplazamiento suave lo ignoran
+    // algunos navegadores/webviews y el paso se quedaba fuera de pantalla;
+    // aquí importa que quede visible, no la animación.
+    useEffect(() => {
+        stepperRef.current
+            ?.querySelector(`[data-step="${currentStep}"]`)
+            ?.scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' });
+    }, [currentStep]);
 
     // [EDIT] Cargar circuitos del campeonato
     useEffect(() => {
@@ -1131,11 +1146,16 @@ export default function ChampionshipForm({ isEditing = false }) {
                     </div>
                 </div>
 
-                {/* Stepper */}
-                <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-6 mb-6">
-                    <div className="flex items-center justify-between">
+                {/* Stepper — en móvil los 6 pasos no caben (necesitan ~457px), y sin
+                    overflow propio los dos últimos quedaban fuera de pantalla sin
+                    forma de alcanzarlos (body tiene overflow-x hidden). Se hace
+                    desplazable y el paso activo se centra solo al avanzar. */}
+                <div ref={stepperRef} className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-6 mb-6 overflow-x-auto">
+                    <div className="flex items-center justify-between min-w-max sm:min-w-0">
                         {steps.map((step, index) => (
-                            <div key={step.number} className="flex items-center flex-1">
+                            <div key={step.number}
+                                data-step={step.number}
+                                className="flex items-center flex-1">
                                 <div className="flex flex-col items-center flex-1">
                                     <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold transition-all ${currentStep === step.number
                                         ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white scale-110'
