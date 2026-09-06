@@ -178,14 +178,35 @@ def _build_attempt_ladder(base_speckle: int, base_color: int, requested_precisio
     return unique
 
 
-def _json_response(payload: dict, status_code: int = 200) -> https_fn.Response:
+# En producción la web llama a /api/convert_to_gt_svg (rewrite de Hosting, así
+# que es mismo origen y no necesita CORS). El cross-origin solo hace falta en
+# desarrollo, donde el front en localhost llama directo a la Function. Abrirlo
+# a '*' permitía que cualquier web usara el conversor como servicio gratuito, y
+# vectorizar cuesta CPU.
+_CONVERT_ALLOWED_ORIGINS = {
+    'https://imsa.trenkit.com',
+    'https://imsa-bd5b6.web.app',
+    'https://imsa-bd5b6.firebaseapp.com',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+}
+
+
+def _convert_cors_headers(req) -> dict:
+    origin = (req.headers.get('Origin') or '') if req is not None else ''
+    if origin in _CONVERT_ALLOWED_ORIGINS:
+        return {'Access-Control-Allow-Origin': origin, 'Vary': 'Origin'}
+    return {'Vary': 'Origin'}
+
+
+def _json_response(payload: dict, status_code: int = 200, req=None) -> https_fn.Response:
     return https_fn.Response(
         json.dumps(payload),
         status=status_code,
         mimetype='application/json',
         headers={
             'Cache-Control': 'no-store',
-            'Access-Control-Allow-Origin': '*',
+            **_convert_cors_headers(req),
         },
     )
 
@@ -280,14 +301,22 @@ def _build_svg_payload(image_bytes: bytes, requested_precision: int, form) -> di
     }
 
 
-@https_fn.on_request(region='us-central1', timeout_sec=300)
+# max_instances acota el gasto: el endpoint es público y vectorizar es caro en
+# CPU, así que sin tope una ráfaga (o alguien usándolo como servicio propio)
+# puede escalar sin freno.
+@https_fn.on_request(region='us-central1', timeout_sec=300, max_instances=10)
 def convert_to_gt_svg(req: https_fn.Request) -> https_fn.Response:
     try:
         return _handle_request(req)
     except Exception as exc:
+        # El traceback va al log del servidor, NUNCA en la respuesta: este
+        # endpoint es público y sin autenticar, y el volcado revela rutas
+        # internas y versiones de librerías.
+        print(f'convert_to_gt_svg: excepción no controlada: {exc}\n{tb.format_exc()}')
         return _json_response(
-            {'error': f'Unhandled exception: {exc}', 'traceback': tb.format_exc()},
+            {'error': 'No se pudo convertir la imagen. Inténtalo de nuevo.'},
             status_code=500,
+            req=req,
         )
 
 
@@ -391,33 +420,40 @@ def notify(req: https_fn.Request) -> https_fn.Response:
 def _handle_request(req: https_fn.Request) -> https_fn.Response:
     if req.method == 'OPTIONS':
         return https_fn.Response('', status=204, headers={
-            'Access-Control-Allow-Origin': '*',
+            **_convert_cors_headers(req),
             'Access-Control-Allow-Methods': 'POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type',
         })
 
+    # Los mensajes de error los lee un piloto en la web, así que van en
+    # español: antes se mezclaban con los del cliente, que ya lo estaban.
     if req.method != 'POST':
-        return _json_response({'error': 'Method not allowed. Use POST with multipart/form-data.'}, status_code=405)
+        return _json_response({'error': 'Método no permitido.'}, status_code=405, req=req)
 
     uploaded_file = req.files.get('file')
     if uploaded_file is None:
-        return _json_response({'error': "Missing multipart field 'file'."}, status_code=400)
+        return _json_response({'error': 'No se recibió ningún archivo.'}, status_code=400, req=req)
 
     file_bytes = uploaded_file.read()
     if not file_bytes:
-        return _json_response({'error': 'The uploaded file is empty.'}, status_code=400)
+        return _json_response({'error': 'El archivo está vacío.'}, status_code=400, req=req)
 
     if len(file_bytes) > MAX_UPLOAD_BYTES:
         return _json_response(
             {'error': f'El archivo supera el límite de {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.'},
             status_code=413,
+            req=req,
         )
 
     try:
         image = Image.open(BytesIO(file_bytes))
         image.load()
     except UnidentifiedImageError:
-        return _json_response({'error': 'The uploaded file is not a valid image.'}, status_code=400)
+        return _json_response(
+            {'error': 'El archivo no es una imagen válida. Prueba a exportarlo de nuevo como PNG.'},
+            status_code=400,
+            req=req,
+        )
 
     if image.mode != 'RGBA':
         image = image.convert('RGBA')
@@ -441,7 +477,12 @@ def _handle_request(req: https_fn.Request) -> https_fn.Response:
     try:
         payload = _build_svg_payload(normalized_png.getvalue(), requested_precision, req.form)
     except Exception as exc:
-        return _json_response({'error': f'Vectorization failed: {exc}', 'traceback': tb.format_exc()}, status_code=500)
+        print(f'convert_to_gt_svg: fallo vectorizando: {exc}\n{tb.format_exc()}')
+        return _json_response(
+            {'error': 'No se pudo vectorizar la imagen. Prueba con un PNG más simple o con menos colores.'},
+            status_code=500,
+            req=req,
+        )
 
     payload.update({
         'width': image.width,
@@ -449,7 +490,7 @@ def _handle_request(req: https_fn.Request) -> https_fn.Response:
         'message': 'SVG listo',
     })
 
-    return _json_response(payload)
+    return _json_response(payload, req=req)
 
 
 # ─── Gestión de roles (Custom Claims) — Fase 0/2, org-scoped ────────────────
