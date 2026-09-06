@@ -13,7 +13,7 @@ import { validateImageFile, compressImage } from '../../utils/imageCompression';
 import { REGULATIONS_MAX_BYTES, regulationsByteSize, normalizeRegulationsForSave } from '../../utils/regulations';
 import { sanitizeRegulationsHtml } from '../../utils/regulationsSanitize';
 import { getCarsForCategories } from '../../utils/carUsageCalculator';
-import { DEFAULT_RACE_TIME, getRaceTime } from '../../utils/dateUtils';
+import { DEFAULT_RACE_TIME, getRaceTime, getPreQualyTime, formatTimeWindow } from '../../utils/dateUtils';
 import LoadingSkeleton from '../common/LoadingSkeleton';
 import ErrorMessage from '../common/ErrorMessage';
 
@@ -128,6 +128,8 @@ function getEmptyFormData() {
         preQualy: {
             enabled: false,
             date: '',
+            time: '',
+            timeEnd: '',
             track: '',
             duration: 15,
             allowedCars: [],
@@ -419,6 +421,8 @@ export default function ChampionshipForm({ isEditing = false }) {
             preQualy: {
                 enabled: champ.preQualy?.enabled || false,
                 date: champ.preQualy?.date || '',
+                time: champ.preQualy?.time || '',
+                timeEnd: champ.preQualy?.timeEnd || '',
                 track: champ.preQualy?.track || '',
                 duration: champ.preQualy?.duration || 15,
                 allowedCars: champ.preQualy?.allowedCars || [],
@@ -1790,6 +1794,34 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                             className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
                                                     </div>
                                                     <div>
+                                                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                            🕐 Hora <span className="text-gray-500 font-normal">(española)</span>
+                                                        </label>
+                                                        <input type="time"
+                                                            value={formData.preQualy.time || ''}
+                                                            onChange={(e) => setFormData(prev => ({
+                                                                ...prev, preQualy: { ...prev.preQualy, time: e.target.value }
+                                                            }))}
+                                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                                                        <p className="text-xs text-gray-400 mt-1">
+                                                            Vacío = {formData.settings?.defaultRaceTime || DEFAULT_RACE_TIME} (la del campeonato)
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                            🕐 Hasta <span className="text-gray-500 font-normal">(opcional)</span>
+                                                        </label>
+                                                        <input type="time"
+                                                            value={formData.preQualy.timeEnd || ''}
+                                                            onChange={(e) => setFormData(prev => ({
+                                                                ...prev, preQualy: { ...prev.preQualy, timeEnd: e.target.value }
+                                                            }))}
+                                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                                                        <p className="text-xs text-gray-400 mt-1">
+                                                            Si la Pre-Qualy está abierta durante una franja, no a una hora fija.
+                                                        </p>
+                                                    </div>
+                                                    <div>
                                                         <label className="block text-sm font-medium text-gray-300 mb-2">⏱️ Duración (min)</label>
                                                         <input type="number" min="5" max="120"
                                                             value={formData.preQualy.duration ?? 15}
@@ -2675,6 +2707,10 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                         <span className="text-white">{new Date(formData.preQualy.date).toLocaleDateString('es-ES')}</span>
                                                     </div>
                                                 )}
+                                                <div className="flex justify-between text-gray-300">
+                                                    <span>Hora:</span>
+                                                    <span className="text-white">{formatTimeWindow(getPreQualyTime(formData))} (España)</span>
+                                                </div>
                                                 {formData.preQualy.track && (
                                                     <div className="flex justify-between text-gray-300">
                                                         <span>Circuito:</span>

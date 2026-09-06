@@ -8,6 +8,8 @@ import {
     formatDateFull,
     getRaceTime,
     localRaceTime,
+    getPreQualyTime,
+    formatTimeWindow,
     calculateProgress,
     getNextRace,
     getNextEvent,
@@ -1303,6 +1305,10 @@ export default function ChampionshipDetailPage() {
                                                     <div className="text-white font-medium">{new Date(pq.date).toLocaleDateString('es-ES')}</div>
                                                 </div>
                                             )}
+                                            <div className="bg-white/5 rounded-lg p-3">
+                                                <div className="text-gray-400 text-xs mb-1">🕐 Hora (España)</div>
+                                                <div className="text-white font-medium">{formatTimeWindow(getPreQualyTime(championship))}</div>
+                                            </div>
                                             {pq.track && (
                                                 <div className="bg-white/5 rounded-lg p-3">
                                                     <div className="text-gray-400 text-xs mb-1">📍 Circuito</div>
@@ -1920,6 +1926,12 @@ export default function ChampionshipDetailPage() {
                                                         <span className="text-white font-semibold">{formatDateFull(championship.preQualy.date)}</span>
                                                     </div>
                                                 )}
+                                                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                                    <span className="text-gray-300">🕐 Hora</span>
+                                                    <span className="text-white font-semibold">
+                                                        {formatTimeWindow(getPreQualyTime(championship))} <span className="text-gray-400 font-normal text-sm">(España)</span>
+                                                    </span>
+                                                </div>
                                                 {championship.preQualy.track && (
                                                     <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                                                         <span className="text-gray-300">📍 Circuito</span>
@@ -2058,7 +2070,9 @@ export default function ChampionshipDetailPage() {
                             {nextEvent && (() => {
                                 const esPq = nextEvent.tipo === 'prequaly';
                                 const t = nextEvent.track;
-                                const hora = getRaceTime(championship, t);
+                                // La Pre-Qualy tiene hora propia y puede ser una franja
+                                const ventana = esPq ? getPreQualyTime(championship) : null;
+                                const hora = esPq ? ventana.desde : getRaceTime(championship, t);
                                 const local = localRaceTime(nextEvent.date, hora);
                                 return (
                                     <div className={`rounded-xl p-6 shadow-xl bg-gradient-to-br ${esPq ? 'from-purple-600 to-indigo-700' : 'from-orange-600 to-red-600'}`}>
@@ -2076,7 +2090,7 @@ export default function ChampionshipDetailPage() {
                                                 📅 {formatDateFull(nextEvent.date)}
                                             </div>
                                             <div className="text-white/90 text-sm">
-                                                🕐 {hora}h <span className="opacity-70">(España)</span>
+                                                🕐 {esPq ? formatTimeWindow(ventana) : `${hora}h`} <span className="opacity-70">(España)</span>
                                                 {local && <span className="opacity-70"> · {local}h tu hora</span>}
                                             </div>
                                             {!esPq && t.country && (

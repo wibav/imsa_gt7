@@ -27,6 +27,29 @@ export const getRaceTime = (championship, track) =>
     track?.time || championship?.settings?.defaultRaceTime || DEFAULT_RACE_TIME;
 
 /**
+ * Ventana horaria de la Pre-Qualy, en hora española.
+ *
+ * Tiene hora propia porque no siempre se corre a la misma hora que las
+ * carreras, y admite un rango: muchas ligas la abren durante una franja
+ * ("de 18:00 a 23:00") en vez de a una hora concreta.
+ *
+ * Si no se define hora propia, cae en la del campeonato.
+ *
+ * @returns {{desde: string, hasta: string|null}}
+ */
+export const getPreQualyTime = (championship) => {
+    const pq = championship?.preQualy || {};
+    return {
+        desde: pq.time || getRaceTime(championship),
+        hasta: pq.timeEnd || null,
+    };
+};
+
+/** "23:00h" o "de 18:00h a 23:00h" según haya rango o no. */
+export const formatTimeWindow = ({ desde, hasta }) =>
+    hasta ? `de ${desde}h a ${hasta}h` : `${desde}h`;
+
+/**
  * Offset de Europe/Madrid respecto a UTC, en minutos, para un instante dado.
  * Se calcula con Intl en vez de asumir +1/+2 para que el cambio de horario
  * de verano no descuadre la conversión.
