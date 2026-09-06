@@ -131,6 +131,30 @@ export default function PilotsPage() {
 
             const eventosPorPiloto = buildPilotEventHistory(events, gt7Map);
 
+            // Un piloto que solo ha corrido eventos no aparece en ninguna
+            // clasificación, así que no tenía ficha y su historial no se podía
+            // consultar. Se le crea una entrada vacía para que exista perfil.
+            Object.keys(eventosPorPiloto).forEach(nombre => {
+                const yaConocido = pilotMap[nombre]
+                    || Object.values(pilotMap).some(p => p.aliases.has(nombre));
+                if (yaConocido) return;
+                pilotMap[nombre] = {
+                    name: nombre,
+                    aliases: new Set(),
+                    totalPoints: 0,
+                    totalWins: 0,
+                    totalPodiums: 0,
+                    totalPoles: 0,
+                    totalFastestLaps: 0,
+                    totalDNFs: 0,
+                    totalRaces: 0,
+                    championships: [],
+                    bestPosition: null,
+                    teams: new Set(),
+                    categories: new Set()
+                };
+            });
+
             // Convertir Sets a Arrays y ordenar por puntos totales
             const statsArray = Object.values(pilotMap).map(p => ({
                 ...p,
@@ -149,7 +173,7 @@ export default function PilotsPage() {
                         .flatMap(alias => eventosPorPiloto[alias] || [])
                         .reduce((acc, evento) => ({ ...acc, [evento.id]: evento }), {})
                 ).sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-            })).sort((a, b) => b.totalPoints - a.totalPoints);
+            })).sort((a, b) => b.totalPoints - a.totalPoints || b.events.length - a.events.length);
 
             setGlobalStats(statsArray);
         } catch (error) {
@@ -249,6 +273,12 @@ export default function PilotsPage() {
                     <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
                         📋 Historial de Campeonatos ({pilot.championships.length})
                     </h2>
+                    {pilot.championships.length === 0 && (
+                        <p className="text-gray-400 text-sm mb-4 bg-white/5 border border-white/10 rounded-xl p-4">
+                            Este piloto aún no ha corrido ningún campeonato: las estadísticas de
+                            arriba solo cuentan carreras de campeonato, por eso están a cero.
+                        </p>
+                    )}
                     <div className="space-y-4">
                         {pilot.championships.map((champ, idx) => (
                             <div
@@ -397,10 +427,11 @@ export default function PilotsPage() {
                         <span className="text-white">Pilotos</span>
                     </div>
                     <h1 className="text-4xl sm:text-5xl font-bold text-white">🏎️ Pilotos</h1>
-                    <p className="text-white/80 mt-2">Estadísticas globales acumuladas de todos los campeonatos</p>
+                    <p className="text-white/80 mt-2">Estadísticas globales acumuladas de campeonatos y eventos</p>
                     <div className="flex items-center gap-4 mt-3 text-sm text-white/70">
                         <span>👥 {globalStats.length} pilotos</span>
                         <span>📊 {championshipDetails.length} campeonatos analizados</span>
+                        <span>🎪 {globalStats.filter(p => p.events.length > 0).length} con eventos</span>
                     </div>
                 </div>
             </div>
@@ -453,6 +484,7 @@ export default function PilotsPage() {
                                             <th className="px-4 py-3 text-left text-sm font-bold">#</th>
                                             <th className="px-4 py-3 text-left text-sm font-bold">Piloto</th>
                                             <th className="px-4 py-3 text-center text-sm font-bold">Camps</th>
+                                            <th className="px-4 py-3 text-center text-sm font-bold">🎪 Ev</th>
                                             <th className="px-4 py-3 text-center text-sm font-bold">🏆</th>
                                             <th className="px-4 py-3 text-center text-sm font-bold">🏁</th>
                                             <th className="px-4 py-3 text-center text-sm font-bold">🏆 Vic</th>
@@ -483,6 +515,7 @@ export default function PilotsPage() {
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-3 text-center text-gray-300 text-sm">{pilot.championships.length}</td>
+                                                <td className="px-4 py-3 text-center text-gray-300 text-sm">{pilot.events.length || '-'}</td>
                                                 <td className="px-4 py-3 text-center text-yellow-400 text-sm font-bold">{pilot.championsCount || '-'}</td>
                                                 <td className="px-4 py-3 text-center text-gray-300 text-sm">{pilot.totalRaces}</td>
                                                 <td className="px-4 py-3 text-center text-yellow-400 text-sm font-semibold">{pilot.totalWins || '-'}</td>
