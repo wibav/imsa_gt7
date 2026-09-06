@@ -2,8 +2,35 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Navbar from '../components/Navbar';
+import { sanitizeSvg } from '../utils/svgSanitize';
 
 const SVG_SIZE_LIMIT_BYTES = 15 * 1024;
+// Debe coincidir con MAX_UPLOAD_BYTES en functions/main.py. Se comprueba
+// también aquí para no hacerle subir 10 MB desde el móvil a alguien que va a
+// recibir un rechazo del servidor de todas formas.
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+// La Function puede devolver mensajes técnicos (o en inglés, si es una versión
+// anterior a la traducción). Se traducen aquí para no enseñárselos tal cual al
+// piloto; lo que no reconocemos se sustituye por un mensaje genérico.
+const BACKEND_ERROR_MESSAGES = [
+    [/not a valid image|no es una imagen/i, 'El archivo no es una imagen válida. Prueba a exportarlo de nuevo como PNG.'],
+    [/file is empty|archivo está vacío/i, 'El archivo está vacío.'],
+    [/supera el límite|too large|413/i, `El archivo supera el límite de ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB.`],
+    [/method not allowed/i, 'No se pudo contactar con el conversor. Inténtalo de nuevo.'],
+    [/vectorization failed|unhandled exception|traceback/i, 'No se pudo vectorizar la imagen. Prueba con un PNG más simple o con menos colores.'],
+];
+
+function traducirError(mensaje) {
+    const texto = String(mensaje || '').trim();
+    if (!texto) return 'No se pudo convertir la imagen.';
+    const match = BACKEND_ERROR_MESSAGES.find(([re]) => re.test(texto));
+    if (match) return match[1];
+    // Un mensaje largo o con pinta de volcado técnico no se enseña tal cual.
+    return texto.length > 160 || /\n|  at |File "/.test(texto)
+        ? 'No se pudo convertir la imagen. Inténtalo de nuevo.'
+        : texto;
+}
 
 const DEFAULT_TRACE_OPTIONS = {
     quantizeColors: 0,
@@ -20,6 +47,12 @@ const DEFAULT_TRACE_OPTIONS = {
 function formatBytes(bytes) {
     if (!Number.isFinite(bytes) || bytes < 0) {
         return '0.00 KB';
+    }
+
+    // Escala a MB a partir de 1 MB: los PNG de entrada pesan megas y leer
+    // "11264.00 KB" cuesta más que "11.00 MB".
+    if (bytes >= 1024 * 1024) {
+        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
     }
 
     return `${(bytes / 1024).toFixed(2)} KB`;
@@ -157,7 +190,10 @@ export default function ToolsPage() {
         }
     };
 
-    const convertFile = async (file) => {
+    // `autoDownload` solo en la primera conversión de un archivo: al reconvertir
+    // con otros ajustes el usuario está iterando, y descargar en cada intento le
+    // llenaba la carpeta de Descargas de copias (mi-logo.svg, mi-logo (1).svg…).
+    const convertFile = async (file, { autoDownload = true } = {}) => {
         if (!file) {
             return;
         }
@@ -169,6 +205,12 @@ export default function ToolsPage() {
             return;
         }
 
+        if (file.size > MAX_UPLOAD_BYTES) {
+            setError(`El archivo pesa ${formatBytes(file.size)} y el máximo es ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB. Redúcelo antes de subirlo.`);
+            setWarning('');
+            return;
+        }
+
         setSelectedFile(file);
         setError('');
         setWarning('');
@@ -176,7 +218,7 @@ export default function ToolsPage() {
         setConversionInfo(null);
         setFileSize(0);
         setIsProcessing(true);
-        setProcessingStep('Preparando PNG...');
+        setProcessingStep('Preparando la imagen...');
 
         const nextPreviewUrl = URL.createObjectURL(file);
         setPreviewUrl(nextPreviewUrl);
@@ -191,7 +233,7 @@ export default function ToolsPage() {
         const startedAt = performance.now();
 
         try {
-            setProcessingStep('Enviando a Firebase Function...');
+            setProcessingStep('Vectorizando la imagen...');
 
             const response = await fetch(resolveConverterUrl(), {
                 method: 'POST',
@@ -242,9 +284,11 @@ export default function ToolsPage() {
                 backendWarning || (underLimit ? '' : `El SVG generado pesa ${formatBytes(svgBytes)} y supera el límite de 15 KB de GT7.`)
             );
 
-            downloadSvg(svgText, file.name);
+            if (autoDownload) {
+                downloadSvg(svgText, file.name);
+            }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'No se pudo convertir la imagen.');
+            setError(traducirError(err instanceof Error ? err.message : err));
             setWarning('');
         } finally {
             setIsProcessing(false);
@@ -515,7 +559,7 @@ export default function ToolsPage() {
                                 {selectedFile && (
                                     <button
                                         type="button"
-                                        onClick={() => void convertFile(selectedFile)}
+                                        onClick={() => void convertFile(selectedFile, { autoDownload: false })}
                                         disabled={isProcessing}
                                         className="mt-5 w-full rounded-xl border border-orange-400/30 bg-orange-500/15 px-5 py-3 text-sm font-semibold text-orange-100 transition hover:bg-orange-500/25 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
@@ -558,6 +602,9 @@ export default function ToolsPage() {
                                     style={{ minHeight: '20rem' }}
                                 >
                                     {previewUrl ? (
+                                        // La vista previa es una blob: URL local, que next/image no
+                                        // sabe manejar (ni tendría nada que optimizar en servidor).
+                                        // eslint-disable-next-line @next/next/no-img-element
                                         <img
                                             src={previewUrl}
                                             alt={selectedFile ? `Vista previa de ${selectedFile.name}` : 'Vista previa PNG'}
@@ -604,7 +651,7 @@ export default function ToolsPage() {
                                     style={{ minHeight: '20rem' }}
                                 >
                                     {svgOutput ? (
-                                        <div className="max-h-[30rem] overflow-auto p-4" dangerouslySetInnerHTML={{ __html: svgOutput }} />
+                                        <div className="max-h-[30rem] overflow-auto p-4" dangerouslySetInnerHTML={{ __html: sanitizeSvg(svgOutput) }} />
                                     ) : (
                                         <div className="flex min-h-[20rem] flex-col items-center justify-center px-6 text-center">
                                             <div className="text-4xl">✨</div>
