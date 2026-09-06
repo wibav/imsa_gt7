@@ -1,5 +1,13 @@
 // Barrel export para utilidades compartidas
-export { formatDateShort, formatDateFull, isInCurrentWeek } from './dateUtils';
+export {
+    formatDateShort,
+    formatDateFull,
+    isInCurrentWeek,
+    DEFAULT_RACE_TIME,
+    getRaceTime,
+    raceDateTime,
+    localRaceTime,
+} from './dateUtils';
 export { calculateProgress, getNextRace, getStandings, getDriverStandings } from './championshipUtils';
 export { calculateAdvancedStandings, getDriverStats, compareDrivers, getStandingsByCategory } from './standingsCalculator';
 export { flattenRegistrations } from './carUsageCalculator';

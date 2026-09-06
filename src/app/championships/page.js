@@ -6,6 +6,8 @@ import { useAuth } from "../context/AuthContext";
 import Image from "next/image";
 import {
     formatDateFull,
+    getRaceTime,
+    localRaceTime,
     calculateProgress,
     getNextRace,
     getStandings,
@@ -753,6 +755,7 @@ export default function ChampionshipDetailPage() {
                                                         </div>
                                                         <div className="flex items-center gap-4 text-gray-300">
                                                             <span>📅 {formatDateFull(track.date)}</span>
+                                                            <span>🕐 {getRaceTime(championship, track)}h <span className="opacity-70">(España)</span></span>
                                                             {track.country && <span>📍 {track.country}</span>}
                                                             {track.category && (
                                                                 <span className="bg-blue-600/30 px-2 py-1 rounded text-sm">
@@ -2060,6 +2063,16 @@ export default function ChampionshipDetailPage() {
                                         <div className="text-white/90 text-sm">
                                             📅 {formatDateFull(nextRace.date)}
                                         </div>
+                                        {(() => {
+                                            const hora = getRaceTime(championship, nextRace);
+                                            const local = localRaceTime(nextRace.date, hora);
+                                            return (
+                                                <div className="text-white/90 text-sm">
+                                                    🕐 {hora}h <span className="opacity-70">(España)</span>
+                                                    {local && <span className="opacity-70"> · {local}h tu hora</span>}
+                                                </div>
+                                            );
+                                        })()}
                                         {nextRace.country && (
                                             <div className="text-white/90 text-sm">
                                                 📍 {nextRace.country}
@@ -2256,6 +2269,7 @@ export default function ChampionshipDetailPage() {
                                 </div>
                                 <div className="flex items-center gap-3 text-gray-400 text-sm flex-wrap">
                                     {selectedTrack.date && <span>📅 {formatDateFull(selectedTrack.date)}</span>}
+                                    <span>🕐 {getRaceTime(championship, selectedTrack)}h (España)</span>
                                     {selectedTrack.country && <span>📍 {selectedTrack.country}</span>}
                                 </div>
                             </div>

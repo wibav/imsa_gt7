@@ -4,6 +4,78 @@
  */
 
 /**
+ * Hora de carrera por defecto (hora española), cuando el campeonato no
+ * define otra. Las ligas de este proyecto corren de noche entre semana.
+ */
+export const DEFAULT_RACE_TIME = '23:00';
+
+/**
+ * Hora a la que se corre una carrera, en hora española.
+ *
+ * Precedencia: la de la propia carrera (si esa fecha se movió) → la del
+ * campeonato → 23:00. No confundir con `track.rules.startTime`, que es la
+ * hora DENTRO del juego (amanecer/mediodía/noche), no cuándo se disputa.
+ *
+ * En campeonatos con divisiones cada sala tiene su propia `division.hour`,
+ * que manda sobre esta para esa sala en concreto.
+ *
+ * @param {Object} championship
+ * @param {Object} [track]
+ * @returns {string} "HH:mm"
+ */
+export const getRaceTime = (championship, track) =>
+    track?.time || championship?.settings?.defaultRaceTime || DEFAULT_RACE_TIME;
+
+/**
+ * Offset de Europe/Madrid respecto a UTC, en minutos, para un instante dado.
+ * Se calcula con Intl en vez de asumir +1/+2 para que el cambio de horario
+ * de verano no descuadre la conversión.
+ */
+function madridOffsetMinutes(date) {
+    const dtf = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Europe/Madrid', hour12: false,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+    const p = Object.fromEntries(
+        dtf.formatToParts(date).filter(x => x.type !== 'literal').map(x => [x.type, x.value])
+    );
+    const asUTC = Date.UTC(p.year, p.month - 1, p.day, p.hour === '24' ? 0 : p.hour, p.minute, p.second);
+    return (asUTC - date.getTime()) / 60000;
+}
+
+/**
+ * Instante real de una carrera a partir de su fecha y su hora española.
+ * @param {string} dateStr - "YYYY-MM-DD"
+ * @param {string} timeStr - "HH:mm" en hora española
+ * @returns {Date|null}
+ */
+export const raceDateTime = (dateStr, timeStr) => {
+    if (!dateStr || !timeStr) return null;
+    const naive = new Date(`${dateStr}T${timeStr}:00Z`);
+    if (isNaN(naive)) return null;
+    return new Date(naive.getTime() - madridOffsetMinutes(naive) * 60000);
+};
+
+/**
+ * Hora local del visitante para una carrera, o null si coincide con la
+ * española (no tiene sentido repetir el mismo dato).
+ *
+ * Útil porque buena parte de los pilotos están en Latinoamérica y hasta
+ * ahora tenían que hacer la conversión a mano.
+ *
+ * @returns {string|null} "HH:mm" en la zona del navegador
+ */
+export const localRaceTime = (dateStr, timeStr) => {
+    const dt = raceDateTime(dateStr, timeStr);
+    if (!dt) return null;
+    const local = new Intl.DateTimeFormat('es-ES', {
+        hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(dt);
+    return local === timeStr ? null : local;
+};
+
+/**
  * Formato corto de fecha: "01 ene"
  * Usado en ChampionshipCard para próxima carrera
  * @param {string} dateStr - Fecha en formato ISO (YYYY-MM-DD)

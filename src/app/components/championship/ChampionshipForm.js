@@ -13,6 +13,7 @@ import { validateImageFile, compressImage } from '../../utils/imageCompression';
 import { REGULATIONS_MAX_BYTES, regulationsByteSize, normalizeRegulationsForSave } from '../../utils/regulations';
 import { sanitizeRegulationsHtml } from '../../utils/regulationsSanitize';
 import { getCarsForCategories } from '../../utils/carUsageCalculator';
+import { DEFAULT_RACE_TIME, getRaceTime } from '../../utils/dateUtils';
 import LoadingSkeleton from '../common/LoadingSkeleton';
 import ErrorMessage from '../common/ErrorMessage';
 
@@ -92,7 +93,8 @@ function getEmptyFormData() {
             maxTeams: 0,
             maxDriversPerTeam: 0,
             isMultiCategory: false,
-            requiredCategoriesPerTeam: []
+            requiredCategoriesPerTeam: [],
+            defaultRaceTime: DEFAULT_RACE_TIME
         },
         teams: [],
         drivers: [],
@@ -157,6 +159,7 @@ function getEmptyTrackData(formData) {
         name: '',
         layoutImage: '',
         date: '',
+        time: '',
         round: (formData?.tracks?.length || 0) + 1,
         category: formData?.categories?.[0] || '',
         raceType: 'carrera',
@@ -374,7 +377,8 @@ export default function ChampionshipForm({ isEditing = false }) {
                 maxTeams: champ.settings?.maxTeams || (hasTeams ? 4 : 0),
                 maxDriversPerTeam: champ.settings?.maxDriversPerTeam || (hasTeams ? 4 : 0),
                 isMultiCategory: champ.settings?.isMultiCategory ?? false,
-                requiredCategoriesPerTeam: champ.settings?.requiredCategoriesPerTeam || []
+                requiredCategoriesPerTeam: champ.settings?.requiredCategoriesPerTeam || [],
+                defaultRaceTime: champ.settings?.defaultRaceTime || DEFAULT_RACE_TIME
             },
             teams: teamsData.length > 0 ? teamsData : (champ.teams || []),
             drivers: champ.drivers || [],
@@ -1296,6 +1300,22 @@ export default function ChampionshipForm({ isEditing = false }) {
                                         <input type="date" name="endDate" value={formData.endDate} onChange={handleInputChange}
                                             className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
                                     </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                                            🕐 Hora habitual de carrera <span className="text-gray-500 font-normal">(hora española)</span>
+                                        </label>
+                                        <input type="time"
+                                            value={formData.settings?.defaultRaceTime || DEFAULT_RACE_TIME}
+                                            onChange={(e) => setFormData(prev => ({
+                                                ...prev,
+                                                settings: { ...prev.settings, defaultRaceTime: e.target.value }
+                                            }))}
+                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                                        <p className="text-xs text-gray-400 mt-1">
+                                            Se muestra en el calendario y en la próxima carrera. Cada fecha puede
+                                            cambiarla, y si usas salas manda la hora de cada sala.
+                                        </p>
+                                    </div>
                                 </div>
 
                                 <div>
@@ -1972,6 +1992,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                                 </div>
                                                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-gray-300">
                                                                     <div>📅 {new Date(track.date).toLocaleDateString('es-ES')}</div>
+                                                                    <div>🕐 {getRaceTime(formData, track)}h</div>
                                                                     <div>
                                                                         {track.raceType === 'carrera'
                                                                             ? <>🏁 {track.laps} vueltas</>
@@ -2689,7 +2710,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                             <span className="px-2 py-0.5 bg-blue-600 text-white text-xs rounded">{track.category}</span>
                                                         </div>
                                                         <div className="text-xs text-gray-400">
-                                                            📅 {new Date(track.date).toLocaleDateString('es-ES')} •
+                                                            📅 {new Date(track.date).toLocaleDateString('es-ES')} • 🕐 {getRaceTime(formData, track)}h •
                                                             {track.raceType === 'carrera' ? ` 🏁 ${track.laps} vueltas` : ` ⏱️ ${track.duration} min`}
                                                         </div>
                                                     </div>
@@ -2873,6 +2894,15 @@ export default function ChampionshipForm({ isEditing = false }) {
                                             <input type="date" value={trackFormData.date}
                                                 onChange={(e) => setTrackFormData(prev => ({ ...prev, date: e.target.value }))}
                                                 className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">🕐 Hora <span className="text-gray-500 font-normal">(española)</span></label>
+                                            <input type="time" value={trackFormData.time || ''}
+                                                onChange={(e) => setTrackFormData(prev => ({ ...prev, time: e.target.value }))}
+                                                className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                                            <p className="text-xs text-gray-400 mt-1">
+                                                Vacío = {formData.settings?.defaultRaceTime || DEFAULT_RACE_TIME} (la del campeonato)
+                                            </p>
                                         </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-300 mb-2">#️⃣ Ronda</label>

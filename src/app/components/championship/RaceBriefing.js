@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
-import { formatDateFull } from "../../utils/dateUtils";
+import { formatDateFull, getRaceTime } from "../../utils/dateUtils";
 import { TYRE_OPTIONS, DAMAGE_OPTIONS, STREAMING_PLATFORMS } from "../../utils/constants";
 
 /**
@@ -180,7 +180,7 @@ export default function RaceBriefing({ nextRace, championship, progress }) {
                                         )}
                                         {nextRace.date && (
                                             <div style={{ fontSize: '14px', color: '#60a5fa', marginTop: '8px', fontWeight: '600' }}>
-                                                📅 {formatDateFull(nextRace.date)}
+                                                📅 {formatDateFull(nextRace.date)} · 🕐 {getRaceTime(championship, nextRace)}h (España)
                                                 {daysUntil !== null && daysUntil > 0 && (
                                                     <span style={{ color: '#fbbf24', marginLeft: '8px' }}>
                                                         ({daysUntil} día{daysUntil !== 1 ? 's' : ''})

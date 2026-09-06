@@ -4,6 +4,7 @@
  */
 import { STATUS_SEMANTIC_COLORS, STATUS_LABELS } from '../utils/constants.js';
 import { REGULATIONS_MAX_BYTES, regulationsByteSize } from '../utils/regulations.js';
+import { DEFAULT_RACE_TIME } from '../utils/dateUtils.js';
 
 export class Championship {
     constructor(data = {}) {
@@ -26,7 +27,9 @@ export class Championship {
             maxDriversPerTeam: data.settings?.maxDriversPerTeam || 2,
             isTeamChampionship: data.settings?.isTeamChampionship ?? false,
             isMultiCategory: data.settings?.isMultiCategory ?? false,
-            requiredCategoriesPerTeam: data.settings?.requiredCategoriesPerTeam || []
+            requiredCategoriesPerTeam: data.settings?.requiredCategoriesPerTeam || [],
+            // Hora habitual de las carreras, en hora española (ver dateUtils)
+            defaultRaceTime: data.settings?.defaultRaceTime || DEFAULT_RACE_TIME
         };
         this.drivers = data.drivers || []; // Array de pilotos para campeonatos individuales
         this.createdAt = data.createdAt || new Date().toISOString();
@@ -293,6 +296,9 @@ export class Track {
         this.name = data.name || '';
         this.country = data.country || '';
         this.date = data.date || null;
+        // Hora a la que se disputa (hora española). Vacío = usa la del
+        // campeonato. Ojo: `rules.startTime` es la hora DENTRO del juego.
+        this.time = data.time || '';
         this.round = data.round || null;
         this.category = data.category || '';
         this.layoutImage = data.layoutImage || '';
@@ -342,6 +348,7 @@ export class Track {
             name: this.name,
             country: this.country,
             date: this.date,
+            time: this.time,
             round: this.round,
             category: this.category,
             layoutImage: this.layoutImage,

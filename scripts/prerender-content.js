@@ -171,7 +171,11 @@ function renderChampionshipBlock(champ) {
         html += `<h3>Calendario de ${esc(champ.name)}</h3><ul>`;
         sortedTracks.forEach(t => {
             const date = formatDate(t.date);
-            html += `<li>Ronda ${esc(t.round || '')}: ${esc(t.name)}${t.country ? ` (${esc(t.country)})` : ''}${date ? ` — ${esc(date)}` : ''}</li>`;
+            // Hora española: misma precedencia que getRaceTime() en la app
+            // (la de la carrera → la del campeonato → 23:00), replicada aquí
+            // porque este script es CJS y no puede importar el util ESM.
+            const hora = t.time || champ.settings?.defaultRaceTime || '23:00';
+            html += `<li>Ronda ${esc(t.round || '')}: ${esc(t.name)}${t.country ? ` (${esc(t.country)})` : ''}${date ? ` — ${esc(date)}` : ''} a las ${esc(hora)} (hora española)</li>`;
         });
         html += `</ul>`;
     }
