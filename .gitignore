@@ -1,6 +1,7 @@
 # Python virtual environments
 **/venv/
 **/.venv/
+**/venv_broken_*/
 **/__pycache__/
 
 # Firebase
