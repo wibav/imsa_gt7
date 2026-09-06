@@ -29,11 +29,11 @@ y sus estadísticas se parten entre varias fichas.
 
 | | |
 |---|---|
-| Nombres distintos | **422** |
-| Apariciones totales | **3231** |
-| Tipos de ubicación donde vive un nombre | **19** |
-| Grupos candidatos a fusión | **93**, cubriendo **252** nombres |
-| Nombres con una sola aparición | 88 |
+| Nombres distintos | **440** |
+| Apariciones totales | **3950** |
+| Ubicaciones distintas donde vive un nombre | **72** |
+| Grupos candidatos a fusión | **99** |
+| Documentos recorridos | 509 (6 campeonatos, 23 eventos) |
 
 Casos reales detectados:
 
@@ -49,11 +49,45 @@ Casos reales detectados:
 Obsérvese que el problema no es solo el cambio de GT7 ID: también hay cambio de
 etiqueta de equipo (`HPR_` → `AAM `), diferencias de mayúsculas y erratas.
 
-### 1.1. El detalle que condiciona todo el diseño
+### 1.1. Inscripciones: campeonatos **y** eventos
+
+Una fusión que no cubra las dos vías de inscripción deja al piloto partido
+igualmente, así que el inventario recorre ambas. Estas son las ubicaciones de
+inscripción y participación, con sus apariciones reales:
+
+| Ubicación | Apar. |
+|---|---|
+| `events/*/participants/*` (`gt7Id`, `psnId`, `name`) | 554 |
+| `events/*/rounds/*.rooms[].participants[]` (`gt7Id`, `psnId`) | 372 |
+| `championships/*.drivers[].name` | 133 |
+| `championships/*.registrations[]` (`gt7Id`, `psnId`) | 211 |
+| `championships/*/divisions/*.drivers[]` | 86 |
+| `championships/*.preQualy.results[]` (`driverName`, `gt7Id`) | 115 |
+| `events/*.participants[]` (estructura antigua, en el propio documento) | 94 |
+| `championships/*/teams/*.drivers[].name` | 16 |
+| **`events/*/waitlist/*`** (`gt7Id`, `psnId`) | 4 |
+| `championships/*/events/*.participants[]` (eventos internos de un campeonato) | — |
+
+Dos avisos que salen de aquí:
+
+- **La lista de espera cuenta.** Son solo 4 entradas hoy, pero un piloto que
+  únicamente esté en lista de espera es invisible para cualquier inventario que
+  no la mire — y de hecho lo fue para la primera versión de este análisis.
+- **Hay dos estructuras conviviendo.** Los eventos antiguos guardan los
+  participantes dentro del propio documento (`events/*.participants[]`) y los
+  nuevos en una subcolección. La fusión tiene que contemplar las dos.
+
+Además de los pilotos hay **personas con rol**: `casterName`, `hostName`,
+`caster` y `host`, tanto en campeonatos como en eventos y en cada sala. A
+menudo son también pilotos (`o0CHAK0o` aparece como host de un evento). Se
+inventarían aparte porque fusionarlos es opcional: afecta a quién aparece
+acreditado, no a ninguna clasificación.
+
+### 1.2. El detalle que condiciona todo el diseño
 
 **El nombre no es una referencia, es el dato.** No hay ids relacionales: la
-cadena está copiada en 19 clases de sitio distintos, y en la mitad de ellos es
-la **clave de un objeto**, no un valor:
+cadena está copiada en 72 ubicaciones distintas, y en varias de ellas es la
+**clave de un objeto**, no un valor:
 
 | Ubicación | Forma |
 |---|---|
@@ -67,9 +101,12 @@ la **clave de un objeto**, no un valor:
 | `championships/*/penalties/*.driverName` | valor |
 | `championships/*/claims/*.reporterName` · `accusedNames[]` | valor / array |
 | `championships/*/teams/*.drivers[].name` | valor |
-| `events/*/participants` (`gt7Id`, `psnId`) | valor |
-| `events/*/results` (`driverName`, `psnId`) | valor |
+| `championships/*/tracks/*.carsUsed{}` | clave de objeto |
+| `championships/*.preQualy.results[]` | valor |
+| `events/*/participants` · `events/*/waitlist` (`gt7Id`, `psnId`) | valor |
+| `events/*/results` · `rounds.rooms[].results[]` (`driverName`, `psnId`) | valor |
 | `events/*/rounds.rooms[].participants[]` | valor |
+| `events/*.streaming.casterName` · `hostName`, `rooms[].caster` · `host` | valor (rol, no piloto) |
 
 Renombrar una clave de objeto es borrar una y crear otra. Si las dos claves de
 un mismo objeto pertenecen al piloto que se fusiona (por ejemplo, corrió una
@@ -84,7 +121,7 @@ humana.
 
 Hay dos formas de resolverlo:
 
-**A. Reescribir los datos.** Sustituir la cadena vieja por la nueva en los 3231
+**A. Reescribir los datos.** Sustituir la cadena vieja por la nueva en los 3950
 sitios. Irreversible en la práctica, obliga a tocar documentos históricos
 (incluidos campeonatos cerrados y resultados ya publicados) y una fusión
 equivocada no se deshace.
@@ -95,7 +132,7 @@ hace `buildGt7IdMap()` con las inscripciones.
 
 **Se elige B**, con reescritura opcional y posterior. Razones:
 
-- **Reversible.** Deshacer una fusión es borrar un documento, no restaurar 3231
+- **Reversible.** Deshacer una fusión es borrar un documento, no restaurar 3950
   campos.
 - **La infraestructura ya existe.** `buildGt7IdMap()` +
   `displayDriverName()` ya normalizan nombres al GT7 ID en clasificaciones,
@@ -213,7 +250,7 @@ Que el problema deje de crecer:
 
 ### Fase 5 — Consolidación (opcional, más adelante)
 
-Un script que reescribe de verdad las 3231 apariciones a partir de las
+Un script que reescribe de verdad las 3950 apariciones a partir de las
 identidades ya confirmadas, con `--dry-run` obligatorio primero y copia de
 seguridad de los documentos afectados. Solo tiene sentido si en algún momento
 se quiere retirar la capa de alias.

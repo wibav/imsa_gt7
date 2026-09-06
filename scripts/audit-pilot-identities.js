@@ -84,112 +84,100 @@ function similitud(a, b) {
 }
 
 // ── Recolección ──────────────────────────────────────────────────────────
+//
+// Deliberadamente GENÉRICA. La primera versión enumeraba las rutas a mano y se
+// dejó fuera media docena: la lista de espera de los eventos, la subcolección
+// `events` dentro de los campeonatos, `carsUsed{}`, los resultados de la
+// Pre-Qualy y los de cada sala. Enumerar a mano un modelo sin esquema es
+// garantía de olvidarse de algo, así que ahora se recorre todo el árbol y se
+// reconoce a un piloto por la FORMA del dato, no por su ruta.
+
 const apariciones = new Map(); // nombre exacto -> Map(ubicación -> veces)
 
 function anotar(nombre, ubicacion) {
     const limpio = String(nombre || '').trim();
     if (!limpio) return;
-    if (!apariciones.has(limpio)) apariciones.set(limpio, new Map());
+    // `points{}` unas veces va indexado por piloto (en un track) y otras por
+    // número de ronda (dentro de un piloto de equipo: {"1": 9, "2": 15, …}).
+    // Ningún GT7 ID es solo dígitos, así que eso los separa.
+    if (/^\d+$/.test(limpio)) return;
+    apariciones.has(limpio) || apariciones.set(limpio, new Map());
     const sitios = apariciones.get(limpio);
     sitios.set(ubicacion, (sitios.get(ubicacion) || 0) + 1);
 }
 
-/** Anota las CLAVES de un objeto tipo {nombrePiloto: valor}. */
-function anotarClaves(obj, ubicacion) {
-    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-        Object.keys(obj).forEach(k => anotar(k, ubicacion));
-    }
+/** Objetos cuyas CLAVES son nombres de piloto: {"MR-Tony": 18, …} */
+const CLAVES_SON_PILOTOS = new Set(['points', 'racePoints', 'racePositions', 'carsUsed']);
+
+/** Campos que contienen directamente un identificador de piloto. */
+const CAMPOS_PILOTO = ['gt7Id', 'psnId', 'driverName', 'reporterName', 'driver'];
+
+/** Campos de personas que no compiten pero sí son personas de la liga. */
+const CAMPOS_ROL = ['casterName', 'hostName', 'caster', 'host'];
+
+/** ¿Este objeto describe a un piloto concreto? */
+function esEntradaDePiloto(obj) {
+    return CAMPOS_PILOTO.some(c => typeof obj[c] === 'string' && obj[c].trim());
 }
 
-async function recolectarCampeonatos() {
-    const cs = await db.collection('championships').get();
-    for (const c of cs.docs) {
-        const champ = c.data();
-        const base = `championships/${c.id}`;
+function recorrer(valor, ruta) {
+    if (Array.isArray(valor)) {
+        valor.forEach(v => recorrer(v, `${ruta}[]`));
+        return;
+    }
+    if (!valor || typeof valor !== 'object' || valor.toDate) return;
 
-        (champ.registrations || []).forEach(reg => {
-            const entradas = Array.isArray(reg.drivers) && reg.drivers.length ? reg.drivers : [reg];
-            entradas.forEach(e => {
-                anotar(e.gt7Id, `${base}.registrations[].gt7Id`);
-                anotar(e.psnId, `${base}.registrations[].psnId`);
-                anotar(e.name, `${base}.registrations[].name`);
-            });
+    if (esEntradaDePiloto(valor)) {
+        CAMPOS_PILOTO.forEach(campo => {
+            if (typeof valor[campo] === 'string') anotar(valor[campo], `${ruta}.${campo}`);
         });
-        (champ.drivers || []).forEach(d => anotar(d.name, `${base}.drivers[].name`));
+        // `name` solo se toma junto a un gt7Id/psnId (inscripciones y
+        // participantes). En una sanción, `name` es el nombre del preset
+        // ("Contacto Mayor"), no un piloto.
+        const esInscripcion = ['gt7Id', 'psnId'].some(c => typeof valor[c] === 'string' && valor[c].trim());
+        if (esInscripcion && typeof valor.name === 'string') anotar(valor.name, `${ruta}.name`);
+    }
 
-        const tracks = await c.ref.collection('tracks').get();
-        for (const t of tracks.docs) {
-            const d = t.data();
-            const tb = `${base}/tracks/${t.id}`;
-            anotarClaves(d.points, `${tb}.points{}`);
-            const divs = d.results?.divisions || {};
-            Object.entries(divs).forEach(([divId, r]) => {
-                const rb = `${tb}.results.divisions.${divId}`;
-                anotarClaves(r.racePositions, `${rb}.racePositions{}`);
-                anotarClaves(r.racePoints, `${rb}.racePoints{}`);
-                anotarClaves(r.qualifying?.points, `${rb}.qualifying.points{}`);
-                Object.values(r.qualifying?.top3 || {}).forEach(n => anotar(n, `${rb}.qualifying.top3`));
-                anotar(r.fastestLap?.driver, `${rb}.fastestLap.driver`);
-                anotarClaves(r.fastestLap?.points, `${rb}.fastestLap.points{}`);
-            });
-            // Estructura sin divisiones
-            anotarClaves(d.results?.racePositions, `${tb}.results.racePositions{}`);
-            anotarClaves(d.results?.racePoints, `${tb}.results.racePoints{}`);
+    Object.entries(valor).forEach(([clave, hijo]) => {
+        if (CLAVES_SON_PILOTOS.has(clave) && hijo && typeof hijo === 'object' && !Array.isArray(hijo)) {
+            Object.keys(hijo).forEach(k => anotar(k, `${ruta}.${clave}{}`));
         }
-
-        for (const [sub, campo] of [['divisions', 'drivers[]'], ['penalties', 'driverName'], ['claims', 'reporter/accused'], ['teams', 'drivers[].name']]) {
-            const q = await c.ref.collection(sub).get();
-            q.docs.forEach(doc => {
-                const d = doc.data();
-                const u = `${base}/${sub}/${doc.id}.${campo}`;
-                if (sub === 'divisions') (d.drivers || []).forEach(n => anotar(n, u));
-                if (sub === 'penalties') anotar(d.driverName, u);
-                if (sub === 'claims') {
-                    anotar(d.reporterName, u);
-                    (d.accusedNames || []).forEach(n => anotar(n, u));
+        if (CAMPOS_PILOTO.includes(clave) && !esEntradaDePiloto(valor) && typeof hijo === 'string') {
+            anotar(hijo, `${ruta}.${clave}`);
+        }
+        if (CAMPOS_ROL.includes(clave) && typeof hijo === 'string') {
+            anotar(hijo, `${ruta}.${clave}`);
+        }
+        // Arrays de nombres sueltos: divisions.drivers[], claims.accusedNames[]
+        if ((clave === 'drivers' || clave === 'accusedNames' || clave === 'participants') && Array.isArray(hijo)) {
+            hijo.forEach(x => { if (typeof x === 'string') anotar(x, `${ruta}.${clave}[]`); });
+        }
+        // Objetos de equipo: {drivers: [{name, points}]} — sin gt7Id ni psnId
+        if (clave === 'drivers' && Array.isArray(hijo)) {
+            hijo.forEach(x => {
+                if (x && typeof x === 'object' && typeof x.name === 'string' && !esEntradaDePiloto(x)) {
+                    anotar(x.name, `${ruta}.drivers[].name`);
                 }
-                if (sub === 'teams') (d.drivers || []).forEach(dr => anotar(dr.name, u));
             });
         }
-    }
-    return cs.size;
+        // top3: {first, second, third} con nombres
+        if (clave === 'top3' && hijo && typeof hijo === 'object') {
+            Object.values(hijo).forEach(n => { if (typeof n === 'string') anotar(n, `${ruta}.top3`); });
+        }
+        recorrer(hijo, `${ruta}.${clave}`);
+    });
 }
 
-async function recolectarEventos() {
-    const es = await db.collection('events').get();
-    for (const e of es.docs) {
-        const base = `events/${e.id}`;
-        const [ps, rs, rounds] = await Promise.all([
-            e.ref.collection('participants').get(),
-            e.ref.collection('results').get(),
-            e.ref.collection('rounds').get(),
-        ]);
-        ps.docs.forEach(d => {
-            anotar(d.data().gt7Id, `${base}/participants.gt7Id`);
-            anotar(d.data().psnId, `${base}/participants.psnId`);
-        });
-        rs.docs.forEach(d => {
-            anotar(d.data().driverName, `${base}/results.driverName`);
-            anotar(d.data().psnId, `${base}/results.psnId`);
-        });
-        rounds.docs.forEach(d => {
-            (d.data().rooms || []).forEach(room => {
-                (room.participants || []).forEach(p => {
-                    anotar(p.gt7Id, `${base}/rounds.rooms[].participants[].gt7Id`);
-                    anotar(p.psnId, `${base}/rounds.rooms[].participants[].psnId`);
-                });
-            });
-        });
-        // Estructura vieja: participantes en el propio documento
-        (e.data().participants || []).forEach(p => {
-            if (typeof p === 'string') anotar(p, `${base}.participants[]`);
-            else {
-                anotar(p.gt7Id, `${base}.participants[].gt7Id`);
-                anotar(p.psnId, `${base}.participants[].psnId`);
-            }
-        });
+/** Recorre una colección y todas sus subcolecciones, sin listarlas a mano. */
+async function recorrerColeccion(colRef, base, stats) {
+    const snap = await colRef.get();
+    stats.docs += snap.size;
+    for (const doc of snap.docs) {
+        recorrer(doc.data(), base);
+        for (const sub of await doc.ref.listCollections()) {
+            await recorrerColeccion(sub, `${base}/${sub.id}/*`, stats);
+        }
     }
-    return es.size;
 }
 
 // ── Agrupación ───────────────────────────────────────────────────────────
@@ -215,16 +203,19 @@ function agrupar(nombres) {
 }
 
 (async () => {
+    const stats = { docs: 0 };
     console.log('Recorriendo campeonatos…');
-    const nChamps = await recolectarCampeonatos();
+    await recorrerColeccion(db.collection('championships'), 'championships/*', stats);
+    const nChamps = (await db.collection('championships').get()).size;
     console.log('Recorriendo eventos…');
-    const nEventos = await recolectarEventos();
+    await recorrerColeccion(db.collection('events'), 'events/*', stats);
+    const nEventos = (await db.collection('events').get()).size;
 
     const nombres = [...apariciones.keys()];
     const veces = (n) => [...apariciones.get(n).values()].reduce((a, b) => a + b, 0);
     const sitios = (n) => apariciones.get(n).size;
 
-    console.log(`\n${nChamps} campeonatos, ${nEventos} eventos`);
+    console.log(`\n${nChamps} campeonatos, ${nEventos} eventos (${stats.docs} documentos recorridos)`);
     console.log(`${nombres.length} nombres distintos`);
     console.log(`${nombres.reduce((a, n) => a + veces(n), 0)} apariciones en total`);
     console.log(`${new Set(nombres.flatMap(n => [...apariciones.get(n).keys()])).size} ubicaciones distintas donde vive un nombre\n`);
