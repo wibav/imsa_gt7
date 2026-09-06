@@ -28,7 +28,20 @@ export default function DivisionsTab({
     onUpdate
 }) {
     const [creating, setCreating] = useState(false);
-    const [newDivName, setNewDivName] = useState('');
+    // El alta pedía solo el nombre y rellenaba el resto con valores por
+    // defecto, así que había que crear la división y volver a abrirla para
+    // configurarla. Mismos campos que el panel de edición.
+    const emptyDivision = () => ({
+        name: '',
+        color: DEFAULT_DIVISION_COLORS[divisions.length % DEFAULT_DIVISION_COLORS.length],
+        maxDrivers: championship?.divisionsConfig?.maxDriversPerDivision || 15,
+        casterName: '',
+        hostName: '',
+        streamUrl: '',
+        hour: '22:30',
+    });
+    const [newDiv, setNewDiv] = useState(emptyDivision);
+    const setNewDivField = (campo, valor) => setNewDiv(prev => ({ ...prev, [campo]: valor }));
     const [saving, setSaving] = useState(false);
     const [savingTimes, setSavingTimes] = useState(false);
     const [editingDiv, setEditingDiv] = useState(null);
@@ -109,21 +122,18 @@ export default function DivisionsTab({
     // ── Handlers ───────────────────────────────────────────────
 
     const handleCreateDivision = async () => {
-        if (!newDivName.trim()) return;
+        if (!newDiv.name.trim()) return;
         setSaving(true);
         try {
             const order = divisions.length + 1;
             await FirebaseService.createDivision(championshipId, {
-                name: newDivName.trim(),
+                ...newDiv,
+                name: newDiv.name.trim(),
+                maxDrivers: parseInt(newDiv.maxDrivers) || 15,
                 order,
-                color: DEFAULT_DIVISION_COLORS[(order - 1) % DEFAULT_DIVISION_COLORS.length],
                 drivers: [],
-                maxDrivers: championship?.divisionsConfig?.maxDriversPerDivision || 15,
-                hour: '22:30',
-                hostName: '',
-                casterName: ''
             });
-            setNewDivName('');
+            setNewDiv(emptyDivision());
             setCreating(false);
             await onUpdate();
         } catch (error) {
@@ -394,22 +404,69 @@ export default function DivisionsTab({
 
             {/* ── Crear nueva división ── */}
             {creating && (
-                <div className="bg-white/5 border border-white/20 rounded-xl p-4">
-                    <div className="flex gap-3">
-                        <input type="text" value={newDivName}
-                            onChange={(e) => setNewDivName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleCreateDivision()}
-                            placeholder="Nombre de la división (ej: División A)"
-                            className="flex-1 px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            autoFocus
-                        />
-                        <button onClick={handleCreateDivision} disabled={saving || !newDivName.trim()}
+                <div className="bg-white/5 border border-white/20 rounded-xl p-4 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Nombre *</label>
+                            <input type="text" value={newDiv.name}
+                                onChange={(e) => setNewDivField('name', e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleCreateDivision()}
+                                placeholder="Nombre de la división (ej: División A)"
+                                className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                autoFocus
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Color</label>
+                            <input type="color" value={newDiv.color}
+                                onChange={(e) => setNewDivField('color', e.target.value)}
+                                className="w-full h-10 rounded-lg cursor-pointer bg-transparent" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">Max Pilotos</label>
+                            <input type="number" min="1" max="30" value={newDiv.maxDrivers}
+                                onChange={(e) => setNewDivField('maxDrivers', e.target.value)}
+                                className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm" />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">📺 Caster</label>
+                            <input type="text" value={newDiv.casterName}
+                                onChange={(e) => setNewDivField('casterName', e.target.value)}
+                                placeholder="Nombre del comentarista"
+                                className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm placeholder-gray-500" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">🎮 Host</label>
+                            <input type="text" value={newDiv.hostName}
+                                onChange={(e) => setNewDivField('hostName', e.target.value)}
+                                placeholder="Nombre del anfitrión"
+                                className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm placeholder-gray-500" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">🔗 Stream URL</label>
+                            <input type="text" value={newDiv.streamUrl}
+                                onChange={(e) => setNewDivField('streamUrl', e.target.value)}
+                                placeholder="https://..."
+                                className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm placeholder-gray-500" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">🕐 Hora (España)</label>
+                            <input type="time" value={newDiv.hour}
+                                onChange={(e) => setNewDivField('hour', e.target.value)}
+                                className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm" />
+                            <p className="text-gray-500 text-xs mt-1">Hora peninsular española (CET/CEST)</p>
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                        <button onClick={handleCreateDivision} disabled={saving || !newDiv.name.trim()}
                             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50">
                             ✓ Crear
                         </button>
-                        <button onClick={() => { setCreating(false); setNewDivName(''); }}
+                        <button onClick={() => { setCreating(false); setNewDiv(emptyDivision()); }}
                             className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg">
-                            ✕
+                            ✕ Cancelar
                         </button>
                     </div>
                 </div>
