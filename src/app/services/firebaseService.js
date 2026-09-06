@@ -183,6 +183,74 @@ export class FirebaseService {
     FirebaseService._identitiesPromise = null;
   }
 
+  /**
+   * Guarda una fusión de identidad.
+   *
+   * La invariante que sostiene todo el sistema: un alias pertenece como mucho
+   * a UNA identidad. Sin ella, dos fusiones podrían contradecirse y el nombre
+   * que se acabara mostrando dependería del orden de lectura.
+   *
+   * @param {{id?: string, canonical: string, psnId?: string, aliases: string[], note?: string}} identity
+   * @param {string} actorEmail - Queda registrado en el documento
+   */
+  static async savePilotIdentity(identity, actorEmail = '') {
+    const canonical = String(identity?.canonical || '').trim();
+    if (!canonical) throw new Error('La identidad necesita un nombre canónico');
+
+    const aliases = [...new Set(
+      (identity.aliases || []).map(a => String(a || '').trim()).filter(a => a && a !== canonical)
+    )];
+    if (aliases.length === 0) throw new Error('La identidad necesita al menos un alias además del canónico');
+
+    const existentes = await FirebaseService.getPilotIdentities();
+    const enConflicto = [];
+    existentes.forEach(otra => {
+      if (otra.id === identity.id) return;
+      const suyos = new Set([otra.canonical, ...(otra.aliases || [])]);
+      [canonical, ...aliases].forEach(n => { if (suyos.has(n)) enConflicto.push(`${n} (ya en "${otra.canonical}")`); });
+    });
+    if (enConflicto.length) {
+      throw new Error(`Estos nombres ya pertenecen a otra identidad: ${enConflicto.join(', ')}`);
+    }
+
+    const ahora = new Date().toISOString();
+    const datos = {
+      canonical,
+      aliases,
+      psnId: String(identity.psnId || '').trim(),
+      note: String(identity.note || '').trim(),
+      mergedAt: ahora,
+      mergedBy: actorEmail,
+    };
+
+    if (identity.id) {
+      const ref = doc(db, 'pilotIdentities', identity.id);
+      const previo = await getDoc(ref);
+      const history = [...(previo.data()?.history || []), { at: ahora, by: actorEmail, action: 'merge', aliases }];
+      await setDoc(ref, { ...datos, createdAt: previo.data()?.createdAt || ahora, history });
+      FirebaseService.invalidatePilotIdentitiesCache();
+      return { success: true, id: identity.id };
+    }
+
+    const ref = await addDoc(collection(db, 'pilotIdentities'), {
+      ...datos,
+      createdAt: ahora,
+      history: [{ at: ahora, by: actorEmail, action: 'merge', aliases }],
+    });
+    FirebaseService.invalidatePilotIdentitiesCache();
+    return { success: true, id: ref.id };
+  }
+
+  /**
+   * Deshace una fusión. Es un borrado limpio porque la fusión nunca tocó los
+   * datos: solo dejaba de existir la equivalencia entre nombres.
+   */
+  static async deletePilotIdentity(identityId) {
+    await deleteDoc(doc(db, 'pilotIdentities', identityId));
+    FirebaseService.invalidatePilotIdentitiesCache();
+    return { success: true };
+  }
+
   static async saveTracks(tracks) {
     try {
       const promises = tracks.map(track =>

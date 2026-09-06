@@ -19,10 +19,11 @@ const serviceAccount = require('../serviceAccountKey.json');
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
-// Subcolecciones conocidas por documento padre (ver 01-CONTEXTO.md)
-const CHAMPIONSHIP_SUBCOLLECTIONS = ['teams', 'tracks', 'divisions', 'events', 'penalties', 'claims'];
-const EVENT_SUBCOLLECTIONS = ['participants', 'waitlist', 'results', 'rounds'];
-const TOP_LEVEL_COLLECTIONS = ['championships', 'events', 'teams', 'tracks', 'organizations', 'memberships'];
+// Las colecciones se descubren en tiempo de ejecución, no se enumeran a mano.
+// La lista fija se había quedado atrás: no incluía `cars` (574 documentos),
+// `equipment` ni la subcolección `declarations` de los campeonatos, así que un
+// backup hecho para tener punto de restauración se los dejaba fuera en
+// silencio — justo lo que no puede pasar en un backup.
 
 /** Convierte tipos especiales de Firestore (Timestamp) a algo serializable en JSON */
 function serializeValue(value) {
@@ -40,43 +41,53 @@ function serializeValue(value) {
     return value;
 }
 
-async function dumpSubcollections(docRef, subcollectionNames) {
+/** Vuelca las subcolecciones de un documento, a cualquier profundidad. */
+async function dumpSubcollections(docRef) {
     const result = {};
-    for (const name of subcollectionNames) {
-        const snap = await docRef.collection(name).get();
-        if (!snap.empty) {
-            result[name] = snap.docs.map(d => ({ id: d.id, data: serializeValue(d.data()) }));
+    for (const sub of await docRef.listCollections()) {
+        const snap = await sub.get();
+        if (snap.empty) continue;
+        result[sub.id] = [];
+        for (const d of snap.docs) {
+            const entry = { id: d.id, data: serializeValue(d.data()) };
+            const anidadas = await dumpSubcollections(d.ref);
+            if (Object.keys(anidadas).length) entry.subcollections = anidadas;
+            result[sub.id].push(entry);
         }
     }
     return result;
 }
 
-async function dumpCollection(name) {
-    const snap = await db.collection(name).get();
+async function dumpCollection(colRef) {
+    const snap = await colRef.get();
     const docs = [];
     for (const d of snap.docs) {
         const entry = { id: d.id, data: serializeValue(d.data()) };
-        if (name === 'championships') {
-            entry.subcollections = await dumpSubcollections(d.ref, CHAMPIONSHIP_SUBCOLLECTIONS);
-        } else if (name === 'events') {
-            entry.subcollections = await dumpSubcollections(d.ref, EVENT_SUBCOLLECTIONS);
-        }
+        const subs = await dumpSubcollections(d.ref);
+        if (Object.keys(subs).length) entry.subcollections = subs;
         docs.push(entry);
     }
     return docs;
+}
+
+/** Cuenta documentos incluyendo los de subcolecciones anidadas. */
+function contar(docs) {
+    return docs.reduce((total, d) => total + 1 + Object.values(d.subcollections || {})
+        .reduce((a, arr) => a + contar(arr), 0), 0);
 }
 
 async function main() {
     const backup = { exportedAt: new Date().toISOString(), collections: {} };
     let totalDocs = 0;
 
-    for (const name of TOP_LEVEL_COLLECTIONS) {
-        process.stdout.write(`Exportando ${name}... `);
-        const docs = await dumpCollection(name);
-        backup.collections[name] = docs;
-        const subCount = docs.reduce((acc, d) => acc + Object.values(d.subcollections || {}).reduce((a, arr) => a + arr.length, 0), 0);
-        totalDocs += docs.length + subCount;
-        console.log(`${docs.length} documentos${subCount ? ` (+ ${subCount} en subcolecciones)` : ''}`);
+    const colecciones = await db.listCollections();
+    for (const col of colecciones) {
+        process.stdout.write(`Exportando ${col.id}... `);
+        const docs = await dumpCollection(col);
+        backup.collections[col.id] = docs;
+        const total = contar(docs);
+        totalDocs += total;
+        console.log(`${docs.length} documentos${total > docs.length ? ` (+ ${total - docs.length} en subcolecciones)` : ''}`);
     }
 
     const dir = path.join(__dirname, '..', 'backups');

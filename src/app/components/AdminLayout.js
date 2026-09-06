@@ -73,10 +73,14 @@ export default function AdminLayout({ children }) {
         // Plataforma (asignar imágenes es un recurso global compartido
         // entre todas las organizaciones, no de una liga en particular).
         ...(isPlatformOwner() ? [{
-            title: 'Catálogo de Pistas',
+            title: 'Catálogo Global',
             icon: '🏎️',
             items: [
                 { name: 'Pistas GT7', path: '/tracksAdmin', icon: '🏁' },
+                // Los nombres de piloto son globales: el mismo piloto corre en
+                // varias organizaciones, así que la fusión no puede vivir
+                // dentro de una liga.
+                { name: 'Identidades de Piloto', path: '/pilotsAdmin', icon: '🧬' },
             ]
         }] : []),
         // Cuenta/organización: agrupa lo que es de la cuenta en sí (usuarios,

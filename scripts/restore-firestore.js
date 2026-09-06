@@ -30,10 +30,15 @@ function deserializeValue(value) {
     return value;
 }
 
+// Recursiva: el backup vuelca las subcolecciones a cualquier profundidad, y
+// si la restauración solo bajara un nivel se perderían en silencio los datos
+// anidados más abajo.
 async function restoreSubcollections(docRef, subcollections) {
     for (const [name, docs] of Object.entries(subcollections || {})) {
         for (const doc of docs) {
-            await docRef.collection(name).doc(doc.id).set(deserializeValue(doc.data));
+            const ref = docRef.collection(name).doc(doc.id);
+            await ref.set(deserializeValue(doc.data));
+            await restoreSubcollections(ref, doc.subcollections);
         }
     }
 }

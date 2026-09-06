@@ -113,5 +113,40 @@ try {
 }
 ok(JSON.stringify(applyPilotIdentities({ a: 'b' }, [])) === JSON.stringify({ a: 'b' }), 'lista vacía devuelve el mapa intacto');
 
+// ── Fase 2: motor de candidatos y detector de conflictos ────────────────
+const { agruparCandidatos, conflictosDeGrupo, nombresPorCarrera, similitudNombres } = await import(
+    path.join(ROOT, 'src/app/utils/pilotIdentityMatcher.js')
+);
+
+console.log('\nE) El detector de conflictos separa a quien compartió carrera');
+// La salvaguarda más importante: dos nombres que puntuaron en la MISMA
+// carrera son dos personas, por parecidos que suenen.
+const carreras = datos.flatMap(d => nombresPorCarrera(d.tracks));
+ok(carreras.length > 0, `${carreras.length} carreras con resultados analizadas`);
+
+// Informativo, no una aserción: que hoy existan conflictos o no depende de los
+// datos, no del código. La detección se verifica en F con casos construidos.
+const nombresEnCarreras = [...new Set(carreras.flatMap(c => [...c]))];
+const gruposReales = agruparCandidatos(nombresEnCarreras);
+const conflictosReales = gruposReales.flatMap(g => conflictosDeGrupo(g, carreras));
+console.log(`     ${gruposReales.length} grupos entre nombres con resultados, ${conflictosReales.length} pareja(s) en conflicto`);
+conflictosReales.slice(0, 5).forEach(c => console.log(`     ⚠️ "${c.a}" vs "${c.b}" — juntos en ${c.veces} carrera(s)`));
+
+console.log('\nF) Un piloto consigo mismo nunca genera conflicto');
+const unaCarrera = [new Set(['MR-Tony', 'Otro'])];
+ok(conflictosDeGrupo(['MR-Tony'], unaCarrera).length === 0, 'grupo de uno: sin conflicto');
+ok(conflictosDeGrupo(['MR-Tony', 'A77_tony'], unaCarrera).length === 0, 'alias que no coincidieron: sin conflicto');
+ok(conflictosDeGrupo(['MR-Tony', 'Otro'], unaCarrera).length === 1, 'coincidencia real: conflicto detectado');
+
+console.log('\nG) Los ya fusionados dejan de proponerse');
+const sinFiltro = agruparCandidatos(['Dayo', 'Dayo21', 'Hgt_dayo21']);
+const conFiltro = agruparCandidatos(['Dayo', 'Dayo21', 'Hgt_dayo21'], { yaFusionados: new Set(['Dayo', 'Dayo21', 'Hgt_dayo21']) });
+ok(sinFiltro.length === 1 && conFiltro.length === 0, `sin filtro ${sinFiltro.length} grupo(s), con filtro ${conFiltro.length}`);
+
+console.log('\nH) La similitud se comporta');
+ok(similitudNombres('HGT_dayo21', 'Hgt_dayo21') === 1, 'mayúsculas y etiqueta de equipo: idénticos');
+ok(similitudNombres('Ojer', 'Holo') < 0.5, 'nombres sin relación: baja');
+ok(similitudNombres('', 'algo') === 0, 'cadena vacía: 0');
+
 console.log(`\n${fallos === 0 ? '✓ SIN REGRESIONES' : `✗ ${fallos} FALLOS`} — ${pilotos} pilotos evaluados\n`);
 process.exit(fallos === 0 ? 0 : 1);
