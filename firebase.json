@@ -43,6 +43,10 @@
         "function": "suggest_claim_resolution"
       },
       {
+        "source": "/share/**",
+        "function": "share_page"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

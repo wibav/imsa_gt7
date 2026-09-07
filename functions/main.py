@@ -1315,3 +1315,157 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
         'analyzedUrls': youtube_urls,
         'skippedUrls': skipped_urls,
     })
+
+# ══════════════════════════════════════════════════════════════════════════
+# Páginas de compartición dinámicas
+#
+# Las previews de enlace (Telegram, WhatsApp…) se pre-generan en el build con
+# scripts/generate-share-pages.js, y Firebase Hosting sirve esos archivos
+# estáticos ANTES de mirar los rewrites. Esta función solo entra en juego para
+# lo que no existía al compilar: un campeonato o un evento creado después del
+# último despliegue tendría que esperar a un build nuevo para poder
+# compartirse con su banner y su nombre.
+#
+# Devuelve el mismo HTML que el script: metadatos OG con el banner de la
+# propia entidad, redirección a la SPA para quien navegue, y contenido en
+# <noscript> para los crawlers que no ejecutan JS.
+# ══════════════════════════════════════════════════════════════════════════
+
+_BASE_URL = 'https://imsa.trenkit.com'
+
+
+def _esc(valor) -> str:
+    if valor is None:
+        return ''
+    return (
+        str(valor)
+        .replace('&', '&amp;')
+        .replace('<', '&lt;')
+        .replace('>', '&gt;')
+        .replace('"', '&quot;')
+        .replace("'", '&#39;')
+    )
+
+
+def _banner_valido(banner) -> bool:
+    """Solo sirven URLs http(s): un data URI no lo puede descargar un crawler."""
+    if not banner or not isinstance(banner, str):
+        return False
+    return banner.strip().startswith(('http://', 'https://'))
+
+
+def _share_html(titulo: str, descripcion: str, imagen: str, url_canonica: str,
+                url_destino: str, cuerpo: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{_esc(titulo)}</title>
+<meta name="description" content="{_esc(descripcion)}">
+<link rel="canonical" href="{_esc(url_canonica)}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="GT7 Championships">
+<meta property="og:locale" content="es_ES">
+<meta property="og:title" content="{_esc(titulo)}">
+<meta property="og:description" content="{_esc(descripcion)}">
+<meta property="og:url" content="{_esc(url_canonica)}">
+<meta property="og:image" content="{_esc(imagen)}">
+<meta property="og:image:secure_url" content="{_esc(imagen)}">
+<meta property="og:image:alt" content="{_esc(titulo)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{_esc(titulo)}">
+<meta name="twitter:description" content="{_esc(descripcion)}">
+<meta name="twitter:image" content="{_esc(imagen)}">
+<script>window.location.replace({json.dumps(url_destino)});</script>
+<style>
+body{{margin:0;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+background:linear-gradient(135deg,#0f172a,#1e3a8a,#1e293b);color:#fff;
+min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}}
+.caja{{max-width:640px;text-align:center}}
+.caja img{{max-width:100%;border-radius:12px;margin-bottom:24px}}
+a{{color:#fb923c}}
+</style>
+</head>
+<body>
+<div class="caja">
+{cuerpo}
+<p><a href="{_esc(url_destino)}">Abrir en GT7 Championships</a></p>
+</div>
+<noscript><p>Continúa a <a href="{_esc(url_destino)}">{_esc(url_destino)}</a></p></noscript>
+</body>
+</html>"""
+
+
+def _share_no_encontrado(tipo: str) -> https_fn.Response:
+    etiqueta = 'Campeonato' if tipo == 'championship' else 'Evento'
+    html = _share_html(
+        f'{etiqueta} no encontrado - GT7 Championships',
+        f'Este {etiqueta.lower()} ya no está disponible.',
+        f'{_BASE_URL}/og-image.png',
+        f'{_BASE_URL}/',
+        f'{_BASE_URL}/',
+        f'<h1>{etiqueta} no encontrado</h1>',
+    )
+    # 200 y no 404: los crawlers descartan la preview de un 404, y aquí
+    # interesa que al menos se vea la marca.
+    return https_fn.Response(html, status=200, headers={
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'public, max-age=300',
+    })
+
+
+@https_fn.on_request(region='us-central1', max_instances=10)
+def share_page(req: https_fn.Request) -> https_fn.Response:
+    partes = [p for p in (req.path or '').split('/') if p]
+    # /share/championship/{id} → ['share', 'championship', '{id}']
+    if len(partes) < 3 or partes[0] != 'share':
+        return _share_no_encontrado('championship')
+
+    tipo, entidad_id = partes[1], partes[2]
+    if tipo not in ('championship', 'event'):
+        return _share_no_encontrado('championship')
+
+    db = fb_firestore.client()
+    coleccion = 'championships' if tipo == 'championship' else 'events'
+    try:
+        doc = db.collection(coleccion).document(entidad_id).get()
+    except Exception as e:
+        print(f'[share_page] Error leyendo {coleccion}/{entidad_id}: {e}')
+        return _share_no_encontrado(tipo)
+
+    if not doc.exists:
+        return _share_no_encontrado(tipo)
+
+    datos = doc.to_dict() or {}
+    destino = f'{_BASE_URL}/{"championships" if tipo == "championship" else "events"}?id={entidad_id}'
+
+    if tipo == 'championship':
+        titulo = datos.get('name') or 'Campeonato'
+        temporada = datos.get('season')
+        titulo_completo = f'{titulo}{f" {temporada}" if temporada else ""} - GT7 Championships'
+        descripcion = (datos.get('description')
+                       or f'Clasificaciones, calendario y resultados de {titulo}.')
+    else:
+        titulo = datos.get('title') or 'Evento'
+        titulo_completo = f'{titulo} - GT7 Championships'
+        descripcion = (datos.get('description')
+                       or f'Inscripciones y detalles de {titulo}.')
+
+    descripcion = ' '.join(str(descripcion).split())[:200]
+    banner = datos.get('banner')
+    imagen = banner.strip() if _banner_valido(banner) else f'{_BASE_URL}/og-image.png'
+
+    cuerpo = (f'<img src="{_esc(imagen)}" alt="{_esc(titulo)}">'
+              f'<h1>{_esc(titulo)}</h1><p>{_esc(descripcion)}</p>')
+
+    html = _share_html(titulo_completo, descripcion, imagen,
+                       f'{_BASE_URL}/share/{tipo}/{entidad_id}/', destino, cuerpo)
+
+    return https_fn.Response(html, status=200, headers={
+        'Content-Type': 'text/html; charset=utf-8',
+        # El CDN de Hosting cachea la respuesta: un enlace que se comparte en un
+        # grupo lo abren muchos, y no tiene sentido pagar una invocación por cada
+        # uno. 10 minutos basta para que un cambio de banner se vea pronto.
+        'Cache-Control': 'public, max-age=600, s-maxage=600',
+    })
