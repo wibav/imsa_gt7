@@ -1,8 +1,20 @@
 """
-Genera imágenes OG 1200×630 para cada sección del sitio GT7 Championships.
-Usa el logo como elemento central sobre un fondo con gradiente y texto descriptivo.
+Genera las imágenes OG 1200×630 que se ven al compartir un enlace del sitio
+(Telegram, WhatsApp, X…).
+
+Sigue el mismo lenguaje visual que la web (ver DESIGN.md): fondo con el
+gradiente diagonal slate-900 → blue-900 → slate-800 y el acento naranja→rojo
+de los botones principales, en vez de la paleta suelta de verdes, ámbares y
+morados que tenía antes y que no salía de ninguna parte del diseño.
+
+Notas de PIL que costaron un rato:
+  - `draw.text(..., fill=(r,g,b,a))` sobre una imagen RGB IGNORA el alfa. Para
+    tener texto atenuado hay que pintar en una capa RGBA y componer.
+  - Lo mismo con las líneas: dibujarlas directamente salía opaco. La versión
+    anterior construía una capa con alfa 12 y se olvidaba de componerla, así
+    que el grid se veía como líneas duras de color.
 """
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import os
 
 PUBLIC_DIR = os.path.join(os.path.dirname(__file__), '..', 'public')
@@ -10,167 +22,178 @@ LOGO_PATH = os.path.join(PUBLIC_DIR, 'logo_gt7.png')
 
 WIDTH, HEIGHT = 1200, 630
 
+# Paleta de la web (tailwind slate/blue + CTA naranja→rojo).
+SLATE_900 = (15, 23, 42)
+BLUE_900 = (30, 58, 138)
+SLATE_800 = (30, 41, 59)
+ORANGE_600 = (234, 88, 12)
+RED_600 = (220, 38, 38)
+
 SECTIONS = [
     {
         'filename': 'og-image.png',
-        'title': 'GT7 Championships',
-        'subtitle': 'Dashboard de campeonatos y resultados',
-        'bg_top': (15, 23, 42),       # slate-900
-        'bg_bottom': (30, 41, 59),     # slate-800
-        'accent': (59, 130, 246),      # blue-500
+        'title': 'GT7 CHAMPIONSHIPS',
+        'subtitle': 'Campeonatos, eventos y resultados',
     },
     {
         'filename': 'og-championships.png',
         'title': 'CAMPEONATOS',
         'subtitle': 'Clasificaciones, resultados y estadísticas',
-        'bg_top': (12, 18, 32),
-        'bg_bottom': (26, 39, 68),
-        'accent': (245, 158, 11),      # amber-500
     },
     {
         'filename': 'og-pilots.png',
         'title': 'ÁREA DE PILOTOS',
         'subtitle': 'Perfiles, rendimiento e historial',
-        'bg_top': (15, 23, 42),
-        'bg_bottom': (22, 32, 50),
-        'accent': (16, 185, 129),      # emerald-500
     },
     {
         'filename': 'og-reglamento.png',
         'title': 'REGLAMENTO OFICIAL',
         'subtitle': 'Normativa, sanciones y procedimientos',
-        'bg_top': (24, 10, 46),
-        'bg_bottom': (30, 17, 69),
-        'accent': (168, 85, 247),      # purple-500
     },
     {
         'filename': 'og-tools.png',
         'title': 'CREADOR DE VINILOS',
         'subtitle': 'Convierte imágenes a SVG para GT7',
-        'bg_top': (26, 10, 10),
-        'bg_bottom': (45, 21, 21),
-        'accent': (239, 68, 68),       # red-500
     },
     {
         'filename': 'og-events.png',
         'title': 'EVENTOS',
         'subtitle': 'Calendario, carreras especiales e inscripciones',
-        'bg_top': (10, 20, 30),
-        'bg_bottom': (20, 40, 60),
-        'accent': (251, 146, 60),      # orange-400
     },
 ]
 
 
-def lerp_color(c1, c2, t):
-    """Interpola linealmente entre dos colores RGB."""
+def lerp(c1, c2, t):
     return tuple(int(a + (b - a) * t) for a, b in zip(c1, c2))
 
 
-def draw_gradient(draw, width, height, top_color, bottom_color):
-    """Dibuja un gradiente vertical."""
-    for y in range(height):
-        color = lerp_color(top_color, bottom_color, y / height)
-        draw.line([(0, y), (width, y)], fill=color)
+def gradiente_diagonal(width, height):
+    """
+    Reproduce `bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800`.
+
+    Se calcula en pequeño —un píxel por celda, con t = (x/w + y/h)/2, que es
+    justo la diagonal de CSS— y se escala con LANCZOS. Interpolar dos pases,
+    uno vertical y otro horizontal, no da un diagonal: lava el resultado y se
+    pierde el arranque oscuro que caracteriza al fondo de la web.
+    """
+    pequeno = Image.new('RGB', (64, 34))
+    px = pequeno.load()
+    for y in range(34):
+        for x in range(64):
+            px[x, y] = _color_en((x / 63 + y / 33) / 2)
+    return pequeno.resize((width, height), Image.LANCZOS)
 
 
-def generate_og_image(section):
-    img = Image.new('RGB', (WIDTH, HEIGHT))
-    draw = ImageDraw.Draw(img)
+def _color_en(t):
+    """Color del gradiente en t∈[0,1]: slate-900 → blue-900 → slate-800."""
+    if t < 0.5:
+        return lerp(SLATE_900, BLUE_900, t / 0.5)
+    return lerp(BLUE_900, SLATE_800, (t - 0.5) / 0.5)
 
-    # Gradiente de fondo
-    draw_gradient(draw, WIDTH, HEIGHT, section['bg_top'], section['bg_bottom'])
 
-    accent = section['accent']
+def barra_cta(width, alto):
+    """Franja con el gradiente naranja→rojo de los botones principales."""
+    barra = Image.new('RGB', (width, alto))
+    d = ImageDraw.Draw(barra)
+    for x in range(width):
+        d.line([(x, 0), (x, alto)], fill=lerp(ORANGE_600, RED_600, x / width))
+    return barra
 
-    # Barras de acento superiores e inferiores
-    draw.rectangle([0, 0, WIDTH, 5], fill=accent)
-    draw.rectangle([0, HEIGHT - 5, WIDTH, HEIGHT], fill=accent)
 
-    # Líneas decorativas sutiles (grid)
-    grid_color = (*accent, 15)  # Muy transparente
-    for x in [300, 600, 900]:
-        draw.line([(x, 0), (x, HEIGHT)], fill=(*accent[:3],), width=1)
-    for y in [157, 315, 473]:
-        draw.line([(0, y), (WIDTH, y)], fill=(*accent[:3],), width=1)
+def cargar_fuentes():
+    """
+    La web usa Inter (next/font). No está en el sistema, así que se cae a la
+    sans-serif más parecida que haya. Se prueban rutas de macOS y de Linux
+    para que el build dé el mismo resultado en CI.
+    """
+    candidatos_bold = [
+        '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
+        '/System/Library/Fonts/HelveticaNeue.ttc',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+    ]
+    candidatos_regular = [
+        '/System/Library/Fonts/Supplemental/Arial.ttf',
+        '/System/Library/Fonts/Helvetica.ttc',
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+    ]
 
-    # Hacer las líneas del grid más tenues pintando encima con el fondo
-    overlay = Image.new('RGBA', (WIDTH, HEIGHT), (0, 0, 0, 0))
-    overlay_draw = ImageDraw.Draw(overlay)
-    for x in [300, 600, 900]:
-        overlay_draw.line([(x, 0), (x, HEIGHT)], fill=(*accent, 12), width=1)
-    for y in [157, 315, 473]:
-        overlay_draw.line([(0, y), (WIDTH, y)], fill=(*accent, 12), width=1)
+    def primera(rutas, tam):
+        for r in rutas:
+            try:
+                return ImageFont.truetype(r, tam)
+            except (IOError, OSError):
+                continue
+        return ImageFont.load_default()
 
-    # Círculo decorativo grande (fondo)
-    circle_overlay = Image.new('RGBA', (WIDTH, HEIGHT), (0, 0, 0, 0))
-    circle_draw = ImageDraw.Draw(circle_overlay)
-    cx, cy, r = 900, 315, 250
-    circle_draw.ellipse([cx-r, cy-r, cx+r, cy+r], fill=(*accent, 10))
-    r2 = 180
-    circle_draw.ellipse([cx-r2, cy-r2, cx+r2, cy+r2], fill=(*accent, 8))
-    img.paste(Image.alpha_composite(Image.new('RGBA', (WIDTH, HEIGHT), (0,0,0,0)), circle_overlay).convert('RGB'),
-              mask=circle_overlay.split()[3])
+    return {
+        'titulo': primera(candidatos_bold, 58),
+        'subtitulo': primera(candidatos_regular, 26),
+        'marca': primera(candidatos_bold, 20),
+        'url': primera(candidatos_regular, 18),
+    }
 
-    # Logo — redimensionado y centrado a la derecha
+
+def generate_og_image(section, fuentes):
+    img = gradiente_diagonal(WIDTH, HEIGHT).convert('RGBA')
+
+    # ── Halo naranja detrás del logo ──
+    # Va en su propia capa y desenfocado: una elipse de alfa plano deja un
+    # borde duro que se ve como un disco pegado, no como el resplandor difuso
+    # que tienen los botones de la web.
+    halo = Image.new('RGBA', (WIDTH, HEIGHT), (0, 0, 0, 0))
+    h = ImageDraw.Draw(halo)
+    cx, cy = 930, 315
+    for radio, alfa in ((260, 18), (170, 22), (100, 26)):
+        h.ellipse([cx - radio, cy - radio, cx + radio, cy + radio], fill=(*ORANGE_600, alfa))
+    halo = halo.filter(ImageFilter.GaussianBlur(90))
+    img = Image.alpha_composite(img, halo)
+
+    # ── Rejilla ──
+    # Nítida, en capa aparte para que no la toque el desenfoque. Sugiere la
+    # cuadrícula de las tarjetas sin competir con el texto; blanca y no del
+    # color de acento, para no ensuciar el fondo.
+    rejilla = Image.new('RGBA', (WIDTH, HEIGHT), (0, 0, 0, 0))
+    r = ImageDraw.Draw(rejilla)
+    for x in range(200, WIDTH, 200):
+        r.line([(x, 0), (x, HEIGHT)], fill=(255, 255, 255, 10), width=1)
+    for y in range(126, HEIGHT, 126):
+        r.line([(0, y), (WIDTH, y)], fill=(255, 255, 255, 10), width=1)
+    img = Image.alpha_composite(img, rejilla)
+
+    # ── Barras de acento arriba y abajo, con el gradiente de los CTA ──
+    img.paste(barra_cta(WIDTH, 6), (0, 0))
+    img.paste(barra_cta(WIDTH, 6), (0, HEIGHT - 6))
+
+    # ── Logo ──
     try:
         logo = Image.open(LOGO_PATH).convert('RGBA')
-        logo_size = 220
-        logo = logo.resize((logo_size, logo_size), Image.LANCZOS)
-        logo_x = WIDTH - logo_size - 80
-        logo_y = (HEIGHT - logo_size) // 2
-        # Crear fondo temporal para el logo
-        img_rgba = img.convert('RGBA')
-        img_rgba.paste(logo, (logo_x, logo_y), logo)
-        img = img_rgba.convert('RGB')
-        draw = ImageDraw.Draw(img)
+        lado = 240
+        logo = logo.resize((lado, lado), Image.LANCZOS)
+        img.paste(logo, (WIDTH - lado - 90, (HEIGHT - lado) // 2), logo)
     except Exception as e:
-        print(f"  [warning] No se pudo insertar logo: {e}")
+        print(f"  [aviso] No se pudo insertar el logo: {e}")
 
-    # Fuentes — intentar system fonts, fallback a default
-    title_size = 52
-    subtitle_size = 24
-    brand_size = 18
-    url_size = 15
+    # ── Texto, en capa aparte para que el alfa funcione ──
+    capa = Image.new('RGBA', (WIDTH, HEIGHT), (0, 0, 0, 0))
+    t = ImageDraw.Draw(capa)
 
-    try:
-        # macOS system fonts
-        title_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", title_size)
-        subtitle_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", subtitle_size)
-        brand_font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", brand_size)
-        url_font = ImageFont.truetype("/Library/Fonts/Courier New.ttf", url_size)
-    except (IOError, OSError):
-        try:
-            title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", title_size)
-            subtitle_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", subtitle_size)
-            brand_font = subtitle_font
-            url_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", url_size)
-        except (IOError, OSError):
-            title_font = ImageFont.load_default()
-            subtitle_font = title_font
-            brand_font = title_font
-            url_font = title_font
+    t.text((90, 232), section['title'], fill=(255, 255, 255, 255), font=fuentes['titulo'])
+    t.text((90, 306), section['subtitle'], fill=(255, 255, 255, 170), font=fuentes['subtitulo'])
 
-    # Título principal
-    draw.text((90, 220), section['title'], fill='white', font=title_font)
+    img = Image.alpha_composite(img, capa)
 
-    # Subtítulo
-    draw.text((90, 290), section['subtitle'], fill=(255, 255, 255, 166), font=subtitle_font)
+    # Divisoria con el gradiente del CTA, como el subrayado de la web.
+    img.paste(barra_cta(180, 4), (90, 358))
 
-    # Línea divisoria de acento
-    draw.rectangle([90, 335, 260, 338], fill=(*accent,))
+    pie = Image.new('RGBA', (WIDTH, HEIGHT), (0, 0, 0, 0))
+    p = ImageDraw.Draw(pie)
+    p.text((90, 494), "GT7 CHAMPIONSHIPS", fill=(255, 255, 255, 120), font=fuentes['marca'])
+    p.text((90, 524), "imsa.trenkit.com", fill=(*ORANGE_600, 220), font=fuentes['url'])
+    img = Image.alpha_composite(img, pie)
 
-    # Brand footer
-    draw.text((140, 490), "GT7 Championships", fill=(255, 255, 255, 90), font=brand_font)
-
-    # URL
-    draw.text((90, 520), "imsa.trenkit.com", fill=(*accent,), font=url_font)
-
-    # Guardar
     dest = os.path.join(PUBLIC_DIR, section['filename'])
-    img.save(dest, 'PNG', optimize=True)
-    size_kb = os.path.getsize(dest) / 1024
-    print(f"  ✓ {section['filename']} ({WIDTH}×{HEIGHT}, {size_kb:.0f} KB)")
+    img.convert('RGB').save(dest, 'PNG', optimize=True)
+    print(f"  ✓ {section['filename']} ({WIDTH}×{HEIGHT}, {os.path.getsize(dest) / 1024:.0f} KB)")
 
 
 def main():
@@ -179,8 +202,9 @@ def main():
         print(f"  ✗ Logo no encontrado: {LOGO_PATH}")
         return
 
+    fuentes = cargar_fuentes()
     for section in SECTIONS:
-        generate_og_image(section)
+        generate_og_image(section, fuentes)
 
     print(f"[generate-og] {len(SECTIONS)} imágenes generadas en public/")
 
