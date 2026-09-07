@@ -313,6 +313,12 @@ service cloud.firestore {
       allow write: if isPlatformOwner();
     }
 
+    // Parejas de nombres marcadas como personas distintas. Solo las usa
+    // /pilotsAdmin, así que ni siquiera necesita lectura pública.
+    match /pilotDismissals/{dismissalId} {
+      allow read, write: if isPlatformOwner();
+    }
+
     match /cars/{carId} {
       allow read: if true;
       allow write: if isPlatformOwner();

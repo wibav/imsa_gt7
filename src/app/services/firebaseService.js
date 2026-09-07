@@ -281,6 +281,54 @@ export class FirebaseService {
     return { success: true, id: ref.id };
   }
 
+  // ── Descartes: "estos dos NO son el mismo piloto" ──
+  //
+  // Sin esto, un grupo que el heurístico propone mal —"Dani" con
+  // "gonzalezdanielo"— vuelve a aparecer cada vez que se abre la pantalla, y
+  // con 73 grupos propuestos los que nunca se van a fusionar se acumulan como
+  // ruido hasta tapar los que sí.
+  static _dismissalsPromise = null;
+
+  static async getPilotDismissals() {
+    if (!FirebaseService._dismissalsPromise) {
+      FirebaseService._dismissalsPromise = (async () => {
+        const snapshot = await getDocs(collection(db, 'pilotDismissals'));
+        return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      })().catch(error => {
+        FirebaseService._dismissalsPromise = null;
+        console.error('Error fetching pilot dismissals: ', error);
+        return [];
+      });
+    }
+    return FirebaseService._dismissalsPromise;
+  }
+
+  /**
+   * Marca un conjunto de nombres como personas distintas.
+   *
+   * Se guardan los nombres del grupo y de ahí se derivan las parejas: guardar
+   * el grupo tal cual haría que el descarte dejara de aplicar en cuanto un
+   * nombre nuevo se sumara al racimo, y por parejas sigue valiendo.
+   */
+  static async dismissPilotGroup(names = [], actorEmail = '') {
+    const limpios = [...new Set(names.map(n => String(n || '').trim()).filter(Boolean))];
+    if (limpios.length < 2) throw new Error('Hacen falta al menos dos nombres para descartarlos');
+    const ahora = new Date().toISOString();
+    const ref = await addDoc(collection(db, 'pilotDismissals'), {
+      names: limpios,
+      dismissedAt: ahora,
+      dismissedBy: actorEmail,
+    });
+    FirebaseService._dismissalsPromise = null;
+    return { success: true, id: ref.id };
+  }
+
+  static async deletePilotDismissal(dismissalId) {
+    await deleteDoc(doc(db, 'pilotDismissals', dismissalId));
+    FirebaseService._dismissalsPromise = null;
+    return { success: true };
+  }
+
   /**
    * Deshace una fusión. Es un borrado limpio porque la fusión nunca tocó los
    * datos: solo dejaba de existir la equivalencia entre nombres.

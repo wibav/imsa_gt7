@@ -8,6 +8,7 @@ import {
     conflictosDeGrupo,
     nombresPorCarrera,
     nucleoNombre,
+    paresDescartadosDesde,
 } from "../../utils/pilotIdentityMatcher";
 import LoadingSkeleton from "../../components/common/LoadingSkeleton";
 
@@ -29,6 +30,9 @@ export default function PilotsAdminPage() {
     const [loading, setLoading] = useState(true);
     const [datos, setDatos] = useState({ apariciones: {}, carreras: [] });
     const [identities, setIdentities] = useState([]);
+    const [dismissals, setDismissals] = useState([]);
+    // Id de la fusión que se está editando, o null si es una fusión nueva.
+    const [editandoId, setEditandoId] = useState(null);
     const [seleccion, setSeleccion] = useState(null); // grupo abierto
     const [canonical, setCanonical] = useState('');
     // Si el canónico se ha escrito a mano, deja de recalcularse solo al añadir
@@ -49,11 +53,13 @@ export default function PilotsAdminPage() {
     const cargar = async () => {
         try {
             setLoading(true);
-            const [champs, ids] = await Promise.all([
+            const [champs, ids, descartes] = await Promise.all([
                 FirebaseService.getChampionships(),
                 FirebaseService.getPilotIdentities(),
+                FirebaseService.getPilotDismissals(),
             ]);
             setIdentities(ids);
+            setDismissals(descartes);
 
             // Se cuentan las apariciones de cada nombre para poder ordenar los
             // candidatos por peso y proponer el canónico más usado.
@@ -106,14 +112,16 @@ export default function PilotsAdminPage() {
         return s;
     }, [identities]);
 
+    const paresDescartados = useMemo(() => paresDescartadosDesde(dismissals), [dismissals]);
+
     const candidatos = useMemo(() => {
         const nombres = Object.keys(datos.apariciones);
-        const grupos = agruparCandidatos(nombres, { yaFusionados });
+        const grupos = agruparCandidatos(nombres, { yaFusionados, paresDescartados });
         const peso = g => g.reduce((a, n) => a + (datos.apariciones[n] || 0), 0);
         return grupos
             .map(g => [...g].sort((a, b) => (datos.apariciones[b] || 0) - (datos.apariciones[a] || 0)))
             .sort((a, b) => peso(b) - peso(a));
-    }, [datos, yaFusionados]);
+    }, [datos, yaFusionados, paresDescartados]);
 
     const candidatosVisibles = useMemo(() => {
         if (!busqueda.trim()) return candidatos;
@@ -144,7 +152,9 @@ export default function PilotsAdminPage() {
      * buscador, que es lo que hace falta cuando el mismo piloto aparece
      * repartido en varios grupos ("NANO" y "NANO_VR2").
      */
-    const abrirGrupo = (grupo, { conservarNota = false } = {}) => {
+    const abrirGrupo = (grupo, { conservarNota = false, editando = undefined } = {}) => {
+        if (editando !== undefined) setEditandoId(editando);
+        else if (!conservarNota) setEditandoId(null);
         setSeleccion(grupo);
         setIncluidos([...grupo]);
         // Al abrir un grupo nuevo se propone el nombre más frecuente; si ya se
@@ -197,15 +207,51 @@ export default function PilotsAdminPage() {
         try {
             setGuardando(true);
             await FirebaseService.savePilotIdentity(
-                { canonical, aliases: incluidos.filter(n => n !== canonical), note: nota },
+                {
+                    id: editandoId || undefined,
+                    canonical: canonical.trim(),
+                    aliases: incluidos.filter(n => n !== canonical.trim()),
+                    note: nota,
+                },
                 currentUser?.email || ''
             );
             setSeleccion(null);
+            setEditandoId(null);
             await cargar();
         } catch (e) {
             setError(e.message);
         } finally {
             setGuardando(false);
+        }
+    };
+
+    /** Carga una fusión existente en el panel para ampliarla o corregirla. */
+    const editar = (ident) => {
+        const nombres = [ident.canonical, ...(ident.aliases || [])];
+        abrirGrupo(nombres, { editando: ident.id });
+        setCanonical(ident.canonical);
+        setCanonicalEditado(true);
+        setNota(ident.note || '');
+        window.scrollTo({ top: 0, behavior: 'auto' });
+    };
+
+    /** "No son el mismo piloto": deja de proponerse este grupo. */
+    const descartar = async (grupo) => {
+        try {
+            await FirebaseService.dismissPilotGroup(grupo, currentUser?.email || '');
+            if (seleccion && seleccion.join('|') === grupo.join('|')) setSeleccion(null);
+            await cargar();
+        } catch (e) {
+            alert('No se pudo descartar: ' + e.message);
+        }
+    };
+
+    const recuperarDescarte = async (d) => {
+        try {
+            await FirebaseService.deletePilotDismissal(d.id);
+            await cargar();
+        } catch (e) {
+            alert('No se pudo recuperar: ' + e.message);
         }
     };
 
@@ -238,6 +284,12 @@ export default function PilotsAdminPage() {
                         <span className="text-orange-400">{candidatos.length} grupos propuestos</span>
                         <span className="mx-2">•</span>
                         <span className="text-green-400">{identities.length} fusiones activas</span>
+                        {dismissals.length > 0 && (
+                            <>
+                                <span className="mx-2">•</span>
+                                <span className="text-gray-400">{dismissals.length} descartados</span>
+                            </>
+                        )}
                     </p>
                     <p className="text-gray-400 text-xs mt-2 max-w-3xl">
                         Nada se fusiona automáticamente: esto son sugerencias por parecido y se equivocan
@@ -312,28 +364,38 @@ export default function PilotsAdminPage() {
                                 const activo = seleccion && seleccion.join('|') === grupo.join('|');
                                 const conflicto = conflictosDeGrupo(grupo, datos.carreras).length > 0;
                                 return (
-                                    <button
+                                    <div
                                         key={i}
-                                        onClick={() => abrirGrupo(grupo)}
-                                        className={`w-full text-left bg-white/5 border rounded-xl p-4 transition-all hover:bg-white/10 ${activo ? 'border-orange-500' : conflicto ? 'border-red-400/40' : 'border-white/10'
+                                        className={`bg-white/5 border rounded-xl p-4 transition-all ${activo ? 'border-orange-500' : conflicto ? 'border-red-400/40' : 'border-white/10'
                                             }`}
                                     >
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs text-gray-500 font-mono">núcleo &ldquo;{nucleoNombre(grupo[0])}&rdquo;</span>
-                                            {conflicto && (
-                                                <span className="text-xs bg-red-500/20 text-red-300 px-2 py-0.5 rounded">
-                                                    ⚠️ coincidieron en carrera
-                                                </span>
-                                            )}
+                                        <button onClick={() => abrirGrupo(grupo)} className="w-full text-left">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-xs text-gray-500 font-mono">núcleo &ldquo;{nucleoNombre(grupo[0])}&rdquo;</span>
+                                                {conflicto && (
+                                                    <span className="text-xs bg-red-500/20 text-red-300 px-2 py-0.5 rounded">
+                                                        ⚠️ coincidieron en carrera
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {grupo.map(n => (
+                                                    <span key={n} className="text-sm bg-white/10 text-gray-200 px-2 py-1 rounded">
+                                                        {n} <span className="text-gray-500">({datos.apariciones[n]})</span>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </button>
+                                        <div className="mt-3 pt-3 border-t border-white/5">
+                                            <button
+                                                onClick={() => descartar(grupo)}
+                                                className="text-xs text-gray-400 hover:text-red-300 transition-colors"
+                                                title="Deja de proponerse. No toca ningún dato y se puede recuperar."
+                                            >
+                                                ✕ No son el mismo piloto
+                                            </button>
                                         </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {grupo.map(n => (
-                                                <span key={n} className="text-sm bg-white/10 text-gray-200 px-2 py-1 rounded">
-                                                    {n} <span className="text-gray-500">({datos.apariciones[n]})</span>
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </button>
+                                    </div>
                                 );
                             })}
                         </div>
@@ -353,7 +415,9 @@ export default function PilotsAdminPage() {
                         ) : (
                             <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-white/20 rounded-xl p-5 space-y-4">
                                 <div className="flex items-center justify-between">
-                                    <h3 className="text-xl font-bold text-white">Revisar fusión</h3>
+                                    <h3 className="text-xl font-bold text-white">
+                                        {editandoId ? 'Editar fusión' : 'Revisar fusión'}
+                                    </h3>
                                     <span className="text-xs text-gray-500">
                                         busca arriba para añadir más nombres
                                     </span>
@@ -461,7 +525,9 @@ export default function PilotsAdminPage() {
                                         disabled={guardando || incluidos.length < 2 || !canonical.trim()}
                                         className="flex-1 px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        {guardando ? '⏳ Fusionando...' : '🧬 Fusionar'}
+                                        {guardando
+                                            ? '⏳ Guardando...'
+                                            : editandoId ? '💾 Guardar cambios' : '🧬 Fusionar'}
                                     </button>
                                     <button
                                         onClick={() => setSeleccion(null)}
@@ -488,11 +554,49 @@ export default function PilotsAdminPage() {
                                                     </div>
                                                     {ident.note && <div className="text-gray-500 text-xs mt-1 italic">{ident.note}</div>}
                                                 </div>
+                                                <div className="flex gap-2 flex-shrink-0">
+                                                    <button
+                                                        onClick={() => editar(ident)}
+                                                        className="px-3 py-1.5 bg-white/10 text-gray-200 hover:bg-white/20 rounded-lg text-sm transition-colors"
+                                                        title="Añadir más nombres o cambiar el que se muestra"
+                                                    >
+                                                        Editar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deshacer(ident)}
+                                                        className="px-3 py-1.5 bg-red-600/20 text-red-400 hover:bg-red-600/40 rounded-lg text-sm transition-colors"
+                                                    >
+                                                        Deshacer
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {/* ── Descartados ── */}
+                        {dismissals.length > 0 && (
+                            <div className="mt-6">
+                                <h3 className="text-lg font-bold text-white mb-3">
+                                    Descartados ({dismissals.length})
+                                </h3>
+                                <p className="text-xs text-gray-500 mb-3">
+                                    Marcados como personas distintas. No vuelven a proponerse; recuperarlos
+                                    los devuelve a la lista de sugerencias.
+                                </p>
+                                <div className="space-y-2">
+                                    {dismissals.map(d => (
+                                        <div key={d.id} className="bg-white/5 border border-white/10 rounded-lg p-3">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="text-gray-300 text-sm min-w-0">
+                                                    {(d.names || []).join(' · ')}
+                                                </div>
                                                 <button
-                                                    onClick={() => deshacer(ident)}
-                                                    className="px-3 py-1.5 bg-red-600/20 text-red-400 hover:bg-red-600/40 rounded-lg text-sm transition-colors flex-shrink-0"
+                                                    onClick={() => recuperarDescarte(d)}
+                                                    className="px-3 py-1.5 bg-white/10 text-gray-200 hover:bg-white/20 rounded-lg text-sm transition-colors flex-shrink-0"
                                                 >
-                                                    Deshacer
+                                                    Recuperar
                                                 </button>
                                             </div>
                                         </div>

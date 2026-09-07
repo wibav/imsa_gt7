@@ -196,6 +196,20 @@ const sinFiltro = agruparCandidatos(['Dayo', 'Dayo21', 'Hgt_dayo21']);
 const conFiltro = agruparCandidatos(['Dayo', 'Dayo21', 'Hgt_dayo21'], { yaFusionados: new Set(['Dayo', 'Dayo21', 'Hgt_dayo21']) });
 ok(sinFiltro.length === 1 && conFiltro.length === 0, `sin filtro ${sinFiltro.length} grupo(s), con filtro ${conFiltro.length}`);
 
+console.log('\nG bis) Los descartes rompen el grupo y no vuelven a proponerlo');
+const { paresDescartadosDesde } = await import(path.join(ROOT, 'src/app/utils/pilotIdentityMatcher.js'));
+const trio = ['Dani', 'Daniireina1', 'gonzalezdanielo'];
+ok(agruparCandidatos(trio).length === 1, 'sin descarte: se proponen juntos');
+const descartes = paresDescartadosDesde([{ names: trio }]);
+ok(agruparCandidatos(trio, { paresDescartados: descartes }).length === 0, 'con descarte: no se proponen');
+// Un descarte parcial no debe arrastrar al tercero por la puerta de atrás.
+const parcial = paresDescartadosDesde([{ names: ['Dani', 'gonzalezdanielo'] }]);
+const resto = agruparCandidatos(trio, { paresDescartados: parcial });
+ok(
+    resto.every(g => !(g.includes('Dani') && g.includes('gonzalezdanielo'))),
+    `la pareja descartada no reaparece dentro de otro grupo (${resto.length} grupo/s)`
+);
+
 console.log('\nH) La similitud se comporta');
 ok(similitudNombres('HGT_dayo21', 'Hgt_dayo21') === 1, 'mayúsculas y etiqueta de equipo: idénticos');
 ok(similitudNombres('Ojer', 'Holo') < 0.5, 'nombres sin relación: baja');

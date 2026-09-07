@@ -64,10 +64,16 @@ export const UMBRAL_POR_DEFECTO = 0.82;
  *        una identidad confirmada; se excluyen para no volver a proponerlos.
  * @returns {Array<Array<string>>} Grupos de 2 o más nombres
  */
-export function agruparCandidatos(nombres = [], { umbral = UMBRAL_POR_DEFECTO, yaFusionados = new Set() } = {}) {
+export function agruparCandidatos(nombres = [], {
+    umbral = UMBRAL_POR_DEFECTO,
+    yaFusionados = new Set(),
+    paresDescartados = new Set(),
+} = {}) {
     const pendientes = nombres.filter(n => n && !yaFusionados.has(n));
     const grupos = [];
     const asignado = new Set();
+
+    const descartada = (a, b) => paresDescartados.has(clavePar(a, b));
 
     pendientes.forEach(a => {
         if (asignado.has(a)) return;
@@ -75,6 +81,10 @@ export function agruparCandidatos(nombres = [], { umbral = UMBRAL_POR_DEFECTO, y
         asignado.add(a);
         pendientes.forEach(b => {
             if (asignado.has(b)) return;
+            // Basta con que se haya descartado la pareja con CUALQUIER miembro
+            // del grupo: si ya se dijo que B no es A, meterlo con A por
+            // parecerse a C sería colarlo por la puerta de atrás.
+            if (grupo.some(g => descartada(g, b))) return;
             if (grupo.some(g => similitudNombres(g, b) >= umbral)) {
                 grupo.push(b);
                 asignado.add(b);
@@ -84,6 +94,26 @@ export function agruparCandidatos(nombres = [], { umbral = UMBRAL_POR_DEFECTO, y
     });
 
     return grupos;
+}
+
+/** Clave estable de una pareja de nombres, sin importar el orden. */
+export function clavePar(a, b) {
+    return [String(a), String(b)].sort().join('\u0000');
+}
+
+/**
+ * Parejas descartadas a partir de los documentos de `pilotDismissals`.
+ * Cada descarte guarda el grupo entero; aquí se expande a parejas.
+ */
+export function paresDescartadosDesde(dismissals = []) {
+    const set = new Set();
+    dismissals.forEach(d => {
+        const nombres = d?.names || [];
+        for (let i = 0; i < nombres.length; i++) {
+            for (let j = i + 1; j < nombres.length; j++) set.add(clavePar(nombres[i], nombres[j]));
+        }
+    });
+    return set;
 }
 
 /**
