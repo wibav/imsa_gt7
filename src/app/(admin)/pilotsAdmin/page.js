@@ -174,14 +174,35 @@ export default function PilotsAdminPage() {
         setCanonicalEditado(true);
     };
 
+    /**
+     * Cierra el panel y olvida TODO su estado.
+     *
+     * `editandoId` tiene que morir aquí: si sobrevive al cierre, la siguiente
+     * selección que se arme desde el buscador se guardaría encima de la
+     * identidad que se estaba editando —o resucitaría una recién deshecha—,
+     * porque savePilotIdentity hace setDoc sobre ese id.
+     */
+    const cerrarPanel = () => {
+        setSeleccion(null);
+        setEditandoId(null);
+        setCanonical('');
+        setCanonicalEditado(false);
+        setNota('');
+        setError('');
+    };
+
     /** Añade o quita un nombre de la selección abierta, desde el buscador. */
     const alternarEnSeleccion = (nombre) => {
         const actual = seleccion || [];
         const nueva = actual.includes(nombre)
             ? actual.filter(n => n !== nombre)
             : [...actual, nombre];
-        if (nueva.length === 0) { setSeleccion(null); return; }
-        abrirGrupo(nueva, { conservarNota: true });
+        if (nueva.length === 0) { cerrarPanel(); return; }
+        // Si no había nada abierto, esto empieza una selección NUEVA: no puede
+        // heredar el modo edición de una anterior ya cerrada.
+        abrirGrupo(nueva, actual.length === 0
+            ? { editando: null }
+            : { conservarNota: true });
     };
 
     const conflictos = useMemo(
@@ -215,8 +236,7 @@ export default function PilotsAdminPage() {
                 },
                 currentUser?.email || ''
             );
-            setSeleccion(null);
-            setEditandoId(null);
+            cerrarPanel();
             await cargar();
         } catch (e) {
             setError(e.message);
@@ -238,8 +258,13 @@ export default function PilotsAdminPage() {
     /** "No son el mismo piloto": deja de proponerse este grupo. */
     const descartar = async (grupo) => {
         try {
-            await FirebaseService.dismissPilotGroup(grupo, currentUser?.email || '');
-            if (seleccion && seleccion.join('|') === grupo.join('|')) setSeleccion(null);
+            const r = await FirebaseService.dismissPilotGroup(grupo, currentUser?.email || '');
+            if (r.yaCubierto) {
+                // No se crea nada: ya había un descarte que contiene a este.
+                // Se dice, en vez de dejar que parezca que no ha pasado nada.
+                alert('Estos nombres ya estaban descartados dentro de otro grupo más amplio.');
+            }
+            if (seleccion && seleccion.join('|') === grupo.join('|')) cerrarPanel();
             await cargar();
         } catch (e) {
             alert('No se pudo descartar: ' + e.message);
@@ -259,6 +284,10 @@ export default function PilotsAdminPage() {
         if (!confirm(`¿Deshacer la fusión de "${ident.canonical}"?\n\nLos nombres volverán a mostrarse por separado. No se toca ningún dato histórico.`)) return;
         try {
             await FirebaseService.deletePilotIdentity(ident.id);
+            // Si era justo la que se estaba editando, cerrar el panel: guardar
+            // después escribiría sobre un documento ya borrado y la
+            // resucitaría.
+            if (editandoId === ident.id) cerrarPanel();
             await cargar();
         } catch (e) {
             alert('No se pudo deshacer: ' + e.message);
@@ -530,7 +559,7 @@ export default function PilotsAdminPage() {
                                             : editandoId ? '💾 Guardar cambios' : '🧬 Fusionar'}
                                     </button>
                                     <button
-                                        onClick={() => setSeleccion(null)}
+                                        onClick={cerrarPanel}
                                         className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-lg transition-all"
                                     >
                                         Cancelar

@@ -210,6 +210,21 @@ ok(
     `la pareja descartada no reaparece dentro de otro grupo (${resto.length} grupo/s)`
 );
 
+console.log('\nG ter) Descartes solapados: "Recuperar" tiene que recuperar de verdad');
+const { planificarDescarte } = await import(path.join(ROOT, 'src/app/utils/pilotIdentityMatcher.js'));
+const previo = [{ id: 'd1', names: ['A', 'B', 'C'] }];
+// Caso del review: al sumarse un nombre al racimo se descarta el grupo mayor.
+const plan1 = planificarDescarte(['A', 'B', 'C', 'D'], previo);
+ok(plan1.cubiertoPor === null, 'el grupo mayor sí se crea');
+ok(plan1.absorbidos.length === 1 && plan1.absorbidos[0].id === 'd1', 'y absorbe al subconjunto, no lo deja huérfano');
+// Repetir un descarte no debe duplicarlo.
+const plan2 = planificarDescarte(['A', 'B'], previo);
+ok(plan2.cubiertoPor?.id === 'd1', 'un subconjunto ya cubierto no crea documento nuevo');
+// Solapes que NO son subconjunto se dejan en paz: fusionarlos inventaría
+// afirmaciones que nadie ha hecho.
+const plan3 = planificarDescarte(['A', 'Z'], previo);
+ok(plan3.cubiertoPor === null && plan3.absorbidos.length === 0, 'solape parcial: ni absorbe ni se da por cubierto');
+
 console.log('\nH) La similitud se comporta');
 ok(similitudNombres('HGT_dayo21', 'Hgt_dayo21') === 1, 'mayúsculas y etiqueta de equipo: idénticos');
 ok(similitudNombres('Ojer', 'Holo') < 0.5, 'nombres sin relación: baja');

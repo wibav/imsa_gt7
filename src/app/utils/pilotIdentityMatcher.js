@@ -205,3 +205,33 @@ export function nombresParecidosA(valor, conocidos = [], { umbral = 0.86, maximo
         .slice(0, maximo)
         .map(x => x.nombre);
 }
+
+/**
+ * Qué hacer al descartar un grupo, dados los descartes que ya existen.
+ *
+ * Los descartes se guardan por grupos y las parejas se derivan de ellos, así
+ * que dos documentos solapados hacen que "Recuperar" uno no devuelva el grupo
+ * a las sugerencias: el otro sigue cubriendo sus parejas y el botón parece no
+ * hacer nada. Se resuelve absorbiendo los subconjuntos.
+ *
+ * Solo subconjuntos, no cualquier solape: fusionar {A,B} con {A,C} en {A,B,C}
+ * afirmaría que B≠C, que es algo que nadie ha dicho.
+ *
+ * @param {Array<string>} nombres - Grupo que se quiere descartar
+ * @param {Array<{id: string, names: string[]}>} existentes
+ * @returns {{cubiertoPor: Object|null, absorbidos: Array}}
+ */
+export function planificarDescarte(nombres = [], existentes = []) {
+    const limpios = [...new Set(nombres.map(n => String(n || '').trim()).filter(Boolean))];
+    const nuevo = new Set(limpios);
+
+    const cubiertoPor = existentes.find(d =>
+        limpios.length > 0 && limpios.every(n => (d.names || []).includes(n))
+    ) || null;
+
+    const absorbidos = cubiertoPor ? [] : existentes.filter(d =>
+        (d.names || []).length > 0 && (d.names || []).every(n => nuevo.has(n))
+    );
+
+    return { cubiertoPor, absorbidos };
+}

@@ -26,6 +26,7 @@ import {
 } from "firebase/storage";
 import { app, auth } from "../api/firebase/firebaseConfig";
 import { declarationDocId } from "../utils/carUsageCalculator";
+import { planificarDescarte } from "../utils/pilotIdentityMatcher";
 // Fuente única de límites por plan, compartida con functions/main.py (que
 // la importa desde el mismo archivo) — antes vivían duplicados a mano aquí
 // y en Python, con solo un comentario pidiendo mantenerlos en sync.
@@ -313,14 +314,36 @@ export class FirebaseService {
   static async dismissPilotGroup(names = [], actorEmail = '') {
     const limpios = [...new Set(names.map(n => String(n || '').trim()).filter(Boolean))];
     if (limpios.length < 2) throw new Error('Hacen falta al menos dos nombres para descartarlos');
+
+    // Los descartes que sean subconjunto de este se absorben, y si este ya
+    // está contenido en otro no se crea nada.
+    //
+    // Sin esto, descartar {A,B,C} y más tarde {A,B,C,D} —lo normal cuando un
+    // nombre nuevo se suma al racimo— deja dos documentos, y "Recuperar" el
+    // primero no devuelve el grupo a las sugerencias porque el segundo sigue
+    // cubriendo sus parejas: el botón parecería no hacer nada.
+    //
+    // Solo se absorben subconjuntos, no cualquier solape. Fusionar {A,B} con
+    // {A,C} en {A,B,C} afirmaría que B≠C, que es algo que nadie ha dicho.
+    const existentes = await FirebaseService.getPilotDismissals();
+    const { cubiertoPor, absorbidos } = planificarDescarte(limpios, existentes);
+
+    if (cubiertoPor) {
+      return { success: true, id: cubiertoPor.id, yaCubierto: true };
+    }
+
     const ahora = new Date().toISOString();
     const ref = await addDoc(collection(db, 'pilotDismissals'), {
       names: limpios,
       dismissedAt: ahora,
       dismissedBy: actorEmail,
     });
+    for (const d of absorbidos) {
+      await deleteDoc(doc(db, 'pilotDismissals', d.id));
+    }
+
     FirebaseService._dismissalsPromise = null;
-    return { success: true, id: ref.id };
+    return { success: true, id: ref.id, absorbidos: absorbidos.length };
   }
 
   static async deletePilotDismissal(dismissalId) {
