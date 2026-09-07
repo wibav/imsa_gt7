@@ -15,6 +15,7 @@ export {
     getNextRace,
     getNextEvent,
     getRegistrationState,
+    applyPilotIdentities,
     getStandings,
     getDriverStandings,
     buildGt7IdMap,

@@ -124,6 +124,48 @@ try {
 }
 ok(JSON.stringify(applyPilotIdentities({ a: 'b' }, [])) === JSON.stringify({ a: 'b' }), 'lista vacía devuelve el mapa intacto');
 
+// ── Consolidación de datos antes de calcular ────────────────────────────
+const { aplicarIdentidadesACampeonato, aplicarIdentidadesAEquipos, aplicarIdentidadesAPistas } =
+    await import(path.join(ROOT, 'src/app/utils/pilotIdentityApply.js'));
+
+console.log('\nJ) Un piloto fusionado deja de tener dos filas en la clasificación');
+// Con las identidades REALES que ya hay guardadas en producción.
+const identidadesReales = (await db.collection('pilotIdentities').get()).docs.map(d => d.data());
+const mapaReal = applyPilotIdentities({}, identidadesReales);
+console.log(`     ${identidadesReales.length} identidades activas, ${Object.keys(mapaReal).length} alias`);
+
+for (const { championship, teams, tracks, penalties } of datos) {
+    const antes = calculateAdvancedStandings(championship, teams, tracks, penalties).driverStandings;
+    const despues = calculateAdvancedStandings(
+        aplicarIdentidadesACampeonato(championship, mapaReal),
+        aplicarIdentidadesAEquipos(teams, mapaReal),
+        aplicarIdentidadesAPistas(tracks, mapaReal),
+        penalties
+    ).driverStandings;
+    if (antes.length === 0) continue;
+
+    // Ni un punto puede evaporarse al consolidar.
+    const ptsAntes = antes.reduce((a, d) => a + d.totalPoints, 0);
+    const ptsDespues = despues.reduce((a, d) => a + d.totalPoints, 0);
+    ok(ptsAntes === ptsDespues, `${championship.name}: ${ptsAntes} pts se conservan (${antes.length} → ${despues.length} filas)`);
+
+    // Y no puede quedar ningún nombre repetido tras consolidar.
+    const nombres = despues.map(d => d.name);
+    ok(new Set(nombres).size === nombres.length, `${championship.name}: sin filas duplicadas`);
+
+    const fusionados = antes.length - despues.length;
+    if (fusionados > 0) {
+        const desaparecidos = antes.map(d => d.name).filter(n => !nombres.includes(n));
+        console.log(`     ${fusionados} fila(s) consolidadas: ${desaparecidos.join(', ')}`);
+    }
+}
+
+console.log('\nK) Sin identidades, los datos salen intactos');
+const sinMapa = datos[0];
+ok(aplicarIdentidadesACampeonato(sinMapa.championship, {}) === sinMapa.championship, 'campeonato: misma referencia');
+ok(aplicarIdentidadesAPistas(sinMapa.tracks, {}) === sinMapa.tracks, 'pistas: misma referencia');
+ok(aplicarIdentidadesAEquipos(sinMapa.teams, {}) === sinMapa.teams, 'equipos: misma referencia');
+
 // ── Fase 2: motor de candidatos y detector de conflictos ────────────────
 const { agruparCandidatos, conflictosDeGrupo, nombresPorCarrera, similitudNombres } = await import(
     path.join(ROOT, 'src/app/utils/pilotIdentityMatcher.js')

@@ -15,6 +15,7 @@ import {
     getNextEvent,
     getRegistrationState,
     buildGt7IdMap,
+    applyPilotIdentities,
     getStandings,
     getDriverStandings,
     getPositionBg,
@@ -25,6 +26,12 @@ import {
     getDriverStats,
     getStandingsByCategory
 } from "../utils";
+import {
+    aplicarIdentidadesACampeonato,
+    aplicarIdentidadesAEquipos,
+    aplicarIdentidadesAPistas,
+    aplicarIdentidadesADivisiones,
+} from "../utils/pilotIdentityApply";
 import StandingsTable from "../components/championship/StandingsTable";
 import DriverStatsPanel from "../components/championship/DriverStatsPanel";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
@@ -151,6 +158,20 @@ export default function ChampionshipDetailPage() {
     // el mapeo anterior aquí se saltaba).
     const driverGt7Map = buildGt7IdMap(championship, pilotIdentities);
 
+    // Los datos se consolidan ANTES de calcular la clasificación: un piloto que
+    // cambió de nombre a mitad de temporada tenía dos filas con los puntos
+    // partidos, y tras fusionarlo las dos pasaban a llamarse igual.
+    //
+    // Solo se aplica el mapa de fusiones confirmadas a mano, no driverGt7Map:
+    // este último incluye además los alias psnId↔gt7Id de las inscripciones, y
+    // consolidar por esos cambiaría clasificaciones ya publicadas sin decisión
+    // de nadie.
+    const mapaFusiones = applyPilotIdentities({}, pilotIdentities);
+    const championshipFusionado = aplicarIdentidadesACampeonato(championship, mapaFusiones);
+    const teamsFusionados = aplicarIdentidadesAEquipos(teams, mapaFusiones);
+    const tracksFusionados = aplicarIdentidadesAPistas(tracks, mapaFusiones);
+    const divisionsFusionadas = aplicarIdentidadesADivisiones(divisions, mapaFusiones);
+
     // ── Entradas invalidadas por uso de autos ──
     // Las declaraciones viven en su propia subcolección, así que se vuelcan
     // aquí sobre las inscripciones para que todo lo de abajo siga leyendo
@@ -164,12 +185,12 @@ export default function ChampionshipDetailPage() {
         : new Set();
 
     // ── Standings Avanzado ──
-    const activeDivision = divisions.find(d => d.id === selectedDivision);
+    const activeDivision = divisionsFusionadas.find(d => d.id === selectedDivision);
     const divisionOptions = selectedDivision !== 'all' && activeDivision
         ? { divisionDrivers: activeDivision.drivers || [], invalidatedEntries }
         : { invalidatedEntries };
     const { driverStandings: advancedDriverStandings, teamStandings: advancedTeamStandings, raceColumns } =
-        calculateAdvancedStandings(championship, teams, tracks, penalties, divisionOptions);
+        calculateAdvancedStandings(championshipFusionado, teamsFusionados, tracksFusionados, penalties, divisionOptions);
     const driverStats = getDriverStats(advancedDriverStandings);
 
     // Configuración de zonas de ascenso/descenso
@@ -181,14 +202,14 @@ export default function ChampionshipDetailPage() {
         : 0;
 
     // ── Standings por División (para vista General con divisiones activas) ──
-    const divisionsStandings = championship?.divisionsConfig?.enabled && divisions.length > 0
-        ? divisions
+    const divisionsStandings = championship?.divisionsConfig?.enabled && divisionsFusionadas.length > 0
+        ? divisionsFusionadas
             .slice()
             .sort((a, b) => (a.order || 0) - (b.order || 0))
             .map(div => {
                 const opts = { divisionDrivers: div.drivers || [], invalidatedEntries };
                 const { driverStandings, teamStandings, raceColumns: rc } =
-                    calculateAdvancedStandings(championship, teams, tracks, penalties, opts);
+                    calculateAdvancedStandings(championshipFusionado, teamsFusionados, tracksFusionados, penalties, opts);
                 return {
                     division: div,
                     driverStandings,

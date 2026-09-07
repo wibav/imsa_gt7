@@ -5,8 +5,13 @@ import { FirebaseService } from "../services/firebaseService";
 import { calculateAdvancedStandings } from "../utils/standingsCalculator";
 import { formatDateFull } from "../utils/dateUtils";
 import { getPositionDisplay, getPositionBg } from "../utils/constants";
-import { buildGt7IdMap } from "../utils/championshipUtils";
+import { buildGt7IdMap, applyPilotIdentities } from "../utils/championshipUtils";
 import { buildPilotEventHistory, resumirEventos } from "../utils/pilotEvents";
+import {
+    aplicarIdentidadesACampeonato,
+    aplicarIdentidadesAEquipos,
+    aplicarIdentidadesAPistas,
+} from "../utils/pilotIdentityApply";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
 
 /**
@@ -63,9 +68,23 @@ export default function PilotsPage() {
             // inscrito — normalmente el psnId — y uno que figurase por psnId
             // en un campeonato y por gt7Id en otro salía como dos pilotos.
             const gt7Map = buildGt7IdMap(allDetails.map(d => d.championship), identities);
+
+            // Mapa SOLO de las fusiones confirmadas a mano. Se usa para
+            // consolidar los datos antes de calcular, y se mantiene aparte de
+            // gt7Map a propósito: gt7Map incluye además los alias psnId↔gt7Id
+            // de las inscripciones, y consolidar por esos alteraría
+            // clasificaciones ya publicadas sin que nadie lo haya decidido.
+            const mapaFusiones = applyPilotIdentities({}, identities);
             const pilotMap = {};
 
-            allDetails.forEach(({ championship, teams, tracks, penalties }) => {
+            allDetails.forEach(({ championship: champRaw, teams: teamsRaw, tracks: tracksRaw, penalties }) => {
+                // Los datos se consolidan ANTES de calcular. Si no, un piloto
+                // que cambió de nombre a mitad de temporada sigue teniendo dos
+                // entradas en la clasificación —con los puntos partidos— y su
+                // perfil muestra el mismo campeonato dos veces.
+                const championship = aplicarIdentidadesACampeonato(champRaw, mapaFusiones);
+                const teams = aplicarIdentidadesAEquipos(teamsRaw, mapaFusiones);
+                const tracks = aplicarIdentidadesAPistas(tracksRaw, mapaFusiones);
                 const { driverStandings } = calculateAdvancedStandings(championship, teams, tracks, penalties);
 
                 driverStandings.forEach(driver => {
