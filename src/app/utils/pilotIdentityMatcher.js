@@ -127,3 +127,51 @@ export function conflictosDeGrupo(grupo = [], carreras = []) {
     }
     return conflictos;
 }
+
+/**
+ * Nombres ya conocidos que se parecen al que está escribiendo el piloto.
+ *
+ * Prevención (fase 4 del plan): el catálogo de identidades se limpia una vez,
+ * pero si nadie avisa en el momento de inscribirse, el problema vuelve a
+ * crecer con cada temporada. Aquí se le pregunta al propio piloto —que es
+ * quien lo sabe seguro— en vez de dejarlo para una fusión posterior.
+ *
+ * Una coincidencia EXACTA no se sugiere: ahí no hay nada que aclarar.
+ *
+ * @param {string} valor - Lo que el piloto ha escrito
+ * @param {Array<string>} conocidos
+ * @param {Object} [opciones]
+ * @param {number} [opciones.umbral] - Más exigente que el de agrupar: aquí se
+ *        interrumpe a una persona, así que conviene callar salvo buen motivo.
+ * @param {number} [opciones.maximo]
+ * @returns {Array<string>}
+ */
+export function nombresParecidosA(valor, conocidos = [], { umbral = 0.86, maximo = 3 } = {}) {
+    const escrito = String(valor || '').trim();
+    if (escrito.length < 3) return [];
+    const yaExiste = conocidos.some(n => normalizarNombre(n) === normalizarNombre(escrito));
+    if (yaExiste) return [];
+
+    // Aquí se es más estricto que al agrupar candidatos, y a propósito. En
+    // /pilotsAdmin interesa proponer de más porque una persona filtra; aquí se
+    // interrumpe a un piloto que está rellenando un formulario, y un aviso que
+    // salta demasiado se convierte en papel pintado y se ignora.
+    //
+    // Medido sobre los nombres reales, la regla de "un núcleo contenido en
+    // otro" era la que disparaba el ruido: hacía que "Erik" avisara por
+    // "Erikjaky93". Se exige que el núcleo corto sea buena parte del largo, lo
+    // que deja pasar "Dayo"/"Dayo21" y descarta "Erik"/"Erikjaky93".
+    const nucleoEscrito = nucleoNombre(escrito);
+
+    return conocidos
+        .map(n => ({ nombre: n, score: similitudNombres(escrito, n), nucleo: nucleoNombre(n) }))
+        .filter(x => {
+            if (x.score < umbral) return false;
+            const corto = Math.min(nucleoEscrito.length, x.nucleo.length);
+            const largo = Math.max(nucleoEscrito.length, x.nucleo.length);
+            return largo > 0 && corto / largo >= 0.6;
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, maximo)
+        .map(x => x.nombre);
+}

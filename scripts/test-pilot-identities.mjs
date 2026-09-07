@@ -148,5 +148,49 @@ ok(similitudNombres('HGT_dayo21', 'Hgt_dayo21') === 1, 'mayúsculas y etiqueta d
 ok(similitudNombres('Ojer', 'Holo') < 0.5, 'nombres sin relación: baja');
 ok(similitudNombres('', 'algo') === 0, 'cadena vacía: 0');
 
+// ── Fase 4: aviso en la inscripción ─────────────────────────────────────
+const { nombresParecidosA } = await import(path.join(ROOT, 'src/app/utils/pilotIdentityMatcher.js'));
+
+console.log('\nI) El aviso de "¿eres tú?" avisa cuando toca y calla cuando no');
+const conocidos = [];
+datos.forEach(({ championship }) => {
+    (championship.registrations || []).forEach(reg => {
+        const entradas = Array.isArray(reg.drivers) && reg.drivers.length ? reg.drivers : [reg];
+        entradas.forEach(e => [e.gt7Id, e.psnId, e.name].forEach(n => { if (n) conocidos.push(n); }));
+    });
+});
+const unicos = [...new Set(conocidos)];
+ok(unicos.length > 0, `${unicos.length} nombres conocidos en las inscripciones`);
+
+// Un nombre EXACTO no debe sugerir nada: no hay ambigüedad que resolver.
+const exacto = unicos[0];
+ok(nombresParecidosA(exacto, unicos).length === 0, `nombre exacto ("${exacto}") no dispara aviso`);
+
+// Una variante evidente sí debe avisar.
+const variante = exacto.toUpperCase() + '_';
+ok(nombresParecidosA(variante, unicos).includes(exacto), `variante ("${variante}") sugiere "${exacto}"`);
+
+// Y algo sin ninguna relación no debe molestar.
+ok(nombresParecidosA('zzqxwvfrtplm', unicos).length === 0, 'nombre sin relación: sin aviso');
+ok(nombresParecidosA('ab', unicos).length === 0, 'menos de 3 caracteres: sin aviso (aún está escribiendo)');
+ok(nombresParecidosA('', unicos).length === 0, 'campo vacío: sin aviso');
+
+// Qué porcentaje de los nombres reales vería el aviso. Es informativo: una
+// tasa alta no significa que el aviso sea ruidoso, sino que el catálogo está
+// sucio — que es justo lo que se quiere destapar.
+const avisos = unicos
+    .map(n => ({ n, sug: nombresParecidosA(n, unicos.filter(x => x !== n)) }))
+    .filter(x => x.sug.length > 0);
+const pct = Math.round((avisos.length / unicos.length) * 100);
+console.log(`     ${avisos.length}/${unicos.length} (${pct}%) de los nombres reales verían el aviso`);
+avisos.slice(0, 4).forEach(a => console.log(`     "${a.n}" → ${a.sug.join(', ')}`));
+
+// Esto sí es una propiedad verificable: un aviso es DEMOSTRABLEMENTE falso si
+// los dos nombres puntuaron en la misma carrera, porque entonces son dos
+// personas y no hay nada que unificar.
+const falsos = avisos.filter(a => a.sug.some(s => carreras.some(c => c.has(a.n) && c.has(s))));
+ok(falsos.length === 0, `sin falsos positivos demostrables (${falsos.length} de ${avisos.length} avisos)`);
+falsos.slice(0, 3).forEach(a => console.log(`     ✗ "${a.n}" → ${a.sug.join(', ')}`));
+
 console.log(`\n${fallos === 0 ? '✓ SIN REGRESIONES' : `✗ ${fallos} FALLOS`} — ${pilotos} pilotos evaluados\n`);
 process.exit(fallos === 0 ? 0 : 1);

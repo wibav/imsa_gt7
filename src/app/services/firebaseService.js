@@ -179,7 +179,47 @@ export class FirebaseService {
     return FirebaseService._identitiesPromise;
   }
 
+  /**
+   * Nombres de piloto ya conocidos, para avisar en la inscripción de que un
+   * ID se parece a uno existente.
+   *
+   * Sale de las inscripciones de todos los campeonatos más las identidades ya
+   * fusionadas. No se recorren los participantes de los eventos a propósito:
+   * serían 23 lecturas de subcolección para un aviso que es orientativo, y el
+   * caso que de verdad parte las estadísticas —volver a inscribirse temporada
+   * tras temporada con otro GT7 ID— ya queda cubierto.
+   */
+  static _knownNamesPromise = null;
+
+  static async getKnownPilotNames() {
+    if (!FirebaseService._knownNamesPromise) {
+      FirebaseService._knownNamesPromise = (async () => {
+        const [champs, identities] = await Promise.all([
+          FirebaseService.getChampionships(),
+          FirebaseService.getPilotIdentities(),
+        ]);
+        const nombres = new Set();
+        const add = v => { const n = String(v || '').trim(); if (n) nombres.add(n); };
+        champs.forEach(c => {
+          (c.registrations || []).forEach(reg => {
+            const entradas = Array.isArray(reg.drivers) && reg.drivers.length ? reg.drivers : [reg];
+            entradas.forEach(e => [e.gt7Id, e.psnId, e.name].forEach(add));
+          });
+        });
+        identities.forEach(i => { add(i.canonical); (i.aliases || []).forEach(add); });
+        return [...nombres];
+      })().catch(error => {
+        FirebaseService._knownNamesPromise = null;
+        // El aviso es una ayuda, no un requisito: si falla, la inscripción sigue.
+        console.error('Error fetching known pilot names: ', error);
+        return [];
+      });
+    }
+    return FirebaseService._knownNamesPromise;
+  }
+
   static invalidatePilotIdentitiesCache() {
+    FirebaseService._knownNamesPromise = null;
     FirebaseService._identitiesPromise = null;
   }
 

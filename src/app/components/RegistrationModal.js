@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import SimilarPilotHint from "./common/SimilarPilotHint";
 
 export default function RegistrationModal({ event, isOpen, onClose, onSubmit, isLoading, registrationMessage }) {
     const [formData, setFormData] = useState({
@@ -123,6 +124,10 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
                                 {errors.gt7Id && (
                                     <p className="text-red-400 text-xs mt-1">{errors.gt7Id}</p>
                                 )}
+                                <SimilarPilotHint
+                                    value={formData.gt7Id}
+                                    onUsar={n => setFormData(prev => ({ ...prev, gt7Id: n }))}
+                                />
                             </div>
 
                             {/* PSN ID */}

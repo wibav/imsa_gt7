@@ -5,6 +5,7 @@ import { FirebaseService } from '../../services/firebaseService';
 import { sendTelegramNotification } from '../../utils/telegram';
 import { isRegulationsEmpty } from '../../utils/regulations';
 import RegulationsPdfButton from './RegulationsPdfButton';
+import SimilarPilotHint from '../common/SimilarPilotHint';
 
 /**
  * Formulario público de inscripción a un campeonato.
@@ -334,6 +335,10 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                                                 placeholder="GT7 ID en el juego"
                                                 className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                                             />
+                                            <SimilarPilotHint
+                                                value={driver.gt7Id}
+                                                onUsar={n => handleDriverChange(idx, 'gt7Id', n)}
+                                            />
                                         </div>
                                         <div>
                                             <label className="block text-xs text-gray-400 mb-1">PSN ID</label>
@@ -422,6 +427,12 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                                             required={config.required}
                                             placeholder={config.placeholder}
                                             className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                                        {fieldKey === 'gt7Id' && (
+                                            <SimilarPilotHint
+                                                value={formData.gt7Id}
+                                                onUsar={n => setFormData(prev => ({ ...prev, gt7Id: n }))}
+                                            />
+                                        )}
                                     </div>
                                 );
                             })}
