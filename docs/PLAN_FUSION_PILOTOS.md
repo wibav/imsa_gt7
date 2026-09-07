@@ -4,7 +4,8 @@ Sección de administración, solo para el Administrador de Plataforma, que
 permite unificar los distintos nombres bajo los que ha corrido un mismo piloto
 y propagar la unificación a campeonatos y eventos.
 
-Estado: **propuesta, sin implementar**. La fase 0 (inventario) ya existe.
+Estado: **fases 0 a 4 implementadas y desplegadas** (2026-09-07). Queda
+pendiente solo la fase 5, que es opcional.
 
 > **Quién decide.** El sistema solo *propone* candidatos; ninguna fusión ocurre
 > sin confirmación explícita del Administrador de Plataforma. No hay fusión
@@ -191,7 +192,7 @@ informa; no escribe nada.
 node scripts/audit-pilot-identities.js --json informe.json --min-score 0.82
 ```
 
-### Fase 1 — Resolución de alias en lectura
+### Fase 1 — Resolución de alias en lectura ✅ hecho
 
 - `FirebaseService.getPilotIdentities()`, cacheada en memoria como `getCars()`.
 - Extender `buildGt7IdMap()` para que acepte las identidades además de las
@@ -203,7 +204,7 @@ node scripts/audit-pilot-identities.js --json informe.json --min-score 0.82
 **Verificable:** creando la identidad de `dayo21` a mano, su ficha de piloto
 pasa de 3 perfiles partidos a 1 con las estadísticas sumadas.
 
-### Fase 2 — La pantalla `/pilotsAdmin`
+### Fase 2 — La pantalla `/pilotsAdmin` ✅ hecho
 
 Guardada por `isPlatformOwner()`, igual que `/tracksAdmin`.
 
@@ -228,7 +229,7 @@ Sobre el símil de los contactos del teléfono: la parte que se copia es la
 es que aquí una fusión equivocada corrompe una clasificación publicada, así que
 la previsualización es obligatoria, no un extra.
 
-### Fase 3 — Escritura de la fusión
+### Fase 3 — Escritura de la fusión ✅ hecho
 
 `FirebaseService.mergePilotIdentity({ canonical, psnId, aliases, note })`:
 
@@ -238,7 +239,7 @@ la previsualización es obligatoria, no un extra.
 
 Deshacer = borrar el documento. Nada más, porque no se ha tocado ningún dato.
 
-### Fase 4 — Prevención
+### Fase 4 — Prevención ✅ hecho
 
 Que el problema deje de crecer:
 
@@ -280,6 +281,20 @@ eventos y 6 campeonatos: ~1 minuto y unas 400 lecturas. En la pantalla admin se
 calcula sobre datos ya cargados, sin lecturas extra.
 
 ---
+
+## 5.bis Qué se verifica
+
+`scripts/test-pilot-identities.mjs` corre contra los datos reales de
+producción, no contra fixtures, porque el histórico que no se puede romper es
+ese. Cubre: que sin identidades la salida sea idéntica a la de antes de existir
+la fusión (referencia reimplementada aparte), que ninguna fusión pierda
+pilotos, el encadenado de alias, la robustez ante documentos corruptos, el
+detector de conflictos y el aviso de la inscripción.
+
+Dato del último paso: de los 158 nombres conocidos, 47 verían el aviso de
+"¿eres tú?", y **cero son falsos positivos demostrables** — ningún par
+sugerido compartió carrera. Ese 30% no mide ruido, mide lo sucio que está hoy
+el catálogo.
 
 ## 6. Orden sugerido
 
