@@ -32,6 +32,7 @@ import {
     aplicarIdentidadesAPistas,
     aplicarIdentidadesADivisiones,
 } from "../utils/pilotIdentityApply";
+import PreQualyInfo from "../components/championship/PreQualyInfo";
 import StandingsTable from "../components/championship/StandingsTable";
 import DriverStatsPanel from "../components/championship/DriverStatsPanel";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
@@ -657,120 +658,11 @@ export default function ChampionshipDetailPage() {
 
                                 <div className="space-y-4">
                                     {/* Pre-Qualy */}
-                                    {championship.preQualy?.enabled && (
-                                        <div className="bg-gradient-to-br from-purple-900/60 to-indigo-900/60 rounded-xl p-6 border border-purple-400/40">
-                                            <div className="flex items-center gap-3 mb-3">
-                                                <span className="text-2xl font-bold text-purple-400">PQ</span>
-                                                <div>
-                                                    <h3 className="text-xl font-bold text-white">Pre-Qualy</h3>
-                                                    <p className="text-purple-300 text-sm">Sesión clasificatoria previa al campeonato</p>
-                                                </div>
-                                                <span className="ml-auto text-xs bg-purple-500/30 border border-purple-400/40 text-purple-200 px-2 py-1 rounded-full">
-                                                    Previa
-                                                </span>
-                                            </div>
-                                            {championship.preQualy.date && (
-                                                <div className="text-gray-300 text-sm mb-2">
-                                                    📅 {formatDateFull(championship.preQualy.date)}
-                                                </div>
-                                            )}
-                                            {championship.preQualy.duration && (
-                                                <div className="text-gray-300 text-sm mb-2">
-                                                    ⏱️ {championship.preQualy.duration} min
-                                                </div>
-                                            )}
-                                            {championship.preQualy.track && (
-                                                <div className="text-gray-300 text-sm mb-2">
-                                                    📍 {championship.preQualy.track}
-                                                </div>
-                                            )}
-                                            {championship.preQualy.allowedCars?.length > 0 && (
-                                                <div className="mt-2 inline-flex items-start gap-2 bg-orange-500/15 border border-orange-500/30 text-orange-100 px-3 py-2 rounded-lg text-sm">
-                                                    <span className="font-semibold">🚗 Autos obligatorios:</span>
-                                                    <span className="text-orange-50">{championship.preQualy.allowedCars.join(', ')}</span>
-                                                </div>
-                                            )}
-                                            {championship.preQualy.rules && (
-                                                <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                                                    {championship.preQualy.rules.weather && championship.preQualy.rules.weather !== 'clear' && (
-                                                        <span className="bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 px-2 py-1 rounded">
-                                                            🌧️ {championship.preQualy.rules.weather === 'variable' ? 'Variable' : championship.preQualy.rules.weather === 'rain' ? 'Lluvia' : championship.preQualy.rules.weather}
-                                                        </span>
-                                                    )}
-                                                    {(championship.preQualy.rules.timeMultiplier ?? 1) > 1 && (
-                                                        <span className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 px-2 py-1 rounded">
-                                                            ⏩ x{championship.preQualy.rules.timeMultiplier}
-                                                        </span>
-                                                    )}
-                                                    {championship.preQualy.rules.timeOfDay && (
-                                                        <span className="bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-2 py-1 rounded">
-                                                            🕐 {championship.preQualy.rules.timeOfDay}
-                                                        </span>
-                                                    )}
-                                                    {championship.preQualy.rules.startTime && (
-                                                        <span className="bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-2 py-1 rounded">
-                                                            ⏰ {championship.preQualy.rules.startTime}
-                                                        </span>
-                                                    )}
-                                                    {championship.preQualy.rules.qualySlipstream === false && (
-                                                        <span className="bg-gray-500/20 border border-gray-500/30 text-gray-300 px-2 py-1 rounded">
-                                                            💨 Sin rebufo
-                                                        </span>
-                                                    )}
-                                                    {championship.preQualy.rules.tireWear > 0 && (
-                                                        <span className="bg-orange-500/20 border border-orange-500/30 text-orange-300 px-2 py-1 rounded">
-                                                            🛞 Desgaste x{championship.preQualy.rules.tireWear}
-                                                        </span>
-                                                    )}
-                                                    {championship.preQualy.rules.fuelConsumption > 0 && (
-                                                        <span className="bg-orange-500/20 border border-orange-500/30 text-orange-300 px-2 py-1 rounded">
-                                                            ⛽ Consumo x{championship.preQualy.rules.fuelConsumption}
-                                                        </span>
-                                                    )}
-                                                    {championship.preQualy.rules.mandatoryTyre?.length > 0 && (
-                                                        <span className="bg-amber-500/20 border border-amber-500/30 text-amber-300 px-2 py-1 rounded">
-                                                            🛞 {championship.preQualy.rules.mandatoryTyre.join(', ')}
-                                                        </span>
-                                                    )}
-                                                    {championship.preQualy.rules.bop === 'yes' && (
-                                                        <span className="bg-teal-500/20 border border-teal-500/30 text-teal-300 px-2 py-1 rounded">
-                                                            ⚖️ BoP
-                                                        </span>
-                                                    )}
-                                                    {championship.preQualy.rules.mechanicalDamage && championship.preQualy.rules.mechanicalDamage !== 'No' && (
-                                                        <span className="bg-red-500/20 border border-red-500/30 text-red-300 px-2 py-1 rounded">
-                                                            🔧 Daños: {championship.preQualy.rules.mechanicalDamage}
-                                                        </span>
-                                                    )}
-                                                    {championship.preQualy.rules.penaltyShortcut && championship.preQualy.rules.penaltyShortcut !== 'moderate' && (
-                                                        <span className="bg-red-500/20 border border-red-500/30 text-red-300 px-2 py-1 rounded">
-                                                            🔀 Atajo: {championship.preQualy.rules.penaltyShortcut}
-                                                        </span>
-                                                    )}
-                                                    {championship.preQualy.rules.penaltyWall && championship.preQualy.rules.penaltyWall !== 'on' && (
-                                                        <span className="bg-slate-500/20 border border-slate-500/30 text-slate-300 px-2 py-1 rounded">
-                                                            🧱 Muro: {championship.preQualy.rules.penaltyWall}
-                                                        </span>
-                                                    )}
-                                                    {championship.preQualy.rules.penaltyPitLine && championship.preQualy.rules.penaltyPitLine !== 'on' && (
-                                                        <span className="bg-slate-500/20 border border-slate-500/30 text-slate-300 px-2 py-1 rounded">
-                                                            🏎️ Línea box: {championship.preQualy.rules.penaltyPitLine}
-                                                        </span>
-                                                    )}
-                                                    {championship.preQualy.rules.penaltyCarCollision && championship.preQualy.rules.penaltyCarCollision !== 'on' && (
-                                                        <span className="bg-slate-500/20 border border-slate-500/30 text-slate-300 px-2 py-1 rounded">
-                                                            💥 Colisión: {championship.preQualy.rules.penaltyCarCollision}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            )}
-                                            {championship.preQualy.notes && (
-                                                <div className="mt-3 bg-purple-500/10 border border-purple-500/20 rounded-lg p-3">
-                                                    <p className="text-purple-200 text-sm whitespace-pre-line">{championship.preQualy.notes}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
+                                    <PreQualyInfo
+                                        championship={championship}
+                                        subtitulo="Sesión clasificatoria previa al campeonato"
+                                        conEtiquetaPrevia
+                                    />
 
                                     {tracks.length === 0 ? (
                                         <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
@@ -1320,50 +1212,11 @@ export default function ChampionshipDetailPage() {
                                     </h2>
 
                                     {/* Info de la sesión */}
-                                    <div className="bg-gradient-to-br from-purple-900/60 to-indigo-900/60 rounded-xl p-6 border border-purple-400/40">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <span className="text-2xl font-bold text-purple-400">PQ</span>
-                                            <div>
-                                                <h3 className="text-lg font-bold text-white">Sesión clasificatoria previa</h3>
-                                                <p className="text-purple-300 text-sm">Los resultados determinan la asignación a salas</p>
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                                            {pq.date && (
-                                                <div className="bg-white/5 rounded-lg p-3">
-                                                    <div className="text-gray-400 text-xs mb-1">📅 Fecha</div>
-                                                    <div className="text-white font-medium">{new Date(pq.date).toLocaleDateString('es-ES')}</div>
-                                                </div>
-                                            )}
-                                            <div className="bg-white/5 rounded-lg p-3">
-                                                <div className="text-gray-400 text-xs mb-1">🕐 Hora (España)</div>
-                                                <div className="text-white font-medium">{formatTimeWindow(getPreQualyTime(championship))}</div>
-                                            </div>
-                                            {pq.track && (
-                                                <div className="bg-white/5 rounded-lg p-3">
-                                                    <div className="text-gray-400 text-xs mb-1">📍 Circuito</div>
-                                                    <div className="text-white font-medium">{pq.track}</div>
-                                                </div>
-                                            )}
-                                            <div className="bg-white/5 rounded-lg p-3">
-                                                <div className="text-gray-400 text-xs mb-1">⏱️ Duración</div>
-                                                <div className="text-white font-medium">{pq.duration ?? 15} min</div>
-                                            </div>
-                                            <div className="bg-white/5 rounded-lg p-3">
-                                                <div className="text-gray-400 text-xs mb-1">🏁 Clasificados</div>
-                                                <div className="text-white font-medium">{classified.length} / {results.length}</div>
-                                            </div>
-                                        </div>
-                                        {pq.allowedCars?.length > 0 && (
-                                            <div className="mt-3 inline-flex items-center gap-2 bg-orange-500/15 border border-orange-500/30 text-orange-100 px-3 py-2 rounded-lg text-sm">
-                                                <span className="font-semibold">🚗 Autos:</span>
-                                                <span>{pq.allowedCars.join(', ')}</span>
-                                            </div>
-                                        )}
-                                        {pq.notes && (
-                                            <p className="mt-3 text-purple-200 text-sm bg-purple-500/10 rounded-lg p-3">{pq.notes}</p>
-                                        )}
-                                    </div>
+                                    <PreQualyInfo
+                                        championship={championship}
+                                        subtitulo="Los resultados determinan la asignación a salas"
+                                        resultados={{ clasificados: classified.length, total: results.length }}
+                                    />
 
                                     {/* Resultados */}
                                     {results.length === 0 ? (
@@ -1944,102 +1797,8 @@ export default function ChampionshipDetailPage() {
 
                                     {/* Pre-Qualy */}
                                     {championship.preQualy?.enabled && (
-                                        <div className="bg-gradient-to-br from-purple-900/40 to-indigo-900/40 rounded-xl p-6 border border-purple-400/30">
-                                            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                                                <span className="bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">PQ</span>
-                                                Pre-Qualy
-                                            </h3>
-                                            <div className="grid md:grid-cols-2 gap-4 mb-4">
-                                                {championship.preQualy.date && (
-                                                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                        <span className="text-gray-300">📅 Fecha</span>
-                                                        <span className="text-white font-semibold">{formatDateFull(championship.preQualy.date)}</span>
-                                                    </div>
-                                                )}
-                                                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                    <span className="text-gray-300">🕐 Hora</span>
-                                                    <span className="text-white font-semibold">
-                                                        {formatTimeWindow(getPreQualyTime(championship))} <span className="text-gray-400 font-normal text-sm">(España)</span>
-                                                    </span>
-                                                </div>
-                                                {championship.preQualy.track && (
-                                                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                        <span className="text-gray-300">📍 Circuito</span>
-                                                        <span className="text-white font-semibold">{championship.preQualy.track}</span>
-                                                    </div>
-                                                )}
-                                                {championship.preQualy.duration && (
-                                                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                        <span className="text-gray-300">⏱️ Duración</span>
-                                                        <span className="text-white font-semibold">{championship.preQualy.duration} min</span>
-                                                    </div>
-                                                )}
-                                                {championship.preQualy.allowedCars?.length > 0 && (
-                                                    <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                        <span className="text-gray-300">🚗 Autos</span>
-                                                        <span className="text-white font-semibold text-right text-sm">{championship.preQualy.allowedCars.join(', ')}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Reglas PQ */}
-                                            {championship.preQualy.rules && (
-                                                <div className="mb-4">
-                                                    <div className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Configuración de sesión</div>
-                                                    <div className="flex flex-wrap gap-2 text-xs">
-                                                        {championship.preQualy.rules.weather && championship.preQualy.rules.weather !== 'clear' && (
-                                                            <span className="bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 px-2 py-1 rounded">🌧️ {championship.preQualy.rules.weather === 'rain' ? 'Lluvia' : championship.preQualy.rules.weather === 'variable' ? 'Variable' : championship.preQualy.rules.weather}</span>
-                                                        )}
-                                                        {championship.preQualy.rules.timeOfDay && (
-                                                            <span className="bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-2 py-1 rounded">🕐 {championship.preQualy.rules.timeOfDay}</span>
-                                                        )}
-                                                        {championship.preQualy.rules.startTime && (
-                                                            <span className="bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-2 py-1 rounded">⏰ {championship.preQualy.rules.startTime}</span>
-                                                        )}
-                                                        {(championship.preQualy.rules.timeMultiplier ?? 1) > 1 && (
-                                                            <span className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 px-2 py-1 rounded">⏩ x{championship.preQualy.rules.timeMultiplier}</span>
-                                                        )}
-                                                        {championship.preQualy.rules.tireWear > 0 && (
-                                                            <span className="bg-orange-500/20 border border-orange-500/30 text-orange-300 px-2 py-1 rounded">🛞 Desgaste x{championship.preQualy.rules.tireWear}</span>
-                                                        )}
-                                                        {championship.preQualy.rules.fuelConsumption > 0 && (
-                                                            <span className="bg-orange-500/20 border border-orange-500/30 text-orange-300 px-2 py-1 rounded">⛽ Consumo x{championship.preQualy.rules.fuelConsumption}</span>
-                                                        )}
-                                                        {championship.preQualy.rules.mechanicalDamage && championship.preQualy.rules.mechanicalDamage !== 'No' && (
-                                                            <span className="bg-red-500/20 border border-red-500/30 text-red-300 px-2 py-1 rounded">🔧 Daños: {championship.preQualy.rules.mechanicalDamage}</span>
-                                                        )}
-                                                        {championship.preQualy.rules.bop === 'yes' && (
-                                                            <span className="bg-teal-500/20 border border-teal-500/30 text-teal-300 px-2 py-1 rounded">⚖️ BoP</span>
-                                                        )}
-                                                        {championship.preQualy.rules.qualySlipstream === false && (
-                                                            <span className="bg-gray-500/20 border border-gray-500/30 text-gray-300 px-2 py-1 rounded">💨 Sin rebufo</span>
-                                                        )}
-                                                        {championship.preQualy.rules.mandatoryTyre?.length > 0 && (
-                                                            <span className="bg-amber-500/20 border border-amber-500/30 text-amber-300 px-2 py-1 rounded">🛞 {championship.preQualy.rules.mandatoryTyre.join(', ')}</span>
-                                                        )}
-                                                        {championship.preQualy.rules.penaltyShortcut && championship.preQualy.rules.penaltyShortcut !== 'moderate' && (
-                                                            <span className="bg-red-500/20 border border-red-500/30 text-red-300 px-2 py-1 rounded">🔀 Atajo: {championship.preQualy.rules.penaltyShortcut === 'strong' ? 'Fuerte' : championship.preQualy.rules.penaltyShortcut === 'weak' ? 'Leve' : 'Off'}</span>
-                                                        )}
-                                                        {championship.preQualy.rules.penaltyWall === 'off' && (
-                                                            <span className="bg-slate-500/20 border border-slate-500/30 text-slate-300 px-2 py-1 rounded">🧱 Muro: Off</span>
-                                                        )}
-                                                        {championship.preQualy.rules.penaltyPitLine === 'off' && (
-                                                            <span className="bg-slate-500/20 border border-slate-500/30 text-slate-300 px-2 py-1 rounded">🏎️ Línea box: Off</span>
-                                                        )}
-                                                        {championship.preQualy.rules.penaltyCarCollision === 'off' && (
-                                                            <span className="bg-slate-500/20 border border-slate-500/30 text-slate-300 px-2 py-1 rounded">💥 Colisión: Off</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Notas PQ */}
-                                            {championship.preQualy.notes && (
-                                                <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 mb-4">
-                                                    <p className="text-purple-200 text-sm whitespace-pre-line">{championship.preQualy.notes}</p>
-                                                </div>
-                                            )}
-
+                                        <div className="space-y-4">
+                                            <PreQualyInfo championship={championship} />
                                             {/* Lista de inscritos para Pre-Qualy */}
                                             {(() => {
                                                 const registrations = championship.registrations || [];
