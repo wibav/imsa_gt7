@@ -1347,6 +1347,14 @@ def _esc(valor) -> str:
     )
 
 
+def _recortar(texto: str, limite: int) -> str:
+    """Corta por palabra: partir una a la mitad se ve mal en la preview."""
+    if len(texto) <= limite:
+        return texto
+    corte = texto[:limite].rsplit(' ', 1)[0]
+    return f'{corte or texto[:limite]}…'
+
+
 def _banner_valido(banner) -> bool:
     """Solo sirven URLs http(s): un data URI no lo puede descargar un crawler."""
     if not banner or not isinstance(banner, str):
@@ -1440,19 +1448,21 @@ def share_page(req: https_fn.Request) -> https_fn.Response:
     datos = doc.to_dict() or {}
     destino = f'{_BASE_URL}/{"championships" if tipo == "championship" else "events"}?id={entidad_id}'
 
+    # El título y la descripción se calculan igual que en
+    # scripts/generate-share-pages.js: un mismo enlace tiene que verse idéntico
+    # lo sirva el CDN (build) o esta función (creado después del despliegue).
     if tipo == 'championship':
-        titulo = datos.get('name') or 'Campeonato'
-        temporada = datos.get('season')
-        titulo_completo = f'{titulo}{f" {temporada}" if temporada else ""} - GT7 Championships'
+        titulo = datos.get('name') or 'Campeonato GT7'
+        temporada = datos.get('season') or ''
         descripcion = (datos.get('description')
-                       or f'Clasificaciones, calendario y resultados de {titulo}.')
+                       or f'{titulo} - Temporada {temporada}.'.replace(' - Temporada .', '.'))
     else:
-        titulo = datos.get('title') or 'Evento'
-        titulo_completo = f'{titulo} - GT7 Championships'
+        titulo = datos.get('title') or 'Evento GT7'
         descripcion = (datos.get('description')
                        or f'Inscripciones y detalles de {titulo}.')
 
-    descripcion = ' '.join(str(descripcion).split())[:200]
+    titulo_completo = titulo
+    descripcion = _recortar(' '.join(str(descripcion).split()), 200)
     banner = datos.get('banner')
     imagen = banner.strip() if _banner_valido(banner) else f'{_BASE_URL}/og-image.png'
 
