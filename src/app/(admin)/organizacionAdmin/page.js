@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../context/AuthContext';
-import { useOrganization } from '../context/OrganizationContext';
-import { FirebaseService } from '../services/firebaseService';
-import { validateImageFile, compressImage } from '../utils/imageCompression';
+import { useAuth } from '../../context/AuthContext';
+import { useOrganization } from '../../context/OrganizationContext';
+import { FirebaseService } from '../../services/firebaseService';
+import { validateImageFile, compressImage } from '../../utils/imageCompression';
 
 export default function OrganizacionAdmin() {
     const router = useRouter();

@@ -1,15 +1,15 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../context/AuthContext";
-import { FirebaseService } from "../services/firebaseService";
+import { useAuth } from "../../context/AuthContext";
+import { FirebaseService } from "../../services/firebaseService";
 import {
     agruparCandidatos,
     conflictosDeGrupo,
     nombresPorCarrera,
     nucleoNombre,
-} from "../utils/pilotIdentityMatcher";
-import LoadingSkeleton from "../components/common/LoadingSkeleton";
+} from "../../utils/pilotIdentityMatcher";
+import LoadingSkeleton from "../../components/common/LoadingSkeleton";
 
 /**
  * Fusión de identidades de piloto — solo Administrador de Plataforma.

@@ -1,9 +1,9 @@
 "use client";
 
 import { Suspense } from 'react';
-import ChampionshipForm from '../../components/championship/ChampionshipForm';
-import LoadingSkeleton from '../../components/common/LoadingSkeleton';
-import ProtectedRoute from '../../components/ProtectedRoute';
+import ChampionshipForm from '../../../components/championship/ChampionshipForm';
+import LoadingSkeleton from '../../../components/common/LoadingSkeleton';
+import ProtectedRoute from '../../../components/ProtectedRoute';
 
 function NewChampionshipContent() {
     return <ChampionshipForm isEditing={false} />;

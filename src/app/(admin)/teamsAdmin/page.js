@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { FirebaseService } from "../services/firebaseService";
-import ProtectedRoute from "../components/ProtectedRoute";
-import AdminNavigation from "../components/AdminNavigation";
-import LoadingSkeleton from "../components/common/LoadingSkeleton";
+import { FirebaseService } from "../../services/firebaseService";
+import ProtectedRoute from "../../components/ProtectedRoute";
+import AdminNavigation from "../../components/AdminNavigation";
+import LoadingSkeleton from "../../components/common/LoadingSkeleton";
 
 // Ejemplo de datos iniciales con nueva estructura de puntos por ID de pista
 const initialTeams = [

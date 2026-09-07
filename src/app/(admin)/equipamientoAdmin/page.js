@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../context/AuthContext';
-import { FirebaseService } from '../services/firebaseService';
+import { useAuth } from '../../context/AuthContext';
+import { FirebaseService } from '../../services/firebaseService';
 
 const COLOR_PRESETS = [
     { name: 'Naranja', value: 'bg-orange-500/20 text-orange-300 border-orange-500/30' },

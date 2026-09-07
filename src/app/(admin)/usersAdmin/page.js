@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../context/AuthContext';
-import { useOrganization } from '../context/OrganizationContext';
-import { FirebaseService } from '../services/firebaseService';
+import { useAuth } from '../../context/AuthContext';
+import { useOrganization } from '../../context/OrganizationContext';
+import { FirebaseService } from '../../services/firebaseService';
 
 export default function UsersAdmin() {
     const router = useRouter();

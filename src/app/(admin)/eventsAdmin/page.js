@@ -1,16 +1,16 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
-import { FirebaseService } from "../services/firebaseService";
-import ProtectedRoute from "../components/ProtectedRoute";
+import { FirebaseService } from "../../services/firebaseService";
+import ProtectedRoute from "../../components/ProtectedRoute";
 import Image from "next/image";
 import {
     EVENT_STATUSES, EVENT_CATEGORIES, EVENT_FORMATS,
     STREAMING_PLATFORMS, TYRE_OPTIONS, DAMAGE_OPTIONS, WEATHER_TIME_OPTIONS,
     EVENT_TYPES, getDefaultRounds
-} from "../utils";
-import { validateImageFile, compressImage } from "../utils/imageCompression";
-import { reorderByPosition } from "../utils/eventResultsOrder";
-import StandardRoomSection from "../components/event/StandardRoomSection";
+} from "../../utils";
+import { validateImageFile, compressImage } from "../../utils/imageCompression";
+import { reorderByPosition } from "../../utils/eventResultsOrder";
+import StandardRoomSection from "../../components/event/StandardRoomSection";
 
 // Identidad estable de fila para la sección Resultados (Bloque 3): generada
 // solo en cliente al crear/normalizar un resultado, nunca persistida (ver

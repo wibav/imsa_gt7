@@ -1,11 +1,11 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../context/AuthContext";
-import { FirebaseService } from "../services/firebaseService";
-import { validateImageFile, compressImage } from "../utils/imageCompression";
+import { useAuth } from "../../context/AuthContext";
+import { FirebaseService } from "../../services/firebaseService";
+import { validateImageFile, compressImage } from "../../utils/imageCompression";
 import Image from "next/image";
-import LoadingSkeleton from "../components/common/LoadingSkeleton";
+import LoadingSkeleton from "../../components/common/LoadingSkeleton";
 
 export default function TracksAdminPage() {
     const router = useRouter();

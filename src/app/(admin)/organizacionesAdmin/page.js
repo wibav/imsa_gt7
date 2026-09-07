@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../context/AuthContext';
-import { FirebaseService } from '../services/firebaseService';
+import { useAuth } from '../../context/AuthContext';
+import { FirebaseService } from '../../services/firebaseService';
 
 const PLAN_LABELS = { free: 'Free', starter: 'Starter', pro: 'Pro', pro_ia: 'Pro + IA' };
 const PLAN_COLORS = {

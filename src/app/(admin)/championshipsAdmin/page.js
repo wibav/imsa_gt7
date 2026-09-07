@@ -2,18 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '../context/AuthContext';
-import { useChampionship } from '../context/ChampionshipContext';
-import { useOrganization } from '../context/OrganizationContext';
-import { FirebaseService } from '../services/firebaseService';
-import TracksManager from '../components/TracksManager';
-import LoadingSkeleton from '../components/common/LoadingSkeleton';
-import PenaltiesTab from '../components/championship/PenaltiesTab';
-import DivisionsTab from '../components/championship/DivisionsTab';
-import { DEFAULT_SPRINT_POINTS } from '../utils/constants';
-import { notifyResultsSaved, notifyRegistrationUpdated } from '../utils/telegram';
-import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations, applyDeclarations } from '../utils/carUsageCalculator';
-import { isPenaltyCounting } from '../models/Penalty';
+import { useAuth } from '../../context/AuthContext';
+import { useChampionship } from '../../context/ChampionshipContext';
+import { useOrganization } from '../../context/OrganizationContext';
+import { FirebaseService } from '../../services/firebaseService';
+import TracksManager from '../../components/TracksManager';
+import LoadingSkeleton from '../../components/common/LoadingSkeleton';
+import PenaltiesTab from '../../components/championship/PenaltiesTab';
+import DivisionsTab from '../../components/championship/DivisionsTab';
+import { DEFAULT_SPRINT_POINTS } from '../../utils/constants';
+import { notifyResultsSaved, notifyRegistrationUpdated } from '../../utils/telegram';
+import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations, applyDeclarations } from '../../utils/carUsageCalculator';
+import { isPenaltyCounting } from '../../models/Penalty';
 
 /** Convierte "M:SS.mmm" o "SS.mmm" a milisegundos para sort correcto de tiempos */
 function parseTimeToMs(str) {
@@ -577,7 +577,7 @@ export default function ChampionshipDetail() {
 }
 
 // Badge de estado (importado de components/common/StatusBadge)
-import StatusBadge from '../components/common/StatusBadge';
+import StatusBadge from '../../components/common/StatusBadge';
 
 // Tab de Información
 function InfoTab({ championship, editMode, onUpdate }) {

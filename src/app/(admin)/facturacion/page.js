@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../context/AuthContext';
-import { useOrganization } from '../context/OrganizationContext';
+import { useAuth } from '../../context/AuthContext';
+import { useOrganization } from '../../context/OrganizationContext';
 
 // Variables públicas (no secretas) de Paddle — ver checklist en
 // Notas/Proyectos/GT7 Championships/README.md. El webhook que realmente
