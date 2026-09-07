@@ -103,6 +103,17 @@ const encadenado = buildGt7IdMap(
 );
 ok(encadenado['dayo_psn'] === 'HGT_dayo21', `dayo_psn → ${encadenado['dayo_psn']}`);
 
+console.log('\nC bis) Un canónico escrito a mano, que no existe en ningún dato');
+// El nombre correcto del piloto puede no estar bien escrito en ninguna parte,
+// así que el canónico se puede teclear. Todos los alias deben apuntar a él.
+const inventado = [{ canonical: 'NANO_VR2', aliases: ['NANO', 'Nano', 'NanoVR', 'NAJO_VR2', 'Nano_VR2'] }];
+const mapaInventado = buildGt7IdMap({ registrations: [] }, inventado);
+ok(
+    ['NANO', 'Nano', 'NanoVR', 'NAJO_VR2', 'Nano_VR2'].every(a => mapaInventado[a] === 'NANO_VR2'),
+    'los 5 alias apuntan al canónico tecleado'
+);
+ok(mapaInventado['NANO_VR2'] === undefined, 'el canónico no se mapea a sí mismo');
+
 console.log('\nD) Identidades incompletas o corruptas no tumban la página');
 const sucias = [null, undefined, {}, { canonical: '' }, { canonical: 'X', aliases: null }, { canonical: 'X', aliases: ['X', '', '  '] }];
 try {

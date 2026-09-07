@@ -31,6 +31,9 @@ export default function PilotsAdminPage() {
     const [identities, setIdentities] = useState([]);
     const [seleccion, setSeleccion] = useState(null); // grupo abierto
     const [canonical, setCanonical] = useState('');
+    // Si el canónico se ha escrito a mano, deja de recalcularse solo al añadir
+    // o quitar nombres de la selección.
+    const [canonicalEditado, setCanonicalEditado] = useState(false);
     const [incluidos, setIncluidos] = useState([]);
     const [nota, setNota] = useState('');
     const [busqueda, setBusqueda] = useState('');
@@ -143,10 +146,22 @@ export default function PilotsAdminPage() {
      */
     const abrirGrupo = (grupo, { conservarNota = false } = {}) => {
         setSeleccion(grupo);
-        setCanonical(prev => (grupo.includes(prev) ? prev : grupo[0]));
         setIncluidos([...grupo]);
+        // Al abrir un grupo nuevo se propone el nombre más frecuente; si ya se
+        // había elegido o escrito uno, se respeta.
+        if (!conservarNota) {
+            setCanonical(grupo[0]);
+            setCanonicalEditado(false);
+        } else {
+            setCanonical(prev => (canonicalEditado || grupo.includes(prev) ? prev : grupo[0]));
+        }
         if (!conservarNota) setNota('');
         setError('');
+    };
+
+    const elegirCanonical = (valor) => {
+        setCanonical(valor);
+        setCanonicalEditado(true);
     };
 
     /** Añade o quita un nombre de la selección abierta, desde el buscador. */
@@ -385,15 +400,39 @@ export default function PilotsAdminPage() {
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
                                         Nombre que se mostrará en toda la web
                                     </label>
-                                    <select
+                                    {/* Editable a mano: el nombre correcto del piloto puede no
+                                        estar bien escrito en ningún sitio, y entonces no habría
+                                        forma de elegirlo de una lista. */}
+                                    <input
+                                        type="text"
                                         value={canonical}
-                                        onChange={(e) => setCanonical(e.target.value)}
-                                        className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                    >
-                                        {incluidos.map(n => (
-                                            <option key={n} value={n} className="bg-slate-800">{n}</option>
-                                        ))}
-                                    </select>
+                                        onChange={(e) => elegirCanonical(e.target.value)}
+                                        placeholder="Ej: NANO_VR2"
+                                        className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
+                                    {incluidos.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            {incluidos.map(n => (
+                                                <button
+                                                    key={n}
+                                                    type="button"
+                                                    onClick={() => elegirCanonical(n)}
+                                                    className={`text-xs px-2 py-1 rounded transition-colors ${n === canonical
+                                                        ? 'bg-orange-600 text-white'
+                                                        : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                                                        }`}
+                                                >
+                                                    {n}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {canonical.trim() && !incluidos.includes(canonical.trim()) && (
+                                        <p className="text-xs text-blue-300/80 mt-2">
+                                            &ldquo;{canonical.trim()}&rdquo; no aparece en ningún dato: se mostrará
+                                            este nombre y los {incluidos.length} de arriba pasarán a ser sus alias.
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div>
@@ -410,7 +449,7 @@ export default function PilotsAdminPage() {
                                 <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-gray-300">
                                     Se unificarán <strong className="text-white">{incluidos.length} nombres</strong> con{' '}
                                     <strong className="text-white">{totalApariciones} apariciones</strong> bajo{' '}
-                                    <strong className="text-orange-400">{canonical}</strong>.
+                                    <strong className="text-orange-400">{canonical.trim() || '—'}</strong>.
                                     <span className="block text-gray-500 text-xs mt-1">
                                         No se modifica ningún dato: solo cambia cómo se muestran.
                                     </span>
@@ -419,7 +458,7 @@ export default function PilotsAdminPage() {
                                 <div className="flex flex-wrap gap-3">
                                     <button
                                         onClick={fusionar}
-                                        disabled={guardando || incluidos.length < 2 || !canonical}
+                                        disabled={guardando || incluidos.length < 2 || !canonical.trim()}
                                         className="flex-1 px-6 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {guardando ? '⏳ Fusionando...' : '🧬 Fusionar'}
