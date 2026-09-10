@@ -11,18 +11,31 @@ import { construirUsoDeAutos } from '../../utils/carUsageCalculator';
  * algún uso de un coche, que en un campeonato con límite es justo lo que
  * necesita saber ANTES de la siguiente carrera.
  */
-export default function CarUsageTab({ championship, tracks = [], registrations = [], gt7Map = {} }) {
+export default function CarUsageTab({ championship, tracks = [], divisions = [], gt7Map = {} }) {
     const [busqueda, setBusqueda] = useState('');
     // Memorizado: `championship?.carUsageTracking || {}` crea un objeto nuevo
     // en cada render y haría recalcular el useMemo de abajo siempre.
     const config = useMemo(() => championship?.carUsageTracking || {}, [championship]);
 
-    const datos = useMemo(() => construirUsoDeAutos(
-        tracks,
-        config,
-        registrations.map(r => r.gt7Id || r.name || r.psnId).filter(Boolean),
-        (n) => gt7Map[n] || n
-    ), [tracks, config, registrations, gt7Map]);
+    /**
+     * Quién sale en la lista: los pilotos asignados a una sala y los que ya
+     * han corrido.
+     *
+     * Listar a todos los inscritos llenaba la pantalla de gente sin un solo
+     * dato —en la GR.4 eran 33 pilotos con la Pre-Qualy aún sin correr—, y el
+     * uso de autos solo dice algo de quien tiene sala o ya ha competido.
+     */
+    const roster = useMemo(() => {
+        const nombres = new Set();
+        divisions.forEach(div => (div.drivers || []).forEach(n => n && nombres.add(n)));
+        tracks.forEach(t => Object.keys(t.points || {}).forEach(n => n && nombres.add(n)));
+        return [...nombres];
+    }, [divisions, tracks]);
+
+    const datos = useMemo(
+        () => construirUsoDeAutos(tracks, config, roster, (n) => gt7Map[n] || n),
+        [tracks, config, roster, gt7Map]
+    );
 
     const filas = useMemo(() => {
         const t = busqueda.trim().toLowerCase();
@@ -60,8 +73,20 @@ export default function CarUsageTab({ championship, tracks = [], registrations =
             />
 
             {filas.length === 0 ? (
-                <div className="bg-white/5 border border-white/10 rounded-xl p-10 text-center text-gray-400">
-                    {busqueda ? 'Ningún piloto coincide con la búsqueda.' : 'Todavía no hay autos registrados.'}
+                <div className="bg-white/5 border border-white/10 rounded-xl p-10 text-center">
+                    {busqueda ? (
+                        <p className="text-gray-400">Ningún piloto coincide con la búsqueda.</p>
+                    ) : (
+                        <>
+                            <div className="text-4xl mb-3">🚗</div>
+                            <p className="text-gray-300 font-semibold">Todavía no hay nada que mostrar</p>
+                            <p className="text-gray-500 text-sm mt-1 max-w-md mx-auto">
+                                {championship?.preQualy?.enabled
+                                    ? 'Aquí aparecerá el uso de autos de cada piloto en cuanto se corra la Pre-Qualy y se repartan las salas.'
+                                    : 'Aquí aparecerá el uso de autos de cada piloto en cuanto se dispute la primera carrera.'}
+                            </p>
+                        </>
+                    )}
                 </div>
             ) : (
                 <div className="space-y-3">

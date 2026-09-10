@@ -1304,7 +1304,7 @@ export default function ChampionshipDetailPage() {
                             <CarUsageTab
                                 championship={championship}
                                 tracks={tracksFusionados}
-                                registrations={flatRegs}
+                                divisions={divisionsFusionadas}
                                 gt7Map={driverGt7Map}
                             />
                         )}

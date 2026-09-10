@@ -76,5 +76,63 @@ console.log('\nE) Modo declaración: no se inventan disponibles del catálogo');
     ok(res.filas[0].usos[0].veces === 1, 'pero sí se cuenta lo que usó');
 }
 
+console.log('\nF) El roster: solo salas y quien ya corrió');
+{
+    // Regla de la pantalla: pilotos de alguna división + los que tienen puntos.
+    const roster = (divisions, tracks) => {
+        const n = new Set();
+        divisions.forEach(d => (d.drivers || []).forEach(x => x && n.add(x)));
+        tracks.forEach(t => Object.keys(t.points || {}).forEach(x => x && n.add(x)));
+        return [...n];
+    };
+
+    // Caso GR.4: 33 inscritos, ninguna sala repartida, ninguna carrera corrida.
+    const vacio = construirUsoDeAutos([], { mode: 'free', maxUsesPerCar: 4 }, roster([{ drivers: [] }], []));
+    ok(vacio.filas.length === 0, 'sin salas ni carreras: no se lista a nadie (antes salían los 33 inscritos)');
+
+    // Un piloto con sala aparece aunque no haya corrido: le quedan todos sus usos.
+    const conSala = construirUsoDeAutos([], { mode: 'fixed', maxUsesPerCar: 1, carCatalog: ['A', 'B'] },
+        roster([{ drivers: ['P1'] }], []));
+    ok(conSala.filas.length === 1 && conSala.filas[0].usosRestantes === 2, 'con sala y sin correr: sale con sus usos intactos');
+
+    // Y quien corrió sin estar en ninguna sala también: está clasificado.
+    const corrio = construirUsoDeAutos(
+        [{ id: 't1', round: 1, points: { P2: 25 }, carsUsed: { P2: 'A' } }],
+        { mode: 'fixed', maxUsesPerCar: 1, carCatalog: ['A', 'B'] },
+        roster([], [{ points: { P2: 25 } }])
+    );
+    ok(corrio.filas.some(f => f.piloto === 'P2'), 'sin sala pero con puntos: sí sale');
+}
+
+console.log('\nG) Datos reales: el Verano no pierde a nadie');
+{
+    const divs = (await doc.ref.collection('divisions').get()).docs.map(d => d.data());
+    const enSala = new Set(divs.flatMap(d => d.drivers || []));
+    const conPuntos = new Set(tracks.flatMap(t => Object.keys(t.points || {})));
+    const rosterReal = [...new Set([...enSala, ...conPuntos])];
+    // Ojo: en crudo el roster son 45 nombres, no 30. Las divisiones guardan el
+    // PSN ID de unos pilotos y los puntos el GT7 ID de otros, así que hay que
+    // normalizar con el mismo mapa que usa la pantalla o el mismo piloto sale
+    // dos veces.
+    const { buildGt7IdMap } = await import(path.join(ROOT, 'src/app/utils/championshipUtils.js'));
+    const identidades = (await db.collection('pilotIdentities').get()).docs.map(d => d.data());
+    const mapa = buildGt7IdMap(champ, identidades);
+    const res = construirUsoDeAutos(tracks, champ.carUsageTracking, rosterReal, n => mapa[n] || n);
+    console.log(`     roster en crudo: ${rosterReal.length} nombres → ${res.filas.length} pilotos tras normalizar`);
+    ok(res.filas.length < rosterReal.length * 0.8, 'el mapa colapsa los alias (45 → ~30)');
+    ok(new Set(res.filas.map(f => f.piloto)).size === res.filas.length, 'ninguna fila repetida');
+    ok(res.filas.every(f => f.piloto), 'ninguna fila sin nombre');
+
+    // Si un piloto sigue partido en dos nombres sin fusionar, saldrá dos veces.
+    // No es un fallo del cálculo, es el catálogo de identidades sin limpiar,
+    // y conviene que la prueba lo diga en vez de fallar por ello.
+    const canon = n => mapa[n] || n;
+    const soloSala = [...new Set(divs.flatMap(d => d.drivers || []).map(canon))]
+        .filter(n => !new Set(tracks.flatMap(t => Object.keys(t.points || {})).map(canon)).has(n));
+    if (soloSala.length > 0) {
+        console.log(`     ⚠️ en sala pero sin puntos (identidades sin fusionar): ${soloSala.join(', ')}`);
+    }
+}
+
 console.log(`\n${fallos === 0 ? '✓ TODO CORRECTO' : `✗ ${fallos} FALLOS`}\n`);
 process.exit(fallos === 0 ? 0 : 1);
