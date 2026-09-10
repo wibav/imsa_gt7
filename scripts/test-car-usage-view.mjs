@@ -123,14 +123,16 @@ console.log('\nG) Datos reales: el Verano no pierde a nadie');
     ok(new Set(res.filas.map(f => f.piloto)).size === res.filas.length, 'ninguna fila repetida');
     ok(res.filas.every(f => f.piloto), 'ninguna fila sin nombre');
 
-    // Si un piloto sigue partido en dos nombres sin fusionar, saldrá dos veces.
-    // No es un fallo del cálculo, es el catálogo de identidades sin limpiar,
-    // y conviene que la prueba lo diga en vez de fallar por ello.
+    // Informativo: quién tiene sala pero todavía no ha puntuado. Puede ser
+    // simplemente que no haya corrido —es el caso de ULR-Tony, un piloto
+    // distinto de MR-Tony pese a lo que sugiera el parecido— o que su nombre
+    // en la división no coincida con el de los resultados. La pantalla lo
+    // muestra igual, con todos sus usos disponibles.
     const canon = n => mapa[n] || n;
     const soloSala = [...new Set(divs.flatMap(d => d.drivers || []).map(canon))]
         .filter(n => !new Set(tracks.flatMap(t => Object.keys(t.points || {})).map(canon)).has(n));
     if (soloSala.length > 0) {
-        console.log(`     ⚠️ en sala pero sin puntos (identidades sin fusionar): ${soloSala.join(', ')}`);
+        console.log(`     con sala y aún sin puntuar: ${soloSala.join(', ')}`);
     }
 }
 
