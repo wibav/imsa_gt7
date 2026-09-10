@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { DEFAULT_DIVISION_COLORS } from '../../utils/constants';
+import { repartirPorPreQualy, cuposTotales } from '../../utils/divisionAssignment';
 import { calculateAdvancedStandings } from '../../utils/standingsCalculator';
 
 /** Convierte "M:SS.mmm" o "SS.mmm" a milisegundos para comparación correcta de tiempos */
@@ -278,14 +279,14 @@ export default function DivisionsTab({
             alert('Primero crea al menos una división.');
             return;
         }
+        // El reparto respeta los cupos de cada división: con 33 clasificados y
+        // dos salas de 15, entran 15 y 15 y los 3 últimos quedan sin asignar,
+        // en vez de meter 17 y 16 en salas que no admiten tantos.
         const sortedDivs = [...divisions].sort((a, b) => a.order - b.order);
-        const groupSize = Math.ceil(classifiedByTime.length / sortedDivs.length);
-        const preview = classifiedByTime.map((r, idx) => ({
-            driverName: r.driverName,
-            time: r.time,
-            divId: sortedDivs[Math.min(Math.floor(idx / groupSize), sortedDivs.length - 1)].id
-        }));
-        setPreQualyAssignPreview(preview);
+        setPreQualyAssignPreview(repartirPorPreQualy(
+            classifiedByTime.map(r => ({ driverName: r.driverName, time: r.time })),
+            sortedDivs
+        ));
         setShowPreQualyModal(true);
     };
 
@@ -293,19 +294,23 @@ export default function DivisionsTab({
     const handleConfirmPreQualyAssign = async () => {
         setSaving(true);
         try {
-            const involvedDivIds = new Set(preQualyAssignPreview.map(p => p.divId));
-            const assignedNames = new Set(preQualyAssignPreview.map(p => p.driverName));
+            // Se reconstruyen TODAS las divisiones, no solo las que aparecen en
+            // el preview: un piloto que queda sin asignar tiene que salir de la
+            // división en la que estuviera, y si solo se tocaran las divisiones
+            // implicadas se quedaría donde estaba.
+            const enPreview = new Set(preQualyAssignPreview.map(p => p.driverName));
             const divDriversMap = {};
-            // Conservar pilotos existentes que no están en el preview
             divisions.forEach(div => {
-                if (involvedDivIds.has(div.id)) {
-                    divDriversMap[div.id] = (div.drivers || []).filter(d => !assignedNames.has(d));
-                }
+                divDriversMap[div.id] = (div.drivers || []).filter(d => !enPreview.has(d));
             });
             preQualyAssignPreview.forEach(p => {
-                if (divDriversMap[p.divId]) divDriversMap[p.divId].push(p.driverName);
+                if (p.divId && divDriversMap[p.divId]) divDriversMap[p.divId].push(p.driverName);
             });
             for (const [divId, drivers] of Object.entries(divDriversMap)) {
+                const previos = divisions.find(d => d.id === divId)?.drivers || [];
+                const igual = previos.length === drivers.length
+                    && previos.every((n, i) => n === drivers[i]);
+                if (igual) continue;   // sin cambios: no se escribe
                 await FirebaseService.updateDivision(championshipId, divId, { drivers });
             }
             setShowPreQualyModal(false);
@@ -358,6 +363,10 @@ export default function DivisionsTab({
                 if (divDriversMap[p.toId]) divDriversMap[p.toId].push(p.driver);
             });
             for (const [divId, drivers] of Object.entries(divDriversMap)) {
+                const previos = divisions.find(d => d.id === divId)?.drivers || [];
+                const igual = previos.length === drivers.length
+                    && previos.every((n, i) => n === drivers[i]);
+                if (igual) continue;   // sin cambios: no se escribe
                 await FirebaseService.updateDivision(championshipId, divId, { drivers });
             }
             setShowPromotions(false);
@@ -615,7 +624,12 @@ export default function DivisionsTab({
                             <div>
                                 <h3 className="text-xl font-bold text-white">🏁 Auto-asignar por Pre-Qualy</h3>
                                 <p className="text-gray-400 text-sm mt-0.5">
-                                    {classifiedByTime.length} pilotos ordenados por tiempo · grupos secuenciales
+                                    {classifiedByTime.length} pilotos por tiempo · {cuposTotales(sortedDivisions)} cupos
+                                    {preQualyAssignPreview.filter(p => !p.divId).length > 0 && (
+                                        <span className="text-orange-400">
+                                            {' '}· {preQualyAssignPreview.filter(p => !p.divId).length} sin asignar
+                                        </span>
+                                    )}
                                 </p>
                             </div>
                             <button onClick={() => setShowPreQualyModal(false)}
@@ -633,7 +647,7 @@ export default function DivisionsTab({
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
                                     {preQualyAssignPreview.map((row, idx) => (
-                                        <tr key={row.driverName} className="hover:bg-white/5">
+                                        <tr key={row.driverName} className={`hover:bg-white/5 ${row.divId ? '' : 'opacity-60'}`}>
                                             <td className="py-2.5 px-3 text-gray-500 font-mono text-xs">{idx + 1}</td>
                                             <td className="py-2.5 px-3 text-white font-medium text-sm">{row.driverName}</td>
                                             <td className="py-2.5 px-3 font-mono text-yellow-300 text-sm">{row.time}</td>
@@ -643,10 +657,22 @@ export default function DivisionsTab({
                                                     onChange={e => setPreQualyAssignPreview(prev =>
                                                         prev.map((p, i) => i === idx ? { ...p, divId: e.target.value } : p)
                                                     )}
-                                                    className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-xs focus:outline-none">
-                                                    {sortedDivisions.map(div => (
-                                                        <option key={div.id} value={div.id} className="bg-slate-800">{div.name}</option>
-                                                    ))}
+                                                    className={`px-2 py-1 border rounded text-xs focus:outline-none ${row.divId
+                                                        ? 'bg-white/10 border-white/20 text-white'
+                                                        : 'bg-orange-500/10 border-orange-400/40 text-orange-300'
+                                                        }`}>
+                                                    {/* Sin esta opción no había forma de dejar fuera a
+                                                        nadie a mano, ni de ver a quien no cabe. */}
+                                                    <option value="" className="bg-slate-800">— Sin asignar —</option>
+                                                    {sortedDivisions.map(div => {
+                                                        const ocupados = preQualyAssignPreview.filter(p => p.divId === div.id).length;
+                                                        const cupo = Number(div.maxDrivers) || 15;
+                                                        return (
+                                                            <option key={div.id} value={div.id} className="bg-slate-800">
+                                                                {div.name} ({ocupados}/{cupo})
+                                                            </option>
+                                                        );
+                                                    })}
                                                 </select>
                                             </td>
                                         </tr>
@@ -661,7 +687,9 @@ export default function DivisionsTab({
                             </button>
                             <button onClick={handleConfirmPreQualyAssign} disabled={saving}
                                 className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold rounded-lg text-sm disabled:opacity-50">
-                                {saving ? '⏳ Asignando...' : `✅ Confirmar (${preQualyAssignPreview.length} pilotos)`}
+                                {saving
+                                    ? '⏳ Asignando...'
+                                    : `✅ Confirmar (${preQualyAssignPreview.filter(p => p.divId).length} asignados)`}
                             </button>
                         </div>
                     </div>
