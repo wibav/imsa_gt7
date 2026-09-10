@@ -363,3 +363,88 @@ export function buildCarUsageSummary(usage, config, registrations = []) {
         };
     });
 }
+
+/**
+ * Uso de autos por piloto y por carrera, listo para pintar del lado del piloto.
+ *
+ * El dato existía —cada carrera guarda `carsUsed` con el auto de cada piloto—
+ * pero solo lo leía el panel de administración: un piloto no tenía forma de
+ * saber qué auto usó en cada fecha ni cuántos usos le quedaban, que en un
+ * campeonato con límite de usos es información que necesita ANTES de la
+ * siguiente carrera, no después.
+ *
+ * @param {Array} tracks - Pistas ordenadas por ronda, con `carsUsed`
+ * @param {Object} config - championship.carUsageTracking
+ * @param {Array} pilotos - Nombres de piloto a listar (inscritos)
+ * @param {Function} [resolveAlias] - Normaliza el nombre (GT7 ID canónico)
+ * @returns {{carreras: Array, filas: Array}}
+ */
+export function construirUsoDeAutos(tracks = [], config = {}, pilotos = [], resolveAlias = (n) => n) {
+    const maxUsos = config?.maxUsesPerCar ?? 2;
+    const maxAutos = config?.maxCarsPerDriver ?? 3;
+    const catalogo = config?.carCatalog || [];
+    const esFijo = config?.mode === 'fixed';
+
+    const carreras = [...tracks]
+        .filter(t => Object.keys(t.carsUsed || {}).length > 0)
+        .sort((a, b) => (a.round || 0) - (b.round || 0))
+        .map(t => ({ id: t.id, round: t.round, name: t.name, date: t.date }));
+
+    // Auto de cada piloto en cada carrera, con los nombres ya normalizados.
+    const porPiloto = {};
+    const anota = (nombre, trackId, auto) => {
+        if (!nombre || !auto) return;
+        const canonico = resolveAlias(nombre);
+        porPiloto[canonico] = porPiloto[canonico] || { porCarrera: {}, usos: {} };
+        // Si el mismo piloto apareciera dos veces en una carrera (dos alias sin
+        // fusionar), el primero manda: contarlo dos veces inflaría sus usos.
+        if (porPiloto[canonico].porCarrera[trackId]) return;
+        porPiloto[canonico].porCarrera[trackId] = auto;
+        porPiloto[canonico].usos[auto] = (porPiloto[canonico].usos[auto] || 0) + 1;
+    };
+
+    tracks.forEach(track => {
+        Object.entries(track.carsUsed || {}).forEach(([n, auto]) => anota(n, track.id, auto));
+        Object.values(track.results?.divisions || {}).forEach(div => {
+            Object.entries(div?.carsUsed || {}).forEach(([n, auto]) => anota(n, track.id, auto));
+        });
+    });
+
+    const nombres = new Set(pilotos.map(p => resolveAlias(p)).filter(Boolean));
+    Object.keys(porPiloto).forEach(n => nombres.add(n));
+
+    const filas = [...nombres].map(piloto => {
+        const datos = porPiloto[piloto] || { porCarrera: {}, usos: {} };
+        const usos = Object.entries(datos.usos)
+            .map(([auto, veces]) => ({ auto, veces, agotado: veces >= maxUsos, excedido: veces > maxUsos }))
+            .sort((a, b) => b.veces - a.veces || a.auto.localeCompare(b.auto));
+
+        // Autos del catálogo con usos libres. Solo tiene sentido en modo fijo:
+        // en modo declaración cada piloto elige los suyos y el catálogo es la
+        // lista de dónde elegir, no lo que tiene disponible.
+        const disponibles = esFijo && catalogo.length > 0
+            ? catalogo
+                .map(auto => ({ auto, restantes: maxUsos - (datos.usos[auto] || 0) }))
+                .filter(x => x.restantes > 0)
+            : [];
+
+        const distintos = usos.length;
+        const avisos = [];
+        usos.forEach(({ auto, veces }) => {
+            if (veces > maxUsos) avisos.push(`"${auto}" usado ${veces} veces (máx. ${maxUsos})`);
+        });
+        if (distintos > maxAutos) avisos.push(`${distintos} autos distintos (máx. ${maxAutos})`);
+
+        return {
+            piloto,
+            porCarrera: datos.porCarrera,
+            usos,
+            distintos,
+            disponibles,
+            usosRestantes: disponibles.reduce((a, x) => a + x.restantes, 0),
+            avisos,
+        };
+    }).sort((a, b) => b.usos.length - a.usos.length || a.piloto.localeCompare(b.piloto));
+
+    return { carreras, filas, maxUsos, maxAutos, esFijo, catalogo };
+}

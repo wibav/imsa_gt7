@@ -14,6 +14,7 @@ export {
     calculateProgress,
     getNextRace,
     getNextEvent,
+    estadoCarrera,
     getRegistrationState,
     applyPilotIdentities,
     getStandings,

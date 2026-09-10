@@ -356,3 +356,35 @@ export const getDriverStandings = (championship, teams, tracks) => {
 
     return allDrivers.sort((a, b) => b.points - a.points);
 };
+
+/**
+ * Estado real de una carrera.
+ *
+ * `track.status` lo pone quien crea el calendario y nadie lo vuelve a tocar al
+ * correr la carrera, así que en el Campeonato de Verano las seis carreras
+ * seguían en "scheduled" con sus 30 puntos cargados y el calendario las
+ * marcaba como "Pendiente" con el campeonato ya terminado.
+ *
+ * Una carrera con puntos o posiciones cargadas está disputada, diga lo que
+ * diga el campo. Es el mismo criterio que ya usa calculateProgress().
+ *
+ * @returns {'completada'|'en-curso'|'pendiente'|'programada'}
+ */
+export const estadoCarrera = (track) => {
+    if (!track) return 'programada';
+
+    const tienePuntos = track.points && Object.keys(track.points).length > 0;
+    const tienePosiciones = Object.keys(track.results?.racePositions || {}).length > 0
+        || Object.values(track.results?.divisions || {})
+            .some(div => Object.keys(div?.racePositions || {}).length > 0);
+
+    if (track.status === 'completed' || tienePuntos || tienePosiciones) return 'completada';
+    if (track.status === 'in-progress') return 'en-curso';
+
+    if (track.date) {
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        if (new Date(track.date + 'T00:00:00') < hoy) return 'pendiente';
+    }
+    return 'programada';
+};

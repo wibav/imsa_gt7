@@ -13,6 +13,7 @@ import {
     calculateProgress,
     getNextRace,
     getNextEvent,
+    estadoCarrera,
     getRegistrationState,
     buildGt7IdMap,
     applyPilotIdentities,
@@ -32,6 +33,7 @@ import {
     aplicarIdentidadesAPistas,
     aplicarIdentidadesADivisiones,
 } from "../utils/pilotIdentityApply";
+import CarUsageTab from "../components/championship/CarUsageTab";
 import PreQualyInfo from "../components/championship/PreQualyInfo";
 import StandingsTable from "../components/championship/StandingsTable";
 import DriverStatsPanel from "../components/championship/DriverStatsPanel";
@@ -344,6 +346,7 @@ export default function ChampionshipDetailPage() {
                             { id: 'stats', label: '📈 Estadísticas', icon: '📈' },
                             ...(championship?.preQualy?.enabled ? [{ id: 'prequaly', label: '🎯 Pre-Qualy', icon: '🎯' }] : []),
                             ...(championship?.divisionsConfig?.enabled ? [{ id: 'salas', label: '🏟️ Salas', icon: '🏟️' }] : []),
+                            ...(championship?.carUsageTracking?.enabled ? [{ id: 'cars', label: '🚗 Autos', icon: '🚗' }] : []),
                             ...(championship.penaltiesConfig?.enabled ? [{ id: 'penalties', label: '⚠️ Sanciones', icon: '⚠️' }] : [])
                         ].map(tab => (
                             <button
@@ -693,13 +696,15 @@ export default function ChampionshipDetailPage() {
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        {track.status === 'completed' && (
+                                                        {/* El estado sale de los datos, no de track.status:
+                                                            nadie actualiza ese campo al correr la carrera. */}
+                                                        {estadoCarrera(track) === 'completada' && (
                                                             <span className="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-bold">✓ Completada</span>
                                                         )}
-                                                        {track.status === 'in-progress' && (
+                                                        {estadoCarrera(track) === 'en-curso' && (
                                                             <span className="bg-yellow-500 text-white text-xs px-3 py-1 rounded-full font-bold">⏱️ En Curso</span>
                                                         )}
-                                                        {track.status === 'scheduled' && new Date(track.date + 'T00:00:00') < new Date() && (
+                                                        {estadoCarrera(track) === 'pendiente' && (
                                                             <span className="bg-red-500 text-white text-xs px-3 py-1 rounded-full font-bold">⚠️ Pendiente</span>
                                                         )}
                                                     </div>
@@ -1295,6 +1300,15 @@ export default function ChampionshipDetailPage() {
                         })()}
 
                         {/* TAB: Sanciones (público) */}
+                        {activeTab === 'cars' && championship?.carUsageTracking?.enabled && (
+                            <CarUsageTab
+                                championship={championship}
+                                tracks={tracksFusionados}
+                                registrations={flatRegs}
+                                gt7Map={driverGt7Map}
+                            />
+                        )}
+
                         {activeTab === 'penalties' && championship.penaltiesConfig?.enabled && (
                             <div>
                                 <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
