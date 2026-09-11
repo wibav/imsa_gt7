@@ -19,6 +19,7 @@ import {
     WEATHER_TIME_OPTIONS,
     EVENT_TYPES,
     localRaceTime,
+    raceDateTime,
 } from "../utils";
 
 function EventDetailContent() {
@@ -113,7 +114,9 @@ function EventDetailContent() {
     // Countdown
     const countdown = useMemo(() => {
         if (!event?.date || eventStatus !== "upcoming") return null;
-        const target = new Date(`${event.date}T${event.hour || "00:00"}:00`);
+        // Hora española, no la del navegador (ver EventCard)
+        const target = raceDateTime(event.date, event.hour || "00:00");
+        if (!target) return null;
         const diff = target - new Date();
         if (diff <= 0) return null;
         const days = Math.floor(diff / 86400000);
@@ -129,10 +132,11 @@ function EventDetailContent() {
         const deadline = event.registration.deadline;
         const eventDate = event.date;
         if (deadline === eventDate && event.hour) {
-            // Cerrar en el momento exacto del evento (no 1 hora antes)
-            const [h, m] = event.hour.split(':').map(Number);
-            const closeTime = new Date(`${eventDate}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
-            return new Date() >= closeTime;
+            // Cerrar en el momento exacto del evento, en hora española: leída
+            // como hora del navegador, desde América la inscripción seguía
+            // abierta horas después de empezar el evento.
+            const closeTime = raceDateTime(eventDate, event.hour);
+            return closeTime ? new Date() >= closeTime : false;
         }
         return new Date(`${deadline}T23:59:59`) < new Date();
     }, [event]);
@@ -203,7 +207,7 @@ function EventDetailContent() {
             <DynamicOGTags
                 title={event.title}
                 description={event.description || `${event.track ? event.track + ' — ' : ''}${formatDate(event.date)}`}
-                image={event.banner || 'https://imsa.trenkit.com/logo_gt7.png'}
+                image={event.banner || 'https://imsa.trenkit.com/og-events.png'}
                 url={`https://imsa.trenkit.com/events?id=${eventId}`}
             />
 

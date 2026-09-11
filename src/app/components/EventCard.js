@@ -1,7 +1,7 @@
 "use client";
 import { useMemo } from "react";
 import Image from "next/image";
-import { EVENT_STATUSES, EVENT_CATEGORIES } from "../utils";
+import { EVENT_STATUSES, EVENT_CATEGORIES, raceDateTime, localRaceTime } from "../utils";
 
 /**
  * EventCard - Card pública para eventos únicos
@@ -33,10 +33,16 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
         return eventDate < new Date() ? 'completed' : 'upcoming';
     }, [event.date, event.status]);
 
+    // La hora del evento es española. Antes se leía como si fuera la del
+    // navegador, y a un piloto de Bogotá la cuenta atrás le salía 7 horas
+    // desviada.
+    const horaLocal = event.hour ? localRaceTime(event.date, event.hour) : null;
+
     // Countdown
     const countdown = useMemo(() => {
         if (!event.date || eventStatus !== 'upcoming') return null;
-        const target = new Date(`${event.date}T${event.hour || '00:00'}:00`);
+        const target = raceDateTime(event.date, event.hour || '00:00');
+        if (!target) return null;
         const diff = target - new Date();
         if (diff <= 0) return null;
         const days = Math.floor(diff / 86400000);
@@ -154,7 +160,7 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                 {/* Información básica */}
                 <div className="space-y-2 mb-4">
                     {/* Fecha y hora */}
-                    <div className="flex items-center gap-2 text-gray-300">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-gray-300">
                         <span className="text-orange-400">📅</span>
                         <span className="text-sm">{formatDate(event.date)}</span>
                         {event.hour && (
@@ -163,7 +169,10 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                                 {/* Misma convención que en campeonatos: la hora es
                                     siempre española, y conviene decirlo porque hay
                                     pilotos fuera de España. */}
-                                <span className="text-sm">🕐 {event.hour}h <span className="text-gray-400">(España)</span></span>
+                                <span className="text-sm">
+                                    🕐 {event.hour}h <span className="text-gray-400">(España)</span>
+                                    {horaLocal && <span className="text-gray-400"> · {horaLocal}h tu hora</span>}
+                                </span>
                             </>
                         )}
                     </div>
