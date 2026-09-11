@@ -10,6 +10,7 @@ import {
     localRaceTime,
     getPreQualyTime,
     formatTimeWindow,
+    localTimeWindow,
     calculateProgress,
     getNextRace,
     getNextEvent,
@@ -1876,7 +1877,11 @@ export default function ChampionshipDetailPage() {
                                 // La Pre-Qualy tiene hora propia y puede ser una franja
                                 const ventana = esPq ? getPreQualyTime(championship) : null;
                                 const hora = esPq ? ventana.desde : getRaceTime(championship, t);
-                                const local = localRaceTime(nextEvent.date, hora);
+                                // En una franja se convierten inicio y fin, no solo el inicio
+                                const ventanaLocal = esPq ? localTimeWindow(nextEvent.date, ventana) : null;
+                                const local = esPq
+                                    ? (ventanaLocal && formatTimeWindow(ventanaLocal).replace(/h$/, ''))
+                                    : localRaceTime(nextEvent.date, hora);
                                 return (
                                     <div className={`rounded-xl p-6 shadow-xl bg-gradient-to-br ${esPq ? 'from-purple-600 to-indigo-700' : 'from-orange-600 to-red-600'}`}>
                                         <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">

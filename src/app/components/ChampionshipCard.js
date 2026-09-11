@@ -2,12 +2,41 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { calculateProgress, getNextEvent, getRegistrationState } from "../utils/championshipUtils";
-import { formatDateShort } from "../utils/dateUtils";
+import {
+    formatDateShort,
+    getRaceTime,
+    getPreQualyTime,
+    localRaceTime,
+    localTimeWindow,
+} from "../utils/dateUtils";
 import { STATUS_COLORS, STATUS_LABELS } from "../utils/constants";
 import StatusBadge from "./common/StatusBadge";
 
 // Re-exportar calculateProgress para compatibilidad con código existente
 export { calculateProgress } from "../utils/championshipUtils";
+
+/** "21:00–00:30h" o "23:00h": en la tarjeta no cabe el "de … a …". */
+const franjaCorta = ({ desde, hasta }) => (hasta ? `${desde}–${hasta}h` : `${desde}h`);
+
+/**
+ * Hora del próximo evento, en España y en la zona del visitante.
+ *
+ * La tarjeta solo daba el día, y el piloto tenía que entrar al campeonato para
+ * saber a qué hora se corría. `local` es null si coincide con la española.
+ */
+function horarioDe(nextEvent, championship) {
+    if (!nextEvent?.date) return null;
+    const ventana = nextEvent.tipo === 'prequaly'
+        ? getPreQualyTime(championship)
+        : { desde: getRaceTime(championship, nextEvent.track), hasta: null };
+    const local = nextEvent.tipo === 'prequaly'
+        ? localTimeWindow(nextEvent.date, ventana)
+        : (() => {
+            const h = localRaceTime(nextEvent.date, ventana.desde);
+            return h ? { desde: h, hasta: null } : null;
+        })();
+    return { espana: franjaCorta(ventana), local: local ? franjaCorta(local) : null };
+}
 
 /**
  * ChampionshipCard - Card de campeonato con información y progreso
@@ -23,6 +52,7 @@ export default function ChampionshipCard({ championship, tracks = [], orgName = 
     // Próximo EVENTO, no próxima carrera: si la Pre-Qualy está pendiente y cae
     // antes, es lo que el piloto necesita ver primero.
     const nextEvent = getNextEvent(championship, tracks);
+    const horario = horarioDe(nextEvent, championship);
 
     const registro = getRegistrationState(championship, tracks);
     const canRegister = registro.abierta;
@@ -154,6 +184,18 @@ export default function ChampionshipCard({ championship, tracks = [], orgName = 
                                 <div className="text-orange-200 text-sm font-semibold">
                                     {formatDateShort(nextEvent.date)}
                                 </div>
+                                {horario && (
+                                    <>
+                                        <div className="text-orange-100 text-xs whitespace-nowrap">
+                                            {horario.espana} <span className="text-orange-200/60">(España)</span>
+                                        </div>
+                                        {horario.local && (
+                                            <div className="text-orange-200/70 text-xs whitespace-nowrap">
+                                                {horario.local} tu hora
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>

@@ -9,6 +9,8 @@ export {
     localRaceTime,
     getPreQualyTime,
     formatTimeWindow,
+    localTimeWindow,
+    preQualyEnd,
 } from './dateUtils';
 export {
     calculateProgress,

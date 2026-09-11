@@ -2,6 +2,7 @@
  * Utilidades de campeonatos compartidas
  * Centraliza lógica duplicada de progreso, próxima carrera y clasificaciones
  */
+import { preQualyEnd } from './dateUtils';
 
 /**
  * Calcula el progreso del campeonato basado en tracks completadas
@@ -140,9 +141,11 @@ export const displayDriverName = (name, gt7Map = {}) => gt7Map[name] || name;
  * Próximo evento del campeonato: la Pre-Qualy si está pendiente y cae antes
  * que la siguiente carrera, o la carrera en caso contrario.
  *
- * La Pre-Qualy se considera pendiente mientras no tenga resultados cargados.
- * Sin esto la tarjeta anunciaba la Ronda 1 aunque la Pre-Qualy fuese antes,
- * que es justo lo que el piloto necesita saber primero.
+ * La Pre-Qualy sigue anunciada mientras no haya terminado su franja, o
+ * mientras no tenga resultados. Mirar solo los resultados no bastaba: en una
+ * franja larga ("de 21:00 a 00:30") los tiempos se cargan a medida que se
+ * corre, y con el primero la tarjeta ya saltaba a la Ronda 1 en plena
+ * Pre-Qualy.
  *
  * @returns {{tipo: 'prequaly'|'carrera', date: string, name: string, track?: Object}|null}
  */
@@ -150,18 +153,21 @@ export const getNextEvent = (championship, tracks) => {
     const nextRace = getNextRace(tracks);
 
     const pq = championship?.preQualy;
+    const fin = preQualyEnd(championship);
     const pqPendiente = pq?.enabled
         && pq.date
-        && (pq.results || []).length === 0;
+        && ((fin && new Date() < fin) || (pq.results || []).length === 0);
 
     if (pqPendiente) {
         const hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
         const fechaPq = new Date(pq.date + 'T00:00:00');
-        const yaPaso = fechaPq < hoy;
+        // Mientras la franja siga abierta no ha pasado, aunque el día sí: la
+        // de 21:00 a 00:30 sigue en marcha a las 00:10 del día siguiente.
+        const yaPaso = fechaPq < hoy && !(fin && new Date() < fin);
         const antesQueLaCarrera = !nextRace || fechaPq <= new Date(nextRace.date + 'T00:00:00');
-        // Si ya pasó la fecha pero siguen sin cargarse resultados, se sigue
-        // anunciando: es información pendiente, no caducada.
+        // Pasado su día, deja de anunciarse aunque falten resultados: la
+        // tarjeta pasa a la siguiente carrera.
         if (!yaPaso && antesQueLaCarrera) {
             return { tipo: 'prequaly', date: pq.date, name: pq.track || 'Pre-Qualy', prequaly: pq };
         }

@@ -77,7 +77,12 @@ export const raceDateTime = (dateStr, timeStr) => {
     if (!dateStr || !timeStr) return null;
     const naive = new Date(`${dateStr}T${timeStr}:00Z`);
     if (isNaN(naive)) return null;
-    return new Date(naive.getTime() - madridOffsetMinutes(naive) * 60000);
+    // Dos pasadas: el desfase hay que medirlo en el instante real, no en la
+    // hora leída como UTC. Con una sola, las 01:00 del 25/10/2026 (aún
+    // horario de verano en Madrid) tomaban el desfase de invierno, porque a
+    // las 01:00 UTC ya había cambiado, y salían una hora tarde.
+    const aprox = new Date(naive.getTime() - madridOffsetMinutes(naive) * 60000);
+    return new Date(naive.getTime() - madridOffsetMinutes(aprox) * 60000);
 };
 
 /**
@@ -96,6 +101,54 @@ export const localRaceTime = (dateStr, timeStr) => {
         hour: '2-digit', minute: '2-digit', hour12: false,
     }).format(dt);
     return local === timeStr ? null : local;
+};
+
+/** "2026-09-11" + 1 día → "2026-09-12", sin pasar por la zona del navegador. */
+const siguienteDia = (dateStr) => {
+    const d = new Date(`${dateStr}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d.toISOString().slice(0, 10);
+};
+
+/**
+ * Fecha en la que cae el FINAL de una franja. Si la hora de fin es anterior a
+ * la de inicio, la franja cruza la medianoche: la Pre-Qualy de la GR.4 va "de
+ * 21:00 a 00:30", y ese 00:30 es del día siguiente.
+ */
+const fechaFinDeFranja = (dateStr, { desde, hasta }) =>
+    hasta && hasta <= desde ? siguienteDia(dateStr) : dateStr;
+
+/**
+ * La misma franja en la hora del visitante, o null si coincide con la
+ * española.
+ *
+ * El final se convierte con SU fecha real: con la fecha del inicio, un 00:30
+ * que ya es del día siguiente se convertía como si fuera del mismo día, y en
+ * los días de cambio de horario salía una hora distinta.
+ *
+ * @returns {{desde: string, hasta: string|null}|null}
+ */
+export const localTimeWindow = (dateStr, ventana) => {
+    const desde = localRaceTime(dateStr, ventana.desde);
+    const hasta = ventana.hasta
+        ? localRaceTime(fechaFinDeFranja(dateStr, ventana), ventana.hasta)
+        : null;
+    // localRaceTime devuelve null cuando la hora es la misma que en España.
+    if (!desde && !hasta) return null;
+    return { desde: desde || ventana.desde, hasta: ventana.hasta ? (hasta || ventana.hasta) : null };
+};
+
+/**
+ * Instante en que termina la Pre-Qualy. Sin hora de fin, se da el día entero.
+ * @returns {Date|null}
+ */
+export const preQualyEnd = (championship) => {
+    const pq = championship?.preQualy;
+    if (!pq?.date) return null;
+    const ventana = getPreQualyTime(championship);
+    return ventana.hasta
+        ? raceDateTime(fechaFinDeFranja(pq.date, ventana), ventana.hasta)
+        : raceDateTime(pq.date, '23:59');
 };
 
 /**

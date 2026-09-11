@@ -1,5 +1,5 @@
 "use client";
-import { formatDateFull, getPreQualyTime, formatTimeWindow } from '../../utils';
+import { formatDateFull, getPreQualyTime, formatTimeWindow, localTimeWindow } from '../../utils';
 
 /**
  * Ficha de la Pre-Qualy: fecha, hora, circuito, duración, autos, configuración
@@ -27,6 +27,11 @@ export default function PreQualyInfo({
 }) {
     const pq = championship?.preQualy;
     if (!pq?.enabled) return null;
+
+    // La misma franja en la hora del visitante, como en la tarjeta de la
+    // próxima carrera: muchos pilotos están en Latinoamérica.
+    const ventana = getPreQualyTime(championship);
+    const ventanaLocal = pq.date ? localTimeWindow(pq.date, ventana) : null;
 
     const reglas = pq.rules || {};
     const badges = [];
@@ -84,8 +89,13 @@ export default function PreQualyInfo({
                 {celda(
                     '🕐 Hora',
                     <>
-                        {formatTimeWindow(getPreQualyTime(championship))}{' '}
+                        {formatTimeWindow(ventana)}{' '}
                         <span className="text-gray-400 font-normal text-xs">(España)</span>
+                        {ventanaLocal && (
+                            <div className="text-gray-400 font-normal text-xs mt-0.5">
+                                {formatTimeWindow(ventanaLocal)} tu hora
+                            </div>
+                        )}
                     </>
                 )}
                 {pq.track && celda('📍 Circuito', pq.track)}
