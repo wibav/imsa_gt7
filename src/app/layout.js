@@ -21,7 +21,7 @@ export const metadata = {
     siteName: "GT7 Championship",
     images: [
       {
-        url: "/logo_gt7.png",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
         alt: "GT7 Championships - Dashboard del Campeonato",
@@ -34,7 +34,7 @@ export const metadata = {
     card: "summary_large_image",
     title: "GT7 Championship",
     description: "Dashboard de resultados del campeonato GT7 Championship",
-    images: ["/logo_gt7.png"],
+    images: ["/og-image.png"],
     creator: "@GT7ESPRacing",
   },
   icons: {

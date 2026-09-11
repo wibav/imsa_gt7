@@ -335,7 +335,7 @@ function buildOrganizationJsonLd() {
         name: 'GT7 Championships',
         sport: 'Sim Racing — Gran Turismo 7',
         url: `${BASE_URL}/`,
-        logo: `${BASE_URL}/logo_gt7.png`,
+        logo: `${BASE_URL}/logo_gt7_esp.png`,
     };
 }
 

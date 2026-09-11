@@ -18,7 +18,11 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import os
 
 PUBLIC_DIR = os.path.join(os.path.dirname(__file__), '..', 'public')
-LOGO_PATH = os.path.join(PUBLIC_DIR, 'logo_gt7.png')
+# El escudo GT7 ESP. El logo antiguo (logo_gt7.png) era blanco con textura y
+# apenas se distinguía en la vista previa de WhatsApp. Este sale del PNG con
+# el fondo quitado, con el interior blanco reconstruido: la herramienta de
+# recorte se había llevado también la placa de "CHAMPIONSHIP" y las franjas.
+LOGO_PATH = os.path.join(PUBLIC_DIR, 'logo_gt7_esp.png')
 
 WIDTH, HEIGHT = 1200, 630
 
@@ -165,11 +169,12 @@ def generate_og_image(section, fuentes):
     img.paste(barra_cta(WIDTH, 6), (0, HEIGHT - 6))
 
     # ── Logo ──
+    # Conserva la proporción (el escudo es más alto que ancho; forzarlo a un
+    # cuadrado lo achataba) y va centrado sobre el halo.
     try:
         logo = Image.open(LOGO_PATH).convert('RGBA')
-        lado = 240
-        logo = logo.resize((lado, lado), Image.LANCZOS)
-        img.paste(logo, (WIDTH - lado - 90, (HEIGHT - lado) // 2), logo)
+        logo.thumbnail((380, 380), Image.LANCZOS)
+        img.alpha_composite(logo, (cx - logo.width // 2, cy - logo.height // 2))
     except Exception as e:
         print(f"  [aviso] No se pudo insertar el logo: {e}")
 

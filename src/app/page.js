@@ -7,7 +7,9 @@ export const metadata = {
   openGraph: {
     title: "Dashboard - GT7 Championships",
     description: "Consulta en tiempo real las estadísticas, clasificaciones y resultados del campeonato GT7 Championships.",
-    images: ["/logo_gt7.png"],
+    // La tarjeta 1200×630 y no el logo suelto: el logo cuadrado y claro
+    // apenas se distinguía en la vista previa de WhatsApp.
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "GT7 Championships" }],
   },
 }
 

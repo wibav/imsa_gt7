@@ -65,7 +65,7 @@ export default function Navbar() {
                                     />
                                 ) : (
                                     <Image
-                                        src="/logo_gt7.png"
+                                        src="/logo_gt7_esp_sm.png"
                                         alt={displayName}
                                         width={56}
                                         height={56}
