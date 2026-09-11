@@ -81,12 +81,7 @@ export function filasFichaTecnica(coches = [], config = 'medio', orden = { campo
  * selector de circuito sobra y solo confundiría.
  */
 export function bopVariaPorCircuito(coches = []) {
-    return coches.some(c => {
-        const b = c?.bop;
-        if (!b) return false;
-        const clave = (k) => JSON.stringify(b[k] || null);
-        return clave('rapido') !== clave('medio') || clave('medio') !== clave('lento');
-    });
+    return coches.some(varianSusValores);
 }
 
 /** Versión del juego y fecha de los datos, para citarlos al pie. */
@@ -155,10 +150,29 @@ export const MINIMO_PARA_BUSCAR = 9;
  * cero y el selector ni aparece.
  */
 export function cochesQueVarian(coches = []) {
-    return coches.filter(c => {
-        const b = c?.bop;
-        if (!b) return false;
-        const k = (x) => JSON.stringify(b[x] || null);
-        return k('rapido') !== k('medio') || k('medio') !== k('lento');
-    }).length;
+    return coches.filter(varianSusValores).length;
+}
+
+/**
+ * ¿Cambia alguno de los valores QUE SE MUESTRAN entre configuraciones?
+ *
+ * Se compara campo a campo, y solo PR, CV y kg. La primera versión comparaba
+ * los objetos pasados a texto con JSON.stringify, y funcionaba en la vista
+ * previa —datos sacados directamente del script— pero no en producción:
+ * Firestore no conserva el orden de las claves de un objeto, así que dos
+ * configuraciones idénticas volvían con los campos en distinto orden y
+ * parecían distintas. En el Campeonato de Verano, cuyo BoP de Gr.1 es igual en
+ * los tres circuitos, salía el selector y "afecta a 6 de 6 autos".
+ *
+ * Y solo esos tres campos porque son los que ve el piloto: decirle que un
+ * coche cambia según el circuito cuando en la tabla no cambia nada, porque la
+ * diferencia está en la aceleración que no se muestra, solo confundiría.
+ */
+const CAMPOS_VISIBLES = ['pp', 'cv', 'kg'];
+
+function varianSusValores(coche) {
+    const b = coche?.bop;
+    if (!b) return false;
+    const [r, m, l] = [b.rapido, b.medio, b.lento];
+    return CAMPOS_VISIBLES.some(k => (r?.[k] ?? null) !== (m?.[k] ?? null) || (m?.[k] ?? null) !== (l?.[k] ?? null));
 }
