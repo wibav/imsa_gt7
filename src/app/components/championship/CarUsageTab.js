@@ -1,6 +1,9 @@
 "use client";
-import { useMemo, useState } from 'react';
-import { construirUsoDeAutos } from '../../utils/carUsageCalculator';
+import { useEffect, useMemo, useState } from 'react';
+import { construirUsoDeAutos, CATEGORY_TO_CAR_CLASS } from '../../utils/carUsageCalculator';
+import { resolverCoche } from '../../utils/carSpecs';
+import { FirebaseService } from '../../services/firebaseService';
+import CarSpecsTable from './CarSpecsTable';
 
 /**
  * Uso de autos del lado del piloto: qué auto llevó cada uno en cada carrera y
@@ -37,6 +40,42 @@ export default function CarUsageTab({ championship, tracks = [], divisions = [],
         [tracks, config, roster, gt7Map]
     );
 
+    // Catálogo oficial, para la ficha técnica con BoP. Va cacheado en el
+    // servicio; si falla, la ficha simplemente no aparece.
+    const [catalogo, setCatalogo] = useState([]);
+    useEffect(() => {
+        let vivo = true;
+        FirebaseService.getCars().then(c => { if (vivo) setCatalogo(c); }).catch(() => { });
+        return () => { vivo = false; };
+    }, []);
+
+    /**
+     * Coches de la ficha: los del catálogo del campeonato si es fijo, o todos
+     * los de su clase si cada piloto elige los suyos.
+     *
+     * En modo fijo se muestra el nombre tal como lo escribió el organizador
+     * —es el que aparece en el resto de la página— aunque la ficha se busque
+     * por el nombre oficial.
+     */
+    const cochesFicha = useMemo(() => {
+        if (catalogo.length === 0) return [];
+        const fijos = config.mode === 'fixed' ? (config.carCatalog || []) : [];
+        if (fijos.length > 0) {
+            return fijos
+                .map(nombre => {
+                    const doc = resolverCoche(nombre, catalogo);
+                    return doc ? { ...doc, name: nombre } : null;
+                })
+                .filter(Boolean);
+        }
+        const clases = new Set((championship?.categories || [])
+            .map(cat => CATEGORY_TO_CAR_CLASS[cat]).filter(Boolean));
+        // Sin clase reconocida no se muestra nada: listar los 120 coches de
+        // las cuatro clases no ayuda a elegir.
+        if (clases.size === 0) return [];
+        return catalogo.filter(c => clases.has(c.carClass));
+    }, [catalogo, config, championship]);
+
     const filas = useMemo(() => {
         const t = busqueda.trim().toLowerCase();
         if (!t) return datos.filas;
@@ -63,6 +102,8 @@ export default function CarUsageTab({ championship, tracks = [], divisions = [],
                     </p>
                 )}
             </div>
+
+            <CarSpecsTable coches={cochesFicha} />
 
             <input
                 type="text"
