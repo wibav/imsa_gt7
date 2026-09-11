@@ -103,8 +103,6 @@ export default function CarUsageTab({ championship, tracks = [], divisions = [],
                 )}
             </div>
 
-            <CarSpecsTable coches={cochesFicha} />
-
             <input
                 type="text"
                 value={busqueda}
@@ -205,6 +203,10 @@ export default function CarUsageTab({ championship, tracks = [], divisions = [],
                     ))}
                 </div>
             )}
+
+            {/* Al final: lo que un piloto mira cada semana es cuántos usos le
+                quedan, así que eso va primero y la ficha queda como consulta. */}
+            <CarSpecsTable coches={cochesFicha} />
         </div>
     );
 }

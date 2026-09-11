@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { getAllowedCars } from '../../utils/carUsageCalculator';
+import { resumenBop, textoBop } from '../../utils/carSpecs';
 
 /**
  * Modal público para que un piloto inscrito declare sus autos para el campeonato.
@@ -202,11 +203,16 @@ export default function CarDeclarationModal({ championship, registration, regist
                                                 className="flex-1 min-w-0 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                                             >
                                                 <option value="" className="bg-slate-800">Selecciona un auto...</option>
-                                                {allowedCars.filter(c => !cars.includes(c.name)).map(c => (
-                                                    <option key={c.name} value={c.name} className="bg-slate-800">
-                                                        {c.name}{c.pp ? ` — PR ${c.pp}` : ''}
-                                                    </option>
-                                                ))}
+                                                {allowedCars.filter(c => !cars.includes(c.name)).map(c => {
+                                                    // Con BoP si lo hay: antes salía el PR de serie (el Alfa
+                                                    // 155, 665) y con BoP ese coche corre con 603.
+                                                    const bop = textoBop(c);
+                                                    return (
+                                                        <option key={c.name} value={c.name} className="bg-slate-800">
+                                                            {c.name}{bop ? ` — ${bop}` : c.pp ? ` — PR ${c.pp} (de serie)` : ''}
+                                                        </option>
+                                                    );
+                                                })}
                                             </select>
                                             <button type="button"
                                                 onClick={() => handleAddCar(newCar)}
@@ -214,6 +220,27 @@ export default function CarDeclarationModal({ championship, registration, regist
                                                 + Agregar
                                             </button>
                                         </div>
+                                        {(() => {
+                                            const elegido = allowedCars.find(c => c.name === newCar);
+                                            const r = resumenBop(elegido);
+                                            if (!r) return null;
+                                            return (
+                                                <div className="mt-2 bg-white/5 border border-white/10 rounded-lg p-3">
+                                                    <div className="grid grid-cols-4 gap-2 text-center">
+                                                        {[['Tracción', r.traccion], ['PR', r.pp], ['CV', r.cv], ['kg', r.kg]].map(([k, v]) => (
+                                                            <div key={k}>
+                                                                <div className="text-gray-400 text-[11px]">{k}</div>
+                                                                <div className="text-white text-sm font-semibold tabular-nums">{v}</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <p className="text-gray-500 text-[11px] mt-2 text-center">
+                                                        Con BoP, en circuito medio
+                                                        {r.varia && ' · cambia según el circuito: compáralo en la pestaña 🚗 Autos'}
+                                                    </p>
+                                                </div>
+                                            );
+                                        })()}
                                         <p className="text-gray-500 text-xs mt-1">
                                             {allowedCars.length} autos permitidos
                                             {(championship.categories || []).length > 0 && !(cat.carCatalog || []).length

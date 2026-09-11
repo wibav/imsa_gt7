@@ -176,3 +176,35 @@ function varianSusValores(coche) {
     const [r, m, l] = [b.rapido, b.medio, b.lento];
     return CAMPOS_VISIBLES.some(k => (r?.[k] ?? null) !== (m?.[k] ?? null) || (m?.[k] ?? null) !== (l?.[k] ?? null));
 }
+
+const formatoNumero = (v, dec = 0) => (v == null ? null
+    : Number(v).toLocaleString('es-ES', { minimumFractionDigits: dec, maximumFractionDigits: dec }));
+
+/**
+ * Resumen de la ficha de un coche con BoP, para listas y selectores.
+ *
+ * Usa la configuración de circuito medio. Sin BoP devuelve null y quien lo
+ * llame decide: el desplegable de declaración mostraba el PR DE SERIE (el Alfa
+ * 155, 665 PR) cuando con BoP corre con 603, y ese número no es el que se
+ * corre en la liga.
+ *
+ * @returns {{traccion: string, pp: string, cv: string, kg: string, varia: boolean} | null}
+ */
+export function resumenBop(coche, config = 'medio') {
+    const v = coche?.bop?.[config];
+    if (!v) return null;
+    return {
+        traccion: coche.bop.traccion || coche.driveTrain || '—',
+        pp: formatoNumero(v.pp, 2),
+        cv: formatoNumero(v.cv),
+        kg: formatoNumero(v.kg),
+        varia: varianSusValores(coche),
+    };
+}
+
+/** "4WD · PR 603,09 · 302 CV · 1.205 kg", para el texto de un <option>. */
+export function textoBop(coche, config = 'medio') {
+    const r = resumenBop(coche, config);
+    if (!r) return null;
+    return `${r.traccion} · PR ${r.pp} · ${r.cv} CV · ${r.kg} kg`;
+}
