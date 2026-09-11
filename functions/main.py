@@ -106,11 +106,23 @@ def _preprocess_for_tracing(image: Image.Image, quantize_colors, denoise_size: i
 
     Es la palanca clave para logos con textura/degradados: permite mantener 256-384px
     en vez de bajar a 128px (que es lo que arruina la nitidez).
-    """
-    if not denoise_size and not quantize_colors:
-        return image
 
-    alpha = image.getchannel('A')
+    El alfa se deja siempre en opaco/transparente, en todos los intentos. Los
+    PNG con el fondo quitado por una herramienta automática traen el interior
+    con alfa 248-254 que varía píxel a píxel, y el reescalado vuelve a crear
+    bordes semitransparentes aunque el original no los tuviera. vtracer separa
+    cada alfa distinto en su propia región: con un logo así (el de Desh Bourne)
+    un intento generaba un SVG de 23 MB con el mismo trazo repetido 590 veces,
+    la función pasaba de 256 MB de memoria y Cloud Run respondía 503 sin más.
+    Binarizado, ese mismo intento queda en 52 KB.
+    """
+    alpha = image.getchannel('A').point(lambda v: 255 if v >= 128 else 0)
+
+    if not denoise_size and not quantize_colors:
+        out = image.copy()
+        out.putalpha(alpha)
+        return out
+
     rgb = image.convert('RGB')
 
     if denoise_size:
@@ -135,9 +147,15 @@ def _build_attempt_ladder(base_speckle: int, base_color: int, requested_precisio
     (256-384px), mientras que bajar a 128px destruye la legibilidad.
 
     Cada tupla: (path_precision, filter_speckle, color_precision, max_dim,
-                 quantize_colors, denoise_size).
+                 quantize_colors, denoise_size, mode).
     max_dim None = imagen tal cual (ya capeada a MAX_INPUT_DIM).
     quantize_colors None = sin cuantización (logos limpios entran en el 1er intento).
+    mode: 'spline' (curvas) o 'polygon' (segmentos rectos).
+
+    Antes de bajar la resolución se prueba el modo polígono a tamaño completo:
+    con logos con mucho texto pesa 3-4 veces menos que las curvas, y a 512 px
+    los segmentos no se notan. El logo de Desh Bourne, que con curvas no bajaba
+    de 25 KB ni a 256 px, entra en 14 KB a 512 px con 16 colores.
 
     forced_quantize: si el usuario fija una paleta manual, se intenta primero a
     resolución completa (con fallback al resto de la escalera si no entra en 15 KB).
@@ -150,23 +168,26 @@ def _build_attempt_ladder(base_speckle: int, base_color: int, requested_precisio
 
     ladder = [
         # 1) Limpio: un logo vectorial nítido entra aquí sin tocar nada
-        (p, s,    c,    None, None, 0),
+        (p, s,    c,    None, None, 0, 'spline'),
         # 2-3) Cuantizar color manteniendo resolución completa
-        (p, s,    c,    None, 16,   3),
-        (p, s_hi, c,    None, 12,   3),
-        # 4-6) Reducir resolución gradualmente + paleta más chica (denoise fuerte)
-        (p, s_hi, c,    384,  8,    3),
-        (p, s_hi, c_lo, 320,  6,    5),
-        (1, 16,   4,    320,  4,    5),
-        (1, 16,   4,    256,  4,    5),
-        # 7-8) Último recurso: downscale agresivo (logos extremadamente densos)
-        (1, 16,   4,    192,  4,    5),
-        (1, 16,   4,    128,  4,    5),
+        (p, s,    c,    None, 16,   3, 'spline'),
+        (p, s_hi, c,    None, 12,   3, 'spline'),
+        # 4-5) Polígonos a resolución completa: más compacto sin perder nitidez
+        (p, s,    c,    None, 16,   3, 'polygon'),
+        (p, s_hi, c,    None, 12,   3, 'polygon'),
+        # 6-9) Reducir resolución gradualmente + paleta más chica (denoise fuerte)
+        (p, s_hi, c,    384,  8,    3, 'polygon'),
+        (p, s_hi, c_lo, 320,  6,    5, 'polygon'),
+        (1, 16,   4,    320,  4,    5, 'polygon'),
+        (1, 16,   4,    256,  4,    5, 'polygon'),
+        # 10-11) Último recurso: downscale agresivo (logos extremadamente densos)
+        (1, 16,   4,    192,  4,    5, 'polygon'),
+        (1, 16,   4,    128,  4,    5, 'polygon'),
     ]
 
     if forced_quantize:
         # La preferencia manual se prueba primero, a resolución completa
-        ladder.insert(0, (p, s, c, None, forced_quantize, 3))
+        ladder.insert(0, (p, s, c, None, forced_quantize, 3, 'spline'))
 
     # Deduplicar manteniendo orden
     seen = set()
@@ -231,16 +252,14 @@ def _build_svg_payload(image_bytes: bytes, requested_precision: int, form) -> di
     # Escalera curada: prioriza cuantización de color sobre downscaling espacial
     unique_attempts = _build_attempt_ladder(base_speckle, base_color, requested_precision, forced_quantize)
 
-    svg_text        = ''
-    used_precision  = requested_precision
-    used_speckle    = base_speckle
-    used_color      = base_color
-    used_dim        = None
-    used_quantize   = None
+    # Si ningún intento entra en 15 KB se devuelve el MÁS PEQUEÑO, no el
+    # último: los intentos más agresivos no siempre pesan menos (con el logo de
+    # Desh Bourne el de 128 px pesaba 227 KB y el de 256 px, 25 KB).
+    best = None
 
     original_image = Image.open(BytesIO(image_bytes))
 
-    for precision, speckle, color, dim, quantize_colors, denoise in unique_attempts:
+    for precision, speckle, color, dim, quantize_colors, denoise, mode in unique_attempts:
         if dim is not None:
             img = original_image.copy()
             img.thumbnail((dim, dim), Image.LANCZOS)
@@ -257,7 +276,7 @@ def _build_svg_payload(image_bytes: bytes, requested_precision: int, form) -> di
             img_format='png',
             colormode=options['colormode'],
             hierarchical=options['hierarchical'],
-            mode=options['mode'],
+            mode=mode,
             filter_speckle=speckle,
             color_precision=color,
             layer_difference=options['layer_difference'],
@@ -267,17 +286,17 @@ def _build_svg_payload(image_bytes: bytes, requested_precision: int, form) -> di
             splice_threshold=options['splice_threshold'],
             path_precision=precision,
         )
-        svg_text       = _ensure_viewbox(_minify_svg(svg_candidate))
-        used_precision = precision
-        used_speckle   = speckle
-        used_color     = color
-        used_dim       = dim
-        used_quantize  = quantize_colors
-        if len(svg_text.encode('utf-8')) <= SVG_SIZE_LIMIT_BYTES:
+        candidate = _ensure_viewbox(_minify_svg(svg_candidate))
+        size = len(candidate.encode('utf-8'))
+        if best is None or size < best[0]:
+            best = (size, candidate, precision, speckle, color, dim, quantize_colors, mode)
+        if size <= SVG_SIZE_LIMIT_BYTES:
             break
 
-    svg_size = len(svg_text.encode('utf-8'))
+    svg_size, svg_text, used_precision, used_speckle, used_color, used_dim, used_quantize, used_mode = best
     warning_parts = []
+    if used_mode == 'polygon':
+        warning_parts.append('Trazado con segmentos rectos para compactar el SVG.')
     if used_precision != requested_precision:
         warning_parts.append(f'Path precision reducida a {used_precision}.')
     if used_speckle != base_speckle:

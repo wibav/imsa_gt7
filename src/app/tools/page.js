@@ -19,6 +19,9 @@ const BACKEND_ERROR_MESSAGES = [
     [/supera el límite|too large|413/i, `El archivo supera el límite de ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB.`],
     [/method not allowed/i, 'No se pudo contactar con el conversor. Inténtalo de nuevo.'],
     [/vectorization failed|unhandled exception|traceback/i, 'No se pudo vectorizar la imagen. Prueba con un PNG más simple o con menos colores.'],
+    // Lo devuelve Cloud Run, no la Function: la instancia se quedó sin memoria
+    // o tardó demasiado, y el cuerpo es un texto plano en inglés.
+    [/service unavailable|gateway time-?out|bad gateway|internal server error/i, 'El conversor no pudo con esta imagen. Inténtalo de nuevo; si se repite, prueba con un PNG más pequeño o con menos colores.'],
 ];
 
 function traducirError(mensaje) {
