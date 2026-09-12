@@ -13,7 +13,7 @@ import { validateImageFile, compressImage } from '../../utils/imageCompression';
 import { REGULATIONS_MAX_BYTES, regulationsByteSize, normalizeRegulationsForSave } from '../../utils/regulations';
 import { sanitizeRegulationsHtml } from '../../utils/regulationsSanitize';
 import { getCarsForCategories } from '../../utils/carUsageCalculator';
-import { DEFAULT_RACE_TIME, getRaceTime, getPreQualyTime, formatTimeWindow } from '../../utils/dateUtils';
+import { DEFAULT_RACE_TIME, getRaceTime, getPreQualyTime, formatTimeWindow, localTimeWindow } from '../../utils/dateUtils';
 import LoadingSkeleton from '../common/LoadingSkeleton';
 import ErrorMessage from '../common/ErrorMessage';
 
@@ -2711,7 +2711,14 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                 )}
                                                 <div className="flex justify-between text-gray-300">
                                                     <span>Hora:</span>
-                                                    <span className="text-white">{formatTimeWindow(getPreQualyTime(formData))} (España)</span>
+                                                    <span className="text-white text-right">
+                                                        {formatTimeWindow(getPreQualyTime(formData))} (España)
+                                                        {formData.preQualy.date && localTimeWindow(formData.preQualy.date, getPreQualyTime(formData)) && (
+                                                            <span className="block text-gray-400 text-xs">
+                                                                {formatTimeWindow(localTimeWindow(formData.preQualy.date, getPreQualyTime(formData)))} tu hora
+                                                            </span>
+                                                        )}
+                                                    </span>
                                                 </div>
                                                 {formData.preQualy.track && (
                                                     <div className="flex justify-between text-gray-300">

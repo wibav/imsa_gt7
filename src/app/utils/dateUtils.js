@@ -103,6 +103,15 @@ export const localRaceTime = (dateStr, timeStr) => {
     return local === timeStr ? null : local;
 };
 
+/**
+ * Fecha de hoy en España, "YYYY-MM-DD".
+ *
+ * Para convertir horas que no van ligadas a un día concreto, como la hora de
+ * cada sala: el desfase con España depende de la fecha (horario de verano).
+ */
+export const hoyEnEspana = () =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(new Date());
+
 /** "2026-09-11" + 1 día → "2026-09-12", sin pasar por la zona del navegador. */
 const siguienteDia = (dateStr) => {
     const d = new Date(`${dateStr}T12:00:00Z`);

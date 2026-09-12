@@ -10,6 +10,7 @@ export {
     getPreQualyTime,
     formatTimeWindow,
     localTimeWindow,
+    hoyEnEspana,
     preQualyEnd,
 } from './dateUtils';
 export {

@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { DEFAULT_DIVISION_COLORS } from '../../utils/constants';
+import { hoyEnEspana, localRaceTime } from '../../utils/dateUtils';
 import { repartirPorPreQualy, cuposTotales } from '../../utils/divisionAssignment';
 import { calculateAdvancedStandings } from '../../utils/standingsCalculator';
 
@@ -778,7 +779,7 @@ function DivisionCard({
                 <div className="flex items-center gap-2">
                     {division.hour && (
                         <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
-                            🕐 {division.hour}h (🇪🇸)
+                            🕐 {division.hour}h (🇪🇸){localRaceTime(hoyEnEspana(), division.hour) && ` · ${localRaceTime(hoyEnEspana(), division.hour)}h tu hora`}
                         </span>
                     )}
                     {division.hostName && (

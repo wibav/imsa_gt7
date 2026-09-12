@@ -11,6 +11,7 @@ import {
     getPreQualyTime,
     formatTimeWindow,
     localTimeWindow,
+    hoyEnEspana,
     calculateProgress,
     getNextRace,
     getNextEvent,
@@ -150,6 +151,11 @@ export default function ChampionshipDetailPage() {
     // La Pre-Qualy va antes que la Ronda 1: si sigue pendiente, es ella lo
     // próximo que el piloto necesita saber, no la carrera.
     const nextEvent = getNextEvent(championship, tracks);
+    // La hora de cada sala no va ligada a un día: se convierte con la fecha
+    // de la próxima carrera (o la de hoy) para acertar con el horario de
+    // verano.
+    const fechaSalas = nextRace?.date || hoyEnEspana();
+    const horaSalaLocal = (hora) => (hora ? localRaceTime(fechaSalas, hora) : null);
     const progress = calculateProgress(tracks, championship);
     // Mismo cálculo que usa la tarjeta del listado: este panel solo miraba
     // `enabled` y el estado, así que un campeonato ya disputado seguía
@@ -455,7 +461,7 @@ export default function ChampionshipDetailPage() {
                                                         <div className="text-white font-bold text-lg leading-tight">{div.name}</div>
                                                         <div className="text-xs flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5" style={{ color: `${div.color || '#f97316'}cc` }}>
                                                             <span>{(div.drivers || []).length} piloto{(div.drivers || []).length !== 1 ? 's' : ''}</span>
-                                                            {div.hour && <span>🕐 {div.hour}h <span className="opacity-70">(España)</span></span>}
+                                                            {div.hour && <span>🕐 {div.hour}h <span className="opacity-70">(España){horaSalaLocal(div.hour) && ` · ${horaSalaLocal(div.hour)}h tu hora`}</span></span>}
                                                             {div.hostName && <span>🎮 Host: {div.hostName}</span>}
                                                             {div.casterName && <span>📺 {div.casterName}</span>}
                                                         </div>
@@ -685,9 +691,9 @@ export default function ChampionshipDetailPage() {
                                                             <span className="text-2xl font-bold text-orange-400">R{track.round}</span>
                                                             <h3 className="text-xl font-bold text-white">{track.name}</h3>
                                                         </div>
-                                                        <div className="flex items-center gap-4 text-gray-300">
+                                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-gray-300">
                                                             <span>📅 {formatDateFull(track.date)}</span>
-                                                            <span>🕐 {getRaceTime(championship, track)}h <span className="opacity-70">(España)</span></span>
+                                                            <span>🕐 {getRaceTime(championship, track)}h <span className="opacity-70">(España){localRaceTime(track.date, getRaceTime(championship, track)) && ` · ${localRaceTime(track.date, getRaceTime(championship, track))}h tu hora`}</span></span>
                                                             {track.country && <span>📍 {track.country}</span>}
                                                             {track.category && (
                                                                 <span className="bg-blue-600/30 px-2 py-1 rounded text-sm">
@@ -1064,7 +1070,7 @@ export default function ChampionshipDetailPage() {
                                                                     <div className="text-white font-bold text-lg leading-tight">{div.name}</div>
                                                                     <div className="text-xs mt-0.5 flex flex-wrap gap-x-3 gap-y-1" style={{ color: `${divColor}cc` }}>
                                                                         <span>Sala {div.order}</span>
-                                                                        <span>🕐 {displayHour} hora española</span>
+                                                                        <span>🕐 {displayHour}h (España){horaSalaLocal(displayHour) && ` · ${horaSalaLocal(displayHour)}h tu hora`}</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -1088,7 +1094,7 @@ export default function ChampionshipDetailPage() {
                                                         <div className="px-5 py-3 border-b flex flex-wrap gap-3 text-sm" style={{ borderColor: `${divColor}20` }}>
                                                             <div className="flex items-center gap-1.5 text-gray-300">
                                                                 <span className="text-base">🕐</span>
-                                                                <span>{displayHour} <span className="text-gray-500">hora española</span></span>
+                                                                <span>{displayHour}h <span className="text-gray-500">(España){horaSalaLocal(displayHour) && ` · ${horaSalaLocal(displayHour)}h tu hora`}</span></span>
                                                             </div>
                                                             {div.casterName && (
                                                                 <div className="flex items-center gap-1.5 text-gray-300">
@@ -2169,7 +2175,7 @@ export default function ChampionshipDetailPage() {
                                 </div>
                                 <div className="flex items-center gap-3 text-gray-400 text-sm flex-wrap">
                                     {selectedTrack.date && <span>📅 {formatDateFull(selectedTrack.date)}</span>}
-                                    <span>🕐 {getRaceTime(championship, selectedTrack)}h (España)</span>
+                                    <span>🕐 {getRaceTime(championship, selectedTrack)}h (España){localRaceTime(selectedTrack.date, getRaceTime(championship, selectedTrack)) && ` · ${localRaceTime(selectedTrack.date, getRaceTime(championship, selectedTrack))}h tu hora`}</span>
                                     {selectedTrack.country && <span>📍 {selectedTrack.country}</span>}
                                 </div>
                             </div>
