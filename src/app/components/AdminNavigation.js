@@ -63,7 +63,7 @@ export default function AdminNavigation({ currentPage }) {
                             : 'bg-white/20 text-white hover:bg-white/30'
                             }`}
                     >
-                        🏎️ Equipos IMSA 2025 (antiguo)
+                        🏎️ Equipos del campeonato IMSA 2025
                     </button>
 
                     {/* Admin Pistas */}

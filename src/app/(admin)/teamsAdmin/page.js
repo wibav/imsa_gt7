@@ -392,8 +392,9 @@ export default function TeamsAdminPage() {
                     {/* Content */}
                     <div className="bg-white/10 backdrop-blur-sm rounded-b-lg p-6">
                         <div className="mb-4 bg-amber-500/10 border border-amber-400/40 rounded-lg p-4 text-sm text-amber-200">
-                            🗄️ <strong>Equipos IMSA 2025 (antiguo).</strong> Editor de puntos de los equipos de ese campeonato.
-                            Los equipos de la comunidad (HGT, RRT…) se gestionan en{' '}
+                            🗄️ <strong>Equipos del campeonato IMSA GT7 2025.</strong> Campeonato por equipos de 4 pilotos:
+                            los equipos (Alpinestars OF Racing Team, Goldzilla Racing Team…) se inventaron solo para ese
+                            campeonato y no existen fuera de él. Los equipos reales de la comunidad (HGT, RRT…) se gestionan en{' '}
                             <a href="/equiposAdmin" className="underline text-amber-100">Equipos</a>.
                         </div>
                         {/* Instructions */}

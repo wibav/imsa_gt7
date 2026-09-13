@@ -84,9 +84,10 @@ export default function AdminLayout({ children }) {
                 // Equipos de la comunidad (HGT, RRT…). Globales por la misma
                 // razón: un equipo corre en ligas de varias organizaciones.
                 { name: 'Equipos', path: '/equiposAdmin', icon: '🛡️' },
-                // Editor de puntos de los equipos de IMSA GT7 2025. Se conserva
-                // con este nombre para no confundirlo con Equipos.
-                { name: 'Equipos IMSA 2025 (antiguo)', path: '/teamsAdmin', icon: '🗄️' },
+                // Editor de puntos de los 4 equipos de 4 pilotos inventados para
+                // el campeonato por equipos IMSA GT7 2025. Solo existen dentro de
+                // ese campeonato: nada que ver con los equipos de la comunidad.
+                { name: 'Equipos del campeonato IMSA 2025', path: '/teamsAdmin', icon: '🗄️' },
             ]
         }] : []),
         // Cuenta/organización: agrupa lo que es de la cuenta en sí (usuarios,

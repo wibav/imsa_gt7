@@ -17,7 +17,7 @@ Estado (2026-09-13): **fases 0 a 4 y pendientes implementados.**
 | Pregunta | Decisión |
 |---|---|
 | Quién gestiona | Solo el Administrador de Plataforma. Más adelante, quizá cada organización el suyo. |
-| `/teamsAdmin` antiguo | Se conserva como «Equipos IMSA 2025 (antiguo)». Equipos va aparte. |
+| `/teamsAdmin` | Son los 4 equipos de 4 pilotos inventados solo para el campeonato por equipos IMSA GT7 2025. Se conserva como «Equipos del campeonato IMSA 2025». Equipos va aparte. |
 | Nombre del piloto | GT7 ID unificado, como hoy. Delante, el avatar del equipo confirmado. |
 | Qué suma el equipo | Todo el historial de sus miembros actuales. Los ex-miembros se muestran pero no suman. |
 | Nombre del equipo | Lo escribe el administrador: el significado real de las siglas. |

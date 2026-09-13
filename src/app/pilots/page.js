@@ -9,6 +9,14 @@ import LoadingSkeleton from "../components/common/LoadingSkeleton";
 import PilotTeamAvatar from "../components/common/PilotTeamAvatar";
 
 /**
+ * Equipo de cada campeonato por equipos en el que corrió el piloto, con el
+ * campeonato: "N2O Turbo Speed Racing Team (IMSA GT7 2025)".
+ */
+const equiposDeCampeonato = (pilot) => [...new Set((pilot.championships || [])
+    .filter(c => c.team)
+    .map(c => `${c.team} (${c.name})`))];
+
+/**
  * Página pública de Perfiles Globales de Piloto.
  * - Sin query param: muestra grid de todos los pilotos con stats globales
  * - Con ?name=XXX: muestra perfil detallado del piloto
@@ -87,8 +95,11 @@ export default function PilotsPage() {
                             <div>
                                 <h1 className="text-4xl sm:text-5xl font-bold text-white flex items-center gap-3 flex-wrap"><PilotTeamAvatar name={pilot.name} aliases={pilot.aliases} size="md" />{pilot.name}</h1>
                                 <div className="flex items-center gap-4 mt-2 flex-wrap">
-                                    {pilot.teams.length > 0 && (
-                                        <span className="text-white/80 text-sm">🏢 {pilot.teams.join(', ')}</span>
+                                    {/* Equipos de campeonatos por equipos (inventados para ese
+                                        campeonato): se nombra el campeonato para no confundirlos
+                                        con el equipo de la comunidad, que va en el avatar. */}
+                                    {equiposDeCampeonato(pilot).length > 0 && (
+                                        <span className="text-white/80 text-sm">🏢 {equiposDeCampeonato(pilot).join(' · ')}</span>
                                     )}
                                     {pilot.categories.length > 0 && (
                                         <span className="text-white/80 text-sm">🏷️ {pilot.categories.join(', ')}</span>
@@ -158,7 +169,7 @@ export default function PilotsPage() {
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-4 text-sm text-gray-400 flex-wrap">
-                                            {champ.team && <span>🏢 {champ.team}</span>}
+                                            {champ.team && <span>🏢 Equipo del campeonato: {champ.team}</span>}
                                             {champ.category && <span>🏷️ {champ.category}</span>}
                                             <span>🏁 {champ.races} carreras</span>
                                             {champ.penaltyPoints > 0 && (
@@ -369,8 +380,8 @@ export default function PilotsPage() {
                                                         <PilotTeamAvatar name={pilot.name} aliases={pilot.aliases} />
                                                         {pilot.name}
                                                     </div>
-                                                    {pilot.teams.length > 0 && (
-                                                        <div className="text-gray-500 text-xs">{pilot.teams.join(', ')}</div>
+                                                    {equiposDeCampeonato(pilot).length > 0 && (
+                                                        <div className="text-gray-500 text-xs">{equiposDeCampeonato(pilot).join(' · ')}</div>
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-3 text-center text-gray-300 text-sm">{pilot.championships.length}</td>
