@@ -5,6 +5,7 @@ import { FirebaseService } from "../services/firebaseService";
 import { cargarEstadisticasPilotos } from "../utils/globalPilotStats";
 import { estadisticasDeEquipo } from "../utils/teamStats";
 import { miembrosActuales } from "../utils/teamTagMatcher";
+import Link from "next/link";
 import Navbar from "../components/Navbar";
 import TeamAvatar from "../components/common/TeamAvatar";
 import ShareButton from "../components/ShareButton";
@@ -102,7 +103,7 @@ function EquiposContent() {
                             <p className="mt-6 text-gray-400">Ningún equipo coincide con la búsqueda.</p>
                         ) : (
                             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                {visibles.map(e => <TarjetaEquipo key={e.equipo.id} datos={e} router={router} />)}
+                                {visibles.map(e => <TarjetaEquipo key={e.equipo.id} datos={e} />)}
                             </div>
                         )}
                     </>
@@ -126,12 +127,16 @@ function BannerEquipo({ equipo, className }) {
     );
 }
 
-function TarjetaEquipo({ datos, router }) {
+function TarjetaEquipo({ datos }) {
     const { equipo, total, plantilla } = datos;
     return (
-        <button
-            onClick={() => router.push(`/equipos?id=${equipo.id}`)}
-            className="text-left bg-white/5 border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl overflow-hidden transition-all"
+        // Enlace y no <button>: un botón centra su contenido en vertical, y
+        // como la rejilla iguala la altura de las tarjetas de cada fila, las
+        // más cortas bajaban el banner y dejaban una franja vacía encima, que
+        // parecía una segunda cabecera.
+        <Link
+            href={`/equipos?id=${equipo.id}`}
+            className="flex flex-col text-left bg-white/5 border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl overflow-hidden transition-all"
         >
             <BannerEquipo equipo={equipo} className="h-20" />
             {/* relative + z-10: el banner es `relative` y, al ir antes, se
@@ -159,7 +164,7 @@ function TarjetaEquipo({ datos, router }) {
                     </div>
                 )}
             </div>
-        </button>
+        </Link>
     );
 }
 
