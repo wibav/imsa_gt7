@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { FirebaseService } from "../../services/firebaseService";
@@ -56,6 +56,13 @@ export default function EquiposAdminPage() {
     const [guardando, setGuardando] = useState(false);
     const [subiendo, setSubiendo] = useState('');
     const [nuevaVariante, setNuevaVariante] = useState('');
+    // Imágenes del equipo tal como estaban guardadas al abrir el panel: al
+    // guardar, las que se hayan cambiado o quitado se borran de Storage.
+    const [imagenesGuardadas, setImagenesGuardadas] = useState({ avatarUrl: '', bannerUrl: '' });
+    // Subidas de esta edición que aún no se han guardado. Si se cancela, o se
+    // sustituyen por otra antes de guardar, se borran para no dejar residuos.
+    const subidasSinGuardar = useRef([]);
+    const panelRef = useRef(null);
 
     useEffect(() => {
         if (!authLoading && !currentUser) router.push('/login');
@@ -143,7 +150,25 @@ export default function EquiposAdminPage() {
         }));
         setError('');
         setBusqueda('');
-        window.scrollTo({ top: 0, behavior: 'auto' });
+        prepararImagenes({});
+        mostrarPanel();
+    };
+
+    /** En móvil el panel queda debajo de la lista: sin esto no se ve que se ha abierto. */
+    const mostrarPanel = () => {
+        setTimeout(() => panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    };
+
+    const prepararImagenes = (eq) => {
+        descartarSubidas();
+        setImagenesGuardadas({ avatarUrl: eq.avatarUrl || '', bannerUrl: eq.bannerUrl || '' });
+    };
+
+    /** Borra las subidas que nunca llegaron a guardarse. */
+    const descartarSubidas = (enUso = []) => {
+        const pendientes = subidasSinGuardar.current;
+        subidasSinGuardar.current = [];
+        pendientes.forEach(url => { FirebaseService.deleteTeamImageIfUnused(url, enUso); });
     };
 
     const abrirEquipo = (eq) => {
@@ -174,16 +199,25 @@ export default function EquiposAdminPage() {
         ]);
         setError('');
         setBusqueda('');
-        window.scrollTo({ top: 0, behavior: 'auto' });
+        prepararImagenes(eq);
+        mostrarPanel();
     };
 
     const nuevoManual = () => {
         setForm({ id: null, name: '', tag: '', tagVariants: [], color: COLORES[0], avatarUrl: '', bannerUrl: '', description: '' });
         setFilas([]);
         setError('');
+        prepararImagenes({});
+        mostrarPanel();
     };
 
-    const cerrar = () => { setForm(null); setFilas([]); setError(''); setBusqueda(''); };
+    /** Cerrar sin guardar: las imágenes subidas en esta edición sobran. */
+    const cerrar = () => {
+        descartarSubidas();
+        setForm(null); setFilas([]); setError(''); setBusqueda('');
+    };
+
+    const quitarFila = (pilot) => setFilas(fs => fs.filter(f => f.pilot !== pilot));
 
     // ── Edición ──
 
@@ -232,13 +266,30 @@ export default function EquiposAdminPage() {
             validateImageFile(file);
             const comprimida = await compressImage(file);
             const nombre = `${form.tag || 'equipo'}-${campo === 'avatarUrl' ? 'avatar' : 'banner'}.png`;
-            const { url } = await FirebaseService.uploadImageDeduped(comprimida, 'teams', nombre);
+            const { url, reused } = await FirebaseService.uploadImageDeduped(comprimida, 'teams', nombre);
+            const anterior = form[campo];
             cambiar(campo, url);
+            if (!reused) subidasSinGuardar.current.push(url);
+            // La que se sustituye, si se había subido en esta misma edición y no
+            // se guardó, ya no la va a usar nadie. La guardada se borra al guardar.
+            sustituirSubida(anterior, [url, form.avatarUrl, form.bannerUrl]);
         } catch (e) {
             setError('No se pudo subir la imagen: ' + e.message);
         } finally {
             setSubiendo('');
         }
+    };
+
+    const sustituirSubida = (url, enUso) => {
+        if (!url || !subidasSinGuardar.current.includes(url)) return;
+        subidasSinGuardar.current = subidasSinGuardar.current.filter(u => u !== url);
+        FirebaseService.deleteTeamImageIfUnused(url, enUso.filter(u => u && u !== url));
+    };
+
+    const quitarImagen = (campo) => {
+        const anterior = form[campo];
+        cambiar(campo, '');
+        sustituirSubida(anterior, [form.avatarUrl, form.bannerUrl].filter(u => u !== anterior));
     };
 
     // ── Guardar ──
@@ -265,6 +316,14 @@ export default function EquiposAdminPage() {
         try {
             setGuardando(true);
             await FirebaseService.saveRacingTeam(equipoDelFormulario(), currentUser?.email || '');
+            // Ya guardado: las subidas en uso dejan de estar pendientes, y las
+            // imágenes que tenía antes y se han cambiado o quitado se borran.
+            const nuevas = [form.avatarUrl, form.bannerUrl].filter(Boolean);
+            subidasSinGuardar.current = subidasSinGuardar.current.filter(u => !nuevas.includes(u));
+            for (const campo of ['avatarUrl', 'bannerUrl']) {
+                const antes = imagenesGuardadas[campo];
+                if (antes && antes !== form[campo]) await FirebaseService.deleteTeamImageIfUnused(antes, nuevas);
+            }
             cerrar();
             setPestana('confirmados');
             await cargar();
@@ -280,6 +339,10 @@ export default function EquiposAdminPage() {
         if (!confirm(`¿Eliminar el equipo ${form.name}?\n\nSolo se borra la ficha del equipo. No se toca ningún resultado.`)) return;
         try {
             await FirebaseService.deleteRacingTeam(form.id);
+            // Sus imágenes, si no las comparte con otro equipo, sobran.
+            for (const url of [imagenesGuardadas.avatarUrl, imagenesGuardadas.bannerUrl, form.avatarUrl, form.bannerUrl]) {
+                if (url) await FirebaseService.deleteTeamImageIfUnused(url);
+            }
             cerrar();
             await cargar();
         } catch (e) {
@@ -389,8 +452,8 @@ export default function EquiposAdminPage() {
                             const { nuevos, deOtroEquipo } = pendientesDe(eq);
                             const pend = nuevos.length + deOtroEquipo.length;
                             return (
-                                <button key={eq.id} onClick={() => abrirEquipo(eq)}
-                                    className={`w-full text-left bg-white/5 border rounded-xl p-4 flex items-center gap-3 ${form?.id === eq.id ? 'border-orange-500' : 'border-white/10 hover:border-white/20'}`}>
+                                <button key={eq.id} onClick={() => abrirEquipo(eq)} title="Editar equipo"
+                                    className={`w-full text-left bg-white/5 border rounded-xl p-4 flex flex-wrap items-center gap-3 ${form?.id === eq.id ? 'border-orange-500' : 'border-white/10 hover:border-white/20'}`}>
                                     <TeamAvatar team={eq} size="md" />
                                     <div className="min-w-0 flex-1">
                                         <div className="text-white font-semibold truncate">{eq.name}</div>
@@ -401,6 +464,9 @@ export default function EquiposAdminPage() {
                                             {pend} por revisar
                                         </span>
                                     )}
+                                    <span className="text-xs font-semibold text-orange-300 bg-orange-500/10 border border-orange-400/30 px-2 py-1 rounded-lg whitespace-nowrap">
+                                        ✏️ Editar
+                                    </span>
                                 </button>
                             );
                         }))}
@@ -424,7 +490,7 @@ export default function EquiposAdminPage() {
                             <p className="text-sm">Elige unas siglas sugeridas o un equipo confirmado para revisarlo.</p>
                         </div>
                     ) : (
-                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-white/20 rounded-xl p-5 space-y-5">
+                        <div ref={panelRef} className="bg-gradient-to-br from-slate-800 to-slate-900 border border-white/20 rounded-xl p-5 space-y-5 scroll-mt-24">
                             <div className="flex items-center justify-between gap-3">
                                 <h3 className="text-xl font-bold text-white">{form.id ? 'Editar equipo' : 'Confirmar equipo'}</h3>
                                 <button onClick={cerrar} className="text-gray-400 hover:text-white text-sm">Cerrar ✕</button>
@@ -483,7 +549,7 @@ export default function EquiposAdminPage() {
                                         <span className="block text-xs text-orange-300 mt-1">{subiendo === 'avatarUrl' ? 'Subiendo…' : form.avatarUrl ? 'Cambiar' : 'Subir'}</span>
                                     </label>
                                     {form.avatarUrl && (
-                                        <button onClick={() => cambiar('avatarUrl', '')} className="text-xs text-gray-500 hover:text-red-300">Quitar</button>
+                                        <button onClick={() => quitarImagen('avatarUrl')} className="text-xs text-gray-500 hover:text-red-300">Quitar</button>
                                     )}
                                 </div>
                                 <div className="min-w-0">
@@ -500,7 +566,7 @@ export default function EquiposAdminPage() {
                                             onChange={e => subirImagen('bannerUrl', e.target.files?.[0])} />
                                     </label>
                                     {form.bannerUrl && (
-                                        <button onClick={() => cambiar('bannerUrl', '')} className="text-xs text-gray-500 hover:text-red-300 mt-1">Quitar banner</button>
+                                        <button onClick={() => quitarImagen('bannerUrl')} className="text-xs text-gray-500 hover:text-red-300 mt-1">Quitar banner</button>
                                     )}
                                 </div>
                             </div>
@@ -538,6 +604,7 @@ export default function EquiposAdminPage() {
                                                         </div>
                                                     )}
                                                 </div>
+                                                <div className="flex items-center gap-2">
                                                 <select value={f.estado} onChange={e => ponerEstado(f, e.target.value)}
                                                     className={`text-sm rounded-lg px-2 py-1 border bg-slate-800 ${f.estado === 'miembro' ? 'border-green-400/50 text-green-300'
                                                         : f.estado === 'noEs' ? 'border-red-400/40 text-red-300'
@@ -545,6 +612,15 @@ export default function EquiposAdminPage() {
                                                                 : 'border-amber-400/40 text-amber-300'}`}>
                                                     {Object.entries(ESTADOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                                                 </select>
+                                                <button onClick={() => quitarFila(f.pilot)}
+                                                    className="text-gray-500 hover:text-red-300 text-sm px-1"
+                                                    title={f.nombres.some(n => claveSiglas(n.split(/[_\-.\s]/)[0]) === claveSiglas(form.tag))
+                                                        ? 'Quitar de la lista. Como lleva las siglas, volverá a proponerse: para que no, márcalo «No es del equipo».'
+                                                        : 'Quitar del equipo'}
+                                                    aria-label={`Quitar a ${f.pilot}`}>
+                                                    ✕
+                                                </button>
+                                                </div>
                                             </div>
                                             {f.aviso && <p className="text-xs text-amber-300">⚠️ {f.aviso}</p>}
                                             {(f.estado === 'miembro' || f.estado === 'exMiembro') && (

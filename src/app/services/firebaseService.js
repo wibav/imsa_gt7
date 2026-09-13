@@ -357,7 +357,8 @@ export class FirebaseService {
   //
   // No confundir con los equipos de un campeonato por equipos
   // (championships/{id}/teams) ni con la colección raíz `teams`, que es del
-  // editor antiguo de IMSA 2025. Ver docs/PLAN_EQUIPOS.md.
+  // editor de los equipos inventados para el campeonato IMSA GT7 2025. Ver
+  // docs/PLAN_EQUIPOS.md.
   static _racingTeamsPromise = null;
 
   static async getRacingTeams() {
@@ -454,6 +455,41 @@ export class FirebaseService {
     });
     FirebaseService._racingTeamsPromise = null;
     return { success: true, id: ref.id };
+  }
+
+  /**
+   * Borra de Storage una imagen de equipo que ya no usa ningún equipo.
+   *
+   * Las imágenes se guardan por hash de contenido (uploadImageDeduped), así
+   * que dos equipos pueden compartir el mismo archivo: antes de borrar se
+   * comprueba contra los documentos recién leídos, no contra la caché.
+   *
+   * @param {string} url - URL de descarga del avatar o banner
+   * @param {string[]} [enUso] - URLs que siguen en uso aunque aún no estén
+   *        guardadas (el formulario abierto)
+   * @returns {Promise<boolean>} true si se borró
+   */
+  static async deleteTeamImageIfUnused(url, enUso = []) {
+    const path = FirebaseService.storagePathFromUrl(url);
+    // Solo lo que está en la carpeta de equipos: una URL externa o una imagen
+    // de otra sección no se toca.
+    if (!path || !path.startsWith('teams/')) return false;
+    const mismoArchivo = (u) => FirebaseService.storagePathFromUrl(u) === path;
+    if (enUso.some(mismoArchivo)) return false;
+
+    FirebaseService._racingTeamsPromise = null;
+    const equipos = await FirebaseService.getRacingTeams();
+    if (equipos.some(e => mismoArchivo(e.avatarUrl) || mismoArchivo(e.bannerUrl))) return false;
+
+    try {
+      await FirebaseService.deleteImage(path);
+      return true;
+    } catch (error) {
+      // Que no se pueda limpiar no debe bloquear la edición: quedará como
+      // huérfana y la recoge scripts/audit-storage-images.js.
+      console.warn('No se pudo borrar la imagen sin uso:', path, error);
+      return false;
+    }
   }
 
   static async deleteRacingTeam(teamId) {

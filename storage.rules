@@ -10,6 +10,14 @@ service firebase.storage {
         && request.resource != null
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
+
+      // Borrar: solo el Administrador de Plataforma. La regla de arriba exige
+      // request.resource, que en un borrado es null, así que hasta ahora
+      // ninguna limpieza desde la web funcionaba (quedaban imágenes
+      // huérfanas al cambiar el avatar de un equipo o la imagen de un
+      // circuito).
+      allow delete: if request.auth != null
+        && request.auth.token.platformOwner == true;
     }
   }
 }
