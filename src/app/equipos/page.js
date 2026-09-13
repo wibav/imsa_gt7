@@ -227,7 +227,6 @@ function FichaEquipo({ datos, router }) {
                                 <thead>
                                     <tr className="text-xs text-gray-400 border-b border-white/10 bg-white/5">
                                         <th className="px-4 py-2 text-left font-medium">Piloto</th>
-                                        <th className="px-3 py-2 text-left font-medium">Desde</th>
                                         <th className="px-3 py-2 text-right font-medium">Carreras</th>
                                         <th className="px-3 py-2 text-right font-medium">Victorias</th>
                                         <th className="px-3 py-2 text-right font-medium">Podios</th>
@@ -239,7 +238,6 @@ function FichaEquipo({ datos, router }) {
                                         <tr key={m.pilot} className="hover:bg-white/5 cursor-pointer"
                                             onClick={() => router.push(`/pilots?name=${encodeURIComponent(m.pilot)}`)}>
                                             <td className="px-4 py-2 text-white font-semibold">{m.pilot}</td>
-                                            <td className="px-3 py-2 text-gray-400 whitespace-nowrap">{fmtMes(m.from)}</td>
                                             <td className="px-3 py-2 text-right text-gray-300">{m.stats?.totalRaces ?? 0}</td>
                                             <td className="px-3 py-2 text-right text-yellow-400">{m.stats?.totalWins || '-'}</td>
                                             <td className="px-3 py-2 text-right text-gray-300">{m.stats?.totalPodiums || '-'}</td>
@@ -251,7 +249,7 @@ function FichaEquipo({ datos, router }) {
                                             <td className="px-4 py-2">
                                                 {m.pilot} <span className="text-[11px] bg-white/5 border border-white/10 rounded-full px-2 py-0.5 ml-1">ex-miembro · no suma</span>
                                             </td>
-                                            <td className="px-3 py-2 whitespace-nowrap" colSpan={5}>hasta {fmtMes(m.to)}</td>
+                                            <td className="px-3 py-2 whitespace-nowrap text-right" colSpan={4}>hasta {fmtMes(m.to)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
