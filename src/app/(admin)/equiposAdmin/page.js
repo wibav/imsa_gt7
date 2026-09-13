@@ -249,6 +249,27 @@ export default function EquiposAdminPage() {
             .slice(0, 30);
     }, [busqueda, nombresDePiloto, filas, form]);
 
+    /**
+     * Piloto que aún no ha corrido nada: si lo buscado no coincide exactamente
+     * con ningún GT7 ID conocido, se ofrece añadirlo tal cual.
+     *
+     * Un miembro es solo un GT7 ID escrito, así que no hace falta que exista
+     * ficha. Cuando se inscriba con ese mismo GT7 ID, sus carreras se suman
+     * solas al equipo; si lo escribe distinto, se unifica en Identidad de
+     * pilotos.
+     */
+    const pilotoNuevo = useMemo(() => {
+        const escrito = busqueda.trim();
+        if (escrito.length < 2 || !form) return null;
+        const t = escrito.toLowerCase();
+        const conocido = Object.entries(nombresDePiloto)
+            .some(([p, ns]) => [p, ...ns].some(n => n.toLowerCase() === t));
+        const yaEn = filas.some(f => f.pilot.toLowerCase() === t);
+        return conocido || yaEn ? null : escrito;
+    }, [busqueda, nombresDePiloto, filas, form]);
+
+    const esSinCarreras = (pilot) => !nombresDePiloto[pilot];
+
     const anadirManual = (pilot) => {
         const otro = equipoDe[pilot];
         setFilas(fs => [...fs, filaDe(pilot, null, {
@@ -597,7 +618,14 @@ export default function EquiposAdminPage() {
                                         <div key={f.pilot} className="py-3 space-y-2">
                                             <div className="flex flex-wrap items-start justify-between gap-2">
                                                 <div className="min-w-0">
-                                                    <div className="text-white font-semibold break-all">{f.pilot}</div>
+                                                    <div className="text-white font-semibold break-all">
+                                                        {f.pilot}
+                                                        {esSinCarreras(f.pilot) && (
+                                                            <span className="ml-2 align-middle text-[11px] font-normal text-sky-300 bg-sky-400/10 border border-sky-400/30 rounded-full px-2 py-0.5 whitespace-nowrap">
+                                                                sin carreras todavía
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     {f.nombres.filter(n => n !== f.pilot).length > 0 && (
                                                         <div className="text-xs text-gray-500 font-mono break-all">
                                                             también como {f.nombres.filter(n => n !== f.pilot).join(' · ')}
@@ -650,6 +678,19 @@ export default function EquiposAdminPage() {
                                 <div className="mt-3">
                                     <input className={inputCls} value={busqueda} onChange={e => setBusqueda(e.target.value)}
                                         placeholder="🔍 Añadir piloto (también sin siglas): buscar por GT7 ID…" />
+                                    {pilotoNuevo && (
+                                        <div className="mt-2 bg-sky-500/10 border border-sky-400/30 rounded-lg p-3 text-sm">
+                                            <button onClick={() => anadirManual(pilotoNuevo)}
+                                                className="font-semibold text-sky-200 hover:text-white">
+                                                + Añadir «{pilotoNuevo}» como piloto nuevo
+                                            </button>
+                                            <p className="text-xs text-gray-400 mt-1">
+                                                No ha corrido nada todavía. Escribe su GT7 ID exacto: cuando se inscriba con él,
+                                                sus carreras se sumarán solas al equipo.
+                                                {resultadosBusqueda.length > 0 && ' Antes, comprueba que no sea ninguno de los de abajo.'}
+                                            </p>
+                                        </div>
+                                    )}
                                     {resultadosBusqueda.length > 0 && (
                                         <div className="flex flex-wrap gap-2 mt-2">
                                             {resultadosBusqueda.map(p => (

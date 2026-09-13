@@ -235,9 +235,18 @@ function FichaEquipo({ datos, router }) {
                                 </thead>
                                 <tbody className="divide-y divide-white/5 tabular-nums">
                                     {plantilla.map(m => (
-                                        <tr key={m.pilot} className="hover:bg-white/5 cursor-pointer"
-                                            onClick={() => router.push(`/pilots?name=${encodeURIComponent(m.pilot)}`)}>
-                                            <td className="px-4 py-2 text-white font-semibold">{m.pilot}</td>
+                                        // Sin estadísticas = aún no ha corrido: no tiene ficha en Pilotos
+                                        // ("Piloto no encontrado"), así que la fila no enlaza.
+                                        <tr key={m.pilot} className={m.stats ? 'hover:bg-white/5 cursor-pointer' : ''}
+                                            onClick={m.stats ? () => router.push(`/pilots?name=${encodeURIComponent(m.pilot)}`) : undefined}>
+                                            <td className="px-4 py-2 text-white font-semibold">
+                                                {m.pilot}
+                                                {!m.stats && (
+                                                    <span className="ml-2 text-[11px] font-normal text-gray-400 bg-white/5 border border-white/10 rounded-full px-2 py-0.5 whitespace-nowrap">
+                                                        sin carreras todavía
+                                                    </span>
+                                                )}
+                                            </td>
                                             <td className="px-3 py-2 text-right text-gray-300">{m.stats?.totalRaces ?? 0}</td>
                                             <td className="px-3 py-2 text-right text-yellow-400">{m.stats?.totalWins || '-'}</td>
                                             <td className="px-3 py-2 text-right text-gray-300">{m.stats?.totalPodiums || '-'}</td>

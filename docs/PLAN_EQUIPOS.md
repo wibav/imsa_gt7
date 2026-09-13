@@ -86,3 +86,8 @@ equipo publicado no cambia nada visualmente.
 - **Inscripción**: si el GT7 ID empieza por las siglas de un equipo publicado,
   se avisa de a qué equipo corresponden. Solo informa: el piloto aparece en
   /equiposAdmin como «por revisar» y el administrador decide.
+- **Pilotos que aún no han corrido** (2026-09-13): en /equiposAdmin, si lo buscado
+  no coincide con ningún GT7 ID conocido, se ofrece añadirlo tal cual. Sale
+  «sin carreras todavía» en el admin y en la ficha pública (sin enlace a
+  Pilotos, donde aún no tiene perfil). Al inscribirse con el mismo GT7 ID sus
+  carreras suman solas; con otro, se unifica en Identidad de pilotos.
