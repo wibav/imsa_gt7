@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { formatDateFull, getRaceTime } from "../../utils/dateUtils";
-import { TYRE_OPTIONS, DAMAGE_OPTIONS, STREAMING_PLATFORMS } from "../../utils/constants";
+import { TYRE_OPTIONS, DAMAGE_OPTIONS } from "../../utils/constants";
 
 /**
  * Componente Briefing Pre-Carrera.
@@ -14,7 +14,7 @@ import { TYRE_OPTIONS, DAMAGE_OPTIONS, STREAMING_PLATFORMS } from "../../utils/c
  * @param {Object} props.championship - Datos del campeonato
  * @param {Object} props.progress - { completed, total, percentage }
  */
-export default function RaceBriefing({ nextRace, championship, progress }) {
+export default function RaceBriefing({ nextRace, championship, progress, transmisiones = [] }) {
     const briefingRef = useRef(null);
     const [exporting, setExporting] = useState(false);
     const [showBriefing, setShowBriefing] = useState(false);
@@ -27,7 +27,6 @@ export default function RaceBriefing({ nextRace, championship, progress }) {
     const timeOfDay = rules.timeOfDay || weather.timeOfDay;
     const timeMultiplier = rules.timeMultiplier || weather.multiplier;
     const weatherSlots = rules.weatherSlots || weather.slots;
-    const streamPlatform = STREAMING_PLATFORMS.find(p => p.value === championship?.streaming?.platform);
     const mandatoryTyres = rules.mandatoryTyre || nextRace.mandatoryTyres || [];
     const tyreLabels = mandatoryTyres.map(t => {
         const opt = TYRE_OPTIONS.find(o => o.value === t);
@@ -335,8 +334,8 @@ export default function RaceBriefing({ nextRace, championship, progress }) {
                                         </div>
                                     )}
 
-                                    {/* Streaming */}
-                                    {championship?.streaming?.casterName && (
+                                    {/* Streaming: todos los casters, uno por canal (ver streamingUtils) */}
+                                    {transmisiones.length > 0 && (
                                         <div style={{
                                             background: 'rgba(139,92,246,0.1)',
                                             border: '1px solid rgba(139,92,246,0.3)',
@@ -345,13 +344,16 @@ export default function RaceBriefing({ nextRace, championship, progress }) {
                                             marginBottom: '12px'
                                         }}>
                                             <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#a78bfa', marginBottom: '6px' }}>
-                                                📺 Transmisión
+                                                📺 {transmisiones.length > 1 ? 'Transmisiones' : 'Transmisión'}
                                             </div>
-                                            <div style={{ fontSize: '12px', color: '#c4b5fd' }}>
-                                                {championship.streaming.casterName && <div>🎙️ Caster: {championship.streaming.casterName}</div>}
-                                                {championship.streaming.hostName && <div>🏠 Host: {championship.streaming.hostName}</div>}
-                                                {streamPlatform && <div>{streamPlatform.icon} {streamPlatform.label}</div>}
-                                            </div>
+                                            {transmisiones.map(t => (
+                                                <div key={t.url} style={{ fontSize: '12px', color: '#c4b5fd', marginTop: '4px' }}>
+                                                    🎙️ <span style={{ color: 'white', fontWeight: 'bold' }}>{t.caster}</span>
+                                                    {t.plataforma && <span> · {t.plataforma.icon} {t.plataforma.label}</span>}
+                                                    {t.salas.length > 0 && <span> · {t.salas.map(x => x.name).join(', ')}</span>}
+                                                    {t.hosts.length > 0 && <span> · 🏠 {t.hosts.join(', ')}</span>}
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
 

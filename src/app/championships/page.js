@@ -46,8 +46,9 @@ import AppealForm, { getAppealWindowStatus, getEligibleAppellants } from '../com
 import CarDeclarationModal from '../components/championship/CarDeclarationModal';
 import ExportableStandings from '../components/championship/ExportableStandings';
 import RaceBriefing from '../components/championship/RaceBriefing';
+import { transmisionesDe } from '../utils/streamingUtils';
 import ShareButton from '../components/ShareButton';
-import { STREAMING_PLATFORMS, STATUS_LABELS } from '../utils/constants';
+import { STATUS_LABELS } from '../utils/constants';
 import { SEVERITY_CONFIG, isPenaltyCounting } from '../models/Penalty';
 import { getInvalidatedEntries, flattenRegistrations, applyDeclarations } from '../utils/carUsageCalculator';
 import { isRegulationsEmpty } from '../utils/regulations';
@@ -233,9 +234,11 @@ export default function ChampionshipDetailPage() {
 
     // Streaming: detectar si hay una carrera "en vivo" (status 'in-progress')
     const liveTrack = tracks.find(t => t.status === 'in-progress');
-    const hasStreaming = championship.streaming?.url;
+    // Todas las transmisiones: una por canal, con sus salas. Antes solo se
+    // veía la del campeonato y los casters de las demás salas no aparecían.
+    const transmisiones = transmisionesDe(championship, divisions);
+    const hasStreaming = transmisiones.length > 0;
     const isLive = liveTrack && hasStreaming;
-    const streamPlatform = STREAMING_PLATFORMS.find(p => p.value === championship.streaming?.platform);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
@@ -322,20 +325,26 @@ export default function ChampionshipDetailPage() {
                                     </button>
                                 )}
 
-                                {/* Botón Ver en Vivo */}
-                                {hasStreaming && (
+                                {/* Un botón por transmisión, con el caster: con varias salas
+                                    hay varios canales y todos merecen el mismo sitio. */}
+                                {transmisiones.map(t => (
                                     <a
-                                        href={championship.streaming.url}
+                                        key={t.url}
+                                        href={t.url}
                                         target="_blank"
                                         rel="noopener noreferrer"
+                                        title={t.salas.length ? `Narra ${t.salas.map(x => x.name).join(', ')}` : undefined}
                                         className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${isLive
                                             ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
                                             : 'bg-white/10 hover:bg-white/20 border border-white/30 text-white'
                                             }`}
                                     >
-                                        {streamPlatform?.icon || '📺'} {isLive ? 'Ver en Vivo' : 'Ver Stream'}
+                                        {t.plataforma?.icon || '📺'}
+                                        {transmisiones.length > 1
+                                            ? <span>{isLive ? 'En vivo · ' : ''}{t.caster}</span>
+                                            : <span>{isLive ? 'Ver en Vivo' : 'Ver Stream'}</span>}
                                     </a>
-                                )}
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -403,6 +412,7 @@ export default function ChampionshipDetailPage() {
                                         <RaceBriefing
                                             nextRace={nextRace}
                                             championship={championship}
+                                            transmisiones={transmisiones}
                                             progress={progress}
                                         />
                                     </div>
@@ -2056,31 +2066,49 @@ export default function ChampionshipDetailPage() {
                                 </div>
                             )}
 
-                            {/* Streaming info */}
-                            {hasStreaming && championship.streaming?.casterName && (
+                            {/* Transmisión: todos los casters, con las salas que narra cada uno */}
+                            {hasStreaming && (
                                 <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-4">
-                                    <h3 className="text-white font-bold mb-3">📺 Transmisión</h3>
-                                    <div className="space-y-2 text-sm">
-                                        {championship.streaming.casterName && (
-                                            <div className="flex justify-between text-gray-300">
-                                                <span>🎙️ Caster:</span>
-                                                <span className="text-white font-medium">{championship.streaming.casterName}</span>
+                                    <h3 className="text-white font-bold mb-3">
+                                        📺 {transmisiones.length > 1 ? `Transmisiones (${transmisiones.length})` : 'Transmisión'}
+                                    </h3>
+                                    <div className="space-y-3">
+                                        {transmisiones.map(t => (
+                                            <div key={t.url} className="bg-black/20 border border-white/10 rounded-lg p-3">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <div className="text-gray-400 text-xs">🎙️ Caster</div>
+                                                        <div className="text-white font-bold truncate">{t.caster}</div>
+                                                    </div>
+                                                    <a
+                                                        href={t.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex-shrink-0 px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/30 text-white rounded-lg text-xs font-semibold transition-all"
+                                                    >
+                                                        {t.plataforma?.icon || '📺'} Ver en {t.plataforma?.label || 'Stream'}
+                                                    </a>
+                                                </div>
+                                                {t.salas.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                                        {t.salas.map(sala => (
+                                                            <span
+                                                                key={sala.name}
+                                                                className="text-xs px-2 py-0.5 rounded-full border"
+                                                                style={{ color: sala.color, borderColor: `${sala.color}66`, backgroundColor: `${sala.color}1a` }}
+                                                            >
+                                                                {sala.name}{sala.hour ? ` · ${sala.hour}h` : ''}{horaSalaLocal(sala.hour) ? ` (${horaSalaLocal(sala.hour)}h tu hora)` : ''}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {t.hosts.length > 0 && (
+                                                    <div className="text-gray-400 text-xs mt-2">
+                                                        🏠 Host: <span className="text-gray-200">{t.hosts.join(', ')}</span>
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
-                                        {championship.streaming.hostName && (
-                                            <div className="flex justify-between text-gray-300">
-                                                <span>🏠 Host:</span>
-                                                <span className="text-white font-medium">{championship.streaming.hostName}</span>
-                                            </div>
-                                        )}
-                                        <a
-                                            href={championship.streaming.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="block w-full text-center mt-3 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/30 text-white rounded-lg transition-all font-medium"
-                                        >
-                                            {streamPlatform?.icon || '📺'} Ver en {streamPlatform?.label || 'Stream'}
-                                        </a>
+                                        ))}
                                     </div>
                                 </div>
                             )}
