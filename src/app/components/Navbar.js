@@ -4,10 +4,24 @@ import { useAuth } from '../context/AuthContext';
 import { useOrganization } from '../context/OrganizationContext';
 import Image from 'next/image';
 
+/**
+ * Fondo de la cabecera: el degradado naranja/rojo por defecto o los colores
+ * de la organización. Lo comparten la barra y PageHeader para que ambos
+ * formen una sola banda sin corte visible.
+ */
+export function useHeaderBackground() {
+    const { org } = useOrganization();
+    const { colorPrimary, colorSecondary } = org?.branding || {};
+    return (colorPrimary && colorSecondary)
+        ? { className: '', style: { background: `linear-gradient(to right, ${colorPrimary}, ${colorSecondary}, ${colorPrimary})` } }
+        : { className: 'bg-gradient-to-r from-orange-600 via-red-600 to-orange-600', style: undefined };
+}
+
 export default function Navbar() {
     const [menuOpen, setMenuOpen] = useState(false);
     const { currentUser, logout, isAdmin, isComisario, myOrgIds } = useAuth();
     const { org, isRootView } = useOrganization();
+    const fondo = useHeaderBackground();
 
     // En la vista raíz (agregada, todas las orgs) un usuario logueado con
     // organización propia no tenía forma de volver a ella sin teclear la
@@ -23,11 +37,7 @@ export default function Navbar() {
 
     // Mismo criterio que el logo: solo se reemplaza el degradado naranja/rojo
     // por defecto cuando la org configuró explícitamente sus colores desde
-    // /organizacionAdmin — si no, el header se ve exactamente igual que hoy.
-    const { colorPrimary, colorSecondary } = org?.branding || {};
-    const headerStyle = (colorPrimary && colorSecondary)
-        ? { background: `linear-gradient(to right, ${colorPrimary}, ${colorSecondary}, ${colorPrimary})` }
-        : undefined;
+    // /organizacionAdmin (ver useHeaderBackground).
 
     const handleLogout = async () => {
         try {
@@ -48,8 +58,8 @@ export default function Navbar() {
 
     return (
         <div
-            className={`${headerStyle ? '' : 'bg-gradient-to-r from-orange-600 via-red-600 to-orange-600'} px-4 py-4 sm:py-6 sticky top-0 z-50 backdrop-blur-lg bg-opacity-95`}
-            style={headerStyle}
+            className={`${fondo.className} px-4 py-4 sm:py-6 sticky top-0 z-50 backdrop-blur-lg bg-opacity-95`}
+            style={fondo.style}
         >
             <div className="max-w-7xl mx-auto w-full">
                 {/* Header con Logo */}

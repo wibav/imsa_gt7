@@ -1,4 +1,4 @@
-import Navbar from "../components/Navbar";
+import PageHeader from "../components/PageHeader";
 import Footer from "../components/Footer";
 
 export const metadata = {
@@ -18,10 +18,14 @@ function Section({ title, children }) {
 export default function TerminosPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-            <Navbar />
+            <PageHeader
+                ancho="max-w-3xl"
+                migas={[{ label: 'Términos de Servicio' }]}
+                icono="📋"
+                titulo="Términos de Servicio"
+                subtitulo="Última actualización: agosto de 2026"
+            />
             <div className="max-w-3xl mx-auto px-4 py-12">
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-2">📋 Términos de Servicio</h1>
-                <p className="text-gray-400 text-sm mb-10">Última actualización: agosto de 2026</p>
 
                 <Section title="1. Sobre este servicio">
                     <p>

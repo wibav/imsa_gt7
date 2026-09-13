@@ -7,6 +7,7 @@ import { resumirEventos } from "../utils/pilotEvents";
 import { cargarEstadisticasPilotos } from "../utils/globalPilotStats";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
 import PilotTeamAvatar from "../components/common/PilotTeamAvatar";
+import PageHeader from "../components/PageHeader";
 
 /**
  * Equipo de cada campeonato por equipos en el que corrió el piloto, con el
@@ -78,42 +79,28 @@ export default function PilotsPage() {
 
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-orange-600 via-red-600 to-orange-600 py-8 px-4 sm:px-6">
-                    <div className="max-w-6xl mx-auto">
-                        <div className="flex items-center gap-2 text-sm text-white/70 mb-4">
-                            <button onClick={() => router.push('/')} className="hover:text-white transition-colors">🏠 Inicio</button>
-                            <span>/</span>
-                            <button onClick={() => router.push('/pilots')} className="hover:text-white transition-colors">Pilotos</button>
-                            <span>/</span>
-                            <span className="text-white">{pilot.name}</span>
-                        </div>
-                        <div className="flex items-center gap-6">
-                            <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center text-4xl backdrop-blur-sm">
-                                🏎️
-                            </div>
-                            <div>
-                                <h1 className="text-4xl sm:text-5xl font-bold text-white flex items-center gap-3 flex-wrap"><PilotTeamAvatar name={pilot.name} aliases={pilot.aliases} size="md" />{pilot.name}</h1>
-                                <div className="flex items-center gap-4 mt-2 flex-wrap">
-                                    {/* Equipos de campeonatos por equipos (inventados para ese
-                                        campeonato): se nombra el campeonato para no confundirlos
-                                        con el equipo de la comunidad, que va en el avatar. */}
-                                    {equiposDeCampeonato(pilot).length > 0 && (
-                                        <span className="text-white/80 text-sm">🏢 {equiposDeCampeonato(pilot).join(' · ')}</span>
-                                    )}
-                                    {pilot.categories.length > 0 && (
-                                        <span className="text-white/80 text-sm">🏷️ {pilot.categories.join(', ')}</span>
-                                    )}
-                                    {pilot.championsCount > 0 && (
-                                        <span className="bg-yellow-500 text-black text-xs px-2 py-1 rounded-full font-bold">
-                                            🏆 {pilot.championsCount}x Campeón
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+                <PageHeader
+                    ancho="max-w-6xl"
+                    migas={[{ label: 'Pilotos', href: '/pilots' }, { label: pilot.name }]}
+                    titulo={<><PilotTeamAvatar name={pilot.name} aliases={pilot.aliases} size="md" />{pilot.name}</>}
+                >
+                    <div className="flex items-center gap-4 flex-wrap">
+                        {/* Equipos de campeonatos por equipos (inventados para ese
+                            campeonato): se nombra el campeonato para no confundirlos
+                            con el equipo de la comunidad, que va en el avatar. */}
+                        {equiposDeCampeonato(pilot).length > 0 && (
+                            <span className="text-white/80 text-sm">🏢 {equiposDeCampeonato(pilot).join(' · ')}</span>
+                        )}
+                        {pilot.categories.length > 0 && (
+                            <span className="text-white/80 text-sm">🏷️ {pilot.categories.join(', ')}</span>
+                        )}
+                        {pilot.championsCount > 0 && (
+                            <span className="bg-yellow-500 text-black text-xs px-2 py-1 rounded-full font-bold">
+                                🏆 {pilot.championsCount}x Campeón
+                            </span>
+                        )}
                     </div>
-                </div>
+                </PageHeader>
 
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
                     {/* Stats Cards */}
@@ -285,23 +272,18 @@ export default function PilotsPage() {
     // ═══════════════════════════════════════
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-orange-600 via-red-600 to-orange-600 py-8 px-4 sm:px-6">
-                <div className="max-w-7xl mx-auto">
-                    <div className="flex items-center gap-2 text-sm text-white/70 mb-4">
-                        <button onClick={() => router.push('/')} className="hover:text-white transition-colors">🏠 Inicio</button>
-                        <span>/</span>
-                        <span className="text-white">Pilotos</span>
-                    </div>
-                    <h1 className="text-4xl sm:text-5xl font-bold text-white">🏎️ Pilotos</h1>
-                    <p className="text-white/80 mt-2">Estadísticas globales acumuladas de campeonatos y eventos</p>
-                    <div className="flex items-center gap-4 mt-3 text-sm text-white/70">
-                        <span>👥 {globalStats.length} pilotos</span>
-                        <span>📊 {championshipDetails.length} campeonatos analizados</span>
-                        <span>🎪 {globalStats.filter(p => p.events.length > 0).length} con eventos</span>
-                    </div>
+            <PageHeader
+                migas={[{ label: 'Pilotos' }]}
+                icono="🏎️"
+                titulo="Pilotos"
+                subtitulo="Estadísticas globales acumuladas de campeonatos y eventos"
+            >
+                <div className="flex flex-wrap items-center gap-4 text-sm text-white/70">
+                    <span>👥 {globalStats.length} pilotos</span>
+                    <span>📊 {championshipDetails.length} campeonatos analizados</span>
+                    <span>🎪 {globalStats.filter(p => p.events.length > 0).length} con eventos</span>
                 </div>
-            </div>
+            </PageHeader>
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
                 {globalStats.length === 0 ? (

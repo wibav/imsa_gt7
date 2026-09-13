@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import Navbar from "../components/Navbar";
+import PageHeader from "../components/PageHeader";
 import { useOrganization } from "../context/OrganizationContext";
 
 // ============================
@@ -634,25 +634,18 @@ export default function ReglamentoPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-            <Navbar />
-
-            {/* Hero */}
-            <div className="bg-gradient-to-r from-orange-600/20 via-red-600/20 to-orange-600/20 border-b border-white/10">
-                <div className="max-w-6xl mx-auto px-4 py-10 sm:py-14 text-center">
-                    <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-3">
-                        📜 Reglamento General
-                    </h1>
-                    <p className="text-gray-300 text-base sm:text-lg max-w-2xl mx-auto">
-                        Normas de conducta, sanciones y procedimientos para todos los campeonatos y eventos.
-                        Léelo antes de inscribirte para evitar sorpresas.
-                    </p>
-                    <div className="mt-4 flex items-center justify-center gap-4 text-xs text-gray-500">
-                        <span>📅 Última actualización: 1 de marzo de 2026</span>
-                        <span>•</span>
-                        <span>{sections.length} secciones</span>
-                    </div>
+            <PageHeader
+                ancho="max-w-6xl"
+                migas={[{ label: 'Reglamento' }]}
+                icono="📜"
+                titulo="Reglamento General"
+                subtitulo="Normas de conducta, sanciones y procedimientos para todos los campeonatos y eventos. Léelo antes de inscribirte para evitar sorpresas."
+            >
+                <div className="flex flex-wrap items-center gap-4 text-sm text-white/70">
+                    <span>📅 Última actualización: 1 de marzo de 2026</span>
+                    <span>{sections.length} secciones</span>
                 </div>
-            </div>
+            </PageHeader>
 
             {/* Mobile Section Selector */}
             <div className="lg:hidden sticky top-16 z-40 bg-slate-900/90 backdrop-blur-sm border-b border-white/10 px-4 py-3">

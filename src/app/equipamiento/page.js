@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import Navbar from "../components/Navbar";
+import PageHeader from "../components/PageHeader";
 import Footer from "../components/Footer";
 import { FirebaseService } from "../services/firebaseService";
 
@@ -16,24 +16,17 @@ export default function EquipamientoPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-            <Navbar />
-
-            {/* Hero */}
-            <div className="bg-gradient-to-r from-orange-600/20 to-red-600/20 border-b border-white/10">
-                <div className="max-w-5xl mx-auto px-4 py-12 text-center">
-                    <div className="text-5xl mb-4">🛒</div>
-                    <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-3">
-                        Equipamiento Recomendado
-                    </h1>
-                    <p className="text-gray-300 text-base sm:text-lg max-w-2xl mx-auto">
-                        Selección de hardware para sacar el máximo partido a Gran Turismo 7. Todos los productos han sido
-                        seleccionados pensando en los pilotos de nuestro campeonato.
-                    </p>
-                    <p className="text-gray-500 text-xs mt-4">
-                        Como Afiliado de Amazon, obtengo ingresos por las compras adscritas que cumplen los requisitos aplicables.
-                    </p>
-                </div>
-            </div>
+            <PageHeader
+                ancho="max-w-5xl"
+                migas={[{ label: 'Equipamiento' }]}
+                icono="🛒"
+                titulo="Equipamiento Recomendado"
+                subtitulo="Selección de hardware para sacar el máximo partido a Gran Turismo 7. Todos los productos han sido seleccionados pensando en los pilotos de nuestro campeonato."
+            >
+                <p className="text-white/60 text-xs">
+                    Como Afiliado de Amazon, obtengo ingresos por las compras adscritas que cumplen los requisitos aplicables.
+                </p>
+            </PageHeader>
 
             {/* Products grid */}
             <div className="max-w-5xl mx-auto px-4 py-10">

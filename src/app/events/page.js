@@ -261,6 +261,13 @@ function EventDetailContent() {
                 {/* Title overlay — solo título */}
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-900 via-slate-900/70 to-transparent p-4 sm:p-6 md:p-8">
                     <div className="max-w-5xl mx-auto">
+                        {/* Migas, igual que en las fichas de campeonato y de equipo.
+                            No hay listado de eventos: están en Inicio. */}
+                        <div className="flex items-center gap-2 text-sm text-gray-300 mb-2">
+                            <button onClick={() => router.push("/")} className="hover:text-white transition-colors">🏠 Inicio</button>
+                            <span>/</span>
+                            <span className="text-white/90 truncate">Eventos</span>
+                        </div>
                         <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-white drop-shadow-lg line-clamp-2">
                             {event.title}
                         </h1>

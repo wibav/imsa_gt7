@@ -7,6 +7,7 @@ import { estadisticasDeEquipo } from "../utils/teamStats";
 import { miembrosActuales } from "../utils/teamTagMatcher";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
+import PageHeader from "../components/PageHeader";
 import TeamAvatar from "../components/common/TeamAvatar";
 import ShareButton from "../components/ShareButton";
 import TeamRequestForm from "../components/common/TeamRequestForm";
@@ -73,20 +74,16 @@ function EquiposContent() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-            <Navbar />
+            <PageHeader
+                migas={[{ label: 'Equipos' }]}
+                icono="🛡️"
+                titulo="Equipos"
+                subtitulo="Los equipos de la comunidad y lo que han conseguido sus pilotos en campeonatos y eventos."
+            />
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-                <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
-                    <button onClick={() => router.push('/')} className="hover:text-white transition-colors">🏠 Inicio</button>
-                    <span>/</span>
-                    <span className="text-white">Equipos</span>
-                </div>
-                <h1 className="text-4xl sm:text-5xl font-bold text-white">🛡️ Equipos</h1>
-                <p className="text-gray-300 mt-2">
-                    Los equipos de la comunidad y lo que han conseguido sus pilotos en campeonatos y eventos.
-                </p>
 
                 {conStats.length === 0 ? (
-                    <div className="mt-8 bg-white/5 border border-white/10 rounded-xl p-12 text-center">
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
                         <div className="text-6xl mb-4">🛡️</div>
                         <p className="text-gray-300 text-lg">Todavía no hay equipos publicados</p>
                     </div>
@@ -97,7 +94,7 @@ function EquiposContent() {
                             value={busqueda}
                             onChange={e => setBusqueda(e.target.value)}
                             placeholder="🔍 Buscar equipo, siglas o piloto..."
-                            className="mt-6 w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
                         />
                         {visibles.length === 0 ? (
                             <p className="mt-6 text-gray-400">Ningún equipo coincide con la búsqueda.</p>

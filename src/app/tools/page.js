@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Navbar from '../components/Navbar';
+import PageHeader from '../components/PageHeader';
 import { sanitizeSvg } from '../utils/svgSanitize';
 
 const SVG_SIZE_LIMIT_BYTES = 15 * 1024;
@@ -334,18 +334,24 @@ export default function ToolsPage() {
             <div className="absolute -left-24 top-28 h-72 w-72 rounded-full bg-orange-500/10 blur-3xl" />
             <div className="absolute right-0 top-[28rem] h-80 w-80 rounded-full bg-cyan-500/10 blur-3xl" />
 
-            <Navbar />
+            <PageHeader
+                migas={[{ label: 'Creador de vinilos' }]}
+                icono="🎨"
+                titulo="Creador de vinilos"
+                subtitulo="Convierte tu logo en PNG a un SVG listo para el editor de vinilos de GT7."
+            />
 
             <main className="relative mx-auto flex max-w-7xl flex-col gap-8 px-4 py-8 lg:px-8 lg:py-12">
                 <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-2xl shadow-black/40 backdrop-blur-xl">
                     <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
                         <div className="border-b border-white/10 p-6 sm:p-8 lg:border-b-0 lg:border-r lg:p-10">
-                            <h1 className="mt-5 max-w-3xl text-4xl font-black tracking-tight text-white sm:text-5xl">
+                            {/* h2: el título de la página ya lo pone PageHeader */}
+                            <h2 className="max-w-3xl text-4xl font-black tracking-tight text-white sm:text-5xl">
                                 <span className="block">PNG a SVG</span>
                                 <span className="bg-gradient-to-r from-orange-400 via-rose-400 to-amber-300 bg-clip-text text-transparent">
                                     sin salir de la página
                                 </span>
-                            </h1>
+                            </h2>
 
                             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
                                 Sube un PNG y obtendrás un SVG limpio y optimizado listo para usar en GT7, en segundos.

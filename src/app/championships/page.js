@@ -46,6 +46,7 @@ import AppealForm, { getAppealWindowStatus, getEligibleAppellants } from '../com
 import CarDeclarationModal from '../components/championship/CarDeclarationModal';
 import ExportableStandings from '../components/championship/ExportableStandings';
 import RaceBriefing from '../components/championship/RaceBriefing';
+import Navbar from '../components/Navbar';
 import { transmisionesDe } from '../utils/streamingUtils';
 import ShareButton from '../components/ShareButton';
 import { STATUS_LABELS } from '../utils/constants';
@@ -243,6 +244,10 @@ export default function ChampionshipDetailPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
+            {/* Barra de navegación y debajo el banner, como las fichas de evento y
+                de equipo. Antes esta ficha no tenía barra: desde un campeonato no
+                se podía ir a Pilotos o Equipos sin volver a Inicio. */}
+            <Navbar />
             {/* Header con Banner */}
             <div className="relative">
                 {championship.banner ? (
