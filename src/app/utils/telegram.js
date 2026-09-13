@@ -20,6 +20,32 @@ export async function sendTelegramNotification(text) {
     }
 }
 
+/** Escapa texto escrito por un visitante para el parse_mode HTML de Telegram. */
+const escaparHtml = (t) => String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/**
+ * Solicitud pública para que un equipo aparezca en /equipos.
+ *
+ * A diferencia del resto, espera la respuesta: quien la envía necesita saber
+ * si ha llegado. El texto se escapa porque lo escribe cualquier visitante y un
+ * "<" suelto hace que Telegram rechace el mensaje entero.
+ *
+ * @returns {Promise<boolean>} true si Telegram lo aceptó
+ */
+export async function notifyTeamRequest(mensaje) {
+    const texto = escaparHtml(mensaje).slice(0, 1000);
+    try {
+        const res = await fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: `🛡️ <b>Solicitud de equipo</b>\n\n${texto}` }),
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
 // ─── Helpers por evento ────────────────────────────────────────────────
 //
 // Todas aceptan un `orgName` opcional — con varias organizaciones activas en

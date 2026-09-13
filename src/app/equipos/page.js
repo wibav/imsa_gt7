@@ -8,6 +8,7 @@ import { miembrosActuales } from "../utils/teamTagMatcher";
 import Navbar from "../components/Navbar";
 import TeamAvatar from "../components/common/TeamAvatar";
 import ShareButton from "../components/ShareButton";
+import TeamRequestForm from "../components/common/TeamRequestForm";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
 
 /**
@@ -106,6 +107,8 @@ function EquiposContent() {
                         )}
                     </>
                 )}
+
+                <TeamRequestForm />
             </div>
         </div>
     );
