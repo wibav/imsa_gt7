@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { nombresParecidosA } from '../../utils/pilotIdentityMatcher';
+import { extraerSiglas, claveSiglas } from '../../utils/teamTagMatcher';
+import TeamAvatar from './TeamAvatar';
 
 /**
  * Aviso bajo el campo de GT7 ID cuando lo escrito se parece a un piloto que ya
@@ -17,6 +19,7 @@ import { nombresParecidosA } from '../../utils/pilotIdentityMatcher';
  */
 export default function SimilarPilotHint({ value, onUsar }) {
     const [conocidos, setConocidos] = useState([]);
+    const [equipos, setEquipos] = useState([]);
     const [descartado, setDescartado] = useState(false);
 
     useEffect(() => {
@@ -24,6 +27,9 @@ export default function SimilarPilotHint({ value, onUsar }) {
         FirebaseService.getKnownPilotNames()
             .then(n => { if (vivo) setConocidos(n); })
             .catch(() => { }); // el aviso es una ayuda: si no carga, no pasa nada
+        FirebaseService.getRacingTeams()
+            .then(e => { if (vivo) setEquipos(e); })
+            .catch(() => { });
         return () => { vivo = false; };
     }, []);
 
@@ -31,9 +37,29 @@ export default function SimilarPilotHint({ value, onUsar }) {
     useEffect(() => { setDescartado(false); }, [value]);
 
     const parecidos = descartado ? [] : nombresParecidosA(value, conocidos);
-    if (parecidos.length === 0) return null;
+
+    // Siglas de un equipo conocido al principio del GT7 ID. Solo informa:
+    // pertenecer a un equipo lo confirma la organización en /equiposAdmin,
+    // y quien se inscribe con estas siglas aparece allí para revisarlo.
+    const siglas = extraerSiglas(value);
+    const equipo = siglas && equipos.find(e =>
+        [e.tag, ...(e.tagVariants || [])].some(v => claveSiglas(v) === siglas.tag));
+
+    if (parecidos.length === 0 && !equipo) return null;
 
     return (
+        <>
+        {equipo && (
+            <div className="mt-2 flex items-center gap-2 bg-white/5 border border-white/15 rounded-lg px-3 py-2">
+                <TeamAvatar team={equipo} size="sm" />
+                <p className="text-gray-300 text-xs">
+                    <span className="font-mono font-semibold text-white">{siglas.tag}</span> son las siglas de{' '}
+                    <span className="font-semibold text-white">{equipo.name}</span>. La organización confirma
+                    los miembros de cada equipo.
+                </p>
+            </div>
+        )}
+        {parecidos.length > 0 && (
         <div className="mt-2 bg-blue-500/10 border border-blue-400/30 rounded-lg px-3 py-2">
             <p className="text-blue-200 text-xs">
                 ¿Eres tú? Ya corre en la liga{' '}
@@ -63,5 +89,7 @@ export default function SimilarPilotHint({ value, onUsar }) {
                 </button>
             </p>
         </div>
+        )}
+        </>
     );
 }

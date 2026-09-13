@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { getPositionDisplay } from "../../utils/constants";
+import { PilotTeamTagExport } from "../common/PilotTeamAvatar";
 
 /**
  * Componente para exportar la clasificación como imagen PNG.
@@ -223,6 +224,7 @@ export default function ExportableStandings({
                                                             {getPositionDisplay(idx + 1)}
                                                         </td>
                                                         <td style={{ padding: '5px 10px', fontSize: '12px', color: 'white', fontWeight: '600' }}>
+                                                            <PilotTeamTagExport name={driver.name} />
                                                             {driver.name}
                                                         </td>
                                                         {championship?.settings?.isTeamChampionship && (

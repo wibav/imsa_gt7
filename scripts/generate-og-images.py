@@ -60,6 +60,11 @@ SECTIONS = [
         'subtitle': 'Convierte imágenes a SVG para GT7',
     },
     {
+        'filename': 'og-equipos.png',
+        'title': 'EQUIPOS',
+        'subtitle': 'Los equipos de la comunidad y sus pilotos',
+    },
+    {
         'filename': 'og-events.png',
         'title': 'EVENTOS',
         'subtitle': 'Calendario, carreras especiales e inscripciones',

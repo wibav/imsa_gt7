@@ -54,6 +54,7 @@ import { getInvalidatedEntries, flattenRegistrations, applyDeclarations } from '
 import { isRegulationsEmpty } from '../utils/regulations';
 import RegulationsView from '../components/championship/RegulationsView';
 import RegulationsPdfButton from '../components/championship/RegulationsPdfButton';
+import PilotTeamAvatar from '../components/common/PilotTeamAvatar';
 
 export default function ChampionshipDetailPage() {
     const searchParams = useSearchParams();
@@ -1145,6 +1146,7 @@ export default function ChampionshipDetailPage() {
                                                                             >
                                                                                 {idx + 1}
                                                                             </span>
+                                                                            <PilotTeamAvatar name={gt7IdByAnyId[driver] || driver} aliases={[driver]} />
                                                                             <span className="text-white text-sm font-medium">{gt7IdByAnyId[driver] || driver}</span>
                                                                         </li>
                                                                     ))}
@@ -1178,7 +1180,7 @@ export default function ChampionshipDetailPage() {
                                                         {unassigned.map((r, idx) => (
                                                             <tr key={r.id || idx} className="hover:bg-white/5">
                                                                 <td className="py-2 pr-4 text-gray-500 font-mono text-xs">{idx + 1}</td>
-                                                                <td className="py-2 pr-4 text-white font-medium">{r.gt7Id || r.name || '—'}</td>
+                                                                <td className="py-2 pr-4 text-white font-medium"><span className="flex items-center gap-2"><PilotTeamAvatar name={r.gt7Id || r.name} aliases={[r.psnId, r.name].filter(Boolean)} size="xs" />{r.gt7Id || r.name || '—'}</span></td>
                                                                 <td className="py-2 pr-4 text-gray-300">{r.psnId || '—'}</td>
                                                                 <td className="py-2">
                                                                     <span className="text-yellow-400 text-xs bg-yellow-500/10 px-2 py-0.5 rounded-full">⏳ Sin sala</span>
@@ -1277,7 +1279,7 @@ export default function ChampionshipDetailPage() {
                                                                         {idx === 2 && <span className="text-orange-400 font-bold">🥉</span>}
                                                                         {idx > 2 && <span className="text-gray-500 font-mono">{idx + 1}</span>}
                                                                     </td>
-                                                                    <td className="px-5 py-3 text-white font-medium">{gt7Id}</td>
+                                                                    <td className="px-5 py-3 text-white font-medium"><span className="flex items-center gap-2"><PilotTeamAvatar name={gt7Id} aliases={[r.driverName]} size="xs" />{gt7Id}</span></td>
                                                                     <td className="px-5 py-3 text-gray-300">{psnId}</td>
                                                                     <td className="px-5 py-3 text-right font-mono text-yellow-300">{r.time || '—'}</td>
                                                                 </tr>
@@ -1301,7 +1303,7 @@ export default function ChampionshipDetailPage() {
                                                             const psnId = info.psnId || '—';
                                                             return (
                                                                 <div key={idx} className="px-5 py-3 flex items-center justify-between gap-4">
-                                                                    <span className="text-gray-400 font-medium">{gt7Id}</span>
+                                                                    <span className="text-gray-400 font-medium flex items-center gap-2"><PilotTeamAvatar name={gt7Id} aliases={[r.driverName]} size="xs" />{gt7Id}</span>
                                                                     <span className="text-gray-500 text-xs">{psnId}</span>
                                                                     <span className="text-gray-600 font-mono text-sm ml-auto">{r.time || '—'}</span>
                                                                 </div>
@@ -1803,7 +1805,8 @@ export default function ChampionshipDetailPage() {
                                                                         .filter(r => (r.declaredCars || []).length > 0)
                                                                         .map(r => (
                                                                             <div key={r.id} className="border-t border-white/10 pt-2">
-                                                                                <p className="text-white text-sm font-medium">
+                                                                                <p className="text-white text-sm font-medium flex items-center gap-2 flex-wrap">
+                                                                                    <PilotTeamAvatar name={r.gt7Id || r.psnId || r.name} aliases={[r.psnId, r.name].filter(Boolean)} size="xs" />
                                                                                     {r.gt7Id || r.psnId || r.name}
                                                                                     {r.teamName && <span className="text-gray-400 font-normal"> — {r.teamName}</span>}
                                                                                 </p>
@@ -1854,7 +1857,7 @@ export default function ChampionshipDetailPage() {
                                                                             {idx + 1}
                                                                         </span>
                                                                         <div className="flex-1 min-w-0">
-                                                                            <span className="text-white font-medium text-sm">{r.gt7Id}</span>
+                                                                            <span className="text-white font-medium text-sm inline-flex items-center gap-2 align-middle"><PilotTeamAvatar name={r.gt7Id} aliases={[r.psnId, r.name].filter(Boolean)} size="xs" />{r.gt7Id}</span>
                                                                             {r.psnId && <span className="text-gray-500 text-xs ml-2">{r.psnId}</span>}
                                                                         </div>
                                                                         {divAssigned ? (

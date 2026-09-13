@@ -1425,7 +1425,7 @@ a{{color:#fb923c}}
 
 
 def _share_no_encontrado(tipo: str) -> https_fn.Response:
-    etiqueta = 'Campeonato' if tipo == 'championship' else 'Evento'
+    etiqueta = {'championship': 'Campeonato', 'team': 'Equipo'}.get(tipo, 'Evento')
     html = _share_html(
         f'{etiqueta} no encontrado - GT7 Championships',
         f'Este {etiqueta.lower()} ya no está disponible.',
@@ -1450,11 +1450,13 @@ def share_page(req: https_fn.Request) -> https_fn.Response:
         return _share_no_encontrado('championship')
 
     tipo, entidad_id = partes[1], partes[2]
-    if tipo not in ('championship', 'event'):
+    if tipo not in ('championship', 'event', 'team'):
         return _share_no_encontrado('championship')
 
     db = fb_firestore.client()
-    coleccion = 'championships' if tipo == 'championship' else 'events'
+    # Los equipos no tienen página pre-generada en el build: se sirven siempre
+    # desde aquí (ver docs/PLAN_EQUIPOS.md).
+    coleccion = {'championship': 'championships', 'event': 'events', 'team': 'racingTeams'}[tipo]
     try:
         doc = db.collection(coleccion).document(entidad_id).get()
     except Exception as e:
@@ -1465,7 +1467,8 @@ def share_page(req: https_fn.Request) -> https_fn.Response:
         return _share_no_encontrado(tipo)
 
     datos = doc.to_dict() or {}
-    destino = f'{_BASE_URL}/{"championships" if tipo == "championship" else "events"}?id={entidad_id}'
+    ruta = {'championship': 'championships', 'event': 'events', 'team': 'equipos'}[tipo]
+    destino = f'{_BASE_URL}/{ruta}?id={entidad_id}'
 
     # El título y la descripción se calculan igual que en
     # scripts/generate-share-pages.js: un mismo enlace tiene que verse idéntico
@@ -1475,6 +1478,13 @@ def share_page(req: https_fn.Request) -> https_fn.Response:
         temporada = datos.get('season') or ''
         descripcion = (datos.get('description')
                        or f'{titulo} - Temporada {temporada}.'.replace(' - Temporada .', '.'))
+    elif tipo == 'team':
+        nombre = datos.get('name') or 'Equipo GT7'
+        tag = datos.get('tag') or ''
+        titulo = f'{nombre} ({tag})' if tag and tag != nombre else nombre
+        miembros = [m for m in (datos.get('members') or []) if m.get('pilot') and not m.get('to')]
+        descripcion = (datos.get('description')
+                       or f'Equipo de GT7 Championships · {len(miembros)} piloto{"" if len(miembros) == 1 else "s"}.')
     else:
         titulo = datos.get('title') or 'Evento GT7'
         descripcion = (datos.get('description')
@@ -1482,8 +1492,13 @@ def share_page(req: https_fn.Request) -> https_fn.Response:
 
     titulo_completo = titulo
     descripcion = _recortar(' '.join(str(descripcion).split()), 200)
-    banner = datos.get('banner')
-    imagen = banner.strip() if _banner_valido(banner) else f'{_BASE_URL}/og-image.png'
+    if tipo == 'team':
+        # Banner del equipo, o su avatar, o la tarjeta genérica de Equipos.
+        banner = next((u for u in (datos.get('bannerUrl'), datos.get('avatarUrl')) if _banner_valido(u)), None)
+        imagen = banner.strip() if banner else f'{_BASE_URL}/og-equipos.png'
+    else:
+        banner = datos.get('banner')
+        imagen = banner.strip() if _banner_valido(banner) else f'{_BASE_URL}/og-image.png'
 
     cuerpo = (f'<img src="{_esc(imagen)}" alt="{_esc(titulo)}">'
               f'<h1>{_esc(titulo)}</h1><p>{_esc(descripcion)}</p>')

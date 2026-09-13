@@ -22,6 +22,7 @@ const ESPERADAS = [
     'og-pilots.png',
     'og-reglamento.png',
     'og-tools.png',
+    'og-equipos.png',
     'og-events.png',
 ];
 

@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
+import { PilotTeamTagExport } from "./common/PilotTeamAvatar";
 
 /**
  * Componente exportable de resultados de evento como imagen PNG.
@@ -179,7 +180,7 @@ export default function ExportableEventResults({ event }) {
                                                                 {positionDisplay(idx)}
                                                             </td>
                                                             <td style={{ padding: '6px 10px', fontSize: '13px', color: 'white', fontWeight: '600' }}>
-                                                                {r.driverName || '-'}
+                                                                <PilotTeamTagExport name={r.driverName} />{r.driverName || '-'}
                                                             </td>
                                                             <td style={{ padding: '6px 10px', textAlign: 'center', fontSize: '12px' }}>
                                                                 {r.fastestLap && <span style={{ marginRight: '2px' }}>⚡</span>}
@@ -236,7 +237,7 @@ export default function ExportableEventResults({ event }) {
                                                                             {positionDisplay(idx)}
                                                                         </td>
                                                                         <td style={{ padding: '4px 8px', fontSize: '11px', color: 'white', fontWeight: '600' }}>
-                                                                            {r.driverName || '-'}
+                                                                            <PilotTeamTagExport name={r.driverName} />{r.driverName || '-'}
                                                                         </td>
                                                                         <td style={{ padding: '4px 8px', textAlign: 'center', fontSize: '11px' }}>
                                                                             {r.fastestLap && <span>⚡</span>}

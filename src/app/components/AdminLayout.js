@@ -81,6 +81,12 @@ export default function AdminLayout({ children }) {
                 // varias organizaciones, así que la fusión no puede vivir
                 // dentro de una liga.
                 { name: 'Identidades de Piloto', path: '/pilotsAdmin', icon: '🧬' },
+                // Equipos de la comunidad (HGT, RRT…). Globales por la misma
+                // razón: un equipo corre en ligas de varias organizaciones.
+                { name: 'Equipos', path: '/equiposAdmin', icon: '🛡️' },
+                // Editor de puntos de los equipos de IMSA GT7 2025. Se conserva
+                // con este nombre para no confundirlo con Equipos.
+                { name: 'Equipos IMSA 2025 (antiguo)', path: '/teamsAdmin', icon: '🗄️' },
             ]
         }] : []),
         // Cuenta/organización: agrupa lo que es de la cuenta en sí (usuarios,

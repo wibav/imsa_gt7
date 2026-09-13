@@ -21,6 +21,7 @@ import {
     localRaceTime,
     raceDateTime,
 } from "../utils";
+import PilotTeamAvatar from "../components/common/PilotTeamAvatar";
 
 function EventDetailContent() {
     const searchParams = useSearchParams();
@@ -566,7 +567,7 @@ function EventDetailContent() {
                                     {event.participants.map((p, idx) => (
                                         <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                                             <td className="py-2.5 px-3 text-gray-500 font-mono">{idx + 1}</td>
-                                            <td className="py-2.5 px-3 text-white font-semibold">{p.gt7Id || p.name || "-"}</td>
+                                            <td className="py-2.5 px-3 text-white font-semibold"><span className="flex items-center gap-2"><PilotTeamAvatar name={p.gt7Id || p.name} aliases={[p.psnId, p.name].filter(Boolean)} size="xs" />{p.gt7Id || p.name || "-"}</span></td>
                                             <td className="py-2.5 px-3 text-gray-300">{p.psnId || "-"}</td>
                                             {event.participants.some(p => p.country) && (
                                                 <td className="py-2.5 px-3 text-gray-300">{p.country || "-"}</td>
@@ -622,7 +623,7 @@ function EventDetailContent() {
                                     {event.participants.map((p, pIdx) => (
                                         <li key={p.id || pIdx} className="flex items-start gap-3">
                                             <span className="text-orange-400 text-lg leading-none pt-0.5">•</span>
-                                            <span className="text-white font-medium">{p.gt7Id || p.psnId || `Piloto ${pIdx + 1}`}</span>
+                                            <span className="text-white font-medium inline-flex items-center gap-2"><PilotTeamAvatar name={p.gt7Id || p.psnId} aliases={[p.psnId].filter(Boolean)} size="xs" />{p.gt7Id || p.psnId || `Piloto ${pIdx + 1}`}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -651,7 +652,7 @@ function EventDetailContent() {
                                                     <td className="py-3 px-3 font-bold text-white">
                                                         {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `${idx + 1}°`}
                                                     </td>
-                                                    <td className="py-3 px-3 text-white font-semibold">{r.driverName || "-"}</td>
+                                                    <td className="py-3 px-3 text-white font-semibold"><span className="flex items-center gap-2"><PilotTeamAvatar name={r.driverName} size="xs" />{r.driverName || "-"}</span></td>
                                                     {event.results.some(r => r.psnId) && (
                                                         <td className="py-3 px-3 text-gray-400">{r.psnId || "-"}</td>
                                                     )}
@@ -747,7 +748,7 @@ function EventDetailContent() {
                                                             {room.participants.map((p, pIdx) => (
                                                                 <li key={pIdx} className="flex items-start gap-3">
                                                                     <span className="text-orange-400 text-lg leading-none pt-0.5">•</span>
-                                                                    <span className="text-white font-medium">{p.gt7Id || p.name || `Piloto ${pIdx + 1}`}</span>
+                                                                    <span className="text-white font-medium inline-flex items-center gap-2"><PilotTeamAvatar name={p.gt7Id || p.name} aliases={[p.psnId, p.name].filter(Boolean)} size="xs" />{p.gt7Id || p.name || `Piloto ${pIdx + 1}`}</span>
                                                                 </li>
                                                             ))}
                                                         </ul>
@@ -773,7 +774,7 @@ function EventDetailContent() {
                                                                         <td className="py-2.5 px-2 font-bold text-white">
                                                                             {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `${idx + 1}°`}
                                                                         </td>
-                                                                        <td className="py-2.5 px-2 text-white font-semibold">{r.driverName || "-"}</td>
+                                                                        <td className="py-2.5 px-2 text-white font-semibold"><span className="flex items-center gap-2"><PilotTeamAvatar name={r.driverName} size="xs" />{r.driverName || "-"}</span></td>
                                                                         {room.results.some(r => r.psnId) && (
                                                                             <td className="py-2.5 px-2 text-gray-400 text-xs">{r.psnId || "-"}</td>
                                                                         )}

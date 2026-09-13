@@ -36,6 +36,14 @@ const PAGES = [
         imageAlt: 'Área de Pilotos - GT7 Championships',
     },
     {
+        file: 'equipos/index.html',
+        title: 'Equipos | GT7 Championships',
+        description: 'Los equipos de la comunidad GT7 Championships: sus pilotos y lo que han conseguido en campeonatos y eventos.',
+        url: `${BASE_URL}/equipos/`,
+        image: `${BASE_URL}/og-equipos.png`,
+        imageAlt: 'Equipos - GT7 Championships',
+    },
+    {
         file: 'reglamento/index.html',
         title: 'Reglamento Oficial | GT7 Championships',
         description: 'Normativa oficial: conducta en pista, sanciones por puntos, reclamaciones y reglas de carrera del GT7 Championships.',

@@ -1,4 +1,5 @@
 "use client";
+import PilotTeamAvatar from '../common/PilotTeamAvatar';
 import { useState } from 'react';
 import { compareDrivers } from '../../utils/standingsCalculator';
 
@@ -77,7 +78,7 @@ export default function DriverComparator({ driverStandings = [], raceColumns = [
                                     {driver1.teamColor && (
                                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: driver1.teamColor }} />
                                     )}
-                                    <span className="text-white font-bold text-lg truncate max-w-[120px]">{driver1.name}</span>
+                                    <PilotTeamAvatar name={driver1.name} /><span className="text-white font-bold text-lg truncate max-w-[120px]">{driver1.name}</span>
                                 </div>
                                 <div className={`text-4xl font-bold ${comparison.headToHead.driver1Wins > comparison.headToHead.driver2Wins ? 'text-green-400' : 'text-gray-400'}`}>
                                     {comparison.headToHead.driver1Wins}
@@ -99,7 +100,7 @@ export default function DriverComparator({ driverStandings = [], raceColumns = [
                                     {driver2.teamColor && (
                                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: driver2.teamColor }} />
                                     )}
-                                    <span className="text-white font-bold text-lg truncate max-w-[120px]">{driver2.name}</span>
+                                    <PilotTeamAvatar name={driver2.name} /><span className="text-white font-bold text-lg truncate max-w-[120px]">{driver2.name}</span>
                                 </div>
                                 <div className={`text-4xl font-bold ${comparison.headToHead.driver2Wins > comparison.headToHead.driver1Wins ? 'text-green-400' : 'text-gray-400'}`}>
                                     {comparison.headToHead.driver2Wins}

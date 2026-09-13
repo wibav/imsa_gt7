@@ -319,6 +319,20 @@ service cloud.firestore {
       allow read, write: if isPlatformOwner();
     }
 
+    // Equipos de la comunidad (HGT, RRT…), con sus miembros a lo largo del
+    // tiempo. Lectura pública: la web pinta el avatar del equipo junto a cada
+    // piloto. Por ahora solo el Administrador de Plataforma los gestiona
+    // (ver docs/PLAN_EQUIPOS.md).
+    match /racingTeams/{teamId} {
+      allow read: if true;
+      allow write: if isPlatformOwner();
+    }
+
+    // Siglas marcadas como "no es un equipo". Solo las usa /equiposAdmin.
+    match /teamTagDismissals/{tag} {
+      allow read, write: if isPlatformOwner();
+    }
+
     match /cars/{carId} {
       allow read: if true;
       allow write: if isPlatformOwner();

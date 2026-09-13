@@ -1,4 +1,5 @@
 "use client";
+import PilotTeamAvatar from '../common/PilotTeamAvatar';
 
 /**
  * Panel de estadísticas detalladas de pilotos.
@@ -30,7 +31,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null, d
                             <div className="text-yellow-400 text-xs font-semibold uppercase tracking-wider mb-1">
                                 Mejor Puntuación en Carrera
                             </div>
-                            <div className="text-white font-bold text-lg">{nombre(records.bestSingleRace.driver)}</div>
+                            <div className="text-white font-bold text-lg flex items-center gap-2"><PilotTeamAvatar name={nombre(records.bestSingleRace.driver)} aliases={[records.bestSingleRace.driver]} />{nombre(records.bestSingleRace.driver)}</div>
                             <div className="text-yellow-300 text-2xl font-bold">{records.bestSingleRace.points} pts</div>
                         </div>
                     )}
@@ -40,7 +41,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null, d
                             <div className="text-blue-400 text-xs font-semibold uppercase tracking-wider mb-1">
                                 Más Consistente
                             </div>
-                            <div className="text-white font-bold text-lg">{nombre(records.mostConsistent.name)}</div>
+                            <div className="text-white font-bold text-lg flex items-center gap-2"><PilotTeamAvatar name={nombre(records.mostConsistent.name)} aliases={[records.mostConsistent.name]} />{nombre(records.mostConsistent.name)}</div>
                             <div className="text-blue-300 text-2xl font-bold">
                                 {records.mostConsistent.races > 0
                                     ? (records.mostConsistent.totalPoints / records.mostConsistent.races).toFixed(1)
@@ -54,7 +55,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null, d
                             <div className="text-red-400 text-xs font-semibold uppercase tracking-wider mb-1">
                                 Más Abandonos
                             </div>
-                            <div className="text-white font-bold text-lg">{nombre(records.mostDNFs.name)}</div>
+                            <div className="text-white font-bold text-lg flex items-center gap-2"><PilotTeamAvatar name={nombre(records.mostDNFs.name)} aliases={[records.mostDNFs.name]} />{nombre(records.mostDNFs.name)}</div>
                             <div className="text-red-300 text-2xl font-bold">{records.mostDNFs.dnfs} DNFs</div>
                         </div>
                     )}
@@ -139,7 +140,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null, d
                                                 <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                                                     style={{ backgroundColor: d.teamColor }} />
                                             )}
-                                            <span className="font-semibold truncate max-w-[140px]">{nombre(d.name)}</span>
+                                            <PilotTeamAvatar name={nombre(d.name)} aliases={[d.name]} size="xs" /><span className="font-semibold truncate max-w-[140px]">{nombre(d.name)}</span>
                                         </div>
                                     </td>
                                     <td className="px-4 py-3 text-gray-400 text-xs hidden md:table-cell truncate max-w-[100px]">

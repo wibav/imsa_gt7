@@ -27,6 +27,7 @@ import {
 import { app, auth } from "../api/firebase/firebaseConfig";
 import { declarationDocId } from "../utils/carUsageCalculator";
 import { planificarDescarte } from "../utils/pilotIdentityMatcher";
+import { conflictosDeMiembros } from "../utils/teamTagMatcher";
 // Fuente única de límites por plan, compartida con functions/main.py (que
 // la importa desde el mismo archivo) — antes vivían duplicados a mano aquí
 // y en Python, con solo un comentario pidiendo mantenerlos en sync.
@@ -349,6 +350,135 @@ export class FirebaseService {
   static async deletePilotDismissal(dismissalId) {
     await deleteDoc(doc(db, 'pilotDismissals', dismissalId));
     FirebaseService._dismissalsPromise = null;
+    return { success: true };
+  }
+
+  // ── Equipos de la comunidad (racingTeams) ──
+  //
+  // No confundir con los equipos de un campeonato por equipos
+  // (championships/{id}/teams) ni con la colección raíz `teams`, que es del
+  // editor antiguo de IMSA 2025. Ver docs/PLAN_EQUIPOS.md.
+  static _racingTeamsPromise = null;
+
+  static async getRacingTeams() {
+    if (!FirebaseService._racingTeamsPromise) {
+      FirebaseService._racingTeamsPromise = (async () => {
+        const snapshot = await getDocs(collection(db, 'racingTeams'));
+        return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      })().catch(error => {
+        FirebaseService._racingTeamsPromise = null;
+        // Sin equipos la web se ve como antes: sin avatares junto a los pilotos.
+        console.error('Error fetching racing teams: ', error);
+        return [];
+      });
+    }
+    return FirebaseService._racingTeamsPromise;
+  }
+
+  /**
+   * Crea o actualiza un equipo.
+   *
+   * Invariante: un piloto es miembro actual (sin fecha de salida) de como
+   * mucho un equipo. Las siglas del GT7 ID no cuentan para esto: pueden estar
+   * desactualizadas, y quien decide el equipo es el administrador.
+   */
+  static async saveRacingTeam(team, actorEmail = '') {
+    const name = String(team?.name || '').trim();
+    const tag = String(team?.tag || '').trim().toUpperCase();
+    if (!name) throw new Error('El equipo necesita un nombre');
+    if (!tag) throw new Error('El equipo necesita unas siglas');
+
+    const limpiarMiembro = (m) => ({
+      pilot: String(m.pilot || '').trim(),
+      from: m.from || null,
+      to: m.to || null,
+      source: m.source === 'siglas' ? 'siglas' : 'manual',
+    });
+    const members = [];
+    (team.members || []).map(limpiarMiembro).filter(m => m.pilot).forEach(m => {
+      // Un piloto una sola vez: se queda la entrada más reciente
+      const i = members.findIndex(x => x.pilot === m.pilot);
+      if (i === -1) members.push(m); else members[i] = m;
+    });
+    const notMembers = [...new Map(
+      (team.notMembers || [])
+        .map(m => ({ pilot: String(m.pilot || '').trim(), note: String(m.note || '').trim() }))
+        .filter(m => m.pilot)
+        .map(m => [m.pilot, m])
+    ).values()];
+
+    const tagVariants = [...new Set([tag, ...(team.tagVariants || [])
+      .map(v => String(v || '').trim()).filter(Boolean)])];
+
+    const existentes = await FirebaseService.getRacingTeams();
+    const otroConSiglas = existentes.find(e => e.id !== team.id &&
+      [e.tag, ...(e.tagVariants || [])].some(v => String(v).toUpperCase() === tag));
+    if (otroConSiglas) throw new Error(`Las siglas ${tag} ya son de ${otroConSiglas.name}`);
+
+    const conflictos = conflictosDeMiembros({ id: team.id, members }, existentes);
+    if (conflictos.length) {
+      throw new Error(`Estos pilotos ya son miembros de otro equipo: ${conflictos.join(', ')}. Ponles fecha de salida allí primero.`);
+    }
+
+    const ahora = new Date().toISOString();
+    const datos = {
+      name,
+      tag,
+      tagVariants,
+      color: team.color || '#f97316',
+      avatarUrl: team.avatarUrl || '',
+      bannerUrl: team.bannerUrl || '',
+      description: String(team.description || '').trim(),
+      members,
+      notMembers,
+      updatedAt: ahora,
+      updatedBy: actorEmail,
+    };
+
+    if (team.id) {
+      const ref = doc(db, 'racingTeams', team.id);
+      const previo = (await getDoc(ref)).data() || {};
+      await setDoc(ref, {
+        ...datos,
+        createdAt: previo.createdAt || ahora,
+        history: [...(previo.history || []), { at: ahora, by: actorEmail, action: 'update', members: members.length }],
+      });
+      FirebaseService._racingTeamsPromise = null;
+      return { success: true, id: team.id };
+    }
+
+    const ref = await addDoc(collection(db, 'racingTeams'), {
+      ...datos,
+      createdAt: ahora,
+      history: [{ at: ahora, by: actorEmail, action: 'create', members: members.length }],
+    });
+    FirebaseService._racingTeamsPromise = null;
+    return { success: true, id: ref.id };
+  }
+
+  static async deleteRacingTeam(teamId) {
+    await deleteDoc(doc(db, 'racingTeams', teamId));
+    FirebaseService._racingTeamsPromise = null;
+    return { success: true };
+  }
+
+  static async getTeamTagDismissals() {
+    const snapshot = await getDocs(collection(db, 'teamTagDismissals'));
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  }
+
+  /** "Estas siglas no son un equipo" (MR-Tony es un piloto suelto). */
+  static async dismissTeamTag(tag, actorEmail = '') {
+    const clave = String(tag || '').trim().toUpperCase();
+    if (!clave) throw new Error('Faltan las siglas');
+    await setDoc(doc(db, 'teamTagDismissals', clave), {
+      tag: clave, dismissedAt: new Date().toISOString(), dismissedBy: actorEmail,
+    });
+    return { success: true };
+  }
+
+  static async deleteTeamTagDismissal(tag) {
+    await deleteDoc(doc(db, 'teamTagDismissals', String(tag || '').trim().toUpperCase()));
     return { success: true };
   }
 

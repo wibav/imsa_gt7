@@ -8,6 +8,7 @@
  * Uso:
  *   <ShareButton type="championship" id={championshipId} title="Campeonato X" />
  *   <ShareButton type="event" id={eventId} title="Evento Y" />
+ *   <ShareButton type="team" id={teamId} title="Equipo Z" />   (solo share_page, sin página pre-generada)
  */
 
 "use client";

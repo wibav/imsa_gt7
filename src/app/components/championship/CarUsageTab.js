@@ -4,6 +4,7 @@ import { construirUsoDeAutos, CATEGORY_TO_CAR_CLASS } from '../../utils/carUsage
 import { resolverCoche } from '../../utils/carSpecs';
 import { FirebaseService } from '../../services/firebaseService';
 import CarSpecsTable from './CarSpecsTable';
+import PilotTeamAvatar from '../common/PilotTeamAvatar';
 
 /**
  * Uso de autos del lado del piloto: qué auto llevó cada uno en cada carrera y
@@ -132,7 +133,7 @@ export default function CarUsageTab({ championship, tracks = [], divisions = [],
                     {filas.map(fila => (
                         <div key={fila.piloto} className="bg-white/5 border border-white/10 rounded-xl p-4">
                             <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
-                                <h3 className="text-white font-bold">{fila.piloto}</h3>
+                                <h3 className="text-white font-bold flex items-center gap-2"><PilotTeamAvatar name={fila.piloto} />{fila.piloto}</h3>
                                 {datos.esFijo && (
                                     <span className={`text-xs px-2 py-1 rounded-full font-semibold ${fila.usosRestantes === 0
                                         ? 'bg-gray-500/20 text-gray-300'

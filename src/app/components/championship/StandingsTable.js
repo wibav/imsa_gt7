@@ -1,4 +1,5 @@
 import { getPositionBg, getPositionDisplay } from '../../utils';
+import PilotTeamAvatar from '../common/PilotTeamAvatar';
 
 /**
  * Tabla de clasificación reutilizable para campeonatos.
@@ -181,6 +182,7 @@ export default function StandingsTable({
                                                         style={{ backgroundColor: entry.color || entry.teamColor }}
                                                     />
                                                 )}
+                                                {!isTeams && <PilotTeamAvatar name={driverGt7Map[entry.name] || entry.name} aliases={[entry.name]} size="xs" />}
                                                 <span className={`font-semibold ${compact ? 'text-sm' : 'text-sm'} truncate max-w-[140px]`}>
                                                     {driverGt7Map[entry.name] || entry.name}
                                                 </span>

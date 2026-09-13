@@ -27,6 +27,16 @@ export const IMAGE_SPECS = {
         formato: 'PNG con fondo transparente, trazado en blanco o color claro',
         nota: `Se muestra sobre fondo oscuro y sin recortar. ${AVISO_TRANSPARENCIA}`,
     },
+    teamAvatar: {
+        medidas: '512 × 512 px',
+        formato: 'PNG cuadrado, mejor con fondo transparente',
+        nota: `Se muestra pequeño junto a cada piloto del equipo: que se reconozca a 26 px. ${AVISO_TRANSPARENCIA}`,
+    },
+    teamBanner: {
+        medidas: '1600 × 500 px',
+        formato: 'horizontal (se guarda en PNG)',
+        nota: 'Va en la cabecera de la ficha del equipo y en su tarjeta, con el avatar encima por la izquierda.',
+    },
     orgLogo: {
         medidas: '512 × 512 px',
         formato: 'PNG cuadrado con fondo transparente',

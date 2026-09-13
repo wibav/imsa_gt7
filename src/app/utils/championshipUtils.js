@@ -2,7 +2,7 @@
  * Utilidades de campeonatos compartidas
  * Centraliza lógica duplicada de progreso, próxima carrera y clasificaciones
  */
-import { preQualyEnd } from './dateUtils';
+import { preQualyEnd } from './dateUtils.js';
 
 /**
  * Calcula el progreso del campeonato basado en tracks completadas

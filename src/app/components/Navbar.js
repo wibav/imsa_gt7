@@ -40,6 +40,7 @@ export default function Navbar() {
 
     const navItems = [
         { label: '🏎️ Pilotos', href: '/pilots' },
+        { label: '🛡️ Equipos', href: '/equipos' },
         { label: '📜 Reglamento', href: '/reglamento' },
         { label: '🛒 Equipamiento', href: '/equipamiento' },
         { label: '🎨 Creador de vinilos', href: '/tools', gradient: true }
