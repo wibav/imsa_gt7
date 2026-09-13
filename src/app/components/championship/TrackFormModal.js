@@ -1,4 +1,5 @@
 "use client";
+import ImageSpecHint from '../common/ImageSpecHint';
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
@@ -370,6 +371,7 @@ export default function TrackFormModal({ track, championship, onSave, onClose })
                                         disabled={uploadingImage}
                                         className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-orange-600 file:text-white file:cursor-pointer hover:file:bg-orange-700"
                                     />
+                                    <ImageSpecHint spec="trackLayout" />
                                     {uploadingImage && <p className="text-sm text-orange-400 mt-2">⏳ Subiendo imagen...</p>}
                                 </div>
                             )}

@@ -1,4 +1,5 @@
 "use client";
+import ImageSpecHint from '../../components/common/ImageSpecHint';
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
@@ -550,9 +551,7 @@ export default function TracksAdminPage() {
                                     {uploadingImage && (
                                         <p className="text-sm text-orange-400 mt-2">⏳ Subiendo imagen...</p>
                                     )}
-                                    <p className="text-xs text-gray-400 mt-2">
-                                        Formatos: JPG, PNG, SVG. Máximo 10MB (se comprime automáticamente).
-                                    </p>
+                                    <ImageSpecHint spec="trackLayout" />
                                 </div>
                             </div>
 

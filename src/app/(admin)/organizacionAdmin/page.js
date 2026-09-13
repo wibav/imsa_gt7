@@ -1,4 +1,5 @@
 "use client";
+import ImageSpecHint from '../../components/common/ImageSpecHint';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -109,6 +110,7 @@ export default function OrganizacionAdmin() {
                                 disabled={uploading}
                                 className="text-gray-300 text-sm file:mr-3 file:px-4 file:py-2 file:rounded-lg file:border-0 file:bg-orange-600 file:text-white file:font-medium hover:file:bg-orange-700 file:cursor-pointer"
                             />
+                            <ImageSpecHint spec="orgLogo" />
                             {uploading && <p className="text-orange-300 text-xs mt-2">Subiendo…</p>}
                             {logoUrl && !uploading && (
                                 <button type="button" onClick={() => setLogoUrl('')} className="text-red-400 hover:text-red-300 text-xs mt-2 underline">

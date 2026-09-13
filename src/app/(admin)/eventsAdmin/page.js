@@ -1,4 +1,5 @@
 "use client";
+import ImageSpecHint from '../../components/common/ImageSpecHint';
 import { useEffect, useState, useMemo } from "react";
 import { FirebaseService } from "../../services/firebaseService";
 import ProtectedRoute from "../../components/ProtectedRoute";
@@ -760,6 +761,7 @@ function EventForm({ event, onSave, onCancel, saving }) {
                             <input type="file" accept="image/*" className="hidden" onChange={(e) => handleBannerFile(e.target.files?.[0])} />
                         </label>
                     </div>
+                    <ImageSpecHint spec="eventBanner" />
                     {form.banner && (
                         <p className="text-xs text-gray-400 mt-1">
                             Origen: {form.banner.startsWith('data:') ? 'archivo local (embebido)' : form.banner.includes('firebase') ? 'Firebase Storage' : 'URL externa'}

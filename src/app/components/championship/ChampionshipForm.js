@@ -14,6 +14,7 @@ import { REGULATIONS_MAX_BYTES, regulationsByteSize, normalizeRegulationsForSave
 import { sanitizeRegulationsHtml } from '../../utils/regulationsSanitize';
 import { getCarsForCategories } from '../../utils/carUsageCalculator';
 import { DEFAULT_RACE_TIME, getRaceTime, getPreQualyTime, formatTimeWindow, localTimeWindow } from '../../utils/dateUtils';
+import ImageSpecHint from '../common/ImageSpecHint';
 import LoadingSkeleton from '../common/LoadingSkeleton';
 import ErrorMessage from '../common/ErrorMessage';
 
@@ -1328,6 +1329,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                     <label className="block text-sm font-medium text-gray-300 mb-2">Banner del Campeonato</label>
                                     <input type="file" accept="image/*" onChange={handleBannerChange} disabled={compressingBanner}
                                         className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-orange-600 file:text-white hover:file:bg-orange-700 disabled:opacity-50" />
+                                    <ImageSpecHint spec="championshipBanner" />
                                     {compressingBanner && <p className="text-sm text-orange-400 mt-2">⏳ Comprimiendo imagen...</p>}
                                     {bannerPreview && (
                                         <div className="mt-4">
