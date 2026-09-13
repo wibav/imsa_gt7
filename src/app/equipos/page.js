@@ -224,8 +224,11 @@ function FichaEquipo({ datos, router }) {
                 </div>
                 <p className="text-gray-500 text-xs mt-2">Suma del historial completo de los pilotos actuales del equipo.</p>
 
-                <div className="grid lg:grid-cols-5 gap-6 mt-8">
-                    <section className="lg:col-span-3">
+                {/* min-w-0 en cada columna: sin él, la tabla (que tiene su propio scroll)
+                    y los títulos largos de los eventos ensanchaban la rejilla y toda
+                    la página se salía de la pantalla en el móvil. */}
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-8">
+                    <section className="lg:col-span-3 min-w-0">
                         <h2 className="text-white font-bold text-lg mb-3">Plantilla</h2>
                         <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-white/10 overflow-x-auto">
                             <table className="w-full text-sm">
@@ -271,7 +274,7 @@ function FichaEquipo({ datos, router }) {
                         </div>
                     </section>
 
-                    <section className="lg:col-span-2">
+                    <section className="lg:col-span-2 min-w-0">
                         <h2 className="text-white font-bold text-lg mb-3">Trayectoria</h2>
                         <div className="bg-white/5 border border-white/10 rounded-xl divide-y divide-white/5">
                             {campeonatos.length === 0 && eventos.length === 0 && (
@@ -280,7 +283,7 @@ function FichaEquipo({ datos, router }) {
                             {campeonatos.map(c => (
                                 <button key={c.id} onClick={() => router.push(`/championships?id=${c.id}`)}
                                     className="w-full text-left p-3 hover:bg-white/5">
-                                    <div className="text-white text-sm font-semibold">🏆 {c.name}</div>
+                                    <div className="text-white text-sm font-semibold break-words">🏆 {c.name}</div>
                                     <div className="text-gray-400 text-xs mt-0.5">
                                         {c.pilotos.length} piloto{c.pilotos.length === 1 ? '' : 's'}
                                         {c.mejor && <> · mejor: {c.mejor.pilot}, <span className={c.mejor.posicion === 1 ? 'text-yellow-400 font-bold' : 'text-gray-200'}>P{c.mejor.posicion}</span></>}
@@ -290,7 +293,7 @@ function FichaEquipo({ datos, router }) {
                             {eventos.map(ev => (
                                 <button key={ev.id} onClick={() => router.push(`/events?id=${ev.id}`)}
                                     className="w-full text-left p-3 hover:bg-white/5">
-                                    <div className="text-white text-sm font-semibold">🎪 {ev.title}</div>
+                                    <div className="text-white text-sm font-semibold break-words">🎪 {ev.title}</div>
                                     <div className="text-gray-400 text-xs mt-0.5">
                                         {ev.date && `${fmtMes(ev.date)} · `}{ev.pilotos.length} piloto{ev.pilotos.length === 1 ? '' : 's'}
                                         {ev.mejor && <> · mejor: {ev.mejor.pilot}, <span className={ev.mejor.posicion === 1 ? 'text-yellow-400 font-bold' : 'text-gray-200'}>P{ev.mejor.posicion}</span></>}
