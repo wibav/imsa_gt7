@@ -131,10 +131,13 @@ function TarjetaEquipo({ datos, router }) {
             className="text-left bg-white/5 border border-white/10 hover:border-white/25 hover:bg-white/10 rounded-xl overflow-hidden transition-all"
         >
             <BannerEquipo equipo={equipo} className="h-20" />
-            <div className="px-4 pb-4 -mt-7">
-                <div className="flex items-end gap-3">
-                    <TeamAvatar team={equipo} size="lg" className="ring-4 ring-slate-900" />
-                    <div className="min-w-0 pb-1">
+            {/* relative + z-10: el banner es `relative` y, al ir antes, se
+                pintaba encima del avatar y del nombre que suben sobre él. El
+                avatar se superpone al banner; el nombre queda debajo del borde. */}
+            <div className="relative z-10 px-4 pb-4">
+                <div className="flex items-start gap-3">
+                    <TeamAvatar team={equipo} size="lg" className="-mt-8 ring-4 ring-slate-900 shadow-lg" />
+                    <div className="min-w-0 pt-2">
                         <div className="text-white font-bold leading-tight truncate">{equipo.name}</div>
                         <div className="text-gray-400 text-xs">{equipo.tag} · {total.pilotos} piloto{total.pilotos === 1 ? '' : 's'}</div>
                     </div>
@@ -184,9 +187,9 @@ function FichaEquipo({ datos, router }) {
 
                 <div className="rounded-2xl overflow-hidden border border-white/10 bg-slate-900/60">
                     <BannerEquipo equipo={equipo} className="h-36 sm:h-52" />
-                    <div className="px-5 sm:px-8 pb-6 -mt-12 flex flex-col sm:flex-row sm:items-end gap-4">
-                        <TeamAvatar team={equipo} size="xl" className="ring-4 ring-slate-900" />
-                        <div className="flex-1 min-w-0">
+                    <div className="relative z-10 px-5 sm:px-8 pb-6 flex flex-col sm:flex-row sm:items-start gap-4">
+                        <TeamAvatar team={equipo} size="xl" className="-mt-12 ring-4 ring-slate-900 shadow-lg" />
+                        <div className="flex-1 min-w-0 sm:pt-3">
                             <h1 className="text-3xl sm:text-4xl font-bold text-white">{equipo.name}</h1>
                             <p className="text-gray-400 text-sm mt-1">
                                 Siglas {equipo.tag} · {total.pilotos} piloto{total.pilotos === 1 ? '' : 's'}
