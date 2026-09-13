@@ -1,16 +1,21 @@
 /**
- * Compresión de imágenes en el cliente antes de subir a Firebase Storage.
- * Objetivo: banners entre 500 KB y 800 KB, sin depender de librerías externas
- * (usa <canvas> nativo del navegador).
+ * Preparación de imágenes en el cliente antes de subir a Firebase Storage,
+ * sin librerías externas (usa <canvas> nativo del navegador).
+ *
+ * Todo se guarda en PNG, nunca en JPG. Antes, por encima de 800 KB se
+ * recomprimía a JPG, que no tiene canal alfa: un logo o un trazado de
+ * circuito con fondo transparente quedaba con el fondo negro. El PNG no
+ * tiene "calidad" que bajar, así que el peso se controla reduciendo la
+ * resolución, sin bajar de un mínimo que se vea nítido en la cabecera.
  *
  * Ver docs técnicos: Notas/Proyectos/GT7 Championships/02-ESPECIFICACIONES.md (SPEC-7)
  */
 
-const MAX_ORIGIN_BYTES = 10 * 1024 * 1024; // rechazo duro antes de intentar comprimir
-const TARGET_MIN_BYTES = 500 * 1024;
-const TARGET_MAX_BYTES = 800 * 1024;
+const MAX_ORIGIN_BYTES = 10 * 1024 * 1024; // rechazo duro antes de intentar procesar
+const TARGET_MAX_BYTES = 2 * 1024 * 1024;  // un banner 16:9 fotográfico en PNG ronda 2 MB a 1600 px
 const MAX_WIDTH = 1600;
-const MAX_QUALITY_ITERATIONS = 6;
+const MIN_WIDTH = 1200;                     // por debajo, el banner se ve borroso a pantalla completa
+const SCALE_STEP = 0.9;
 
 /**
  * Valida tipo y peso de origen de una imagen antes de procesarla.
@@ -37,57 +42,43 @@ function loadImage(file) {
     });
 }
 
-function canvasToBlob(canvas, quality) {
+function renderPng(img, width) {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(width);
+    canvas.height = Math.round(img.height * (width / img.width));
+    // Sin fondo: el lienzo arranca transparente y así se queda.
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
     return new Promise((resolve, reject) => {
         canvas.toBlob(
             blob => blob ? resolve(blob) : reject(new Error('Error al procesar la imagen')),
-            'image/jpeg',
-            quality
+            'image/png'
         );
     });
 }
 
 /**
- * Comprime una imagen apuntando a un peso final entre 500 KB y 800 KB.
- * Si la imagen original ya pesa menos de 800 KB, se devuelve tal cual
- * (no tiene sentido recomprimir ni "inflar" un archivo ya liviano).
+ * Convierte la imagen a PNG de como mucho 1600 px de ancho y, si pasa de
+ * 2 MB, baja la resolución por pasos hasta 1200 px.
+ *
+ * Un PNG que ya cumple ancho y peso se sube tal cual, sin recodificarlo.
  *
  * @param {File} file - Imagen original (ya validada con validateImageFile)
- * @returns {Promise<File>} Imagen resultante (JPEG), lista para subir
+ * @returns {Promise<File>} Imagen PNG lista para subir
  */
 export async function compressImage(file) {
-    if (file.size <= TARGET_MAX_BYTES) {
-        return file;
-    }
-
     const img = await loadImage(file);
-    const scale = Math.min(1, MAX_WIDTH / img.width);
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(img.width * scale);
-    canvas.height = Math.round(img.height * scale);
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const yaSirve = file.type === 'image/png' && img.width <= MAX_WIDTH && file.size <= TARGET_MAX_BYTES;
+    if (yaSirve) return file;
 
-    // Búsqueda binaria de calidad JPEG para caer en el rango objetivo
-    let lo = 0.4, hi = 0.95;
-    let best = await canvasToBlob(canvas, hi);
+    let width = Math.min(MAX_WIDTH, img.width);
+    let best = await renderPng(img, width);
 
-    for (let i = 0; i < MAX_QUALITY_ITERATIONS; i++) {
-        const mid = (lo + hi) / 2;
-        const blob = await canvasToBlob(canvas, mid);
-
-        if (blob.size >= TARGET_MIN_BYTES && blob.size <= TARGET_MAX_BYTES) {
-            best = blob;
-            break;
-        }
-        if (blob.size > TARGET_MAX_BYTES) {
-            hi = mid;
-        } else {
-            lo = mid;
-            best = blob; // por debajo del máximo es aceptable como último recurso
-        }
+    // Una imagen pequeña de origen no se reduce más: ya está por debajo del mínimo.
+    while (best.size > TARGET_MAX_BYTES && width * SCALE_STEP >= MIN_WIDTH) {
+        width *= SCALE_STEP;
+        best = await renderPng(img, width);
     }
 
-    const fileName = file.name.replace(/\.[^.]+$/, '') + '.jpg';
-    return new File([best], fileName, { type: 'image/jpeg' });
+    const fileName = file.name.replace(/\.[^.]+$/, '') + '.png';
+    return new File([best], fileName, { type: 'image/png' });
 }
