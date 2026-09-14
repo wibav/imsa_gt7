@@ -1,9 +1,10 @@
 "use client";
 import { formatDateFull, getPreQualyTime, formatTimeWindow, localTimeWindow } from '../../utils';
+import RoomConfigView from './RoomConfigView';
 
 /**
  * Ficha de la Pre-Qualy: fecha, hora, circuito, duración, autos, configuración
- * de sesión y notas.
+ * de sala (la misma vista que una carrera) y notas.
  *
  * Existe porque el mismo bloque estaba escrito tres veces —pestaña Calendario,
  * pestaña Pre-Qualy y pestaña Información— y habían ido divergiendo: una
@@ -33,34 +34,12 @@ export default function PreQualyInfo({
     const ventana = getPreQualyTime(championship);
     const ventanaLocal = pq.date ? localTimeWindow(pq.date, ventana) : null;
 
-    const reglas = pq.rules || {};
-    const badges = [];
-    const badge = (clave, clases, contenido) => badges.push(
-        <span key={clave} className={`${clases} px-2 py-1 rounded`}>{contenido}</span>
-    );
-
-    if (reglas.weather && reglas.weather !== 'clear') {
-        const texto = reglas.weather === 'rain' ? 'Lluvia'
-            : reglas.weather === 'variable' ? 'Variable' : reglas.weather;
-        badge('weather', 'bg-cyan-500/20 border border-cyan-500/30 text-cyan-300', `🌧️ ${texto}`);
-    }
-    if (reglas.timeOfDay) badge('tod', 'bg-indigo-500/20 border border-indigo-500/30 text-indigo-300', `🕐 ${reglas.timeOfDay}`);
-    if (reglas.startTime) badge('start', 'bg-indigo-500/20 border border-indigo-500/30 text-indigo-300', `⏰ ${reglas.startTime}`);
-    if ((reglas.timeMultiplier ?? 1) > 1) badge('mult', 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-300', `⏩ x${reglas.timeMultiplier}`);
-    if (reglas.tireWear > 0) badge('tire', 'bg-orange-500/20 border border-orange-500/30 text-orange-300', `🛞 Desgaste x${reglas.tireWear}`);
-    if (reglas.fuelConsumption > 0) badge('fuel', 'bg-orange-500/20 border border-orange-500/30 text-orange-300', `⛽ Consumo x${reglas.fuelConsumption}`);
-    if (reglas.mechanicalDamage && reglas.mechanicalDamage !== 'No') badge('dmg', 'bg-red-500/20 border border-red-500/30 text-red-300', `🔧 Daños: ${reglas.mechanicalDamage}`);
-    if (reglas.bop === 'yes') badge('bop', 'bg-teal-500/20 border border-teal-500/30 text-teal-300', '⚖️ BoP');
-    if (reglas.qualySlipstream === false) badge('slip', 'bg-gray-500/20 border border-gray-500/30 text-gray-300', '💨 Sin rebufo');
-    if (reglas.mandatoryTyre?.length > 0) badge('tyre', 'bg-amber-500/20 border border-amber-500/30 text-amber-300', `🛞 ${reglas.mandatoryTyre.join(', ')}`);
-    if (reglas.penaltyShortcut && reglas.penaltyShortcut !== 'moderate') {
-        const texto = reglas.penaltyShortcut === 'strong' ? 'Fuerte'
-            : reglas.penaltyShortcut === 'weak' ? 'Leve' : 'Off';
-        badge('short', 'bg-red-500/20 border border-red-500/30 text-red-300', `🔀 Atajo: ${texto}`);
-    }
-    if (reglas.penaltyWall === 'off') badge('wall', 'bg-slate-500/20 border border-slate-500/30 text-slate-300', '🧱 Muro: Off');
-    if (reglas.penaltyPitLine === 'off') badge('pit', 'bg-slate-500/20 border border-slate-500/30 text-slate-300', '🏎️ Línea box: Off');
-    if (reglas.penaltyCarCollision === 'off') badge('coll', 'bg-slate-500/20 border border-slate-500/30 text-slate-300', '💥 Colisión: Off');
+    const tieneSala = pq.rules && Object.keys(pq.rules).length > 0;
+    const salaComoCarrera = {
+        rules: pq.rules,
+        category: championship?.categories?.join(', '),
+        victoria: `Límite de tiempo (${pq.duration ?? 15} min)`,
+    };
 
     const celda = (etiqueta, valor) => (
         <div className="bg-white/5 rounded-lg p-3">
@@ -110,13 +89,15 @@ export default function PreQualyInfo({
                 </div>
             )}
 
-            {badges.length > 0 && (
-                <div className="mt-4">
-                    <div className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">
-                        Configuración de sesión
+            {tieneSala && (
+                <details className="mt-4 group">
+                    <summary className="cursor-pointer list-none inline-flex items-center gap-2 px-4 py-2 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-400/40 text-purple-100 rounded-lg text-sm font-semibold transition-all">
+                        🎮 <span className="group-open:hidden">Ver configuración de sala</span><span className="hidden group-open:inline">Ocultar configuración de sala</span>
+                    </summary>
+                    <div className="mt-3">
+                        <RoomConfigView track={salaComoCarrera} />
                     </div>
-                    <div className="flex flex-wrap gap-2 text-xs">{badges}</div>
-                </div>
+                </details>
             )}
 
             {pq.notes && (

@@ -2,7 +2,7 @@
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { formatDateFull, getRaceTime } from "../../utils/dateUtils";
-import { TYRE_OPTIONS, DAMAGE_OPTIONS } from "../../utils/constants";
+import { normalizarReglas, textoAjuste } from "../../utils/roomConfig";
 
 /**
  * Componente Briefing Pre-Carrera.
@@ -21,24 +21,20 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
 
     if (!nextRace) return null;
 
-    const rules = nextRace.rules || {};
+    // Valores con los nombres del juego, sea cual sea el formato guardado
+    // (ver utils/roomConfig.js).
+    const rules = normalizarReglas(nextRace.rules || {});
+    const t = (id) => textoAjuste(nextRace, id, rules);
     const weather = nextRace.weather || {};
-    const weatherType = rules.weather || weather.weatherType;
     const timeOfDay = rules.timeOfDay || weather.timeOfDay;
     const timeMultiplier = rules.timeMultiplier || weather.multiplier;
     const weatherSlots = rules.weatherSlots || weather.slots;
-    const mandatoryTyres = rules.mandatoryTyre || nextRace.mandatoryTyres || [];
-    const tyreLabels = mandatoryTyres.map(t => {
-        const opt = TYRE_OPTIONS.find(o => o.value === t);
-        return opt ? opt.label : t;
-    });
-    const damageValue = rules.mechanicalDamage ?? rules.damages;
-    const damageLabel = DAMAGE_OPTIONS.find(d => d.value === damageValue)?.label || damageValue;
-    const tireWear = rules.tireWear ?? rules.tyreWear;
-    const bopEnabled = rules.bop === 'yes' || rules.bop === true;
-    const bopDisabled = rules.bop === 'no' || rules.bop === false;
-    const adjustmentsDisabled = rules.adjustments === 'no' || rules.tuning === false;
-    const adjustmentsEnabled = rules.adjustments === 'yes' || rules.tuning === true;
+    const damageLabel = t('mechanicalDamage');
+    const neumaticos = [
+        t('usableTyres') && `Utilizables: ${t('usableTyres')}`,
+        rules.usableCompounds?.length > 0 && `Tipos: ${t('usableCompounds')}`,
+        rules.requiredCompounds?.length > 0 && `Requeridos: ${t('requiredCompounds')}`,
+    ].filter(Boolean);
 
     const handleExport = async () => {
         if (!briefingRef.current) return;
@@ -215,26 +211,27 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                         )}
 
                                         {/* Climatología */}
-                                        {(timeOfDay || weatherType || timeMultiplier) && (
+                                        {(timeOfDay || rules.weather || timeMultiplier) && (
                                             <InfoBox
                                                 icon="🌦️"
                                                 title="Climatología"
                                                 items={[
                                                     timeOfDay,
-                                                    timeMultiplier ? `x${timeMultiplier}` : null,
-                                                    weatherType
+                                                    timeMultiplier ? `Escala de tiempo ${timeMultiplier}x` : null,
+                                                    t('weather')
                                                 ].filter(Boolean)}
                                             />
                                         )}
 
                                         {/* Desgaste */}
-                                        {(tireWear || rules.fuelConsumption) && (
+                                        {(rules.tireWear || rules.fuelConsumption) && (
                                             <InfoBox
                                                 icon="⚙️"
                                                 title="Desgaste"
                                                 items={[
-                                                    tireWear ? `Neumáticos: x${tireWear}` : null,
-                                                    rules.fuelConsumption ? `Combustible: x${rules.fuelConsumption}` : null
+                                                    rules.tireWear ? `Neumáticos: ${t('tireWear')}` : null,
+                                                    rules.fuelConsumption ? `Combustible: ${t('fuelConsumption')}` : null,
+                                                    rules.fuelRefillRate ? `Recarga: ${t('fuelRefillRate')}` : null
                                                 ].filter(Boolean)}
                                             />
                                         )}
@@ -249,22 +246,21 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                         )}
 
                                         {/* BOP / Ajustes */}
-                                        {(rules.bop !== undefined || rules.adjustments !== undefined || rules.tuning !== undefined) && (
+                                        {rules.tuningProhibited !== undefined && (
                                             <InfoBox
                                                 icon="⚖️"
                                                 title="Configuración"
                                                 items={[
-                                                    bopEnabled ? 'BOP: Activado' : bopDisabled ? 'BOP: Desactivado' : null,
-                                                    bopDisabled && rules.maxPR != null ? `Límite PR: ${rules.maxPR}` : null,
-                                                    bopDisabled && rules.maxCV != null ? `Límite CV: ${rules.maxCV}` : null,
-                                                    adjustmentsDisabled ? 'Ajustes: Prohibidos' : adjustmentsEnabled ? 'Ajustes: Permitidos' : null
+                                                    `Modificaciones/BdR prohibidos: ${t('tuningProhibited')}`,
+                                                    rules.maxPR != null ? `Límite de PR: ${t('maxPR')}` : null,
+                                                    rules.maxCV != null ? `Potencia máx.: ${t('maxCV')}` : null,
                                                 ].filter(Boolean)}
                                             />
                                         )}
                                     </div>
 
                                     {/* Neumáticos obligatorios */}
-                                    {tyreLabels.length > 0 && (
+                                    {neumaticos.length > 0 && (
                                         <div style={{
                                             background: 'rgba(251,146,60,0.1)',
                                             border: '1px solid rgba(251,146,60,0.3)',
@@ -273,10 +269,10 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                             marginBottom: '12px'
                                         }}>
                                             <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#fb923c', marginBottom: '6px' }}>
-                                                🛞 Neumáticos Obligatorios
+                                                🛞 Neumáticos
                                             </div>
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                                {tyreLabels.map((label, idx) => (
+                                                {neumaticos.map((label, idx) => (
                                                     <span key={idx} style={{
                                                         background: 'rgba(251,146,60,0.2)',
                                                         color: '#fdba74',
@@ -313,7 +309,7 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                     )}
 
                                     {/* Penalizaciones */}
-                                    {(rules.penaltyShortcut || rules.penaltyWall || rules.penaltyPitLine || rules.penaltyCarCollision || rules.shortcutPenalty || rules.wallHitPenalty || rules.pitLinePenalty) && (
+                                    {(rules.penaltyShortcut || rules.penaltyWall || rules.penaltyPitLine || rules.penaltyCarCollision) && (
                                         <div style={{
                                             background: 'rgba(239,68,68,0.1)',
                                             border: '1px solid rgba(239,68,68,0.2)',
@@ -325,11 +321,11 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                                 ⚠️ Penalizaciones
                                             </div>
                                             <div style={{ fontSize: '12px', color: '#fca5a5' }}>
-                                                {(rules.penaltyShortcut || rules.shortcutPenalty) && <div>• Atajos: {rules.penaltyShortcut || rules.shortcutPenalty}</div>}
-                                                {(rules.penaltyWall || rules.wallHitPenalty) && <div>• Choque muro: {rules.penaltyWall || rules.wallHitPenalty}</div>}
-                                                {(rules.penaltyPitLine || rules.pitLinePenalty) && <div>• Cruzar línea box: {rules.penaltyPitLine || rules.pitLinePenalty}</div>}
-                                                {rules.penaltyCarCollision && <div>• Colisión entre coches: {rules.penaltyCarCollision}</div>}
-                                                {rules.ghostCar !== undefined && <div>• Fantasma: {rules.ghostCar ? 'Sí' : 'No'}</div>}
+                                                {rules.penaltyShortcut && <div>• Atajos: {t('penaltyShortcut')}</div>}
+                                                {rules.penaltyWall && <div>• Choque contra muros: {t('penaltyWall')}</div>}
+                                                {rules.penaltyPitLine && <div>• Cruzar la línea de boxes: {t('penaltyPitLine')}</div>}
+                                                {rules.penaltyCarCollision && <div>• Choque con autos: {t('penaltyCarCollision')}</div>}
+                                                {rules.ghostCar !== undefined && <div>• Fantasmas: {t('ghostCar')}</div>}
                                             </div>
                                         </div>
                                     )}
@@ -358,7 +354,8 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                     )}
 
                                     {/* Weather Slots */}
-                                    {weatherSlots && (
+                                    {/* Un [] vacío también es "verdadero": antes salía «[]» en la imagen */}
+                                    {Array.isArray(weatherSlots) && weatherSlots.length > 0 && (
                                         <div style={{
                                             background: 'rgba(255,255,255,0.03)',
                                             border: '1px solid rgba(255,255,255,0.08)',
@@ -367,10 +364,10 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                             marginBottom: '12px'
                                         }}>
                                             <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af', marginBottom: '6px' }}>
-                                                🌤️ Slots Climáticos
+                                                🌤️ Clima durante la carrera
                                             </div>
-                                            <div style={{ fontSize: '12px', color: '#6b7280', fontFamily: 'monospace' }}>
-                                                {typeof weatherSlots === 'string' ? weatherSlots : JSON.stringify(weatherSlots)}
+                                            <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                                                {t('weatherSlots')}
                                             </div>
                                         </div>
                                     )}

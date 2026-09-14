@@ -2,6 +2,7 @@
 import { useMemo } from "react";
 import Image from "next/image";
 import { EVENT_STATUSES, EVENT_CATEGORIES, raceDateTime, localRaceTime } from "../utils";
+import { resumenSalaEvento } from "../utils/roomConfig";
 
 /**
  * EventCard - Card pública para eventos únicos
@@ -243,17 +244,14 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                     </div>
                 )}
 
-                {/* Reglas highlights */}
-                {event.rules && (
+                {/* Resumen de la sala, con los nombres del juego */}
+                {resumenSalaEvento(event).length > 0 && (
                     <div className="mb-4 bg-white/5 border border-white/10 rounded-lg p-3">
-                        <div className="text-gray-400 font-semibold text-xs mb-2">📋 REGLAS</div>
+                        <div className="text-gray-400 font-semibold text-xs mb-2">🎮 SALA</div>
                         <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
-                            {event.rules.laps && <div>⏱️ {event.rules.laps} vueltas</div>}
-                            {event.rules.duration && <div>⏱️ {event.rules.duration}</div>}
-                            {event.weather?.timeOfDay && <div>🌤️ {event.weather.timeOfDay}{event.weather.timeMultiplier > 1 ? ` x${event.weather.timeMultiplier}` : ''}</div>}
-                            {typeof event.rules.tyreWear === 'number' && event.rules.tyreWear > 0 && <div>🔧 Desgaste: x{event.rules.tyreWear}</div>}
-                            {typeof event.rules.fuelWear === 'number' && event.rules.fuelWear > 0 && <div>⛽ Combustible: x{event.rules.fuelWear}</div>}
-                            {(event.rules.mandatoryTyres?.length > 0 || event.rules.mandatoryTyre) && <div>🛞 Neumáticos: {event.rules.mandatoryTyres?.join(', ') || event.rules.mandatoryTyre}</div>}
+                            {resumenSalaEvento(event).map(item => (
+                                <div key={item.id} className="min-w-0 break-words">{item.icono} {item.texto}</div>
+                            ))}
                         </div>
                     </div>
                 )}

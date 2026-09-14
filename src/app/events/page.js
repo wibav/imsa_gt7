@@ -15,13 +15,14 @@ import {
     EVENT_FORMATS,
     STREAMING_PLATFORMS,
     TYRE_OPTIONS,
-    DAMAGE_OPTIONS,
     WEATHER_TIME_OPTIONS,
     EVENT_TYPES,
     localRaceTime,
     raceDateTime,
 } from "../utils";
 import PilotTeamAvatar from "../components/common/PilotTeamAvatar";
+import RoomConfigView from "../components/championship/RoomConfigView";
+import { salaDeEvento, resumenSalaEvento } from "../utils/roomConfig";
 
 function EventDetailContent() {
     const searchParams = useSearchParams();
@@ -36,6 +37,7 @@ function EventDetailContent() {
     const [registrationMessage, setRegistrationMessage] = useState("");
     const [activeRound, setActiveRound] = useState(0);
     const [roomTabs, setRoomTabs] = useState({}); // Track active tab per room
+    const [verSala, setVerSala] = useState(false);
 
     useEffect(() => {
         if (eventId) {
@@ -198,8 +200,9 @@ function EventDetailContent() {
     const maxP = event.maxParticipants || 0;
     const waitlistCount = event.waitlist?.length || event.waitlistCount || 0;
     const isFull = maxP > 0 && participantCount >= maxP;
-    const hasRules = event.rules && Object.keys(event.rules).length > 0;
-    const hasWeather = event.weather && (event.weather.timeOfDay || event.weather.weatherSlots);
+    const resumenSala = resumenSalaEvento(event);
+    const salaEvento = salaDeEvento(event);
+    const hasRoomConfig = (event.rules && Object.keys(event.rules).length > 0) || resumenSala.length > 0;
     const hasResults = event.results?.length > 0;
 
     return (
@@ -422,90 +425,25 @@ function EventDetailContent() {
                     {/* Right Column - Rules, Weather, Cars */}
                     <div className="space-y-6">
 
-                        {/* Race Rules */}
-                        {hasRules && (
+                        {/* Sala: resumen aquí y la configuración completa, como en el juego, en un modal */}
+                        {hasRoomConfig && (
                             <div className="bg-white/5 border border-white/10 rounded-xl p-6">
                                 <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                                    ⚙️ Reglas de Carrera
+                                    🎮 Configuración de sala
                                 </h2>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {event.rules.laps && <RulePill label="Vueltas" value={event.rules.laps} />}
-                                    {event.rules.duration && <RulePill label="Duración" value={event.rules.duration} />}
-                                    {event.rules.bop !== undefined && (
-                                        <RulePill label="BOP" value={event.rules.bop === 'SI' || event.rules.bop === true ? "Sí" : "No"} />
-                                    )}
-                                    {(event.rules.bop === 'NO' || event.rules.bop === false) && event.rules.maxPR != null && (
-                                        <RulePill label="Máx. PR" value={event.rules.maxPR} />
-                                    )}
-                                    {(event.rules.bop === 'NO' || event.rules.bop === false) && event.rules.maxCV != null && (
-                                        <RulePill label="Máx. CV" value={event.rules.maxCV} />
-                                    )}
-                                    {event.rules.damage && (
-                                        <RulePill
-                                            label="Daños"
-                                            value={DAMAGE_OPTIONS?.find(d => d.value === event.rules.damage)?.label || event.rules.damage}
-                                        />
-                                    )}
-                                    {typeof event.rules.tyreWear === "number" && (
-                                        <RulePill label="Desg. Neumáticos" value={event.rules.tyreWear > 0 ? `x${event.rules.tyreWear}` : "Sin"} />
-                                    )}
-                                    {typeof event.rules.fuelWear === "number" && (
-                                        <RulePill label="Desg. Combustible" value={event.rules.fuelWear > 0 ? `x${event.rules.fuelWear}` : "Sin"} />
-                                    )}
-                                    {event.rules.penalties !== undefined && (
-                                        <RulePill label="Penalizaciones" value={event.rules.penalties === 'SI' || event.rules.penalties === true ? "Sí" : "No"} />
-                                    )}
-                                    {event.rules.ghostCar !== undefined && (
-                                        <RulePill label="Coche Fantasma" value={event.rules.ghostCar === 'SI' || event.rules.ghostCar === true ? "Sí" : "No"} />
-                                    )}
-                                    {(event.rules.mandatoryTyres?.length > 0 || event.rules.mandatoryTyre) && (
-                                        <RulePill label="Neumáticos Oblig." value={event.rules.mandatoryTyres?.join(', ') || event.rules.mandatoryTyre} />
-                                    )}
-                                    {event.rules.startType && (
-                                        <RulePill label="Salida" value={event.rules.startType === 'rolling' ? 'Lanzada' : 'Parrilla'} />
-                                    )}
-                                    {event.rules.adjustments !== undefined && (
-                                        <RulePill label="Ajustes" value={event.rules.adjustments === 'SI' || event.rules.adjustments === true ? "Sí" : "No"} />
-                                    )}
-                                    {event.rules.engineSwap !== undefined && (
-                                        <RulePill label="Engine Swap" value={event.rules.engineSwap === 'SI' || event.rules.engineSwap === true ? "Sí" : "No"} />
-                                    )}
-                                    {event.rules.shortcutPenalty !== undefined && (
-                                        <RulePill label="Pen. Atajo" value={event.rules.shortcutPenalty === 'SI' || event.rules.shortcutPenalty === true ? "Sí" : "No"} />
-                                    )}
-                                    {typeof event.rules.fuelRefillRate === "number" && event.rules.fuelRefillRate > 0 && (
-                                        <RulePill label="Recarga Comb." value={`x${event.rules.fuelRefillRate}`} />
-                                    )}
-                                    {event.rules.mandatoryTyreChange !== undefined && (
-                                        <RulePill label="Cambio Neum. Oblig." value={event.rules.mandatoryTyreChange === 'SI' ? "Sí" : "No"} />
-                                    )}
-                                    {typeof event.rules.mandatoryPitstops === "number" && event.rules.mandatoryPitstops > 0 && (
-                                        <RulePill label="Paradas Oblig." value={`${event.rules.mandatoryPitstops}`} />
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Weather */}
-                        {hasWeather && (
-                            <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-                                <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                                    🌤️ Climatología
-                                </h2>
-                                <div className="space-y-3">
-                                    {event.weather.timeOfDay && (
-                                        <InfoRow icon="☀️" label="Hora del día" value={event.weather.timeOfDay} />
-                                    )}
-                                    {event.weather.timeMultiplier && (
-                                        <InfoRow icon="⏩" label="Multiplicador" value={`x${event.weather.timeMultiplier}`} />
-                                    )}
-                                    {event.weather.weatherSlots && (
-                                        <InfoRow icon="🌦️" label="Slots Climáticos" value={event.weather.weatherSlots} />
-                                    )}
-                                    {event.weather.rainProbability && (
-                                        <InfoRow icon="🌧️" label="Prob. Lluvia" value={event.weather.rainProbability} />
-                                    )}
-                                </div>
+                                {resumenSala.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mb-4">
+                                        {resumenSala.map(item => (
+                                            <span key={item.id} className="text-xs bg-white/10 text-gray-200 px-2 py-1 rounded">{item.icono} {item.texto}</span>
+                                        ))}
+                                    </div>
+                                )}
+                                <button
+                                    onClick={() => setVerSala(true)}
+                                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-400/40 text-blue-200 rounded-lg text-sm font-semibold transition-all"
+                                >
+                                    🎮 Ver configuración de sala
+                                </button>
                             </div>
                         )}
 
@@ -900,6 +838,26 @@ function EventDetailContent() {
             </div>
 
             {/* Registration Modal */}
+            {verSala && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setVerSala(false)}>
+                    <div
+                        className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-white/10 w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between p-6 border-b border-white/10">
+                            <div className="min-w-0">
+                                <h2 className="text-2xl font-bold text-white">🎮 Configuración de sala</h2>
+                                <p className="text-gray-400 text-sm">{event.title}{event.track ? ` · ${event.track}` : ''}</p>
+                            </div>
+                            <button onClick={() => setVerSala(false)} className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10" aria-label="Cerrar">✕</button>
+                        </div>
+                        <div className="p-6">
+                            <RoomConfigView track={salaEvento} />
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <RegistrationModal
                 event={event}
                 isOpen={isRegistrationModalOpen}
@@ -922,15 +880,6 @@ function InfoRow({ icon, label, value }) {
                 <div className="text-gray-500 text-xs uppercase tracking-wider font-semibold">{label}</div>
                 <div className="text-white text-sm font-medium">{value}</div>
             </div>
-        </div>
-    );
-}
-
-function RulePill({ label, value }) {
-    return (
-        <div className="bg-white/5 rounded-lg p-3 text-center">
-            <div className="text-gray-500 text-xs uppercase tracking-wider font-semibold mb-1">{label}</div>
-            <div className="text-white text-sm font-bold">{value}</div>
         </div>
     );
 }

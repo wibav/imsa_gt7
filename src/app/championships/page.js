@@ -48,6 +48,8 @@ import ExportableStandings from '../components/championship/ExportableStandings'
 import RaceBriefing from '../components/championship/RaceBriefing';
 import Navbar from '../components/Navbar';
 import { transmisionesDe } from '../utils/streamingUtils';
+import { normalizarReglas, textoAjuste } from '../utils/roomConfig';
+import RoomConfigView from '../components/championship/RoomConfigView';
 import ShareButton from '../components/ShareButton';
 import { STATUS_LABELS } from '../utils/constants';
 import { SEVERITY_CONFIG, isPenaltyCounting } from '../models/Penalty';
@@ -69,6 +71,18 @@ export default function ChampionshipDetailPage() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('info'); // standings, calendar, stats, info, penalties
     const [selectedTrack, setSelectedTrack] = useState(null);
+    // El mismo modal de carrera sirve para dos cosas: la configuración de sala
+    // (antes de correr) y los resultados (cuando existen), cada una con su botón.
+    const [vistaCarrera, setVistaCarrera] = useState('sala');
+    const abrirCarrera = (track, vista) => { setVistaCarrera(vista); setSelectedTrack(track); };
+    const tieneResultados = (track) => {
+        const r = track?.results;
+        const conDatos = (o) => o && Object.keys(o).length > 0;
+        if (championship?.divisionsConfig?.enabled && r?.divisions) {
+            return Object.values(r.divisions).some(d => conDatos(d?.racePositions));
+        }
+        return conDatos(r?.racePositions) || conDatos(track?.points);
+    };
     const [showRegistration, setShowRegistration] = useState(false);
     const [showClaimForm, setShowClaimForm] = useState(false);
     const [showCarDeclaration, setShowCarDeclaration] = useState(false);
@@ -745,172 +759,30 @@ export default function ChampionshipDetailPage() {
                                                     </div>
                                                 )}
 
-                                                {/* Reglas del circuito */}
-                                                {track.rules && (
-                                                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                                                        {track.raceType === 'sprint_carrera' && (
-                                                            <span className="bg-purple-500/20 border border-purple-500/30 text-purple-300 px-2 py-1 rounded">
-                                                                ⚡ Sprint + Carrera
-                                                            </span>
-                                                        )}
-                                                        {track.raceType === 'resistencia' && (
-                                                            <span className="bg-blue-500/20 border border-blue-500/30 text-blue-300 px-2 py-1 rounded">
-                                                                ⏱️ Resistencia ({track.duration} min)
-                                                            </span>
-                                                        )}
-                                                        {track.raceType === 'carrera' && (
-                                                            <span className="bg-green-500/20 border border-green-500/30 text-green-300 px-2 py-1 rounded">
-                                                                🏁 {track.laps} vueltas
-                                                            </span>
-                                                        )}
-                                                        <span className="bg-orange-500/20 border border-orange-500/30 text-orange-300 px-2 py-1 rounded">
-                                                            🎯 Qualy {track.rules.qualyDuration ?? 10} min
-                                                        </span>
-                                                        {track.rules.weather && track.rules.weather !== 'clear' && (
-                                                            <span className="bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 px-2 py-1 rounded">
-                                                                🌧️ {track.rules.weather === 'rain' ? 'Lluvia' : track.rules.weather === 'variable' ? 'Variable' : track.rules.weather}
-                                                            </span>
-                                                        )}
-                                                        {track.rules.startTime && (
-                                                            <span className="bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-2 py-1 rounded">
-                                                                ⏰ {track.rules.startTime}
-                                                            </span>
-                                                        )}
-                                                        {(track.rules.timeMultiplier ?? 1) > 1 && (
-                                                            <span className="bg-yellow-500/20 border border-yellow-500/30 text-yellow-300 px-2 py-1 rounded">
-                                                                ⏩ x{track.rules.timeMultiplier}
-                                                            </span>
-                                                        )}
-                                                        {Array.isArray(track.rules.weatherSlots) && track.rules.weatherSlots.length > 0 && (
-                                                            <span className="bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 px-2 py-1 rounded">
-                                                                🌦️ {track.rules.weatherSlots.length} slot{track.rules.weatherSlots.length > 1 ? 's' : ''} de clima
-                                                            </span>
-                                                        )}
-                                                        {track.rules.timeOfDay && (
-                                                            <span className="bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-2 py-1 rounded">
-                                                                🕐 {track.rules.timeOfDay}
-                                                            </span>
-                                                        )}
-                                                        {(track.rules.mandatoryPitStops ?? 0) > 0 && (
-                                                            <span className="bg-red-500/20 border border-red-500/30 text-red-300 px-2 py-1 rounded">
-                                                                🛣️ {track.rules.mandatoryPitStops} pit stop{track.rules.mandatoryPitStops > 1 ? 's' : ''} obligatorio{track.rules.mandatoryPitStops > 1 ? 's' : ''}
-                                                            </span>
-                                                        )}
-                                                        {track.rules.mandatoryCompoundChanges && (
-                                                            <span className="bg-amber-500/20 border border-amber-500/30 text-amber-300 px-2 py-1 rounded">
-                                                                🔄 Cambio de compuesto obligatorio
-                                                            </span>
-                                                        )}
-                                                        {track.rules.mandatoryTyre?.length > 0 && (
-                                                            <span className="bg-amber-500/20 border border-amber-500/30 text-amber-300 px-2 py-1 rounded">
-                                                                🛞 Compuestos: {track.rules.mandatoryTyre.join(', ')}
-                                                            </span>
-                                                        )}
-                                                        {track.rules.bop === 'yes' && (
-                                                            <span className="bg-teal-500/20 border border-teal-500/30 text-teal-300 px-2 py-1 rounded">
-                                                                ⚖️ BoP
-                                                            </span>
-                                                        )}
-                                                        {/* Rebufo */}
-                                                        {track.rules.raceSlipstream === false && (
-                                                            <span className="bg-gray-500/20 border border-gray-500/30 text-gray-300 px-2 py-1 rounded">
-                                                                💨 Sin rebufo
-                                                            </span>
-                                                        )}
-                                                        {track.rules.qualySlipstream === false && (
-                                                            <span className="bg-gray-500/20 border border-gray-500/30 text-gray-300 px-2 py-1 rounded">
-                                                                🎯 Sin rebufo qualy
-                                                            </span>
-                                                        )}
-                                                        {/* Combustible inicial */}
-                                                        {track.rules.startingFuel != null && track.rules.startingFuel < 100 && (
-                                                            <span className="bg-orange-500/20 border border-orange-500/30 text-orange-300 px-2 py-1 rounded">
-                                                                ⛽ Sale con {track.rules.startingFuel}%
-                                                            </span>
-                                                        )}
-                                                        {track.rules.tireWear > 0 && (
-                                                            <span className="bg-orange-500/20 border border-orange-500/30 text-orange-300 px-2 py-1 rounded">
-                                                                🛞 Desgaste x{track.rules.tireWear}
-                                                            </span>
-                                                        )}
-                                                        {track.rules.qualyTireWear && (
-                                                            <span className="bg-orange-500/20 border border-orange-500/30 text-orange-300 px-2 py-1 rounded">
-                                                                🎯 Desgaste en qualy
-                                                            </span>
-                                                        )}
-                                                        {track.rules.fuelConsumption > 0 && (
-                                                            <span className="bg-orange-500/20 border border-orange-500/30 text-orange-300 px-2 py-1 rounded">
-                                                                ⛽ Consumo x{track.rules.fuelConsumption}
-                                                            </span>
-                                                        )}
-                                                        {track.rules.fuelRefillRate && (
-                                                            <span className="bg-orange-500/20 border border-orange-500/30 text-orange-300 px-2 py-1 rounded">
-                                                                🚰 Recarga {track.rules.fuelRefillRate} L/s
-                                                            </span>
-                                                        )}
-                                                        {track.rules.mechanicalDamage && track.rules.mechanicalDamage !== 'No' && (
-                                                            <span className="bg-red-500/20 border border-red-500/30 text-red-300 px-2 py-1 rounded">
-                                                                🔧 Daños: {track.rules.mechanicalDamage}
-                                                            </span>
-                                                        )}
-                                                        {track.rules.adjustments === 'no' && (
-                                                            <span className="bg-gray-500/20 border border-gray-500/30 text-gray-300 px-2 py-1 rounded">
-                                                                🔧 Sin ajustes
-                                                            </span>
-                                                        )}
-                                                        {track.rules.engineSwap === 'yes' && (
-                                                            <span className="bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 px-2 py-1 rounded">
-                                                                🔄 Engine swap permitido
-                                                            </span>
-                                                        )}
-                                                        {track.rules.penalties === 'no' && (
-                                                            <span className="bg-gray-500/20 border border-gray-500/30 text-gray-300 px-2 py-1 rounded">
-                                                                ⚠️ Penalización general: Off
-                                                            </span>
-                                                        )}
-                                                        {/* Penalizaciones específicas */}
-                                                        {track.rules.penaltyShortcut && track.rules.penaltyShortcut !== 'moderate' && (
-                                                            <span className="bg-red-500/20 border border-red-500/30 text-red-300 px-2 py-1 rounded">
-                                                                🔀 Atajo: {track.rules.penaltyShortcut === 'strong' ? 'Fuerte' : track.rules.penaltyShortcut === 'weak' ? 'Leve' : 'Off'}
-                                                            </span>
-                                                        )}
-                                                        {track.rules.penaltyWall === 'off' && (
-                                                            <span className="bg-slate-500/20 border border-slate-500/30 text-slate-300 px-2 py-1 rounded">
-                                                                🧱 Muro: Off
-                                                            </span>
-                                                        )}
-                                                        {track.rules.penaltyPitLine === 'off' && (
-                                                            <span className="bg-slate-500/20 border border-slate-500/30 text-slate-300 px-2 py-1 rounded">
-                                                                🏎️ Línea box: Off
-                                                            </span>
-                                                        )}
-                                                        {track.rules.penaltyCarCollision === 'off' && (
-                                                            <span className="bg-slate-500/20 border border-slate-500/30 text-slate-300 px-2 py-1 rounded">
-                                                                💥 Colisión coche: Off
-                                                            </span>
-                                                        )}
-                                                        {track.rules.abs && track.rules.abs !== 'default' && (
-                                                            <span className="bg-violet-500/20 border border-violet-500/30 text-violet-300 px-2 py-1 rounded">
-                                                                ABS: {track.rules.abs}
-                                                            </span>
-                                                        )}
-                                                        {track.rules.tcs && track.rules.tcs !== 'default' && (
-                                                            <span className="bg-violet-500/20 border border-violet-500/30 text-violet-300 px-2 py-1 rounded">
-                                                                TCS: {track.rules.tcs}
-                                                            </span>
-                                                        )}
-                                                        {track.rules.asm && track.rules.asm !== 'default' && (
-                                                            <span className="bg-violet-500/20 border border-violet-500/30 text-violet-300 px-2 py-1 rounded">
-                                                                ASM: {track.rules.asm}
-                                                            </span>
-                                                        )}
-                                                        {track.rules.counterSteering && track.rules.counterSteering !== 'default' && (
-                                                            <span className="bg-violet-500/20 border border-violet-500/30 text-violet-300 px-2 py-1 rounded">
-                                                                Contravolante: {track.rules.counterSteering}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                {/* Resumen de la sala: lo que más cambia de una fecha a otra, con
+                                                    los nombres del juego. La configuración completa, en «Ver
+                                                    configuración de sala». */}
+                                                {(() => {
+                                                    const reglas = normalizarReglas(track.rules || {});
+                                                    const t = (id) => textoAjuste(track, id, reglas);
+                                                    const chips = [
+                                                        t('__victoria'),
+                                                        reglas.weather && t('weather'),
+                                                        reglas.mechanicalDamage && `Daño mecánico: ${t('mechanicalDamage')}`,
+                                                        reglas.tireWear && `Desgaste ${t('tireWear')}`,
+                                                        reglas.fuelConsumption && `Consumo ${t('fuelConsumption')}`,
+                                                        reglas.requiredCompounds?.length > 0 && `Requeridos: ${t('requiredCompounds')}`,
+                                                        reglas.qualyDuration && `Clasificación ${t('qualyDuration')}`,
+                                                    ].filter(Boolean);
+                                                    if (chips.length === 0) return null;
+                                                    return (
+                                                        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                                                            {chips.map(c => (
+                                                                <span key={c} className="bg-white/5 border border-white/10 text-gray-200 px-2 py-1 rounded">{c}</span>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                })()}
 
                                                 {/* Notas del circuito */}
                                                 {track.rules?.notes && (
@@ -929,13 +801,21 @@ export default function ChampionshipDetailPage() {
                                                     </div>
                                                 )}
 
-                                                {/* Botón Ver Detalles */}
-                                                <div className="mt-4 pt-4 border-t border-white/10 flex justify-end">
+                                                {/* Configuración de sala y, cuando los hay, resultados */}
+                                                <div className="mt-4 pt-4 border-t border-white/10 flex flex-wrap justify-end gap-2">
+                                                    {tieneResultados(track) && (
+                                                        <button
+                                                            onClick={() => abrirCarrera(track, 'resultados')}
+                                                            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600/30 hover:bg-green-600/50 border border-green-400/40 text-green-200 rounded-lg text-sm font-semibold transition-all"
+                                                        >
+                                                            📊 Ver resultados
+                                                        </button>
+                                                    )}
                                                     <button
-                                                        onClick={() => setSelectedTrack(track)}
+                                                        onClick={() => abrirCarrera(track, 'sala')}
                                                         className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-400/40 text-blue-200 rounded-lg text-sm font-semibold transition-all"
                                                     >
-                                                        📋 Ver Detalles
+                                                        🎮 Ver configuración de sala
                                                     </button>
                                                 </div>
                                             </div>
@@ -2199,7 +2079,7 @@ export default function ChampionshipDetailPage() {
             {selectedTrack && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setSelectedTrack(null)}>
                     <div
-                        className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-white/10 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"
+                        className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-white/10 w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl"
                         onClick={e => e.stopPropagation()}
                     >
                         {/* Header del modal */}
@@ -2213,6 +2093,11 @@ export default function ChampionshipDetailPage() {
                                     {selectedTrack.date && <span>📅 {formatDateFull(selectedTrack.date)}</span>}
                                     <span>🕐 {getRaceTime(championship, selectedTrack)}h (España){localRaceTime(selectedTrack.date, getRaceTime(championship, selectedTrack)) && ` · ${localRaceTime(selectedTrack.date, getRaceTime(championship, selectedTrack))}h tu hora`}</span>
                                     {selectedTrack.country && <span>📍 {selectedTrack.country}</span>}
+                                    {/* Estado calculado de los datos, como en el calendario:
+                                        track.status casi nunca se actualiza. */}
+                                    {estadoCarrera(selectedTrack) === 'completada' && <span className="bg-green-500/20 text-green-300 text-xs px-2 py-0.5 rounded-full">✓ Completada</span>}
+                                    {estadoCarrera(selectedTrack) === 'en-curso' && <span className="bg-yellow-500/20 text-yellow-300 text-xs px-2 py-0.5 rounded-full">⏱️ En curso</span>}
+                                    {estadoCarrera(selectedTrack) === 'pendiente' && <span className="bg-red-500/20 text-red-300 text-xs px-2 py-0.5 rounded-full">⚠️ Pendiente</span>}
                                 </div>
                             </div>
                             <button
@@ -2224,49 +2109,13 @@ export default function ChampionshipDetailPage() {
                         </div>
 
                         <div className="p-6 space-y-6">
+                            {vistaCarrera === 'sala' && (<>
                             {/* Layout del circuito */}
                             {selectedTrack.layoutImage && (
-                                <div className="relative w-full h-48 bg-black/30 rounded-xl overflow-hidden">
+                                <div className="relative w-full h-56 bg-black/30 rounded-xl overflow-hidden">
                                     <Image src={selectedTrack.layoutImage} alt={selectedTrack.name} fill className="object-contain p-3" />
                                 </div>
                             )}
-
-                            {/* Formato de carrera */}
-                            <div className="bg-white/5 rounded-xl p-4">
-                                <h3 className="text-white font-bold mb-3">🏁 Formato de Carrera</h3>
-                                <div className="grid grid-cols-2 gap-3 text-sm">
-                                    {selectedTrack.category && (
-                                        <div>
-                                            <div className="text-gray-400 mb-1">Categoría</div>
-                                            <div className="text-white font-semibold">{selectedTrack.category}</div>
-                                        </div>
-                                    )}
-                                    <div>
-                                        <div className="text-gray-400 mb-1">Tipo de Carrera</div>
-                                        <div className="text-white font-semibold">
-                                            {selectedTrack.raceType === 'sprint_carrera' ? '⚡ Sprint + Carrera' :
-                                                selectedTrack.raceType === 'resistencia' ? `⏱️ Resistencia (${selectedTrack.duration} min)` :
-                                                    selectedTrack.raceType === 'carrera' ? `🏁 ${selectedTrack.laps} vueltas` : '🏁 Carrera'}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div className="text-gray-400 mb-1">Clasificación (Qualy)</div>
-                                        <div className="text-white font-semibold">
-                                            🎯 {selectedTrack.rules?.qualyDuration ?? 10} min
-                                        </div>
-                                    </div>
-                                    {selectedTrack.status && (
-                                        <div>
-                                            <div className="text-gray-400 mb-1">Estado</div>
-                                            <div className="text-white font-semibold capitalize">
-                                                {selectedTrack.status === 'completed' ? '✅ Completada' :
-                                                    selectedTrack.status === 'in-progress' ? '⏱️ En Curso' :
-                                                        selectedTrack.status === 'scheduled' ? '📅 Programada' : selectedTrack.status}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
 
                             {/* Autos específicos */}
                             {selectedTrack.specificCars && (
@@ -2280,229 +2129,11 @@ export default function ChampionshipDetailPage() {
                                 </div>
                             )}
 
-                            {/* Reglas completas */}
-                            {selectedTrack.rules && (
-                                <div className="bg-white/5 rounded-xl p-4">
-                                    <h3 className="text-white font-bold mb-3">⚙️ Configuración de Carrera</h3>
-                                    <div className="grid grid-cols-2 gap-3 text-sm">
-                                        {selectedTrack.rules.weather && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">🌤️ Clima</div>
-                                                <div className="text-white font-semibold">
-                                                    {selectedTrack.rules.weather === 'clear' ? 'Despejado' :
-                                                        selectedTrack.rules.weather === 'rain' ? '🌧️ Lluvia' :
-                                                            selectedTrack.rules.weather === 'variable' ? '🌦️ Variable' : selectedTrack.rules.weather}
-                                                </div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.timeOfDay && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">🕐 Hora del Día</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.timeOfDay}</div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.startTime && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">⏰ Hora de Inicio</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.startTime}</div>
-                                            </div>
-                                        )}
-                                        {(selectedTrack.rules.timeMultiplier ?? 1) !== 1 && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">⏩ Multiplicador de Tiempo</div>
-                                                <div className="text-white font-semibold">x{selectedTrack.rules.timeMultiplier}</div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.tireWear != null && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">🛞 Desgaste de Neumáticos</div>
-                                                <div className="text-white font-semibold">
-                                                    {selectedTrack.rules.tireWear > 0 ? `x${selectedTrack.rules.tireWear}` : 'Off'}
-                                                </div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.fuelConsumption != null && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">⛽ Consumo de Combustible</div>
-                                                <div className="text-white font-semibold">
-                                                    {selectedTrack.rules.fuelConsumption > 0 ? `x${selectedTrack.rules.fuelConsumption}` : 'Off'}
-                                                </div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.startingFuel != null && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">⛽ Combustible Inicial</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.startingFuel}%</div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.fuelRefillRate && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">🚰 Velocidad de Recarga</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.fuelRefillRate} L/s</div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.mechanicalDamage && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">🔧 Daño Mecánico</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.mechanicalDamage}</div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.bop && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">⚖️ Balance of Performance</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.bop === 'yes' ? '✅ Activo' : '❌ Desactivado'}</div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.bop === 'no' && selectedTrack.rules.maxPR != null && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">🏎️ Límite de PR</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.maxPR} PR máx.</div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.bop === 'no' && selectedTrack.rules.maxCV != null && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">🐎 Límite de CV</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.maxCV} CV máx.</div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.adjustments && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">🔧 Ajustes de Auto</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.adjustments === 'no' ? '❌ No permitidos' : '✅ Permitidos'}</div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.engineSwap && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">🔄 Engine Swap</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.engineSwap === 'yes' ? '✅ Permitido' : '❌ No permitido'}</div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.abs && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">ABS</div>
-                                                <div className="text-white font-semibold capitalize">{selectedTrack.rules.abs}</div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.tcs && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">TCS</div>
-                                                <div className="text-white font-semibold capitalize">{selectedTrack.rules.tcs}</div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.asm && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">ASM</div>
-                                                <div className="text-white font-semibold capitalize">{selectedTrack.rules.asm}</div>
-                                            </div>
-                                        )}
-                                        {selectedTrack.rules.counterSteering && (
-                                            <div>
-                                                <div className="text-gray-400 mb-1">🎯 Contravolante</div>
-                                                <div className="text-white font-semibold capitalize">{selectedTrack.rules.counterSteering}</div>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Penalizaciones */}
-                                    <div className="mt-4 pt-4 border-t border-white/10">
-                                        <h4 className="text-gray-300 font-semibold mb-3 text-sm">⚠️ Penalizaciones</h4>
-                                        <div className="grid grid-cols-2 gap-3 text-sm">
-                                            <div>
-                                                <div className="text-gray-400 mb-1">Penalización General</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.penalties === 'no' ? '❌ Off' : '✅ On'}</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-gray-400 mb-1">🔀 Atajo</div>
-                                                <div className="text-white font-semibold capitalize">
-                                                    {selectedTrack.rules.penaltyShortcut === 'strong' ? '⬆️ Fuerte' :
-                                                        selectedTrack.rules.penaltyShortcut === 'moderate' ? '➡️ Moderado' :
-                                                            selectedTrack.rules.penaltyShortcut === 'weak' ? '⬇️ Leve' :
-                                                                selectedTrack.rules.penaltyShortcut === 'off' ? '❌ Off' :
-                                                                    selectedTrack.rules.penaltyShortcut || '—'}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="text-gray-400 mb-1">🧱 Colisión con Muro</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.penaltyWall === 'off' ? '❌ Off' : selectedTrack.rules.penaltyWall === 'on' ? '✅ On' : selectedTrack.rules.penaltyWall || '—'}</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-gray-400 mb-1">🏎️ Línea de Box</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.penaltyPitLine === 'off' ? '❌ Off' : selectedTrack.rules.penaltyPitLine === 'on' ? '✅ On' : selectedTrack.rules.penaltyPitLine || '—'}</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-gray-400 mb-1">💥 Colisión entre Coches</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.penaltyCarCollision === 'off' ? '❌ Off' : selectedTrack.rules.penaltyCarCollision === 'on' ? '✅ On' : selectedTrack.rules.penaltyCarCollision || '—'}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Rebufo */}
-                                    <div className="mt-4 pt-4 border-t border-white/10">
-                                        <h4 className="text-gray-300 font-semibold mb-3 text-sm">💨 Rebufo (Slipstream)</h4>
-                                        <div className="grid grid-cols-2 gap-3 text-sm">
-                                            <div>
-                                                <div className="text-gray-400 mb-1">En Carrera</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.raceSlipstream === false ? '❌ Off' : '✅ On'}</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-gray-400 mb-1">En Qualy</div>
-                                                <div className="text-white font-semibold">{selectedTrack.rules.qualySlipstream === false ? '❌ Off' : '✅ On'}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Neumáticos */}
-                                    {(selectedTrack.rules.mandatoryTyre?.length > 0 || selectedTrack.rules.mandatoryCompoundChanges || selectedTrack.rules.qualyTireWear) && (
-                                        <div className="mt-4 pt-4 border-t border-white/10">
-                                            <h4 className="text-gray-300 font-semibold mb-3 text-sm">🛞 Neumáticos</h4>
-                                            <div className="grid grid-cols-2 gap-3 text-sm">
-                                                {selectedTrack.rules.mandatoryTyre?.length > 0 && (
-                                                    <div className="col-span-2">
-                                                        <div className="text-gray-400 mb-1">Compuestos Obligatorios</div>
-                                                        <div className="text-white font-semibold">{selectedTrack.rules.mandatoryTyre.join(', ')}</div>
-                                                    </div>
-                                                )}
-                                                {selectedTrack.rules.mandatoryCompoundChanges && (
-                                                    <div>
-                                                        <div className="text-gray-400 mb-1">Cambio de Compuesto</div>
-                                                        <div className="text-white font-semibold">✅ Obligatorio</div>
-                                                    </div>
-                                                )}
-                                                {selectedTrack.rules.qualyTireWear && (
-                                                    <div>
-                                                        <div className="text-gray-400 mb-1">Desgaste en Qualy</div>
-                                                        <div className="text-white font-semibold">✅ Activo</div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Pit Stops obligatorios */}
-                                    {(selectedTrack.rules.mandatoryPitStops ?? 0) > 0 && (
-                                        <div className="mt-4 pt-4 border-t border-white/10">
-                                            <h4 className="text-gray-300 font-semibold mb-2 text-sm">🛣️ Paradas en Boxes</h4>
-                                            <p className="text-white font-semibold text-sm">
-                                                {selectedTrack.rules.mandatoryPitStops} pit stop{selectedTrack.rules.mandatoryPitStops > 1 ? 's' : ''} obligatorio{selectedTrack.rules.mandatoryPitStops > 1 ? 's' : ''}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {/* Slots de clima */}
-                                    {Array.isArray(selectedTrack.rules.weatherSlots) && selectedTrack.rules.weatherSlots.length > 0 && (
-                                        <div className="mt-4 pt-4 border-t border-white/10">
-                                            <h4 className="text-gray-300 font-semibold mb-3 text-sm">🌦️ Secuencia de Clima</h4>
-                                            <div className="flex flex-wrap gap-2">
-                                                {selectedTrack.rules.weatherSlots.map((slot, i) => (
-                                                    <span key={i} className="bg-cyan-500/20 border border-cyan-500/30 text-cyan-200 px-3 py-1 rounded-lg text-sm">
-                                                        Slot {i + 1}: {slot}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                            {/* Configuración de sala, en el orden y con los nombres del juego */}
+                            <div>
+                                <h3 className="text-white font-bold mb-3">🎮 Configuración de sala</h3>
+                                <RoomConfigView track={selectedTrack} />
+                            </div>
 
                             {/* Notas */}
                             {selectedTrack.rules?.notes && (
@@ -2512,8 +2143,10 @@ export default function ChampionshipDetailPage() {
                                 </div>
                             )}
 
+                            </>)}
+
                             {/* Resultados del circuito */}
-                            {(() => {
+                            {vistaCarrera === 'resultados' && (() => {
                                 const hasDivResults = championship?.divisionsConfig?.enabled && divisions.length > 0 && selectedTrack.results?.divisions;
                                 const hasNonDivResults = !championship?.divisionsConfig?.enabled && selectedTrack.results?.racePositions && Object.keys(selectedTrack.results.racePositions).length > 0;
                                 const hasFallbackPoints = selectedTrack.points && Object.keys(selectedTrack.points).length > 0;

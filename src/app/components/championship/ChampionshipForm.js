@@ -7,9 +7,11 @@ import { useAuth } from '../../context/AuthContext';
 import { useChampionship } from '../../context/ChampionshipContext';
 import { Championship } from '../../models/Championship';
 import { FirebaseService } from '../../services/firebaseService';
-import { TYRE_OPTIONS, DAMAGE_OPTIONS, STREAMING_PLATFORMS, WEATHER_CONDITION_OPTIONS, WEATHER_TRANSITION_OPTIONS, START_TIME_OPTIONS, TIME_MULTIPLIER_OPTIONS, DEFAULT_SPRINT_POINTS, DEFAULT_DIVISIONS_CONFIG, WEATHER_TIME_OPTIONS } from '../../utils/constants';
+import { STREAMING_PLATFORMS, WEATHER_CONDITION_OPTIONS, WEATHER_TRANSITION_OPTIONS, DEFAULT_SPRINT_POINTS, DEFAULT_DIVISIONS_CONFIG, WEATHER_TIME_OPTIONS } from '../../utils/constants';
 import { DEFAULT_PENALTIES_CONFIG } from '../../models/Penalty';
 import { validateImageFile, compressImage } from '../../utils/imageCompression';
+import { REGLAS_POR_DEFECTO, normalizarReglas } from '../../utils/roomConfig';
+import RoomConfigEditor from './RoomConfigEditor';
 import { REGULATIONS_MAX_BYTES, regulationsByteSize, normalizeRegulationsForSave } from '../../utils/regulations';
 import { sanitizeRegulationsHtml } from '../../utils/regulationsSanitize';
 import { getCarsForCategories } from '../../utils/carUsageCalculator';
@@ -32,11 +34,6 @@ const YES_NO = [
     { value: 'no', label: 'No' }
 ];
 
-const WEATHER_OPTIONS = [
-    { value: 'clear', label: 'Despejado' },
-    { value: 'rain', label: 'Lluvia' },
-    { value: 'variable', label: 'Variable' }
-];
 
 const TIME_OPTIONS = WEATHER_TIME_OPTIONS;
 
@@ -54,17 +51,7 @@ const ABS_OPTIONS = [
 
 const CATEGORIES = ['Gr1', 'Gr2', 'Gr3', 'Gr4', 'GrB', 'Street'];
 
-const PENALTY_SHORTCUT_OPTIONS = [
-    { value: 'off', label: 'Desactivado' },
-    { value: 'weak', label: 'Leve' },
-    { value: 'moderate', label: 'Moderado' },
-    { value: 'strong', label: 'Fuerte' }
-];
 
-const ON_OFF_OPTIONS = [
-    { value: 'on', label: 'Activado' },
-    { value: 'off', label: 'Desactivado' }
-];
 
 // ============================================================
 // Default data factories
@@ -135,23 +122,8 @@ function getEmptyFormData() {
             duration: 15,
             allowedCars: [],
             notes: '',
-            rules: {
-                weather: 'clear',
-                timeOfDay: '',
-                timeMultiplier: 1,
-                startTime: '',
-                tireWear: 0,
-                fuelConsumption: 0,
-                mandatoryTyre: [],
-                mechanicalDamage: 'No',
-                bop: 'yes',
-                qualySlipstream: false,
-                penaltyShortcut: 'strong',
-                penaltyWall: 'off',
-                penaltyPitLine: 'on',
-                penaltyCarCollision: 'on',
-                notes: ''
-            }
+            // La sala de la Pre-Qualy se configura igual que la de una carrera.
+            rules: { ...REGLAS_POR_DEFECTO }
         },
         divisionsConfig: { ...DEFAULT_DIVISIONS_CONFIG }
     };
@@ -169,43 +141,7 @@ function getEmptyTrackData(formData) {
         laps: 10,
         duration: 60,
         sprintLaps: 5,
-        rules: {
-            weather: 'clear',
-            timeOfDay: '',
-            weatherSlots: [],
-            timeMultiplier: 1,
-            startTime: '',
-            tireWear: 5,
-            fuelConsumption: 1,
-            fuelRefillRate: 10,
-            mandatoryTyre: [],
-            mandatoryPitStops: 0,
-            mandatoryCompoundChanges: false,
-            mechanicalDamage: 'No',
-            bop: 'yes',
-            maxPR: null,
-            maxCV: null,
-            adjustments: 'no',
-            engineSwap: 'no',
-            penalties: 'yes',
-            penaltyShortcut: 'moderate',
-            penaltyWall: 'on',
-            penaltyPitLine: 'on',
-            penaltyCarCollision: 'on',
-            abs: 'default',
-            tcs: 'no',
-            asm: 'no',
-            counterSteering: 'no',
-            // Slipstream
-            qualySlipstream: false,
-            raceSlipstream: true,
-            // Qualy settings
-            qualyDuration: 10,
-            qualyTireWear: false,
-            // Starting fuel
-            startingFuel: 100,
-            notes: ''
-        },
+        rules: { ...REGLAS_POR_DEFECTO },
         specificCars: false,
         allowedCars: []
     };
@@ -430,23 +366,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                 notes: champ.preQualy?.notes || '',
                 // Preservar resultados ya guardados — no se editan desde este formulario
                 results: champ.preQualy?.results || [],
-                rules: {
-                    weather: champ.preQualy?.rules?.weather || 'clear',
-                    timeOfDay: champ.preQualy?.rules?.timeOfDay || '',
-                    timeMultiplier: champ.preQualy?.rules?.timeMultiplier ?? 1,
-                    startTime: champ.preQualy?.rules?.startTime || '',
-                    tireWear: champ.preQualy?.rules?.tireWear ?? 0,
-                    fuelConsumption: champ.preQualy?.rules?.fuelConsumption ?? 0,
-                    mandatoryTyre: champ.preQualy?.rules?.mandatoryTyre || [],
-                    mechanicalDamage: champ.preQualy?.rules?.mechanicalDamage || 'No',
-                    bop: champ.preQualy?.rules?.bop || 'yes',
-                    qualySlipstream: champ.preQualy?.rules?.qualySlipstream ?? false,
-                    penaltyShortcut: champ.preQualy?.rules?.penaltyShortcut || 'strong',
-                    penaltyWall: champ.preQualy?.rules?.penaltyWall || 'off',
-                    penaltyPitLine: champ.preQualy?.rules?.penaltyPitLine || 'on',
-                    penaltyCarCollision: champ.preQualy?.rules?.penaltyCarCollision || 'on',
-                    notes: champ.preQualy?.rules?.notes || ''
-                }
+                rules: normalizarReglas(champ.preQualy?.rules || {})
             },
             divisionsConfig: {
                 enabled: champ.divisionsConfig?.enabled || false,
@@ -629,7 +549,8 @@ export default function ChampionshipForm({ isEditing = false }) {
     const handleOpenTrackModal = (index = null) => {
         if (index !== null) {
             setEditingTrackIndex(index);
-            setTrackFormData({ ...formData.tracks[index] });
+            // Reglas antiguas traducidas a los valores del juego (ver utils/roomConfig.js)
+            setTrackFormData({ ...formData.tracks[index], rules: normalizarReglas(formData.tracks[index].rules || {}) });
         } else {
             setEditingTrackIndex(null);
             setTrackFormData(getEmptyTrackData(formData));
@@ -673,7 +594,7 @@ export default function ChampionshipForm({ isEditing = false }) {
             layoutImage: prev.layoutImage,
             date: prev.date,
             round: prev.round,
-            rules: { ...prevTrack.rules },
+            rules: normalizarReglas(prevTrack.rules || {}),
             allowedCars: [...(prevTrack.allowedCars || [])],
         }));
     };
@@ -1834,21 +1755,6 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                             }))}
                                                             className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
                                                     </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-300 mb-2">⏩ Velocidad del Tiempo</label>
-                                                        <select value={formData.preQualy.rules?.timeMultiplier ?? 1}
-                                                            onChange={(e) => setFormData(prev => ({
-                                                                ...prev, preQualy: {
-                                                                    ...prev.preQualy,
-                                                                    rules: { ...prev.preQualy.rules, timeMultiplier: parseInt(e.target.value) }
-                                                                }
-                                                            }))}
-                                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
-                                                            {TIME_MULTIPLIER_OPTIONS.map(opt => (
-                                                                <option key={opt.value} value={opt.value} className="bg-slate-800">{opt.label}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
                                                 </div>
 
                                                 {/* Circuito */}
@@ -1909,72 +1815,17 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                     )}
                                                 </div>
 
-                                                {/* Reglas de la Pre-Qualy */}
-                                                <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-                                                    <h4 className="text-white font-semibold mb-4">⚙️ Configuración de la Sesión</h4>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        <div>
-                                                            <label className="block text-sm font-medium text-gray-300 mb-2">🌤️ Clima</label>
-                                                            {renderSelect(formData.preQualy.rules?.weather ?? 'clear', (e) => setFormData(prev => ({
-                                                                ...prev, preQualy: { ...prev.preQualy, rules: { ...prev.preQualy.rules, weather: e.target.value } }
-                                                            })), WEATHER_OPTIONS)}
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm font-medium text-gray-300 mb-2">🔧 Daños</label>
-                                                            {renderSelect(formData.preQualy.rules?.mechanicalDamage ?? 'No', (e) => setFormData(prev => ({
-                                                                ...prev, preQualy: { ...prev.preQualy, rules: { ...prev.preQualy.rules, mechanicalDamage: e.target.value } }
-                                                            })), DAMAGE_OPTIONS)}
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm font-medium text-gray-300 mb-2">🔀 Penalización por Atajo</label>
-                                                            {renderSelect(formData.preQualy.rules?.penaltyShortcut ?? 'strong', (e) => setFormData(prev => ({
-                                                                ...prev, preQualy: { ...prev.preQualy, rules: { ...prev.preQualy.rules, penaltyShortcut: e.target.value } }
-                                                            })), PENALTY_SHORTCUT_OPTIONS)}
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm font-medium text-gray-300 mb-2">🧱 Penalización por Muro</label>
-                                                            {renderSelect(formData.preQualy.rules?.penaltyWall ?? 'off', (e) => setFormData(prev => ({
-                                                                ...prev, preQualy: { ...prev.preQualy, rules: { ...prev.preQualy.rules, penaltyWall: e.target.value } }
-                                                            })), ON_OFF_OPTIONS)}
-                                                        </div>
-                                                        <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
-                                                            <div>
-                                                                <label className="block text-sm font-medium text-gray-300">💨 Rebufo (Slipstream)</label>
-                                                                <p className="text-xs text-gray-400">Efecto de succión entre coches</p>
-                                                            </div>
-                                                            {renderToggle(formData.preQualy.rules?.qualySlipstream ?? false, () =>
-                                                                setFormData(prev => ({
-                                                                    ...prev, preQualy: {
-                                                                        ...prev.preQualy,
-                                                                        rules: { ...prev.preQualy.rules, qualySlipstream: !(prev.preQualy.rules?.qualySlipstream ?? false) }
-                                                                    }
-                                                                }))
-                                                            )}
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm font-medium text-gray-300 mb-2">🛞 Neumáticos Obligatorios</label>
-                                                            <div className="flex flex-wrap gap-2">
-                                                                {TYRE_OPTIONS.filter(t => ['CB', 'CM', 'CD'].includes(t.value)).map(tyre => {
-                                                                    const tyres = formData.preQualy.rules?.mandatoryTyre || [];
-                                                                    const isSelected = tyres.includes(tyre.value);
-                                                                    return (
-                                                                        <label key={tyre.value}
-                                                                            className={`flex items-center gap-1 px-2 py-1 rounded-lg border cursor-pointer text-xs transition-all ${isSelected ? 'bg-purple-600/30 border-purple-500 text-white' : 'bg-white/5 border-white/20 text-gray-300 hover:bg-white/10'}`}>
-                                                                            <input type="checkbox" checked={isSelected}
-                                                                                onChange={(e) => {
-                                                                                    const newTyres = e.target.checked ? [...tyres, tyre.value] : tyres.filter(t => t !== tyre.value);
-                                                                                    setFormData(prev => ({
-                                                                                        ...prev, preQualy: { ...prev.preQualy, rules: { ...prev.preQualy.rules, mandatoryTyre: newTyres } }
-                                                                                    }));
-                                                                                }}
-                                                                                className="w-3 h-3" />
-                                                                            {tyre.label}
-                                                                        </label>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                                {/* Sala de la Pre-Qualy: mismo menú que una carrera */}
+                                                <div>
+                                                    <h4 className="text-white font-semibold mb-3">🎮 Configuración de sala</h4>
+                                                    <RoomConfigEditor
+                                                        reglas={formData.preQualy.rules || {}}
+                                                        track={{ category: (formData.categories || []).join(", "), victoria: `Límite de tiempo (${formData.preQualy.duration ?? 15} min)` }}
+                                                        textoOrigenVictoria="sale de la duración"
+                                                        onChange={(campo, valor) => setFormData(prev => ({
+                                                            ...prev, preQualy: { ...prev.preQualy, rules: { ...prev.preQualy.rules, [campo]: valor } }
+                                                        }))}
+                                                    />
                                                 </div>
 
                                                 {/* Notas */}
@@ -2892,9 +2743,8 @@ export default function ChampionshipForm({ isEditing = false }) {
                                 <div className="flex border-t border-white/10">
                                     {[
                                         { id: 'info', label: '📍 Circuito' },
-                                        { id: 'qualy', label: '🎯 Qualy' },
-                                        { id: 'carrera', label: '⚙️ Carrera' },
-                                        { id: 'reglas', label: '🚦 Reglas' },
+                                        { id: 'sala', label: '🎮 Configuración de sala' },
+                                        { id: 'autos', label: '🚗 Autos y notas' },
                                     ].map(tab => (
                                         <button key={tab.id} type="button"
                                             onClick={() => setTrackModalTab(tab.id)}
@@ -3050,348 +2900,10 @@ export default function ChampionshipForm({ isEditing = false }) {
                                     </div>
                                 </div>
 
-                                {/* Configuración de Clasificación (Qualy) */}
-                                <div className={`bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6 ${trackModalTab !== 'qualy' ? 'hidden' : ''}`}>
-                                    <h4 className="text-xl font-bold text-white mb-1">🎯 Clasificación (Qualy)</h4>
-                                    <p className="text-xs text-gray-400 mb-4">Configuración específica para la sesión de clasificación</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="md:col-span-2">
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">⏱️ Duración (minutos) *</label>
-                                            <input type="number" min="1" value={trackFormData.rules.qualyDuration ?? 10}
-                                                onChange={(e) => handleTrackRuleChange('qualyDuration', parseInt(e.target.value) || 10)}
-                                                className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                                placeholder="Ej: 10" />
-                                            <p className="text-xs text-gray-400 mt-1">La clasificación en GT7 es siempre por tiempo, no por vueltas</p>
-                                        </div>
-                                        <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-300">💨 Rebufo (Slipstream)</label>
-                                                <p className="text-xs text-gray-400">Efecto de succión entre coches en qualy</p>
-                                            </div>
-                                            {renderToggle(trackFormData.rules.qualySlipstream ?? false, () =>
-                                                handleTrackRuleChange('qualySlipstream', !(trackFormData.rules.qualySlipstream ?? false))
-                                            )}
-                                        </div>
-                                        <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-300">🛞 Desgaste de Neumáticos</label>
-                                                <p className="text-xs text-gray-400">Activar desgaste durante la qualy</p>
-                                            </div>
-                                            {renderToggle(trackFormData.rules.qualyTireWear ?? false, () =>
-                                                handleTrackRuleChange('qualyTireWear', !(trackFormData.rules.qualyTireWear ?? false))
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Reglas del Circuito */}
-                                <div className={`bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6 ${trackModalTab !== 'carrera' ? 'hidden' : ''}`}>
-                                    <h4 className="text-xl font-bold text-white mb-1">⚙️ Reglas de Carrera</h4>
-                                    <p className="text-xs text-gray-400 mb-4">Configuración para la sesión de carrera</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {/* Rebufo en carrera y combustible inicial */}
-                                        <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-300">💨 Rebufo (Slipstream)</label>
-                                                <p className="text-xs text-gray-400">Efecto de succión entre coches en carrera</p>
-                                            </div>
-                                            {renderToggle(trackFormData.rules.raceSlipstream ?? true, () =>
-                                                handleTrackRuleChange('raceSlipstream', !(trackFormData.rules.raceSlipstream ?? true))
-                                            )}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">⛽ Combustible Inicial (%)</label>
-                                            <div className="flex items-center gap-2">
-                                                <input type="range" min="0" max="100" step="5"
-                                                    value={trackFormData.rules.startingFuel ?? 100}
-                                                    onChange={(e) => handleTrackRuleChange('startingFuel', parseInt(e.target.value))}
-                                                    className="flex-1" />
-                                                <span className="text-white font-medium w-12">{trackFormData.rules.startingFuel ?? 100}%</span>
-                                            </div>
-                                        </div>
-                                        {/* Clima y Hora */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">🌤️ Clima</label>
-                                            {renderSelect(trackFormData.rules.weather, (e) => handleTrackRuleChange('weather', e.target.value), WEATHER_OPTIONS)}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">🕐 Hora del Día</label>
-                                            <select value={trackFormData.rules.timeOfDay || ''} onChange={(e) => handleTrackRuleChange('timeOfDay', e.target.value)}
-                                                className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
-                                                <option value="" className="bg-slate-800">Sin especificar</option>
-                                                {WEATHER_TIME_OPTIONS.map(t => (
-                                                    <option key={t} value={t} className="bg-slate-800">{t}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        {/* Fase 5: Climatología avanzada */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">⏰ Hora de Inicio</label>
-                                            <select value={trackFormData.rules.startTime || ''}
-                                                onChange={(e) => handleTrackRuleChange('startTime', e.target.value)}
-                                                className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
-                                                {START_TIME_OPTIONS.map(opt => (
-                                                    <option key={opt.value} value={opt.value} className="bg-slate-800">{opt.label}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">⏩ Velocidad del Tiempo</label>
-                                            <select value={trackFormData.rules.timeMultiplier ?? 1}
-                                                onChange={(e) => handleTrackRuleChange('timeMultiplier', parseInt(e.target.value))}
-                                                className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
-                                                {TIME_MULTIPLIER_OPTIONS.map(opt => (
-                                                    <option key={opt.value} value={opt.value} className="bg-slate-800">{opt.label}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        {/* Slots de clima dinámico */}
-                                        {trackFormData.rules.weather === 'variable' && (
-                                            <div className="md:col-span-2">
-                                                <label className="block text-sm font-medium text-gray-300 mb-3">🌦️ Slots de Clima Dinámico</label>
-                                                <p className="text-xs text-gray-400 mb-3">Define cómo cambia el clima durante la carrera</p>
-                                                {(trackFormData.rules.weatherSlots || []).map((slot, idx) => (
-                                                    <div key={idx} className="flex items-center gap-2 mb-2">
-                                                        <span className="text-white text-xs w-8">#{idx + 1}</span>
-                                                        <select value={slot.weather}
-                                                            onChange={(e) => {
-                                                                const slots = [...(trackFormData.rules.weatherSlots || [])];
-                                                                slots[idx] = { ...slots[idx], weather: e.target.value };
-                                                                handleTrackRuleChange('weatherSlots', slots);
-                                                            }}
-                                                            className="flex-1 px-3 py-1.5 bg-white/10 border border-white/20 rounded text-white text-sm">
-                                                            {WEATHER_CONDITION_OPTIONS.map(o => (
-                                                                <option key={o.value} value={o.value} className="bg-slate-800">{o.label}</option>
-                                                            ))}
-                                                        </select>
-                                                        <select value={slot.transition || 'gradual'}
-                                                            onChange={(e) => {
-                                                                const slots = [...(trackFormData.rules.weatherSlots || [])];
-                                                                slots[idx] = { ...slots[idx], transition: e.target.value };
-                                                                handleTrackRuleChange('weatherSlots', slots);
-                                                            }}
-                                                            className="w-36 px-3 py-1.5 bg-white/10 border border-white/20 rounded text-white text-sm">
-                                                            {WEATHER_TRANSITION_OPTIONS.map(o => (
-                                                                <option key={o.value} value={o.value} className="bg-slate-800">{o.label}</option>
-                                                            ))}
-                                                        </select>
-                                                        <button type="button" onClick={() => {
-                                                            const slots = (trackFormData.rules.weatherSlots || []).filter((_, i) => i !== idx);
-                                                            handleTrackRuleChange('weatherSlots', slots);
-                                                        }} className="text-red-400 hover:text-red-300 text-sm">🗑</button>
-                                                    </div>
-                                                ))}
-                                                <button type="button" onClick={() => {
-                                                    const slots = [...(trackFormData.rules.weatherSlots || []), { weather: 'rain', transition: 'gradual' }];
-                                                    handleTrackRuleChange('weatherSlots', slots);
-                                                }} className="text-sm text-orange-400 hover:text-orange-300 mt-1">
-                                                    ➕ Agregar slot de clima
-                                                </button>
-                                            </div>
-                                        )}
-
-                                        {/* Desgastes con sliders */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">🛞 Desgaste de Neumáticos</label>
-                                            <div className="flex items-center gap-2">
-                                                <input type="range" min="0" max="50"
-                                                    value={typeof trackFormData.rules.tireWear === 'number' ? trackFormData.rules.tireWear : 5}
-                                                    onChange={(e) => handleTrackRuleChange('tireWear', parseInt(e.target.value))}
-                                                    className="flex-1" />
-                                                <span className="text-white font-medium w-12">x{typeof trackFormData.rules.tireWear === 'number' ? trackFormData.rules.tireWear : trackFormData.rules.tireWear}</span>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">⛽ Consumo de Combustible</label>
-                                            <div className="flex items-center gap-2">
-                                                <input type="range" min="0" max="50"
-                                                    value={typeof trackFormData.rules.fuelConsumption === 'number' ? trackFormData.rules.fuelConsumption : 1}
-                                                    onChange={(e) => handleTrackRuleChange('fuelConsumption', parseInt(e.target.value))}
-                                                    className="flex-1" />
-                                                <span className="text-white font-medium w-12">x{typeof trackFormData.rules.fuelConsumption === 'number' ? trackFormData.rules.fuelConsumption : trackFormData.rules.fuelConsumption}</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Recarga de combustible */}
-                                        {(typeof trackFormData.rules.fuelConsumption === 'number' ? trackFormData.rules.fuelConsumption > 0 : trackFormData.rules.fuelConsumption === 'yes') && (
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-300 mb-2">🚰 Velocidad de Recarga</label>
-                                                <div className="flex items-center gap-2">
-                                                    <input type="range" min="1" max="20" value={trackFormData.rules.fuelRefillRate || 10}
-                                                        onChange={(e) => handleTrackRuleChange('fuelRefillRate', parseInt(e.target.value))}
-                                                        className="flex-1" />
-                                                    <span className="text-white font-medium w-16">{trackFormData.rules.fuelRefillRate || 10} L/s</span>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Pit stops obligatorios */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">🛣️ Pit Stops Obligatorios</label>
-                                            <input type="number" min="0" max="10"
-                                                value={trackFormData.rules.mandatoryPitStops ?? 0}
-                                                onChange={(e) => handleTrackRuleChange('mandatoryPitStops', parseInt(e.target.value) || 0)}
-                                                className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
-                                            <p className="text-xs text-gray-400 mt-1">0 = sin obligación de parada</p>
-                                        </div>
-
-                                        {/* Cambio de compuesto obligatorio */}
-                                        {(trackFormData.rules.mandatoryPitStops ?? 0) > 0 && (
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-300">🔄 Cambio de Compuesto Obligatorio</label>
-                                                    <p className="text-xs text-gray-400">Debe usar al menos 2 compuestos distintos</p>
-                                                </div>
-                                                {renderToggle(trackFormData.rules.mandatoryCompoundChanges ?? false, () => {
-                                                    handleTrackRuleChange('mandatoryCompoundChanges', !(trackFormData.rules.mandatoryCompoundChanges ?? false));
-                                                })}
-                                            </div>
-                                        )}
-
-                                        {/* Neumáticos Obligatorios - Multi-select */}
-                                        <div className="md:col-span-2">
-                                            <label className="block text-sm font-medium text-gray-300 mb-3">🏁 Neumáticos Obligatorios (puedes seleccionar varios)</label>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                                {TYRE_OPTIONS.map(tyre => {
-                                                    const tyres = trackFormData.rules.mandatoryTyre || [];
-                                                    const isSelected = Array.isArray(tyres) ? tyres.includes(tyre.value) : false;
-                                                    return (
-                                                        <label key={tyre.value}
-                                                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer transition-all ${isSelected
-                                                                ? 'bg-orange-600/30 border-orange-500 text-white'
-                                                                : 'bg-white/5 border-white/20 text-gray-300 hover:bg-white/10'
-                                                                }`}>
-                                                            <input type="checkbox" checked={isSelected}
-                                                                onChange={(e) => {
-                                                                    const currentTyres = Array.isArray(tyres) ? tyres : [];
-                                                                    const newTyres = e.target.checked
-                                                                        ? [...currentTyres, tyre.value]
-                                                                        : currentTyres.filter(t => t !== tyre.value);
-                                                                    handleTrackRuleChange('mandatoryTyre', newTyres);
-                                                                }}
-                                                                className="w-4 h-4 rounded border-white/30 bg-white/10 text-orange-600 focus:ring-2 focus:ring-orange-500" />
-                                                            <span className="font-medium text-sm">{tyre.label}</span>
-                                                        </label>
-                                                    );
-                                                })}
-                                            </div>
-                                            <p className="text-xs text-gray-400 mt-2">
-                                                {(trackFormData.rules.mandatoryTyre || []).length === 0
-                                                    ? 'Sin restricción de neumáticos'
-                                                    : `${trackFormData.rules.mandatoryTyre.length} neumático${trackFormData.rules.mandatoryTyre.length !== 1 ? 's' : ''} seleccionado${trackFormData.rules.mandatoryTyre.length !== 1 ? 's' : ''}: ${trackFormData.rules.mandatoryTyre.join(', ')}`}
-                                            </p>
-                                        </div>
-
-                                        {/* Daños */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">🔧 Daños</label>
-                                            {renderSelect(trackFormData.rules.mechanicalDamage, (e) => handleTrackRuleChange('mechanicalDamage', e.target.value),
-                                                DAMAGE_OPTIONS.map(opt => typeof opt === 'string' ? opt : opt))}
-                                        </div>
-
-                                        {/* BOP, Ajustes, Engine Swap, Penalizaciones */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">⚖️ Balance de Prestaciones (BoP)</label>
-                                            {renderSelect(trackFormData.rules.bop, (e) => handleTrackRuleChange('bop', e.target.value), YES_NO)}
-                                        </div>
-
-                                        {/* Límites de coche cuando el BoP está desactivado */}
-                                        {trackFormData.rules.bop === 'no' && (
-                                            <div className="md:col-span-2 bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
-                                                <p className="text-sm font-semibold text-orange-300 mb-1">🏎️ Límites del coche (BoP desactivado)</p>
-                                                <p className="text-xs text-gray-400 mb-3">Define el tope de rendimiento permitido. Deja vacío para no limitar.</p>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-xs font-medium text-gray-300 mb-1">Límite de PR (Puntos de Rendimiento)</label>
-                                                        <input
-                                                            type="number" min="0" step="1"
-                                                            value={trackFormData.rules.maxPR ?? ''}
-                                                            onChange={(e) => handleTrackRuleChange('maxPR', e.target.value === '' ? null : Number(e.target.value))}
-                                                            placeholder="Sin límite"
-                                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-xs font-medium text-gray-300 mb-1">Límite de CV (Caballos)</label>
-                                                        <input
-                                                            type="number" min="0" step="1"
-                                                            value={trackFormData.rules.maxCV ?? ''}
-                                                            onChange={(e) => handleTrackRuleChange('maxCV', e.target.value === '' ? null : Number(e.target.value))}
-                                                            placeholder="Sin límite"
-                                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">🔧 Ajustes del Vehículo</label>
-                                            {renderSelect(trackFormData.rules.adjustments, (e) => handleTrackRuleChange('adjustments', e.target.value), YES_NO)}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">🔄 Intercambio de Motor</label>
-                                            {renderSelect(trackFormData.rules.engineSwap, (e) => handleTrackRuleChange('engineSwap', e.target.value), YES_NO)}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">⚠️ Penalizaciones (General)</label>
-                                            {renderSelect(trackFormData.rules.penalties, (e) => handleTrackRuleChange('penalties', e.target.value), YES_NO)}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Penalizaciones Específicas */}
-                                <div className={`bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6 ${trackModalTab !== 'reglas' ? 'hidden' : ''}`}>
-                                    <h4 className="text-xl font-bold text-white mb-1">🚦 Penalizaciones Específicas</h4>
-                                    <p className="text-xs text-gray-400 mb-4">Configura el comportamiento de cada tipo de penalización en GT7</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">🔀 Penalización por Atajo</label>
-                                            {renderSelect(trackFormData.rules.penaltyShortcut ?? 'moderate', (e) => handleTrackRuleChange('penaltyShortcut', e.target.value), PENALTY_SHORTCUT_OPTIONS)}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">🧱 Penalización por Contacto con Muro</label>
-                                            {renderSelect(trackFormData.rules.penaltyWall ?? 'on', (e) => handleTrackRuleChange('penaltyWall', e.target.value), ON_OFF_OPTIONS)}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">🏎️ Penalización por Pisar Línea de Box</label>
-                                            {renderSelect(trackFormData.rules.penaltyPitLine ?? 'on', (e) => handleTrackRuleChange('penaltyPitLine', e.target.value), ON_OFF_OPTIONS)}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">💥 Penalización por Golpe a Otro Coche</label>
-                                            {renderSelect(trackFormData.rules.penaltyCarCollision ?? 'on', (e) => handleTrackRuleChange('penaltyCarCollision', e.target.value), ON_OFF_OPTIONS)}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Asistencias de Conducción */}
-                                <div className={`bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6 ${trackModalTab !== 'reglas' ? 'hidden' : ''}`}>
-                                    <h4 className="text-xl font-bold text-white mb-4">🎮 Asistencias de Conducción</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">ABS (Frenos Antibloqueo)</label>
-                                            {renderSelect(trackFormData.rules.abs || trackFormData.rules.drivingAssists?.abs || 'default',
-                                                (e) => handleTrackRuleChange('abs', e.target.value), ABS_OPTIONS)}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">TCS (Control de Tracción)</label>
-                                            {renderSelect(trackFormData.rules.tcs || trackFormData.rules.drivingAssists?.tcs || 'default',
-                                                (e) => handleTrackRuleChange('tcs', e.target.value), ASSIST_OPTIONS)}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">ASM (Control de Estabilidad)</label>
-                                            {renderSelect(trackFormData.rules.asm || trackFormData.rules.drivingAssists?.asm || 'default',
-                                                (e) => handleTrackRuleChange('asm', e.target.value), ASSIST_OPTIONS)}
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">Contravolante</label>
-                                            {renderSelect(trackFormData.rules.counterSteering || trackFormData.rules.drivingAssists?.counterSteering || 'default',
-                                                (e) => handleTrackRuleChange('counterSteering', e.target.value), ASSIST_OPTIONS)}
-                                        </div>
-                                    </div>
-                                </div>
+                                {/* Configuración de sala: mismo editor que el gestor de circuitos */}
+                                {trackModalTab === 'sala' && (
+                                    <RoomConfigEditor reglas={trackFormData.rules} track={trackFormData} onChange={handleTrackRuleChange} />
+                                )}
 
                                 {/* Carros Específicos */}
                                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
@@ -3440,7 +2952,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                 </div>
 
                                 {/* Notas del Circuito */}
-                                <div className={`bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6 ${trackModalTab !== 'reglas' ? 'hidden' : ''}`}>
+                                <div className={`bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6 ${trackModalTab !== 'autos' ? 'hidden' : ''}`}>
                                     <h4 className="text-xl font-bold text-white mb-4">📝 Notas del Circuito</h4>
                                     <textarea
                                         value={trackFormData.rules?.notes || ''}

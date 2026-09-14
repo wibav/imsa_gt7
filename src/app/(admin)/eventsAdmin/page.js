@@ -6,12 +6,14 @@ import ProtectedRoute from "../../components/ProtectedRoute";
 import Image from "next/image";
 import {
     EVENT_STATUSES, EVENT_CATEGORIES, EVENT_FORMATS,
-    STREAMING_PLATFORMS, TYRE_OPTIONS, DAMAGE_OPTIONS, WEATHER_TIME_OPTIONS,
+    STREAMING_PLATFORMS,
     EVENT_TYPES, getDefaultRounds
 } from "../../utils";
 import { validateImageFile, compressImage } from "../../utils/imageCompression";
 import { reorderByPosition } from "../../utils/eventResultsOrder";
 import StandardRoomSection from "../../components/event/StandardRoomSection";
+import RoomConfigEditor from "../../components/championship/RoomConfigEditor";
+import { REGLAS_POR_DEFECTO, normalizarReglas, salaDeEvento, resumenSalaEvento } from "../../utils/roomConfig";
 
 // Identidad estable de fila para la sección Resultados (Bloque 3): generada
 // solo en cliente al crear/normalizar un resultado, nunca persistida (ver
@@ -29,13 +31,9 @@ const makeResultUid = () => (
 // DEFAULTS
 // ============================
 
-const DEFAULT_RULES = {
-    duration: '', laps: '',
-    bop: 'SI', maxPR: null, maxCV: null, adjustments: 'NO', engineSwap: 'NO',
-    damage: 'Graves', penalties: 'SI', shortcutPenalty: 'NO', ghostCar: 'NO',
-    tyreWear: 5, fuelWear: 0, fuelRefillRate: 10, mandatoryTyres: [],
-    mandatoryTyreChange: 'NO', mandatoryPitstops: 0
-};
+// La sala de un evento usa el mismo esquema que la de una carrera de
+// campeonato (utils/roomConfig.js); vueltas y duración siguen aquí.
+const DEFAULT_RULES = { duration: '', laps: '', ...REGLAS_POR_DEFECTO };
 
 const DEFAULT_STREAMING = { casterName: '', hostName: '', url: '', platform: '' };
 const DEFAULT_REGISTRATION = { enabled: false, requiresApproval: false, deadline: '' };
@@ -165,7 +163,9 @@ function EventForm({ event, onSave, onCancel, saving }) {
     const [form, setForm] = useState(() => ({
         ...createNewEvent(1),
         ...event,
-        rules: { ...DEFAULT_RULES, ...(event?.rules || {}) },
+        // Un evento guardado conserva lo que tenía: sin mezclar con los valores
+        // por defecto, lo que nunca se configuró se ve «Sin definir».
+        rules: event?.title ? normalizarReglas(salaDeEvento(event).rules) : { ...DEFAULT_RULES, ...(event?.rules || {}) },
         streaming: { ...DEFAULT_STREAMING, ...(event?.streaming || {}) },
         registration: { ...DEFAULT_REGISTRATION, ...(event?.registration || {}) },
         weather: { ...DEFAULT_WEATHER, ...(event?.weather || {}) },
@@ -193,7 +193,6 @@ function EventForm({ event, onSave, onCancel, saving }) {
     const updateRules = (key, value) => setForm(prev => ({ ...prev, rules: { ...prev.rules, [key]: value } }));
     const updateStreaming = (key, value) => setForm(prev => ({ ...prev, streaming: { ...prev.streaming, [key]: value } }));
     const updateRegistration = (key, value) => setForm(prev => ({ ...prev, registration: { ...prev.registration, [key]: value } }));
-    const updateWeather = (key, value) => setForm(prev => ({ ...prev, weather: { ...prev.weather, [key]: value } }));
 
     // Rounds helpers
     const updateRoundRoom = (roundIdx, roomIdx, key, value) => {
@@ -770,187 +769,14 @@ function EventForm({ event, onSave, onCancel, saving }) {
                 </div>
             </CollapsibleSection>
 
-            {/* ========== SECTION 3: RACE RULES ========== */}
-            <CollapsibleSection title="Reglas de Carrera" icon="⚙️">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {[
-                        { key: 'bop', label: 'Balance of Performance (BOP)' },
-                        { key: 'adjustments', label: 'Ajustes de coche' },
-                        { key: 'engineSwap', label: 'Cambio de motor (Swap)' },
-                        { key: 'penalties', label: 'Penalizaciones del juego' },
-                        { key: 'shortcutPenalty', label: 'Penalización por atajos' },
-                        { key: 'ghostCar', label: 'Coche fantasma' },
-                        { key: 'mandatoryTyreChange', label: 'Cambio de neumáticos obligatorio' }
-                    ].map(rule => (
-                        <div key={rule.key} className="bg-white/5 rounded-lg p-3">
-                            <ToggleSwitch
-                                enabled={form.rules?.[rule.key] === 'SI'}
-                                onChange={(v) => updateRules(rule.key, v ? 'SI' : 'NO')}
-                                label={rule.label}
-                            />
-                        </div>
-                    ))}
-                </div>
-
-                {/* Límites de coche cuando el BoP está desactivado */}
-                {form.rules?.bop === 'NO' && (
-                    <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
-                        <p className="text-sm font-semibold text-orange-300 mb-1">🏎️ Límites del coche (BoP desactivado)</p>
-                        <p className="text-xs text-gray-400 mb-3">Define el tope de rendimiento permitido. Deja vacío para no limitar.</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className={labelCls}>Límite de PR (Puntos de Rendimiento)</label>
-                                <input
-                                    type="number" min={0} step={1}
-                                    className={`${inputCls} text-sm`}
-                                    placeholder="Sin límite"
-                                    value={form.rules?.maxPR ?? ''}
-                                    onChange={(e) => updateRules('maxPR', e.target.value === '' ? null : Number(e.target.value))}
-                                />
-                            </div>
-                            <div>
-                                <label className={labelCls}>Límite de CV (Caballos)</label>
-                                <input
-                                    type="number" min={0} step={1}
-                                    className={`${inputCls} text-sm`}
-                                    placeholder="Sin límite"
-                                    value={form.rules?.maxCV ?? ''}
-                                    onChange={(e) => updateRules('maxCV', e.target.value === '' ? null : Number(e.target.value))}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <div>
-                    <label className={labelCls}>Daños</label>
-                    <div className="flex gap-2">
-                        {DAMAGE_OPTIONS.map(opt => (
-                            <button
-                                key={opt.value}
-                                type="button"
-                                onClick={() => updateRules('damage', opt.value)}
-                                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${form.rules?.damage === opt.value ? 'bg-orange-500 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
-                            >
-                                {opt.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </CollapsibleSection>
-
-            {/* ========== SECTION 4: TYRES & FUEL ========== */}
-            <CollapsibleSection title="Neumáticos y Combustible" icon="🔧">
-                <div>
-                    <label className={labelCls}>
-                        Desgaste de neumáticos: <span className="text-orange-400 font-bold">x{form.rules?.tyreWear ?? 0}</span>
-                    </label>
-                    <div className="flex items-center gap-3">
-                        <input type="range" min={0} max={50} className="flex-1 accent-orange-500" value={form.rules?.tyreWear ?? 0} onChange={(e) => updateRules('tyreWear', Number(e.target.value))} />
-                        <input type="number" min={0} max={50} className="w-16 bg-white/10 border border-white/30 rounded p-1.5 text-white text-sm text-center" value={form.rules?.tyreWear ?? 0} onChange={(e) => updateRules('tyreWear', Number(e.target.value))} />
-                    </div>
-                </div>
-
-                <div>
-                    <label className={labelCls}>
-                        Desgaste de combustible: <span className="text-orange-400 font-bold">x{form.rules?.fuelWear ?? 0}</span>
-                    </label>
-                    <div className="flex items-center gap-3">
-                        <input type="range" min={0} max={50} className="flex-1 accent-orange-500" value={form.rules?.fuelWear ?? 0} onChange={(e) => updateRules('fuelWear', Number(e.target.value))} />
-                        <input type="number" min={0} max={50} className="w-16 bg-white/10 border border-white/30 rounded p-1.5 text-white text-sm text-center" value={form.rules?.fuelWear ?? 0} onChange={(e) => updateRules('fuelWear', Number(e.target.value))} />
-                    </div>
-                </div>
-
-                {Number(form.rules?.fuelWear) > 0 && (
-                    <div>
-                        <label className={labelCls}>
-                            Velocidad de recarga: <span className="text-orange-400 font-bold">{form.rules?.fuelRefillRate ?? 10} L/s</span>
-                        </label>
-                        <div className="flex items-center gap-3">
-                            <input type="range" min={1} max={20} className="flex-1 accent-orange-500" value={form.rules?.fuelRefillRate ?? 10} onChange={(e) => updateRules('fuelRefillRate', Number(e.target.value))} />
-                            <input type="number" min={1} max={20} className="w-16 bg-white/10 border border-white/30 rounded p-1.5 text-white text-sm text-center" value={form.rules?.fuelRefillRate ?? 10} onChange={(e) => updateRules('fuelRefillRate', Number(e.target.value))} />
-                        </div>
-                    </div>
-                )}
-
-                <div>
-                    <label className={labelCls}>Paradas obligatorias en boxes</label>
-                    <div className="flex items-center gap-3">
-                        <input
-                            type="number"
-                            min={0}
-                            max={10}
-                            className="w-24 bg-white/10 border border-white/30 rounded-lg p-2 text-white text-sm text-center"
-                            value={form.rules?.mandatoryPitstops ?? 0}
-                            onChange={(e) => updateRules('mandatoryPitstops', Number(e.target.value))}
-                        />
-                        <span className="text-gray-400 text-sm">parada(s) mínima(s)</span>
-                    </div>
-                </div>
-
-                <div>
-                    <label className={labelCls}>Neumáticos obligatorios</label>
-                    <p className="text-gray-500 text-xs mb-2">Selecciona los compuestos que los pilotos deben usar durante la carrera</p>
-                    <div className="flex flex-wrap gap-2">
-                        {TYRE_OPTIONS.map(t => {
-                            const selected = (form.rules?.mandatoryTyres || []).includes(t.value);
-                            return (
-                                <button
-                                    key={t.value}
-                                    type="button"
-                                    onClick={() => {
-                                        const current = form.rules?.mandatoryTyres || [];
-                                        const updated = selected
-                                            ? current.filter(v => v !== t.value)
-                                            : [...current, t.value];
-                                        updateRules('mandatoryTyres', updated);
-                                    }}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-200 ${selected
-                                        ? 'bg-orange-600 border-orange-500 text-white shadow-md'
-                                        : 'bg-white/5 border-white/20 text-gray-400 hover:border-orange-500/50 hover:text-orange-300'
-                                        }`}
-                                >
-                                    {selected && '✓ '}{t.label}
-                                </button>
-                            );
-                        })}
-                    </div>
-                    {(form.rules?.mandatoryTyres || []).length > 0 && (
-                        <div className="mt-2 flex items-center gap-2">
-                            <span className="text-gray-500 text-xs">{(form.rules?.mandatoryTyres || []).length} seleccionado(s)</span>
-                            <button type="button" onClick={() => updateRules('mandatoryTyres', [])} className="text-red-400 text-xs hover:text-red-300">Limpiar</button>
-                        </div>
-                    )}
-                </div>
-            </CollapsibleSection>
-
-            {/* ========== SECTION 5: WEATHER ========== */}
-            <CollapsibleSection title="Clima" icon="🌦️">
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className={labelCls}>Hora del día</label>
-                        <select className={inputCls} value={form.weather?.timeOfDay || ''} onChange={(e) => updateWeather('timeOfDay', e.target.value)}>
-                            <option value="">Sin especificar</option>
-                            {WEATHER_TIME_OPTIONS.map(t => (
-                                <option key={t} value={t}>{t}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className={labelCls}>
-                            Multiplicador de tiempo: <span className="text-orange-400 font-bold">x{form.weather?.timeMultiplier ?? 1}</span>
-                        </label>
-                        <div className="flex items-center gap-3">
-                            <input type="range" min={1} max={60} className="flex-1 accent-orange-500" value={form.weather?.timeMultiplier ?? 1} onChange={(e) => updateWeather('timeMultiplier', Number(e.target.value))} />
-                            <input type="number" min={1} max={60} className="w-16 bg-white/10 border border-white/30 rounded p-1.5 text-white text-sm text-center" value={form.weather?.timeMultiplier ?? 1} onChange={(e) => updateWeather('timeMultiplier', Number(e.target.value))} />
-                        </div>
-                    </div>
-                </div>
-                <div>
-                    <label className={labelCls}>Slots de clima (presets GT7)</label>
-                    <input type="text" className={inputCls} value={form.weather?.weatherSlots || ''} onChange={(e) => updateWeather('weatherSlots', e.target.value)} placeholder="Ej: S18/C05/R07/R03/C04" />
-                    <p className="text-xs text-gray-500 mt-1">Formato: S=Seco, C=Nublado, R=Lluvia seguido del número de preset</p>
-                </div>
+            {/* ========== SECTION 3: ROOM CONFIG ========== */}
+            <CollapsibleSection title="Configuración de sala" icon="🎮">
+                <RoomConfigEditor
+                    reglas={form.rules || {}}
+                    track={{ victoria: salaDeEvento(form).victoria }}
+                    textoOrigenVictoria="vueltas o duración, arriba"
+                    onChange={updateRules}
+                />
             </CollapsibleSection>
 
             {/* ========== SECTION 6: ALLOWED CARS ========== */}
@@ -1731,14 +1557,11 @@ export default function EventsAdminPage() {
                                                     </div>
 
                                                     {/* Quick info pills */}
-                                                    {(event.rules?.tyreWear > 0 || event.rules?.fuelWear > 0 || event.weather?.timeOfDay || event.rules?.mandatoryTyreChange === 'SI' || (event.rules?.mandatoryPitstops || 0) > 0) && (
+                                                    {resumenSalaEvento(event).length > 0 && (
                                                         <div className="flex flex-wrap gap-1.5 pt-1">
-                                                            {event.rules?.tyreWear > 0 && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">🔧 x{event.rules.tyreWear}</span>}
-                                                            {event.rules?.fuelWear > 0 && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">⛽ x{event.rules.fuelWear}</span>}
-                                                            {event.weather?.timeOfDay && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">🌦️ {event.weather.timeOfDay}</span>}
-                                                            {(event.rules?.mandatoryTyres?.length > 0 || event.rules?.mandatoryTyre) && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">🛞 {event.rules.mandatoryTyres?.join(', ') || event.rules.mandatoryTyre}</span>}
-                                                            {event.rules?.mandatoryTyreChange === 'SI' && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">🔄 Cambio Oblig.</span>}
-                                                            {(event.rules?.mandatoryPitstops || 0) > 0 && <span className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">🏁 {event.rules.mandatoryPitstops} Paradas</span>}
+                                                            {resumenSalaEvento(event).map(item => (
+                                                                <span key={item.id} className="text-xs bg-white/5 text-gray-400 px-2 py-0.5 rounded">{item.icono} {item.texto}</span>
+                                                            ))}
                                                         </div>
                                                     )}
 

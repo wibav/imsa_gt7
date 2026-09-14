@@ -4,56 +4,10 @@ import ImageSpecHint from '../common/ImageSpecHint';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { FirebaseService } from '../../services/firebaseService';
-import {
-    TYRE_OPTIONS,
-    DAMAGE_OPTIONS,
-    START_TIME_OPTIONS,
-    TIME_MULTIPLIER_OPTIONS,
-    WEATHER_CONDITION_OPTIONS,
-    WEATHER_TRANSITION_OPTIONS,
-    DEFAULT_SPRINT_POINTS,
-    WEATHER_TIME_OPTIONS,
-} from '../../utils/constants';
+import { DEFAULT_SPRINT_POINTS } from '../../utils/constants';
+import { REGLAS_POR_DEFECTO, normalizarReglas } from '../../utils/roomConfig';
+import RoomConfigEditor from './RoomConfigEditor';
 import { validateImageFile, compressImage } from '../../utils/imageCompression';
-
-// ─── Constantes locales ──────────────────────────────────────────────────────
-
-const YES_NO = [
-    { value: 'yes', label: 'Sí' },
-    { value: 'no', label: 'No' },
-];
-
-const WEATHER_OPTIONS = [
-    { value: 'clear', label: 'Despejado' },
-    { value: 'rain', label: 'Lluvia' },
-    { value: 'variable', label: 'Variable' },
-];
-
-const TIME_OPTIONS = WEATHER_TIME_OPTIONS;
-
-const ASSIST_OPTIONS = [
-    { value: 'default', label: 'Predeterminado' },
-    { value: 'off', label: 'Desactivado' },
-    { value: 'on', label: 'Activado' },
-];
-
-const ABS_OPTIONS = [
-    { value: 'default', label: 'Predeterminado' },
-    { value: 'off', label: 'Desactivado' },
-    { value: 'weak', label: 'Débil' },
-];
-
-const PENALTY_SHORTCUT_OPTIONS = [
-    { value: 'off', label: 'Desactivado' },
-    { value: 'weak', label: 'Leve' },
-    { value: 'moderate', label: 'Moderado' },
-    { value: 'strong', label: 'Fuerte' },
-];
-
-const ON_OFF_OPTIONS = [
-    { value: 'on', label: 'Activado' },
-    { value: 'off', label: 'Desactivado' },
-];
 
 // ─── Valor por defecto de una pista vacía ────────────────────────────────────
 
@@ -68,40 +22,7 @@ export function getEmptyTrackData(tracksCount = 0, firstCategory = '') {
         laps: 10,
         duration: 60,
         sprintLaps: 5,
-        rules: {
-            weather: 'clear',
-            timeOfDay: '',
-            weatherSlots: [],
-            timeMultiplier: 1,
-            startTime: '',
-            tireWear: 5,
-            fuelConsumption: 1,
-            fuelRefillRate: 10,
-            mandatoryTyre: [],
-            mandatoryPitStops: 0,
-            mandatoryCompoundChanges: false,
-            mechanicalDamage: 'No',
-            bop: 'yes',
-            maxPR: null,
-            maxCV: null,
-            adjustments: 'no',
-            engineSwap: 'no',
-            penalties: 'yes',
-            penaltyShortcut: 'moderate',
-            penaltyWall: 'on',
-            penaltyPitLine: 'on',
-            penaltyCarCollision: 'on',
-            abs: 'default',
-            tcs: 'no',
-            asm: 'no',
-            counterSteering: 'no',
-            qualyDuration: 10,
-            qualySlipstream: false,
-            raceSlipstream: true,
-            qualyTireWear: false,
-            startingFuel: 100,
-            notes: '',
-        },
+        rules: { ...REGLAS_POR_DEFECTO },
         specificCars: false,
         allowedCars: [],
     };
@@ -169,10 +90,10 @@ export default function TrackFormModal({ track, championship, onSave, onClose })
             return {
                 ...getEmptyTrackData(0, categories[0] || ''),
                 ...track,
-                rules: {
-                    ...getEmptyTrackData().rules,
-                    ...(track.rules || {}),
-                },
+                // Sin mezclar con los valores por defecto: en una carrera antigua,
+                // lo que el organizador nunca eligió se queda «Sin definir» en vez
+                // de aparecer relleno con algo que no configuró.
+                rules: normalizarReglas(track.rules || {}),
             };
         }
         return getEmptyTrackData(0, categories[0] || '');
@@ -238,9 +159,8 @@ export default function TrackFormModal({ track, championship, onSave, onClose })
 
     const TABS = [
         { id: 'info', label: '📍 Circuito' },
-        { id: 'qualy', label: '🎯 Qualy' },
-        { id: 'carrera', label: '⚙️ Carrera' },
-        { id: 'reglas', label: '🚦 Reglas' },
+        { id: 'sala', label: '🎮 Configuración de sala' },
+        { id: 'autos', label: '🚗 Autos y notas' },
     ];
 
     return (
@@ -471,383 +391,14 @@ export default function TrackFormModal({ track, championship, onSave, onClose })
                         </>
                     )}
 
-                    {/* ══════════════ TAB: Qualy ══════════════ */}
-                    {tab === 'qualy' && (
-                        <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
-                            <h4 className="text-xl font-bold text-white mb-1">🎯 Clasificación (Qualy)</h4>
-                            <p className="text-xs text-gray-400 mb-4">Configuración específica para la sesión de clasificación</p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">⏱️ Duración (minutos) *</label>
-                                    <input
-                                        type="number" min="1"
-                                        value={form.rules.qualyDuration ?? 10}
-                                        onChange={e => setRule('qualyDuration', parseInt(e.target.value) || 10)}
-                                        className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                        placeholder="Ej: 10"
-                                    />
-                                    <p className="text-xs text-gray-400 mt-1">La clasificación en GT7 es siempre por tiempo, no por vueltas</p>
-                                </div>
-                                <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300">💨 Rebufo (Slipstream)</label>
-                                        <p className="text-xs text-gray-400">Efecto de succión entre coches en qualy</p>
-                                    </div>
-                                    <Toggle
-                                        checked={form.rules.qualySlipstream ?? false}
-                                        onChange={() => setRule('qualySlipstream', !(form.rules.qualySlipstream ?? false))}
-                                    />
-                                </div>
-                                <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300">🛞 Desgaste de Neumáticos</label>
-                                        <p className="text-xs text-gray-400">Activar desgaste durante la qualy</p>
-                                    </div>
-                                    <Toggle
-                                        checked={form.rules.qualyTireWear ?? false}
-                                        onChange={() => setRule('qualyTireWear', !(form.rules.qualyTireWear ?? false))}
-                                    />
-                                </div>
-                            </div>
-                        </div>
+                    {/* ══════════════ TAB: Configuración de sala ══════════════ */}
+                    {tab === 'sala' && (
+                        <RoomConfigEditor reglas={form.rules} track={form} onChange={setRule} />
                     )}
 
-                    {/* ══════════════ TAB: Carrera ══════════════ */}
-                    {tab === 'carrera' && (
+                    {/* ══════════════ TAB: Autos y notas ══════════════ */}
+                    {tab === 'autos' && (
                         <>
-                            <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
-                                <h4 className="text-xl font-bold text-white mb-1">⚙️ Reglas de Carrera</h4>
-                                <p className="text-xs text-gray-400 mb-4">Configuración para la sesión de carrera</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-3">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300">💨 Rebufo (Slipstream)</label>
-                                            <p className="text-xs text-gray-400">Efecto de succión en carrera</p>
-                                        </div>
-                                        <Toggle
-                                            checked={form.rules.raceSlipstream ?? true}
-                                            onChange={() => setRule('raceSlipstream', !(form.rules.raceSlipstream ?? true))}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">⛽ Combustible Inicial (%)</label>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="range" min="0" max="100" step="5"
-                                                value={form.rules.startingFuel ?? 100}
-                                                onChange={e => setRule('startingFuel', parseInt(e.target.value))}
-                                                className="flex-1"
-                                            />
-                                            <span className="text-white font-medium w-12">{form.rules.startingFuel ?? 100}%</span>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">🌤️ Clima</label>
-                                        <RuleSelect
-                                            value={form.rules.weather}
-                                            onChange={e => setRule('weather', e.target.value)}
-                                            options={WEATHER_OPTIONS}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">🕐 Hora del Día</label>
-                                        <select
-                                            value={form.rules.timeOfDay || ''}
-                                            onChange={e => setRule('timeOfDay', e.target.value)}
-                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                        >
-                                            <option value="" className="bg-slate-800">Sin especificar</option>
-                                            {WEATHER_TIME_OPTIONS.map(t => (
-                                                <option key={t} value={t} className="bg-slate-800">{t}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">⏰ Hora de Inicio</label>
-                                        <select
-                                            value={form.rules.startTime || ''}
-                                            onChange={e => setRule('startTime', e.target.value)}
-                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                        >
-                                            {START_TIME_OPTIONS.map(opt => (
-                                                <option key={opt.value} value={opt.value} className="bg-slate-800">{opt.label}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">⏩ Velocidad del Tiempo</label>
-                                        <select
-                                            value={form.rules.timeMultiplier ?? 1}
-                                            onChange={e => setRule('timeMultiplier', parseInt(e.target.value))}
-                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                        >
-                                            {TIME_MULTIPLIER_OPTIONS.map(opt => (
-                                                <option key={opt.value} value={opt.value} className="bg-slate-800">{opt.label}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    {/* Clima dinámico */}
-                                    {form.rules.weather === 'variable' && (
-                                        <div className="md:col-span-2">
-                                            <label className="block text-sm font-medium text-gray-300 mb-3">🌦️ Slots de Clima Dinámico</label>
-                                            {(form.rules.weatherSlots || []).map((slot, idx) => (
-                                                <div key={idx} className="flex items-center gap-2 mb-2">
-                                                    <span className="text-white text-xs w-8">#{idx + 1}</span>
-                                                    <select
-                                                        value={slot.weather}
-                                                        onChange={e => {
-                                                            const slots = [...(form.rules.weatherSlots || [])];
-                                                            slots[idx] = { ...slots[idx], weather: e.target.value };
-                                                            setRule('weatherSlots', slots);
-                                                        }}
-                                                        className="flex-1 px-3 py-1.5 bg-white/10 border border-white/20 rounded text-white text-sm"
-                                                    >
-                                                        {WEATHER_CONDITION_OPTIONS.map(o => (
-                                                            <option key={o.value} value={o.value} className="bg-slate-800">{o.label}</option>
-                                                        ))}
-                                                    </select>
-                                                    <select
-                                                        value={slot.transition || 'gradual'}
-                                                        onChange={e => {
-                                                            const slots = [...(form.rules.weatherSlots || [])];
-                                                            slots[idx] = { ...slots[idx], transition: e.target.value };
-                                                            setRule('weatherSlots', slots);
-                                                        }}
-                                                        className="w-36 px-3 py-1.5 bg-white/10 border border-white/20 rounded text-white text-sm"
-                                                    >
-                                                        {WEATHER_TRANSITION_OPTIONS.map(o => (
-                                                            <option key={o.value} value={o.value} className="bg-slate-800">{o.label}</option>
-                                                        ))}
-                                                    </select>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setRule('weatherSlots', (form.rules.weatherSlots || []).filter((_, i) => i !== idx))}
-                                                        className="text-red-400 hover:text-red-300 text-sm"
-                                                    >🗑</button>
-                                                </div>
-                                            ))}
-                                            <button
-                                                type="button"
-                                                onClick={() => setRule('weatherSlots', [...(form.rules.weatherSlots || []), { weather: 'rain', transition: 'gradual' }])}
-                                                className="text-sm text-orange-400 hover:text-orange-300 mt-1"
-                                            >
-                                                ➕ Agregar slot de clima
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {/* Desgastes */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">🛞 Desgaste de Neumáticos</label>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="range" min="0" max="50"
-                                                value={typeof form.rules.tireWear === 'number' ? form.rules.tireWear : 5}
-                                                onChange={e => setRule('tireWear', parseInt(e.target.value))}
-                                                className="flex-1"
-                                            />
-                                            <span className="text-white font-medium w-12">x{typeof form.rules.tireWear === 'number' ? form.rules.tireWear : form.rules.tireWear}</span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">⛽ Consumo de Combustible</label>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="range" min="0" max="50"
-                                                value={typeof form.rules.fuelConsumption === 'number' ? form.rules.fuelConsumption : 1}
-                                                onChange={e => setRule('fuelConsumption', parseInt(e.target.value))}
-                                                className="flex-1"
-                                            />
-                                            <span className="text-white font-medium w-12">x{typeof form.rules.fuelConsumption === 'number' ? form.rules.fuelConsumption : form.rules.fuelConsumption}</span>
-                                        </div>
-                                    </div>
-
-                                    {(typeof form.rules.fuelConsumption === 'number' ? form.rules.fuelConsumption > 0 : form.rules.fuelConsumption === 'yes') && (
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">🚰 Velocidad de Recarga</label>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="range" min="1" max="20"
-                                                    value={form.rules.fuelRefillRate || 10}
-                                                    onChange={e => setRule('fuelRefillRate', parseInt(e.target.value))}
-                                                    className="flex-1"
-                                                />
-                                                <span className="text-white font-medium w-16">{form.rules.fuelRefillRate || 10} L/s</span>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">🛣️ Pit Stops Obligatorios</label>
-                                        <input
-                                            type="number" min="0" max="10"
-                                            value={form.rules.mandatoryPitStops ?? 0}
-                                            onChange={e => setRule('mandatoryPitStops', parseInt(e.target.value) || 0)}
-                                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                        />
-                                        <p className="text-xs text-gray-400 mt-1">0 = sin obligación de parada</p>
-                                    </div>
-
-                                    {(form.rules.mandatoryPitStops ?? 0) > 0 && (
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-300">🔄 Cambio de Compuesto Obligatorio</label>
-                                                <p className="text-xs text-gray-400">Debe usar al menos 2 compuestos distintos</p>
-                                            </div>
-                                            <Toggle
-                                                checked={form.rules.mandatoryCompoundChanges ?? false}
-                                                onChange={() => setRule('mandatoryCompoundChanges', !(form.rules.mandatoryCompoundChanges ?? false))}
-                                            />
-                                        </div>
-                                    )}
-
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-gray-300 mb-3">🏁 Neumáticos Obligatorios</label>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                            {TYRE_OPTIONS.map(tyre => {
-                                                const selected = Array.isArray(form.rules.mandatoryTyre) && form.rules.mandatoryTyre.includes(tyre.value);
-                                                return (
-                                                    <label
-                                                        key={tyre.value}
-                                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer transition-all ${selected
-                                                            ? 'bg-orange-600/30 border-orange-500 text-white'
-                                                            : 'bg-white/5 border-white/20 text-gray-300 hover:bg-white/10'
-                                                            }`}
-                                                    >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={selected}
-                                                            onChange={e => {
-                                                                const cur = Array.isArray(form.rules.mandatoryTyre) ? form.rules.mandatoryTyre : [];
-                                                                setRule('mandatoryTyre', e.target.checked ? [...cur, tyre.value] : cur.filter(t => t !== tyre.value));
-                                                            }}
-                                                            className="w-4 h-4 rounded border-white/30 bg-white/10 text-orange-600"
-                                                        />
-                                                        <span className="font-medium text-sm">{tyre.label}</span>
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    )}
-
-                    {/* ══════════════ TAB: Reglas ══════════════ */}
-                    {tab === 'reglas' && (
-                        <>
-                            <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
-                                <h4 className="text-xl font-bold text-white mb-1">⚙️ Configuración de Carrera</h4>
-                                <p className="text-xs text-gray-400 mb-4">Parámetros adicionales de simulación</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">🔧 Daños</label>
-                                        <RuleSelect
-                                            value={form.rules.mechanicalDamage}
-                                            onChange={e => setRule('mechanicalDamage', e.target.value)}
-                                            options={DAMAGE_OPTIONS}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">⚖️ Balance de Prestaciones (BoP)</label>
-                                        <RuleSelect value={form.rules.bop} onChange={e => setRule('bop', e.target.value)} options={YES_NO} />
-                                    </div>
-
-                                    {/* Límites de coche cuando el BoP está desactivado */}
-                                    {form.rules.bop === 'no' && (
-                                        <div className="md:col-span-2 bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
-                                            <p className="text-sm font-semibold text-orange-300 mb-1">🏎️ Límites del coche (BoP desactivado)</p>
-                                            <p className="text-xs text-gray-400 mb-3">Define el tope de rendimiento permitido. Deja vacío para no limitar.</p>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-300 mb-1">Límite de PR (Puntos de Rendimiento)</label>
-                                                    <input
-                                                        type="number" min="0" step="1"
-                                                        value={form.rules.maxPR ?? ''}
-                                                        onChange={e => setRule('maxPR', e.target.value === '' ? null : Number(e.target.value))}
-                                                        placeholder="Sin límite"
-                                                        className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs font-medium text-gray-300 mb-1">Límite de CV (Caballos)</label>
-                                                    <input
-                                                        type="number" min="0" step="1"
-                                                        value={form.rules.maxCV ?? ''}
-                                                        onChange={e => setRule('maxCV', e.target.value === '' ? null : Number(e.target.value))}
-                                                        placeholder="Sin límite"
-                                                        className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">🔧 Ajustes del Vehículo</label>
-                                        <RuleSelect value={form.rules.adjustments} onChange={e => setRule('adjustments', e.target.value)} options={YES_NO} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">🔄 Intercambio de Motor</label>
-                                        <RuleSelect value={form.rules.engineSwap} onChange={e => setRule('engineSwap', e.target.value)} options={YES_NO} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">⚠️ Penalizaciones (General)</label>
-                                        <RuleSelect value={form.rules.penalties} onChange={e => setRule('penalties', e.target.value)} options={YES_NO} />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
-                                <h4 className="text-xl font-bold text-white mb-1">🚦 Penalizaciones Específicas</h4>
-                                <p className="text-xs text-gray-400 mb-4">Comportamiento de cada tipo de penalización en GT7</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">🔀 Penalización por Atajo</label>
-                                        <RuleSelect value={form.rules.penaltyShortcut ?? 'moderate'} onChange={e => setRule('penaltyShortcut', e.target.value)} options={PENALTY_SHORTCUT_OPTIONS} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">🧱 Penalización por Contacto con Muro</label>
-                                        <RuleSelect value={form.rules.penaltyWall ?? 'on'} onChange={e => setRule('penaltyWall', e.target.value)} options={ON_OFF_OPTIONS} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">🏎️ Penalización por Pisar Línea de Box</label>
-                                        <RuleSelect value={form.rules.penaltyPitLine ?? 'on'} onChange={e => setRule('penaltyPitLine', e.target.value)} options={ON_OFF_OPTIONS} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">💥 Penalización por Golpe a Otro Coche</label>
-                                        <RuleSelect value={form.rules.penaltyCarCollision ?? 'on'} onChange={e => setRule('penaltyCarCollision', e.target.value)} options={ON_OFF_OPTIONS} />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
-                                <h4 className="text-xl font-bold text-white mb-4">🎮 Asistencias de Conducción</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">ABS (Frenos Antibloqueo)</label>
-                                        <RuleSelect value={form.rules.abs || 'default'} onChange={e => setRule('abs', e.target.value)} options={ABS_OPTIONS} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">TCS (Control de Tracción)</label>
-                                        <RuleSelect value={form.rules.tcs || 'default'} onChange={e => setRule('tcs', e.target.value)} options={ASSIST_OPTIONS} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">ASM (Control de Estabilidad)</label>
-                                        <RuleSelect value={form.rules.asm || 'default'} onChange={e => setRule('asm', e.target.value)} options={ASSIST_OPTIONS} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">Contravolante</label>
-                                        <RuleSelect value={form.rules.counterSteering || 'default'} onChange={e => setRule('counterSteering', e.target.value)} options={ASSIST_OPTIONS} />
-                                    </div>
-                                </div>
-                            </div>
-
                             {/* Carros específicos */}
                             <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-lg p-6">
                                 <div className="flex items-center justify-between mb-4">
