@@ -1599,7 +1599,7 @@ def asignar_autos_campeonato(db, champ_ref, champ: dict, dry_run: bool = False, 
     cut = champ.get('carUsageTracking') or {}
     objetivo = min(_AUTOS_AUTOASIGNADOS, int(cut.get('maxCarsPerDriver') or _AUTOS_AUTOASIGNADOS))
     permitidos = _autos_permitidos(db, champ)
-    resumen = {'asignados': {}, 'sinInscripcion': [], 'sinCatalogo': not permitidos, 'objetivo': objetivo}
+    resumen = {'asignados': {}, 'sinInscripcion': [], 'sinCatalogo': not permitidos, 'objetivo': objetivo, 'revisados': 0}
     if not permitidos:
         return resumen
 
@@ -1623,6 +1623,7 @@ def asignar_autos_campeonato(db, champ_ref, champ: dict, dry_run: bool = False, 
     vistos = set()
     for div in champ_ref.collection('divisions').stream():
         for nombre in (div.to_dict() or {}).get('drivers') or []:
+            resumen['revisados'] += 1
             k = clave(nombre)
             piloto = next((p for p in pilotos
                            if any(v and clave(v) == k for v in (p.get('gt7Id'), p.get('psnId'), p.get('name')))), None)
@@ -1698,8 +1699,10 @@ def auto_assign_declared_cars(event: scheduler_fn.ScheduledEvent) -> None:
             for piloto, a in resumen['asignados'].items():
                 previos = f' (ya tenía: {", ".join(a["antes"])})' if a['antes'] else ''
                 lineas.append(f'• {piloto}: {", ".join(a["nuevos"])}{previos}')
+        elif resumen['revisados'] == 0:
+            lineas.append('No hay pilotos asignados a divisiones, así que no se asignó ningún auto.')
         else:
-            lineas.append('Todos los pilotos con división tenían sus autos declarados.')
+            lineas.append(f'Los {resumen["revisados"]} pilotos con división tenían sus autos declarados.')
         if resumen['sinInscripcion']:
             lineas.append(f'⚠️ Sin inscripción que cuadre (no se les asignó nada): {", ".join(resumen["sinInscripcion"])}')
         _send_telegram_message('\n'.join(lineas))
