@@ -13,7 +13,7 @@ import urllib.error
 import urllib.request
 from io import BytesIO
 
-from firebase_functions import firestore_fn, https_fn
+from firebase_functions import firestore_fn, https_fn, scheduler_fn
 from PIL import Image, ImageEnhance, ImageFilter, UnidentifiedImageError
 import vtracer
 
@@ -1160,6 +1160,158 @@ def _is_youtube_url(url: str) -> bool:
     return 'youtube.com' in url or 'youtu.be' in url
 
 
+# Sin este contexto Gemini juzgaba con un criterio genérico de sim racing y
+# sugería una severidad «leve/moderada/grave» que no correspondía a ninguna
+# sanción del campeonato. Los topes acotan el coste por llamada: el
+# reglamento del campeonato admite hasta 100 KB y el de la organización ronda
+# los 20 KB en texto.
+_CTX_REGLAMENTO_CAMPEONATO_MAX = 30_000
+_CTX_REGLAMENTO_ORG_MAX = 30_000
+_CTX_HISTORIAL_MAX = 15
+
+# Ajustes de sala que cambian la valoración de un incidente (p. ej. si el
+# juego ya penalizó un atajo, o si los fantasmas estaban activos).
+_SALA_RELEVANTE = {
+    'penaltyShortcut': 'Penalización por tomar atajos',
+    'shortcutPenalty': 'Penalización por tomar atajos',
+    'penaltyWall': 'Penalización por choque contra muros',
+    'penaltyCarCollision': 'Penalización por choque con autos',
+    'penaltyPitLine': 'Penalización por cruzar la línea de boxes',
+    'ghostCar': 'Fantasmas durante la carrera',
+    'flagRules': 'Reglas de banderas',
+    'mechanicalDamage': 'Daño mecánico',
+    'damage': 'Daño mecánico',
+    'visibleDamage': 'Daños visibles',
+    'startType': 'Tipo de salida',
+}
+
+
+def _html_a_texto(html_text: str) -> str:
+    import html as _html
+    t = re.sub(r'<\s*(br|/p|/li|/h3|/h4)\s*/?>', '\n', html_text or '', flags=re.I)
+    t = re.sub(r'<li[^>]*>', '- ', t, flags=re.I)
+    t = re.sub(r'<[^>]+>', '', t)
+    t = _html.unescape(t)
+    return re.sub(r'\n{3,}', '\n\n', t).strip()
+
+
+def _recortar_contexto(texto: str, maximo: int) -> tuple[str, bool]:
+    if len(texto) <= maximo:
+        return texto, False
+    return texto[:maximo] + '\n[… reglamento recortado por longitud …]', True
+
+
+def _reglamento_org_a_texto(reglamento: dict) -> str:
+    lineas = []
+    for i, sec in enumerate((reglamento or {}).get('sections') or [], start=1):
+        lineas.append(f'## {i}. {sec.get("title") or ""}')
+        for j, bloque in enumerate(sec.get('content') or [], start=1):
+            if bloque.get('subtitle'):
+                lineas.append(f'### {i}.{j} {bloque["subtitle"]}')
+            for k, item in enumerate(bloque.get('items') or [], start=1):
+                texto = item if isinstance(item, str) else json.dumps(item, ensure_ascii=False)
+                lineas.append(f'{i}.{j}.{k} {texto}')
+    return '\n'.join(lineas).strip()
+
+
+def _contexto_reclamacion(db, champ_ref, champ: dict, org: dict, claim: dict, accused_names: list[str]) -> tuple[list[str], dict]:
+    """Líneas de contexto normativo para el prompt y un resumen de qué se usó
+    (se devuelve al comisario para que sepa en qué se basa la sugerencia)."""
+    lineas: list[str] = []
+    usado = {'reglamentoCampeonato': False, 'reglamentoOrganizacion': False,
+             'sanciones': 0, 'historial': {}, 'salaCarrera': False, 'recortado': False}
+
+    reg_champ = champ.get('regulations') or ''
+    if reg_champ.strip():
+        texto = _html_a_texto(reg_champ) if champ.get('regulationsFormat') == 'html' else reg_champ.strip()
+        texto, rec = _recortar_contexto(texto, _CTX_REGLAMENTO_CAMPEONATO_MAX)
+        usado['reglamentoCampeonato'] = True
+        usado['recortado'] = usado['recortado'] or rec
+        lineas += ['', '=== REGLAMENTO DEL CAMPEONATO (manda sobre el de la organización) ===', texto]
+
+    texto_org = _reglamento_org_a_texto(org.get('reglamento') or {})
+    if texto_org:
+        texto_org, rec = _recortar_contexto(texto_org, _CTX_REGLAMENTO_ORG_MAX)
+        usado['reglamentoOrganizacion'] = True
+        usado['recortado'] = usado['recortado'] or rec
+        lineas += ['', '=== REGLAMENTO GENERAL DE LA ORGANIZACIÓN ===', texto_org]
+
+    cfg = champ.get('penaltiesConfig') or {}
+    presets = [p for p in (cfg.get('presets') or []) if p.get('active', True) and p.get('id')]
+    if presets:
+        usado['sanciones'] = len(presets)
+        lineas += ['', '=== CATÁLOGO DE SANCIONES DEL CAMPEONATO (usa su "id" en presetId) ===']
+        for p in presets:
+            efectos = []
+            if p.get('points'):
+                efectos.append(f'-{p["points"]} puntos de campeonato')
+            if p.get('warningPoints'):
+                efectos.append(f'+{p["warningPoints"]} puntos de amonestación')
+            if p.get('timeSeconds'):
+                efectos.append(f'+{p["timeSeconds"]} s')
+            if p.get('type') == 'disqualification':
+                efectos.append('descalificación')
+            lineas.append(f'- id="{p["id"]}" · {p.get("name") or ""}: {p.get("description") or ""}'
+                          f' [{", ".join(efectos) or "sin efecto en puntos"}]')
+    if cfg.get('warningThreshold'):
+        lineas.append(f'Umbrales: al acumular {cfg["warningThreshold"]} puntos de amonestación se restan '
+                      f'{cfg.get("autoPointsPenalty") or 10} puntos automáticamente'
+                      + (f'; con {cfg["autoDisqualifyThreshold"]} hay descalificación.' if cfg.get('autoDisqualifyThreshold') else '.'))
+
+    if accused_names:
+        lineas += ['', '=== HISTORIAL DE SANCIONES DEL/LOS ACUSADO(S) EN ESTE CAMPEONATO ===']
+        for nombre in accused_names:
+            previas = []
+            for snap in champ_ref.collection('penalties').where('driverName', '==', nombre).stream():
+                pen = snap.to_dict() or {}
+                if pen.get('status') == 'revoked' or pen.get('claimId') == claim.get('id'):
+                    continue
+                previas.append(pen)
+            amonestacion = sum(int(p.get('warningPoints') or 0) for p in previas)
+            usado['historial'][nombre] = {'sanciones': len(previas), 'amonestacion': amonestacion}
+            if not previas:
+                lineas.append(f'{nombre}: sin sanciones previas.')
+                continue
+            previas.sort(key=lambda p: p.get('round') or 0)
+            detalle = '; '.join(
+                f'R{p.get("round") or "?"} {p.get("name") or p.get("type") or "sanción"}'
+                for p in previas[-_CTX_HISTORIAL_MAX:]
+            )
+            lineas.append(f'{nombre}: {len(previas)} sanción(es), {amonestacion} puntos de amonestación acumulados. {detalle}')
+
+    track_id = claim.get('trackId')
+    if track_id:
+        track_snap = champ_ref.collection('tracks').document(str(track_id)).get()
+        reglas = (track_snap.to_dict() or {}).get('rules') or {} if track_snap.exists else {}
+        vistos = set()
+        sala = []
+        for clave, etiqueta in _SALA_RELEVANTE.items():
+            if clave in reglas and reglas[clave] not in (None, '') and etiqueta not in vistos:
+                vistos.add(etiqueta)
+                sala.append(f'- {etiqueta}: {reglas[clave]}')
+        if sala:
+            usado['salaCarrera'] = True
+            lineas += ['', '=== CONFIGURACIÓN DE SALA DE ESA CARRERA (lo que el propio juego ya penaliza) ==='] + sala
+
+    return lineas, usado
+
+
+_RESPUESTA_SCHEMA = {
+    'type': 'OBJECT',
+    'properties': {
+        'observacion': {'type': 'STRING'},
+        'valoracion': {'type': 'STRING', 'enum': ['incidente_de_carrera', 'responsabilidad_del_acusado',
+                                                  'responsabilidad_del_reclamante', 'no_concluyente']},
+        'decision': {'type': 'STRING', 'enum': ['aceptar', 'rechazar']},
+        'presetId': {'type': 'STRING', 'nullable': True},
+        'articulos': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
+        'justificacion': {'type': 'STRING'},
+        'resolucion': {'type': 'STRING'},
+    },
+    'required': ['observacion', 'valoracion', 'decision', 'articulos', 'justificacion', 'resolucion'],
+}
+
+
 @https_fn.on_request(region='us-central1', secrets=['GEMINI_API_KEY'], timeout_sec=120)
 def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
     if req.method == 'OPTIONS':
@@ -1275,28 +1427,44 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
             'skippedUrls': skipped_urls,
         }, 422)
 
-    accused = ', '.join(claim.get('accusedNames') or ([claim.get('accusedName')] if claim.get('accusedName') else []))
+    accused_list = claim.get('accusedNames') or ([claim.get('accusedName')] if claim.get('accusedName') else [])
+    accused = ', '.join(accused_list)
+    claim['id'] = claim_id
+    contexto, contexto_usado = _contexto_reclamacion(db, champ_ref, champ, org, claim, accused_list)
+    ids_validos = {p.get('id') for p in ((champ.get('penaltiesConfig') or {}).get('presets') or [])
+                   if p.get('active', True) and p.get('id')}
+
     prompt_lines = [
         'Eres un asistente para comisarios de una liga de sim racing de Gran Turismo 7. '
         'Analiza el/los video(s) del incidente reportado y da una SUGERENCIA de resolución — '
         'no un fallo definitivo, la decisión final la toma siempre el comisario humano.',
+        'Básate SOLO en el reglamento, el catálogo de sanciones, el historial y la configuración de sala '
+        'que se incluyen abajo. No inventes normas ni sanciones que no estén ahí. Si el reglamento no cubre '
+        'el caso, dilo en la justificación y deja "articulos" vacío.',
         '',
+        '=== RECLAMACIÓN ===',
         f'Reclamante: {claim.get("reporterName") or "?"}',
-        f'Piloto(s) infractor(es): {accused or "?"}',
+        f'Piloto(s) acusado(s): {accused or "?"}',
         f'Carrera: {claim.get("trackName") or "?"} (ronda {claim.get("round") or "?"})',
     ]
     if claim.get('lap'):
         prompt_lines.append(f'Vuelta reportada: {claim["lap"]}')
     if claim.get('minute'):
         prompt_lines.append(f'Minuto reportado: {claim["minute"]}')
+    prompt_lines.append(f'Descripción del reclamante: {claim.get("description") or ""}')
+    prompt_lines += contexto
     prompt_lines += [
-        f'Descripción del reclamante: {claim.get("description") or ""}',
         '',
-        'Responde en español, en máximo 150 palabras, con este formato:',
-        '1) Qué se observa en el video (momento aproximado del incidente).',
-        '2) Si parece un incidente de carrera, error de un piloto, o conducción peligrosa/evitable.',
-        '3) Sugerencia de resolución (aceptar o rechazar la reclamación) y, si aplica, '
-        'severidad orientativa (leve/moderada/grave).',
+        '=== CÓMO RESPONDER ===',
+        'Responde en español con el JSON pedido:',
+        '- observacion: qué se ve en el video y en qué momento aproximado (máx. 60 palabras).',
+        '- valoracion: incidente de carrera, responsabilidad del acusado, del reclamante, o no concluyente.',
+        '- decision: aceptar o rechazar la reclamación.',
+        '- presetId: el id EXACTO de la sanción del catálogo que corresponde, o null si se rechaza o ninguna encaja. '
+        'Ten en cuenta la reincidencia del historial y lo que ya penalizó el juego según la sala.',
+        '- articulos: los apartados del reglamento en que te basas, citando su numeración o título tal cual aparecen.',
+        '- justificacion: por qué, relacionando lo observado con esos artículos (máx. 80 palabras).',
+        '- resolucion: texto breve y neutral listo para publicar como resolución (máx. 60 palabras).',
     ]
     prompt = '\n'.join(prompt_lines)
 
@@ -1310,7 +1478,10 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
         f'https://generativelanguage.googleapis.com/v1beta/models/{_GEMINI_MODEL}:generateContent'
         f'?key={api_key}'
     )
-    payload = json.dumps({'contents': [{'parts': parts}]}).encode('utf-8')
+    payload = json.dumps({
+        'contents': [{'parts': parts}],
+        'generationConfig': {'responseMimeType': 'application/json', 'responseSchema': _RESPUESTA_SCHEMA},
+    }).encode('utf-8')
     gemini_req = urllib.request.Request(
         gemini_url, data=payload, headers={'Content-Type': 'application/json'}, method='POST'
     )
@@ -1324,16 +1495,215 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
         return _role_json({'ok': False, 'error': f'Error llamando a Gemini: {e}'}, 502)
 
     try:
-        suggestion = result['candidates'][0]['content']['parts'][0]['text']
+        raw_text = result['candidates'][0]['content']['parts'][0]['text']
     except (KeyError, IndexError, TypeError):
         return _role_json({'ok': False, 'error': 'Respuesta inesperada de Gemini', 'raw': result}, 502)
 
+    try:
+        data = json.loads(raw_text)
+    except (ValueError, TypeError):
+        data = None
+
+    if not isinstance(data, dict):
+        # Sin JSON válido se devuelve el texto tal cual: sigue siendo útil.
+        return _role_json({
+            'ok': True, 'suggestion': (raw_text or '').strip(), 'structured': None,
+            'context': contexto_usado, 'analyzedUrls': youtube_urls, 'skippedUrls': skipped_urls,
+        })
+
+    preset_id = data.get('presetId')
+    if preset_id not in ids_validos:
+        # Un id que no existe en el catálogo no puede preseleccionar nada.
+        preset_id = None
+    if data.get('decision') == 'rechazar':
+        preset_id = None
+    data['presetId'] = preset_id
+
+    articulos = [a for a in (data.get('articulos') or []) if isinstance(a, str) and a.strip()]
+    data['articulos'] = articulos
+    suggestion = '\n'.join(filter(None, [
+        f'1) {data.get("observacion") or ""}'.strip(),
+        f'2) Valoración: {(data.get("valoracion") or "").replace("_", " ")} · Decisión: {data.get("decision") or "?"}',
+        f'3) {data.get("justificacion") or ""}'.strip(),
+        ('Artículos: ' + '; '.join(articulos)) if articulos else 'Artículos: el reglamento no cubre el caso de forma explícita.',
+    ]))
+
     return _role_json({
         'ok': True,
-        'suggestion': suggestion.strip(),
+        'suggestion': suggestion,
+        'structured': data,
+        'context': contexto_usado,
         'analyzedUrls': youtube_urls,
         'skippedUrls': skipped_urls,
     })
+
+# ══════════════════════════════════════════════════════════════════════════
+# Asignación automática de autos al cerrar el plazo de declaración
+#
+# En campeonatos con uso de autos «declarado», el piloto que ya tiene división
+# y al cerrar el plazo no ha declarado sus autos recibe autos al azar del
+# catálogo del campeonato, sin repetir modelo, hasta completar 2 (o el máximo
+# por piloto, si es menor). Quien declaró uno solo conserva el suyo y se le
+# completa el que falta.
+#
+# El plazo es el día `declarationDeadline` entero en hora de España: el
+# formulario de declaración lo cierra a las 23:59:59 de ese día.
+#
+# Se ejecuta cada 15 minutos. `carAutoAssignment.deadline` marca la fecha de
+# plazo ya procesada, así que cada plazo se procesa una sola vez (si el
+# organizador cambia la fecha, se vuelve a procesar con la nueva). Va fuera de
+# `carUsageTracking` para que guardar el formulario del campeonato no lo borre.
+# ══════════════════════════════════════════════════════════════════════════
+
+_ZONA_ESPANA = 'Europe/Madrid'
+_AUTOS_AUTOASIGNADOS = 2
+_PLAZO_MAX_ANTIGUEDAD_DIAS = 30
+_CATEGORIA_A_CLASE = {'Gr1': 'Gr.1', 'Gr2': 'Gr.2', 'Gr3': 'Gr.3', 'Gr4': 'Gr.4', 'GrB': 'Gr.B', 'Street': 'Gr.N'}
+
+
+def _pilotos_planos(registrations: list) -> list[dict]:
+    """Mismo aplanado que flattenRegistrations() del cliente."""
+    planos = []
+    for reg in registrations or []:
+        drivers = reg.get('drivers') or []
+        if drivers:
+            for d in drivers:
+                planos.append({**d, 'id': f'{reg.get("id")}_{d.get("gt7Id") or d.get("psnId")}',
+                               'status': reg.get('status')})
+        else:
+            planos.append(reg)
+    return planos
+
+
+def _autos_permitidos(db, champ: dict) -> list[str]:
+    catalogo = (champ.get('carUsageTracking') or {}).get('carCatalog') or []
+    if catalogo:
+        return [c if isinstance(c, str) else (c or {}).get('name') for c in catalogo if c]
+    clases = {_CATEGORIA_A_CLASE[c] for c in (champ.get('categories') or []) if c in _CATEGORIA_A_CLASE}
+    if not clases:
+        # Sin clase de GT7 reconocible no se sortea entre los 574 coches del juego.
+        return []
+    nombres = set()
+    for snap in db.collection('cars').stream():
+        car = snap.to_dict() or {}
+        if car.get('carClass') in clases and car.get('name'):
+            nombres.add(car['name'])
+    return sorted(nombres)
+
+
+def asignar_autos_campeonato(db, champ_ref, champ: dict, dry_run: bool = False, rng=None) -> dict:
+    """Asigna autos a los pilotos con división que no completaron su
+    declaración. Devuelve un resumen; con dry_run no escribe nada."""
+    import random
+    rng = rng or random.SystemRandom()
+    cut = champ.get('carUsageTracking') or {}
+    objetivo = min(_AUTOS_AUTOASIGNADOS, int(cut.get('maxCarsPerDriver') or _AUTOS_AUTOASIGNADOS))
+    permitidos = _autos_permitidos(db, champ)
+    resumen = {'asignados': {}, 'sinInscripcion': [], 'sinCatalogo': not permitidos, 'objetivo': objetivo}
+    if not permitidos:
+        return resumen
+
+    canon = {}
+    for snap in db.collection('pilotIdentities').stream():
+        ident = snap.to_dict() or {}
+        for alias in ident.get('aliases') or []:
+            if ident.get('canonical'):
+                canon[str(alias).strip().lower()] = str(ident['canonical']).strip()
+
+    def clave(nombre):
+        limpio = str(nombre or '').strip()
+        return canon.get(limpio.lower(), limpio).lower()
+
+    pilotos = [p for p in _pilotos_planos(champ.get('registrations') or []) if p.get('status') != 'rejected']
+    declaraciones = {snap.id: (snap.to_dict() or {}).get('cars') or []
+                     for snap in champ_ref.collection('declarations').stream()}
+
+    batch = db.batch()
+    escrituras = 0
+    vistos = set()
+    for div in champ_ref.collection('divisions').stream():
+        for nombre in (div.to_dict() or {}).get('drivers') or []:
+            k = clave(nombre)
+            piloto = next((p for p in pilotos
+                           if any(v and clave(v) == k for v in (p.get('gt7Id'), p.get('psnId'), p.get('name')))), None)
+            if not piloto:
+                resumen['sinInscripcion'].append(nombre)
+                continue
+            doc_id = str(piloto['id']).replace('/', '_')
+            if doc_id in vistos:
+                continue
+            vistos.add(doc_id)
+            actuales = declaraciones.get(doc_id, piloto.get('declaredCars') or [])
+            faltan = objetivo - len(actuales)
+            if faltan <= 0:
+                continue
+            candidatos = [c for c in permitidos if c not in actuales]
+            nuevos = rng.sample(candidatos, min(faltan, len(candidatos)))
+            if not nuevos:
+                continue
+            resumen['asignados'][nombre] = {'antes': list(actuales), 'nuevos': nuevos}
+            if not dry_run:
+                batch.set(champ_ref.collection('declarations').document(doc_id), {
+                    'cars': list(actuales) + nuevos,
+                    'updatedAt': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+                    'autoAssigned': nuevos,
+                })
+                escrituras += 1
+    if not dry_run:
+        batch.set(champ_ref, {'carAutoAssignment': {
+            'deadline': cut.get('declarationDeadline'),
+            'at': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+            'assigned': resumen['asignados'],
+            'unmatched': resumen['sinInscripcion'],
+        }}, merge=True)
+        batch.commit()
+    return resumen
+
+
+@scheduler_fn.on_schedule(schedule='every 15 minutes', timezone=scheduler_fn.Timezone(_ZONA_ESPANA),
+                          region='us-central1', secrets=['TELEGRAM_BOT_TOKEN'])
+def auto_assign_declared_cars(event: scheduler_fn.ScheduledEvent) -> None:
+    from zoneinfo import ZoneInfo
+    hoy = datetime.now(ZoneInfo(_ZONA_ESPANA)).date()
+    db = fb_firestore.client()
+    for snap in db.collection('championships').stream():
+        champ = snap.to_dict() or {}
+        cut = champ.get('carUsageTracking') or {}
+        plazo_txt = cut.get('declarationDeadline')
+        if not cut.get('enabled') or cut.get('mode') == 'fixed' or not plazo_txt:
+            continue
+        if not (champ.get('divisionsConfig') or {}).get('enabled'):
+            continue
+        try:
+            plazo = datetime.strptime(plazo_txt, '%Y-%m-%d').date()
+        except ValueError:
+            continue
+        if not (plazo < hoy and (hoy - plazo).days <= _PLAZO_MAX_ANTIGUEDAD_DIAS):
+            continue
+        if (champ.get('carAutoAssignment') or {}).get('deadline') == plazo_txt:
+            continue
+        try:
+            resumen = asignar_autos_campeonato(db, snap.reference, champ)
+        except Exception:
+            print(f'[auto_assign_declared_cars] {snap.id}: {tb.format_exc()}')
+            continue
+        nombre = champ.get('name') or snap.id
+        if resumen['sinCatalogo']:
+            _send_telegram_message(f'🚗 <b>{nombre}</b>: cerró la declaración de autos pero no hay catálogo '
+                                   'de autos con el que sortear. No se asignó nada.')
+            continue
+        lineas = [f'🚗 <b>{nombre}</b> — cierre de declaración de autos ({plazo_txt})']
+        if resumen['asignados']:
+            lineas.append(f'Asignados al azar a {len(resumen["asignados"])} piloto(s):')
+            for piloto, a in resumen['asignados'].items():
+                previos = f' (ya tenía: {", ".join(a["antes"])})' if a['antes'] else ''
+                lineas.append(f'• {piloto}: {", ".join(a["nuevos"])}{previos}')
+        else:
+            lineas.append('Todos los pilotos con división tenían sus autos declarados.')
+        if resumen['sinInscripcion']:
+            lineas.append(f'⚠️ Sin inscripción que cuadre (no se les asignó nada): {", ".join(resumen["sinInscripcion"])}')
+        _send_telegram_message('\n'.join(lineas))
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # Páginas de compartición dinámicas

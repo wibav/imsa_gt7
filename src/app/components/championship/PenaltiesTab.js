@@ -1705,7 +1705,7 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                                 disabled={aiLoading || !aiAvailable}
                                 className="text-xs px-2.5 py-1 bg-purple-600/20 hover:bg-purple-600/40 disabled:opacity-50 text-purple-300 rounded-lg transition-all"
                                 title={aiAvailable
-                                    ? "Analiza el video de evidencia (solo YouTube) y sugiere una resolución — no reemplaza tu criterio"
+                                    ? "Analiza el video de evidencia (solo YouTube) con el reglamento, el catálogo de sanciones y el historial del piloto — no reemplaza tu criterio"
                                     : "Disponible en el plan Pro + IA — actualiza el plan en Facturación"}
                             >
                                 {aiLoading ? '🤖 Analizando video...' : (aiAvailable ? '🤖 Pedir sugerencia' : '🔒 Sugerencia IA (Pro + IA)')}
@@ -1727,13 +1727,46 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                                     <span className="text-purple-300 text-xs font-semibold">🤖 Sugerencia de Gemini (revísala, no es un fallo automático)</span>
                                     <button
                                         type="button"
-                                        onClick={() => setResolution(aiSuggestion.suggestion)}
+                                        onClick={() => setResolution(aiSuggestion.structured?.resolucion || aiSuggestion.suggestion)}
                                         className="text-xs px-2 py-0.5 bg-purple-600 hover:bg-purple-700 text-white rounded transition-all"
                                     >
                                         Usar como resolución
                                     </button>
                                 </div>
                                 <p className="text-gray-300 text-xs whitespace-pre-line">{aiSuggestion.suggestion}</p>
+                                {(() => {
+                                    const sugerido = presets.find(p => p.id === aiSuggestion.structured?.presetId);
+                                    if (!sugerido) return null;
+                                    return (
+                                        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-2 py-1.5">
+                                            <span className="text-xs text-red-200">⚖️ Sanción sugerida: {sugerido.icon} {sugerido.name}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setApplyPenalty(true);
+                                                    handleSelectPreset(sugerido);
+                                                    if (aiSuggestion.structured?.resolucion) setResolution(aiSuggestion.structured.resolucion);
+                                                }}
+                                                className="text-xs px-2 py-0.5 bg-red-600 hover:bg-red-700 text-white rounded transition-all"
+                                            >
+                                                Preseleccionar
+                                            </button>
+                                        </div>
+                                    );
+                                })()}
+                                {aiSuggestion.context && (
+                                    <p className="text-gray-500 text-xs mt-2">
+                                        ⓘ Se basó en: {[
+                                            aiSuggestion.context.reglamentoCampeonato && 'reglamento del campeonato',
+                                            aiSuggestion.context.reglamentoOrganizacion && 'reglamento de la organización',
+                                            aiSuggestion.context.sanciones > 0 && `${aiSuggestion.context.sanciones} sanciones del catálogo`,
+                                            ...Object.entries(aiSuggestion.context.historial || {}).map(([piloto, h]) =>
+                                                `historial de ${piloto} (${h.sanciones} sanción(es), ${h.amonestacion} pts de amonestación)`),
+                                            aiSuggestion.context.salaCarrera && 'configuración de sala de la carrera',
+                                        ].filter(Boolean).join(' · ') || 'solo el video y la descripción (no hay reglamento ni sanciones configurados)'}
+                                        {aiSuggestion.context.recortado && ' · el reglamento se recortó por longitud'}
+                                    </p>
+                                )}
                                 {aiSuggestion.skippedUrls?.length > 0 && (
                                     <p className="text-gray-500 text-xs mt-2">
                                         ⓘ No se analizaron (no son de YouTube): {aiSuggestion.skippedUrls.join(', ')}

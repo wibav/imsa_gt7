@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { getAllowedCars } from '../../utils/carUsageCalculator';
+import { hoyEnEspana } from '../../utils/dateUtils';
 import { resumenBop, textoBop } from '../../utils/carSpecs';
 
 /**
@@ -30,7 +31,10 @@ export default function CarDeclarationModal({ championship, registration, regist
     const cat = championship.carUsageTracking || {};
     const maxCars = cat.maxCarsPerDriver ?? 3;
     const deadline = cat.declarationDeadline ? new Date(cat.declarationDeadline + 'T23:59:59') : null;
-    const isReadOnly = deadline && new Date() > deadline;
+    // El plazo es el día entero en hora de España, igual que la asignación
+    // automática de autos (functions/main.py): con la hora del navegador, un
+    // piloto de Latinoamérica seguía pudiendo editar después del sorteo.
+    const isReadOnly = Boolean(cat.declarationDeadline) && hoyEnEspana() > cat.declarationDeadline;
 
     // Piloto: el ya resuelto por sesión, o el que se elija de la lista
     const [selectedId, setSelectedId] = useState(registration?.id || '');

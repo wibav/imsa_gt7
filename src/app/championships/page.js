@@ -1586,7 +1586,7 @@ export default function ChampionshipDetailPage() {
                                         const cat = championship.carUsageTracking;
                                         const isFixed = cat.mode === 'fixed';
                                         const deadline = !isFixed && cat.declarationDeadline ? new Date(cat.declarationDeadline + 'T23:59:59') : null;
-                                        const deadlinePassed = deadline && new Date() > deadline;
+                                        const deadlinePassed = Boolean(deadline) && hoyEnEspana() > cat.declarationDeadline;
                                         // Los pilotos se inscriben sin cuenta, así que normalmente
                                         // no hay sesión con la que reconocerlos: el botón se muestra
                                         // a cualquier visitante mientras haya inscritos, y es dentro
@@ -1846,7 +1846,7 @@ export default function ChampionshipDetailPage() {
                                     const limite = cat.declarationDeadline
                                         ? new Date(cat.declarationDeadline + 'T23:59:59')
                                         : null;
-                                    const vencido = limite && new Date() > limite;
+                                    const vencido = Boolean(limite) && hoyEnEspana() > cat.declarationDeadline;
                                     return (
                                         <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-4">
                                             <h3 className="text-white font-bold mb-2">🚗 Tus autos</h3>
