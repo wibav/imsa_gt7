@@ -3,6 +3,7 @@ import {
   collection,
   getDocs,
   getDoc,
+  getDocFromServer,
   setDoc,
   doc,
   deleteDoc,
@@ -2082,6 +2083,19 @@ export class FirebaseService {
       updatedAt: new Date().toISOString(),
     });
     return { success: true };
+  }
+
+  /**
+   * Autos declarados de un piloto, leídos del servidor (sin caché): sirve
+   * para comprobar que una declaración recién guardada quedó escrita.
+   * @returns {Promise<string[]|null>} null si no hay documento
+   */
+  static async getDeclaration(championshipId, registrationId) {
+    const snap = await getDocFromServer(doc(
+      db, 'championships', championshipId,
+      'declarations', declarationDocId(registrationId)
+    ));
+    return snap.exists() ? (snap.data().cars || []) : null;
   }
 
   /**

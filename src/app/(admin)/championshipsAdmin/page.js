@@ -10,6 +10,7 @@ import TracksManager from '../../components/TracksManager';
 import LoadingSkeleton from '../../components/common/LoadingSkeleton';
 import PenaltiesTab from '../../components/championship/PenaltiesTab';
 import DivisionsTab from '../../components/championship/DivisionsTab';
+import CarDeclarationModal from '../../components/championship/CarDeclarationModal';
 import { DEFAULT_SPRINT_POINTS } from '../../utils/constants';
 import { notifyResultsSaved, notifyRegistrationUpdated } from '../../utils/telegram';
 import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations, applyDeclarations } from '../../utils/carUsageCalculator';
@@ -565,6 +566,7 @@ export default function ChampionshipDetail() {
                             championship={championship}
                             tracks={tracks}
                             declarations={declarations}
+                            onDeclarationsChange={() => FirebaseService.getDeclarations(championshipId).then(d => setDeclarations(d || {})).catch(() => {})}
                         />
                     )}
                 </div>
@@ -2960,7 +2962,8 @@ function RegistrationsTab({ championshipId, championship, divisions = [], onUpda
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab: Panel de uso de autos (Fase 4)
 // ─────────────────────────────────────────────────────────────────────────────
-function CarUsageTab({ championship, tracks, declarations = {} }) {
+function CarUsageTab({ championship, tracks, declarations = {}, onDeclarationsChange }) {
+    const [editingReg, setEditingReg] = useState(null);
     const cat = championship.carUsageTracking || {};
     // Aplanado: sin esto los pilotos de campeonatos por equipos (que viven en
     // registrations[].drivers[]) aparecían siempre como "sin declaración".
@@ -2988,8 +2991,11 @@ function CarUsageTab({ championship, tracks, declarations = {} }) {
         </div>
     );
 
+    const registrationOf = (driver) => registrations.find(r => (r.gt7Id || r.name || r.psnId) === driver);
+
     const DriverCard = ({ entry }) => {
         const hasDeclared = (entry.declaredCars || []).length > 0;
+        const reg = registrationOf(entry.driver);
         return (
             <div className={`rounded-lg p-4 border ${entry.hasViolation ? 'bg-red-900/20 border-red-500/40' : entry.nearLimit ? 'bg-yellow-900/15 border-yellow-500/30' : 'bg-white/5 border-white/10'}`}>
                 <div className="flex items-start justify-between mb-3">
@@ -3014,6 +3020,15 @@ function CarUsageTab({ championship, tracks, declarations = {} }) {
                             {entry.hasViolation ? '⛔ Violación' : entry.nearLimit ? '⚠️ Cerca del límite' : '✅ OK'}
                         </span>
                         <p className="text-gray-400 text-xs mt-1">{entry.distinctCount}/{maxCars} autos distintos</p>
+                        {reg && (
+                            <button
+                                type="button"
+                                onClick={() => setEditingReg(reg)}
+                                className="mt-2 text-xs px-2 py-1 bg-white/10 hover:bg-white/20 border border-white/20 text-gray-200 rounded transition-colors"
+                            >
+                                ✏️ Editar autos
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -3129,6 +3144,16 @@ function CarUsageTab({ championship, tracks, declarations = {} }) {
                         {ok.map(e => <DriverCard key={e.driver} entry={e} />)}
                     </div>
                 </div>
+            )}
+
+            {editingReg && (
+                <CarDeclarationModal
+                    championship={championship}
+                    registration={editingReg}
+                    adminOverride
+                    onClose={() => setEditingReg(null)}
+                    onSuccess={() => { onDeclarationsChange?.(); setEditingReg(null); }}
+                />
             )}
 
             {summary.length === 0 && (
