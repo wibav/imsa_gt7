@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { notifyClaimCreated } from '../../utils/telegram';
+import { getRaceTime, raceDateTime } from '../../utils/dateUtils';
 
 // D3.2: la pantalla anunciaba 48h mientras el código realmente aplicaba
 // 72h (dos plazos distintos en la misma pantalla). Se unifica en una sola
@@ -10,33 +11,31 @@ import { notifyClaimCreated } from '../../utils/telegram';
 const HOURS_LIMIT = 48;
 
 /**
- * Verifica si una carrera sigue dentro del plazo de reclamación.
- * D3.4: `track.date` es un string "YYYY-MM-DD" sin hora; `new Date(track.date)`
- * lo interpreta como medianoche UTC, desplazando el plazo real varias horas
- * en zonas horarias negativas (Chile, UTC-3/-4). Se normaliza al FIN del día
- * de la carrera en hora LOCAL (23:59:59 local), de forma que el plazo
- * completo de HOURS_LIMIT corra a partir de ahí.
+ * Plazo de reclamación de una carrera: desde que empieza hasta HOURS_LIMIT
+ * horas después del final de ese día, todo en hora de España.
  *
- * Remediación BUG-2: anclar el fin de ventana al FIN de día de la carrera
- * (23:59:59 local) implica que, para una carrera de HOY, ese ancla está en
- * el futuro respecto a "ahora" — cualquier comprobación de límite inferior
- * (diffHours >= 0) rechazaba incorrectamente reclamaciones hechas el mismo
- * día, justo después de la carrera. La ventana es reclamable desde el
- * momento de la carrera hasta HOURS_LIMIT horas después del fin de ese día;
- * solo importa el límite superior (deadline).
+ * Antes solo se comprobaba el límite superior, así que las carreras FUTURAS
+ * también salían en el selector y llegaron reclamaciones de carreras que aún
+ * no se habían corrido. El inicio es la hora más temprana entre la del
+ * campeonato/carrera y la de cada división (cada una puede correr a su hora).
+ * firestore.rules aplica además un límite grueso por día en el servidor.
  */
-function isClaimable(track) {
+function isClaimable(track, championship, divisions = []) {
     if (!track.date) return false;
-    const raceEndLocal = new Date(`${track.date}T23:59:59`);
-    const deadline = new Date(raceEndLocal.getTime() + HOURS_LIMIT * 60 * 60 * 1000);
-    return Date.now() <= deadline.getTime();
+    const horas = [getRaceTime(championship, track), ...divisions.map(d => d.hour).filter(Boolean)].sort();
+    const inicio = raceDateTime(track.date, horas[0]);
+    const finDelDia = raceDateTime(track.date, '23:59');
+    if (!inicio || !finDelDia) return false;
+    const ahora = Date.now();
+    const deadline = finDelDia.getTime() + 60 * 1000 + HOURS_LIMIT * 60 * 60 * 1000;
+    return ahora >= inicio.getTime() && ahora <= deadline;
 }
 
 /**
  * Formulario público para que los pilotos envíen reclamaciones de incidentes.
  * Se muestra como modal en la página pública del campeonato.
  * - Acepta múltiples infractores
- * - Solo disponible 48h después de la carrera
+ * - Solo desde el inicio de la carrera hasta 48h después
  * - Campos opcionales: URL de video, vuelta, minuto de carrera
  */
 export default function ClaimForm({ championshipId, championship, teams = [], tracks = [], divisions = [], onClose, onSubmitted }) {
@@ -62,7 +61,7 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
 
     // Solo carreras dentro del plazo de 48h (no se requiere que ya tengan puntos cargados)
     const claimableTracks = tracks
-        .filter(t => isClaimable(t))
+        .filter(t => isClaimable(t, championship, divisions))
         .sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const handleTrackChange = (trackId) => {
@@ -174,7 +173,7 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
                         <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">✕</button>
                     </div>
                     <p className="text-gray-400 text-sm mt-1">
-                        Solo disponible hasta <strong className="text-orange-400">{HOURS_LIMIT} horas</strong> después de cada carrera
+                        Disponible desde el inicio de cada carrera hasta <strong className="text-orange-400">{HOURS_LIMIT} horas</strong> después
                     </p>
                 </div>
 
@@ -183,7 +182,7 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
                         <div className="text-4xl mb-3">⏰</div>
                         <p className="text-gray-300 font-medium">No hay carreras disponibles</p>
                         <p className="text-gray-500 text-sm mt-1">
-                            Solo se puede reclamar dentro de las {HOURS_LIMIT} horas posteriores a la carrera
+                            Solo se puede reclamar una carrera que ya empezó, y hasta {HOURS_LIMIT} horas después de ese día
                         </p>
                         <button onClick={onClose} className="mt-4 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all">
                             Cerrar
