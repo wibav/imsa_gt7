@@ -13,6 +13,7 @@ import { validateImageFile, compressImage } from "../../utils/imageCompression";
 import { reorderByPosition } from "../../utils/eventResultsOrder";
 import StandardRoomSection from "../../components/event/StandardRoomSection";
 import RoomConfigEditor from "../../components/championship/RoomConfigEditor";
+import { CarAdder } from "../../components/common/CarNameInput";
 import { REGLAS_POR_DEFECTO, normalizarReglas, salaDeEvento, resumenSalaEvento } from "../../utils/roomConfig";
 
 // Identidad estable de fila para la sección Resultados (Bloque 3): generada
@@ -176,7 +177,6 @@ function EventForm({ event, onSave, onCancel, saving }) {
         // la sesión de edición.
         results: (event?.results || []).map(r => ({ ...r, _uid: r._uid || makeResultUid() }))
     }));
-    const [newCar, setNewCar] = useState('');
     const [firebaseTracks, setFirebaseTracks] = useState([]);
     const isEditing = Boolean(event?.title);
 
@@ -430,16 +430,6 @@ function EventForm({ event, onSave, onCancel, saving }) {
     };
 
     // Cars management
-    const addCar = () => {
-        if (!newCar.trim()) return;
-        const cars = [...(form.allowedCars || [])];
-        if (!cars.includes(newCar.trim())) {
-            cars.push(newCar.trim());
-            setForm(prev => ({ ...prev, allowedCars: cars, specificCars: true }));
-        }
-        setNewCar('');
-    };
-
     const removeCar = (idx) => {
         const cars = [...(form.allowedCars || [])];
         cars.splice(idx, 1);
@@ -789,19 +779,12 @@ function EventForm({ event, onSave, onCancel, saving }) {
                 />
                 {form.specificCars && (
                     <div className="space-y-3 mt-3">
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                className={`flex-1 ${inputCls} text-sm`}
-                                value={newCar}
-                                onChange={(e) => setNewCar(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCar())}
-                                placeholder="Nombre del coche (Enter para añadir)..."
-                            />
-                            <button type="button" onClick={addCar} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors flex-shrink-0">
-                                + Añadir
-                            </button>
-                        </div>
+                        <CarAdder
+                            existing={form.allowedCars || []}
+                            onAdd={(nombre) => setForm(prev => ({ ...prev, allowedCars: [...(prev.allowedCars || []), nombre], specificCars: true }))}
+                            inputClassName={`flex-1 min-w-0 ${inputCls} text-sm`}
+                            buttonClassName="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors flex-shrink-0"
+                        />
                         {(form.allowedCars || []).length > 0 && (
                             <div className="flex flex-wrap gap-2">
                                 {form.allowedCars.map((car, idx) => (

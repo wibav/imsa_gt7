@@ -1558,7 +1558,7 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
 _ZONA_ESPANA = 'Europe/Madrid'
 _AUTOS_AUTOASIGNADOS = 2
 _PLAZO_MAX_ANTIGUEDAD_DIAS = 30
-_CATEGORIA_A_CLASE = {'Gr1': 'Gr.1', 'Gr2': 'Gr.2', 'Gr3': 'Gr.3', 'Gr4': 'Gr.4', 'GrB': 'Gr.B', 'Street': 'Gr.N'}
+_CATEGORIA_A_CLASE = {'Gr1': 'Gr.1', 'Gr2': 'Gr.2', 'Gr3': 'Gr.3', 'Gr4': 'Gr.4', 'GrB': 'Gr.B', 'Street': 'Gr.N', 'GrX': 'Gr.X'}
 
 
 def _pilotos_planos(registrations: list) -> list[dict]:

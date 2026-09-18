@@ -5,7 +5,6 @@ import {
     TODOS_LOS_AJUSTES,
     COMPUESTOS,
     IGUAL_QUE_CARRERA,
-    WEATHER_TRANSITION_OPTIONS,
 } from "../../utils/roomConfig";
 import { WEATHER_CONDITION_OPTIONS } from "../../utils/constants";
 
@@ -168,29 +167,65 @@ export default function RoomConfigEditor({ reglas = {}, track = {}, onChange, te
                         </div>
                     );
                 }
+                // Como en el juego: una fila de franjas de la salida al final
+                // de la carrera, cada una con su clima. Antes eran dos
+                // desplegables apilados por franja y 9 franjas ocupaban
+                // media pantalla.
                 const franjas = Array.isArray(v) ? v : [];
-                const cambiar = (i, cambio) => onChange(campo.id, franjas.map((f, j) => (j === i ? { ...(typeof f === 'string' ? { weather: f } : f), ...cambio } : f)));
+                const normal = (f) => (typeof f === 'string' ? { weather: f } : f || {});
+                const cambiar = (i, weather) => onChange(campo.id, franjas.map((f, j) => (j === i ? { ...normal(f), weather } : f)));
+                const icono = (cond) => {
+                    const op = WEATHER_CONDITION_OPTIONS.find(o => o.value === cond);
+                    return op ? op.label.split(' ')[0] : '❓';
+                };
+                const texto = (label) => label.split(' ').slice(1).join(' ');
                 return (
                     <div className="space-y-2">
-                        {franjas.map((f, i) => {
-                            const franja = typeof f === 'string' ? { weather: f } : f;
-                            return (
-                                <div key={i} className="flex flex-wrap items-center gap-2">
-                                    <span className="text-xs text-gray-400 w-6">{i + 1}</span>
-                                    <select value={franja.weather || ''} onChange={e => cambiar(i, { weather: e.target.value })} className={`${inputCls} flex-1 min-w-[10rem]`}>
-                                        <option value="" className="bg-slate-800">Aleatoria</option>
-                                        {WEATHER_CONDITION_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-slate-800">{o.label}</option>)}
-                                    </select>
-                                    <select value={franja.transition || 'gradual'} onChange={e => cambiar(i, { transition: e.target.value })} className={`${inputCls} w-36`}>
-                                        {WEATHER_TRANSITION_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-slate-800">{o.label}</option>)}
-                                    </select>
-                                    <button type="button" onClick={() => onChange(campo.id, franjas.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-300 text-sm px-2" aria-label={`Quitar franja ${i + 1}`}>✕</button>
-                                </div>
-                            );
-                        })}
-                        <button type="button" onClick={() => onChange(campo.id, [...franjas, { weather: '', transition: 'gradual' }])} className="text-sm text-orange-400 hover:text-orange-300">
-                            + Añadir franja de clima
-                        </button>
+                        <div className="flex items-center justify-between text-[11px] text-gray-400 px-1">
+                            <span>▶ Clima durante la salida</span>
+                            <span>Clima al finalizar la carrera ▶</span>
+                        </div>
+                        <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
+                            {franjas.map((f, i) => {
+                                const cond = normal(f).weather || '';
+                                return (
+                                    <div key={i} className="relative bg-black/20 border border-white/15 rounded-lg p-2 text-center">
+                                        <button
+                                            type="button"
+                                            onClick={() => onChange(campo.id, franjas.filter((_, j) => j !== i))}
+                                            className="absolute top-0.5 right-1 text-gray-500 hover:text-red-400 text-xs"
+                                            aria-label={`Quitar franja ${i + 1}`}
+                                            title="Quitar franja"
+                                        >✕</button>
+                                        <div className="text-[10px] text-gray-500">{i + 1}</div>
+                                        <div className="text-2xl leading-none my-1">{icono(cond)}</div>
+                                        <select
+                                            value={cond}
+                                            onChange={e => cambiar(i, e.target.value)}
+                                            className="w-full bg-white/10 border border-white/20 rounded text-white text-[11px] py-1 px-0.5 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                                            aria-label={`Clima de la franja ${i + 1}`}
+                                        >
+                                            <option value="" className="bg-slate-800">Aleatoria</option>
+                                            {WEATHER_CONDITION_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-slate-800">{texto(o.label)}</option>)}
+                                        </select>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <div className="flex items-center gap-4 text-xs">
+                            <button type="button" onClick={() => onChange(campo.id, [...franjas, { weather: '', transition: 'gradual' }])} className="text-orange-400 hover:text-orange-300">
+                                + Añadir franja
+                            </button>
+                            {franjas.length > 0 && (
+                                <button type="button" onClick={() => onChange(campo.id, franjas.map(f => ({ ...normal(f), weather: '' })))} className="text-gray-400 hover:text-white">
+                                    Todas aleatorias
+                                </button>
+                            )}
+                            <span className="text-gray-500 ml-auto">{franjas.length} franja{franjas.length === 1 ? '' : 's'}</span>
+                        </div>
+                        {franjas.length === 0 && (
+                            <p className="text-xs text-gray-500">Sin franjas: pulsa «+ Añadir franja» para crear la primera.</p>
+                        )}
                     </div>
                 );
             }

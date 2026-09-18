@@ -53,7 +53,7 @@ import RoomConfigView from '../components/championship/RoomConfigView';
 import ShareButton from '../components/ShareButton';
 import { STATUS_LABELS } from '../utils/constants';
 import { SEVERITY_CONFIG, isPenaltyCounting } from '../models/Penalty';
-import { getInvalidatedEntries, flattenRegistrations, applyDeclarations } from '../utils/carUsageCalculator';
+import { getInvalidatedEntries, flattenRegistrations, applyDeclarations, categoryLabel } from '../utils/carUsageCalculator';
 import { isRegulationsEmpty } from '../utils/regulations';
 import RegulationsView from '../components/championship/RegulationsView';
 import RegulationsPdfButton from '../components/championship/RegulationsPdfButton';
@@ -1440,7 +1440,7 @@ export default function ChampionshipDetailPage() {
                                                         key={idx}
                                                         className="bg-blue-600/30 border border-blue-400/50 text-blue-200 px-3 py-1 rounded-full font-semibold"
                                                     >
-                                                        {cat}
+                                                        {categoryLabel(cat)}
                                                     </span>
                                                 ))}
                                             </div>

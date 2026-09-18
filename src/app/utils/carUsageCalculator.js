@@ -75,7 +75,43 @@ export const CATEGORY_TO_CAR_CLASS = {
     Gr4: 'Gr.4',
     GrB: 'Gr.B',
     Street: 'Gr.N',
+    GrX: 'Gr.X',
 };
+
+/**
+ * Categorías que se pueden elegir para un campeonato: las mismas clases que
+ * trae el catálogo oficial de GT7 (colección `cars`). El valor guardado se
+ * mantiene como antes ("Gr4", "Street") para no tocar los campeonatos
+ * existentes; la etiqueta es la del juego.
+ */
+export const CHAMPIONSHIP_CATEGORIES = [
+    { value: 'Gr1', label: 'Gr.1', descripcion: 'Prototipos de resistencia (LMP1/Hypercar)' },
+    { value: 'Gr2', label: 'Gr.2', descripcion: 'GT500 y turismos de altas prestaciones' },
+    { value: 'Gr3', label: 'Gr.3', descripcion: 'GT3' },
+    { value: 'Gr4', label: 'Gr.4', descripcion: 'GT4 y turismos de carrera' },
+    { value: 'GrB', label: 'Gr.B', descripcion: 'Rally' },
+    { value: 'Street', label: 'Gr.N', descripcion: 'Autos de calle' },
+    { value: 'GrX', label: 'Gr.X', descripcion: 'Especiales: Vision GT, conceptos y karts' },
+];
+
+/** "Gr4" → "Gr.4", "Street" → "Gr.N"; un valor desconocido se devuelve tal cual. */
+export const categoryLabel = (value) =>
+    CHAMPIONSHIP_CATEGORIES.find(c => c.value === value)?.label || value;
+
+/**
+ * Nombre exacto del catálogo para lo que escribió alguien, sin distinguir
+ * mayúsculas ni espacios de más, o el único auto que contiene ese texto.
+ * null si no hay ninguno o hay varios posibles.
+ */
+export function resolveCarName(texto, allCars = []) {
+    const limpio = String(texto || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    if (!limpio) return null;
+    const car = allCars.find(c => String(c.name || '').toLowerCase() === limpio);
+    if (car) return car.name;
+    // Si lo escrito solo encaja con un auto ("elantra"), es ese.
+    const parecidos = allCars.filter(c => String(c.name || '').toLowerCase().includes(limpio));
+    return parecidos.length === 1 ? parecidos[0].name : null;
+}
 
 /**
  * Coches del catálogo oficial que corresponden a unas categorías dadas.

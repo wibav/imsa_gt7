@@ -13,7 +13,8 @@ import DivisionsTab from '../../components/championship/DivisionsTab';
 import CarDeclarationModal from '../../components/championship/CarDeclarationModal';
 import { DEFAULT_SPRINT_POINTS } from '../../utils/constants';
 import { notifyResultsSaved, notifyRegistrationUpdated } from '../../utils/telegram';
-import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations, applyDeclarations } from '../../utils/carUsageCalculator';
+import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations, applyDeclarations, CHAMPIONSHIP_CATEGORIES, categoryLabel } from '../../utils/carUsageCalculator';
+import CarNameInput from '../../components/common/CarNameInput';
 import { isPenaltyCounting } from '../../models/Penalty';
 
 /** Convierte "M:SS.mmm" o "SS.mmm" a milisegundos para sort correcto de tiempos */
@@ -737,7 +738,7 @@ function InfoTab({ championship, editMode, onUpdate }) {
                             }
                             icon="🎮"
                         />
-                        <ConfigCard label="Categorías" value={(championship.categories || []).join(', ') || '—'} icon="🏎️" />
+                        <ConfigCard label="Categorías" value={(championship.categories || []).map(categoryLabel).join(', ') || '—'} icon="🏎️" />
                         {championship.startDate && (
                             <ConfigCard label="Fecha Inicio" value={new Date(championship.startDate).toLocaleDateString('es-ES')} icon="🟢" />
                         )}
@@ -1136,9 +1137,9 @@ function TeamsTab({ championshipId, teams, tracks, editMode, onUpdate, champions
                                                                     <option value="" className="bg-slate-800">Sin categoría</option>
                                                                     {(champCategories.length > 0
                                                                         ? champCategories
-                                                                        : ['Gr1', 'Gr2', 'Gr3', 'Gr4', 'GrB', 'Street']
+                                                                        : CHAMPIONSHIP_CATEGORIES.map(c => c.value)
                                                                     ).map(cat => (
-                                                                        <option key={cat} value={cat} className="bg-slate-800">{cat}</option>
+                                                                        <option key={cat} value={cat} className="bg-slate-800">{categoryLabel(cat)}</option>
                                                                     ))}
                                                                 </select>
                                                                 <button
@@ -1246,9 +1247,9 @@ function TeamsTab({ championshipId, teams, tracks, editMode, onUpdate, champions
                                     <option value="" className="bg-slate-800">Sin categoría</option>
                                     {(champCategories.length > 0
                                         ? champCategories
-                                        : ['Gr1', 'Gr2', 'Gr3', 'Gr4', 'GrB', 'Street']
+                                        : CHAMPIONSHIP_CATEGORIES.map(c => c.value)
                                     ).map(cat => (
-                                        <option key={cat} value={cat} className="bg-slate-800">{cat}</option>
+                                        <option key={cat} value={cat} className="bg-slate-800">{categoryLabel(cat)}</option>
                                     ))}
                                 </select>
                             </div>
@@ -2084,13 +2085,13 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                                                 })}
                                                             </select>
                                                         ) : (
-                                                            <input
-                                                                type="text"
+                                                            <CarNameInput
                                                                 value={selectedCar}
-                                                                onChange={e => {
-                                                                    setCarsUsed(prev => ({ ...prev, [driver]: e.target.value }));
+                                                                onChange={v => {
+                                                                    setCarsUsed(prev => ({ ...prev, [driver]: v }));
                                                                     setCarUsageErrors([]);
                                                                 }}
+                                                                categories={championship?.categories}
                                                                 placeholder="Nombre del auto..."
                                                                 className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
                                                             />

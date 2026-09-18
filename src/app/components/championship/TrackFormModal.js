@@ -7,6 +7,8 @@ import { FirebaseService } from '../../services/firebaseService';
 import { DEFAULT_SPRINT_POINTS } from '../../utils/constants';
 import { REGLAS_POR_DEFECTO, normalizarReglas } from '../../utils/roomConfig';
 import RoomConfigEditor from './RoomConfigEditor';
+import { CarAdder } from '../common/CarNameInput';
+import { categoryLabel } from '../../utils/carUsageCalculator';
 import { validateImageFile, compressImage } from '../../utils/imageCompression';
 
 // ─── Valor por defecto de una pista vacía ────────────────────────────────────
@@ -271,7 +273,7 @@ export default function TrackFormModal({ track, championship, onSave, onClose })
                                                 >
                                                     <option value="" className="bg-slate-800">Seleccionar...</option>
                                                     {categories.map(cat => (
-                                                        <option key={cat} value={cat} className="bg-slate-800">{cat}</option>
+                                                        <option key={cat} value={cat} className="bg-slate-800">{categoryLabel(cat)}</option>
                                                     ))}
                                                 </select>
                                             </div>
@@ -413,21 +415,11 @@ export default function TrackFormModal({ track, championship, onSave, onClose })
                                 </div>
                                 {form.specificCars && (
                                     <div className="space-y-3">
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                placeholder="Nombre del carro (ej: Mazda RX-Vision GT3)"
-                                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddAllowedCar(e.target.value); e.target.value = ''; } }}
-                                                className="flex-1 px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={e => { const inp = e.target.previousSibling; handleAddAllowedCar(inp.value); inp.value = ''; }}
-                                                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
-                                            >
-                                                Agregar
-                                            </button>
-                                        </div>
+                                        <CarAdder
+                                            existing={form.allowedCars || []}
+                                            categories={form.category ? [form.category] : categories}
+                                            onAdd={handleAddAllowedCar}
+                                        />
                                         {(form.allowedCars || []).length > 0 && (
                                             <div className="space-y-1">
                                                 <p className="text-sm text-gray-400">{form.allowedCars.length} carros permitidos:</p>

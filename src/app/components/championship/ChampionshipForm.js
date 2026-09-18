@@ -14,7 +14,8 @@ import { REGLAS_POR_DEFECTO, normalizarReglas } from '../../utils/roomConfig';
 import RoomConfigEditor from './RoomConfigEditor';
 import { REGULATIONS_MAX_BYTES, regulationsByteSize, normalizeRegulationsForSave } from '../../utils/regulations';
 import { sanitizeRegulationsHtml } from '../../utils/regulationsSanitize';
-import { getCarsForCategories } from '../../utils/carUsageCalculator';
+import { getCarsForCategories, CHAMPIONSHIP_CATEGORIES, categoryLabel } from '../../utils/carUsageCalculator';
+import { CarAdder } from '../common/CarNameInput';
 import { DEFAULT_RACE_TIME, getRaceTime, getPreQualyTime, formatTimeWindow, localTimeWindow } from '../../utils/dateUtils';
 import ImageSpecHint from '../common/ImageSpecHint';
 import LoadingSkeleton from '../common/LoadingSkeleton';
@@ -49,7 +50,6 @@ const ABS_OPTIONS = [
     { value: 'weak', label: 'Débil' }
 ];
 
-const CATEGORIES = ['Gr1', 'Gr2', 'Gr3', 'Gr4', 'GrB', 'Street'];
 
 
 
@@ -267,17 +267,32 @@ export default function ChampionshipForm({ isEditing = false }) {
 
         if (!isEditing) return; // En modo new, solo aplica el redirect
 
-        if (championships.length > 0 && championshipId) {
-            const champ = championships.find(c => c.id === championshipId);
-            if (champ) {
-                setChampionship(champ);
-                loadChampionshipFormData(champ);
-            } else {
-                router.push('/championshipsAdmin');
-            }
+        if (!championshipId || championship) return;
+        const enContexto = championships.find(c => c.id === championshipId);
+        if (enContexto) {
+            setChampionship(enContexto);
+            loadChampionshipFormData(enContexto);
+            return;
         }
+        // La lista del contexto solo se carga desde el inicio: al abrir o
+        // recargar esta URL directamente estaba vacía y el formulario se
+        // quedaba en «Cargando...» para siempre. Se pide el campeonato suelto.
+        if (authLoading || !currentUser) return;
+        let cancelado = false;
+        FirebaseService.getChampionship(championshipId)
+            .then(champ => {
+                if (cancelado) return;
+                if (champ) {
+                    setChampionship(champ);
+                    loadChampionshipFormData(champ);
+                } else {
+                    router.push('/championshipsAdmin');
+                }
+            })
+            .catch(() => { if (!cancelado) router.push('/championshipsAdmin'); });
+        return () => { cancelado = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isEditing, championships, championshipId, currentUser, authLoading, router]);
+    }, [isEditing, championships, championshipId, currentUser, authLoading, router, championship]);
 
     async function loadChampionshipFormData(champ) {
         // Cargar teams desde subcolección
@@ -1272,26 +1287,33 @@ export default function ChampionshipForm({ isEditing = false }) {
                                     Selecciona las categorías de vehículos que participarán en este campeonato (puedes seleccionar varias)
                                 </p>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {CATEGORIES.map(category => (
-                                        <button key={category} type="button" onClick={() => handleCategoryToggle(category)}
-                                            className={`p-8 rounded-xl border-3 transition-all transform hover:scale-105 ${formData.categories.includes(category)
-                                                ? 'bg-gradient-to-br from-orange-600 to-red-600 border-orange-400 text-white shadow-lg shadow-orange-500/50'
-                                                : 'bg-white/10 border-white/30 text-gray-300 hover:bg-white/20 hover:border-white/50'
-                                                }`}>
-                                            <div className="text-6xl mb-4">🏎️</div>
-                                            <div className="text-2xl font-bold mb-2">{category}</div>
-                                            {formData.categories.includes(category) && (
-                                                <div className="mt-2 text-sm bg-white/20 rounded-full px-3 py-1 inline-block">✓ Seleccionada</div>
-                                            )}
-                                        </button>
-                                    ))}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    {CHAMPIONSHIP_CATEGORIES.map(({ value: category, label, descripcion }) => {
+                                        const autos = getCarsForCategories([category], firebaseCars);
+                                        const elegida = formData.categories.includes(category);
+                                        return (
+                                            <button key={category} type="button" onClick={() => handleCategoryToggle(category)}
+                                                className={`p-5 rounded-xl border-2 text-left transition-all ${elegida
+                                                    ? 'bg-gradient-to-br from-orange-600 to-red-600 border-orange-400 text-white shadow-lg shadow-orange-500/30'
+                                                    : 'bg-white/10 border-white/30 text-gray-300 hover:bg-white/20 hover:border-white/50'
+                                                    }`}>
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-2xl font-bold">{label}</span>
+                                                    {elegida && <span className="text-xs bg-white/20 rounded-full px-2 py-0.5">✓</span>}
+                                                </div>
+                                                <div className="text-sm mt-1 opacity-90">{descripcion}</div>
+                                                {firebaseCars.length > 0 && (
+                                                    <div className="text-xs mt-2 opacity-75">{autos.length} autos en el juego</div>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
 
                                 {formData.categories.length > 0 && (
                                     <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-4 text-green-200">
                                         <p className="text-sm">
-                                            ✅ {formData.categories.length} categoría{formData.categories.length !== 1 ? 's' : ''} seleccionada{formData.categories.length !== 1 ? 's' : ''}: <strong>{formData.categories.join(', ')}</strong>
+                                            ✅ {formData.categories.length} categoría{formData.categories.length !== 1 ? 's' : ''} seleccionada{formData.categories.length !== 1 ? 's' : ''}: <strong>{formData.categories.map(categoryLabel).join(', ')}</strong>
                                         </p>
                                     </div>
                                 )}
@@ -1775,31 +1797,13 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                 {/* Autos específicos */}
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-300 mb-2">🚗 Autos Permitidos</label>
-                                                    <div className="flex gap-2 mb-2">
-                                                        <input type="text" placeholder="Nombre del carro (ej: Toyota GR86)"
-                                                            id="preQualyCarInput"
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === 'Enter') {
-                                                                    e.preventDefault();
-                                                                    const v = e.target.value.trim();
-                                                                    if (v && !formData.preQualy.allowedCars.includes(v)) {
-                                                                        setFormData(prev => ({ ...prev, preQualy: { ...prev.preQualy, allowedCars: [...prev.preQualy.allowedCars, v] } }));
-                                                                    }
-                                                                    e.target.value = '';
-                                                                }
-                                                            }}
-                                                            className="flex-1 px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                                                        <button type="button" onClick={() => {
-                                                            const input = document.getElementById('preQualyCarInput');
-                                                            const v = input?.value?.trim();
-                                                            if (v && !formData.preQualy.allowedCars.includes(v)) {
-                                                                setFormData(prev => ({ ...prev, preQualy: { ...prev.preQualy, allowedCars: [...prev.preQualy.allowedCars, v] } }));
-                                                            }
-                                                            if (input) input.value = '';
-                                                        }}
-                                                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg">
-                                                            Agregar
-                                                        </button>
+                                                    <div className="mb-2">
+                                                        <CarAdder
+                                                            existing={formData.preQualy.allowedCars || []}
+                                                            categories={formData.categories}
+                                                            onAdd={(v) => setFormData(prev => ({ ...prev, preQualy: { ...prev.preQualy, allowedCars: [...(prev.preQualy.allowedCars || []), v] } }))}
+                                                            buttonClassName="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
+                                                        />
                                                     </div>
                                                     {formData.preQualy.allowedCars?.length > 0 && (
                                                         <div className="flex flex-wrap gap-2">
@@ -2828,7 +2832,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                     className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500">
                                                     <option value="" className="bg-slate-800">Seleccionar...</option>
                                                     {formData.categories.map(cat => (
-                                                        <option key={cat} value={cat} className="bg-slate-800">{cat}</option>
+                                                        <option key={cat} value={cat} className="bg-slate-800">{categoryLabel(cat)}</option>
                                                     ))}
                                                 </select>
                                             </div>
@@ -2923,15 +2927,11 @@ export default function ChampionshipForm({ isEditing = false }) {
 
                                     {trackFormData.specificCars && (
                                         <div className="space-y-3">
-                                            <div className="flex gap-2">
-                                                <input type="text" placeholder="Nombre del carro (ej: Mazda RX-Vision GT3)"
-                                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddAllowedCar(e.target.value); e.target.value = ''; } }}
-                                                    className="flex-1 px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
-                                                <button type="button" onClick={(e) => { const input = e.target.previousSibling; handleAddAllowedCar(input.value); input.value = ''; }}
-                                                    className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors">
-                                                    Agregar
-                                                </button>
-                                            </div>
+                                            <CarAdder
+                                                existing={trackFormData.allowedCars || []}
+                                                categories={trackFormData.category ? [trackFormData.category] : formData.categories}
+                                                onAdd={handleAddAllowedCar}
+                                            />
 
                                             {(trackFormData.allowedCars || []).length > 0 && (
                                                 <div className="space-y-2">
