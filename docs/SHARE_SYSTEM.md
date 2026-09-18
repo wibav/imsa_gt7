@@ -1,3 +1,12 @@
+> **Actualización 2026-09-18:** las páginas `/share/**` ya no se generan en el
+> build. Los archivos estáticos tenían prioridad sobre la función `share_page`
+> y quedaban congelados: si se editaba la imagen o la descripción de un evento
+> después del deploy, la vista previa seguía mostrando lo antiguo. Ahora todas
+> las responde `share_page` (functions/main.py) con los datos en vivo, y el
+> botón Compartir añade `?v=<última edición>` para que WhatsApp/Telegram no
+> reutilicen una vista previa guardada. `scripts/generate-share-pages.js` queda
+> sin usar.
+
 # Sistema de Compartición Social - GT7 Championships
 
 ## Resumen
