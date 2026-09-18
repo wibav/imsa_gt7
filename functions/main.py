@@ -1876,8 +1876,15 @@ def share_page(req: https_fn.Request) -> https_fn.Response:
     cuerpo = (f'<img src="{_esc(imagen)}" alt="{_esc(titulo)}">'
               f'<h1>{_esc(titulo)}</h1><p>{_esc(descripcion)}</p>')
 
+    # ?v= lo pone el botón Compartir con la fecha de la última edición: las
+    # redes guardan la vista previa por URL (y Facebook/WhatsApp, por og:url),
+    # así que la versión tiene que llegar también a og:url o seguirían
+    # mostrando la imagen y la descripción antiguas.
+    version = re.sub(r'[^a-z0-9]', '', str(req.args.get('v') or '').lower())[:16]
+    url_compartida = f'{_BASE_URL}/share/{tipo}/{entidad_id}/' + (f'?v={version}' if version else '')
+
     html = _share_html(titulo_completo, descripcion, imagen,
-                       f'{_BASE_URL}/share/{tipo}/{entidad_id}/', destino, cuerpo)
+                       url_compartida, destino, cuerpo)
 
     return https_fn.Response(html, status=200, headers={
         'Content-Type': 'text/html; charset=utf-8',

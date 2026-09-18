@@ -279,6 +279,7 @@ function EventDetailContent() {
                                 type="event"
                                 id={eventId}
                                 title={event.title}
+                                version={event.updatedAt}
                             />
                         </div>
                     </div>

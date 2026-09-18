@@ -203,7 +203,7 @@ function FichaEquipo({ datos, router }) {
                             {equipo.description && <p className="text-gray-300 text-sm mt-2 max-w-2xl">{equipo.description}</p>}
                         </div>
                         {/* /share/team/{id} lo sirve share_page con el banner y el nombre del equipo */}
-                        <ShareButton type="team" id={equipo.id} title={equipo.name} />
+                        <ShareButton type="team" id={equipo.id} title={equipo.name} version={equipo.updatedAt} />
                     </div>
                 </div>
 

@@ -7,7 +7,7 @@
  * 
  * Uso:
  *   <ShareButton type="championship" id={championshipId} title="Campeonato X" />
- *   <ShareButton type="event" id={eventId} title="Evento Y" />
+ *   <ShareButton type="event" id={eventId} title="Evento Y" version={event.updatedAt} />
  *   <ShareButton type="team" id={teamId} title="Equipo Z" />   (solo share_page, sin página pre-generada)
  */
 
@@ -16,7 +16,17 @@ import { useState } from "react";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://imsa.trenkit.com';
 
-export default function ShareButton({ type, id, title = '' }) {
+// WhatsApp y Telegram guardan la vista previa de cada URL durante días: tras
+// cambiar la imagen o la descripción de un evento, el enlace de siempre
+// seguía mostrando la antigua. Con la fecha de la última edición en la URL,
+// cada versión es un enlace distinto y la vista previa se vuelve a pedir.
+const versionCorta = (version) => {
+    if (!version) return '';
+    const t = typeof version === 'string' ? Date.parse(version) : (version?.toMillis?.() ?? Number(version));
+    return Number.isFinite(t) ? Math.floor(t / 1000).toString(36) : '';
+};
+
+export default function ShareButton({ type, id, title = '', version = null }) {
     const [copied, setCopied] = useState(false);
     const [error, setError] = useState(false);
 
@@ -24,7 +34,8 @@ export default function ShareButton({ type, id, title = '' }) {
         return null;
     }
 
-    const shareUrl = `${BASE_URL}/share/${type}/${id}/`;
+    const v = versionCorta(version);
+    const shareUrl = `${BASE_URL}/share/${type}/${id}/${v ? `?v=${v}` : ''}`;
 
     const handleShare = async () => {
         try {

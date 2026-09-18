@@ -334,6 +334,7 @@ export default function ChampionshipDetailPage() {
                                     type="championship"
                                     id={championshipId}
                                     title={championship.name}
+                                    version={championship.updatedAt}
                                 />
 
                                 {isAdmin() && (
