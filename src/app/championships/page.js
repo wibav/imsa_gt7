@@ -220,13 +220,23 @@ export default function ChampionshipDetailPage() {
         calculateAdvancedStandings(championshipFusionado, teamsFusionados, tracksFusionados, penalties, divisionOptions);
     const driverStats = getDriverStats(advancedDriverStandings);
 
-    // Configuración de zonas de ascenso/descenso
-    const promotionZone = championship?.divisionsConfig?.enabled && selectedDivision !== 'all'
-        ? championship.divisionsConfig.promotionCount || 0
-        : 0;
-    const relegationZone = championship?.divisionsConfig?.enabled && selectedDivision !== 'all'
-        ? championship.divisionsConfig.relegationCount || 0
-        : 0;
+    // Zonas de ascenso/descenso. La división más alta (order menor) no tiene
+    // a dónde ascender y la más baja no tiene a dónde descender: con solo
+    // Zeus y Poseidon, Zeus mostraba flechas de ascenso y Poseidon de
+    // descenso que no llevaban a ninguna parte.
+    const divisionesOrdenadas = divisionsFusionadas.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+    const zonasDe = (divId) => {
+        const i = divisionesOrdenadas.findIndex(d => d.id === divId);
+        const cfg = championship?.divisionsConfig || {};
+        if (!cfg.enabled || i < 0) return { promotionZone: 0, relegationZone: 0 };
+        return {
+            promotionZone: i > 0 ? (cfg.promotionCount || 0) : 0,
+            relegationZone: i < divisionesOrdenadas.length - 1 ? (cfg.relegationCount || 0) : 0,
+        };
+    };
+    const { promotionZone, relegationZone } = selectedDivision !== 'all'
+        ? zonasDe(selectedDivision)
+        : { promotionZone: 0, relegationZone: 0 };
 
     // ── Standings por División (para vista General con divisiones activas) ──
     const divisionsStandings = championship?.divisionsConfig?.enabled && divisionsFusionadas.length > 0
@@ -242,8 +252,7 @@ export default function ChampionshipDetailPage() {
                     driverStandings,
                     teamStandings,
                     raceColumns: rc,
-                    promotionZone: championship.divisionsConfig.promotionCount || 0,
-                    relegationZone: championship.divisionsConfig.relegationCount || 0,
+                    ...zonasDe(div.id),
                 };
             })
         : [];
@@ -1087,13 +1096,13 @@ export default function ChampionshipDetailPage() {
                                                 {championship.divisionsConfig.promotionCount > 0 && (
                                                     <div className="flex items-center gap-2">
                                                         <span className="w-3 h-3 rounded-full bg-green-500 inline-block"></span>
-                                                        <span className="text-gray-300">Ascienden los <strong className="text-green-400">{championship.divisionsConfig.promotionCount}</strong> primeros</span>
+                                                        <span className="text-gray-300">Ascienden los <strong className="text-green-400">{championship.divisionsConfig.promotionCount}</strong> primeros{divisionesOrdenadas.length > 1 && <> de cada división salvo <strong className="text-white">{divisionesOrdenadas[0].name}</strong></>}</span>
                                                     </div>
                                                 )}
                                                 {championship.divisionsConfig.relegationCount > 0 && (
                                                     <div className="flex items-center gap-2">
                                                         <span className="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
-                                                        <span className="text-gray-300">Descienden los últimos <strong className="text-red-400">{championship.divisionsConfig.relegationCount}</strong></span>
+                                                        <span className="text-gray-300">Descienden los últimos <strong className="text-red-400">{championship.divisionsConfig.relegationCount}</strong>{divisionesOrdenadas.length > 1 && <> de cada división salvo <strong className="text-white">{divisionesOrdenadas[divisionesOrdenadas.length - 1].name}</strong></>}</span>
                                                     </div>
                                                 )}
                                             </div>
