@@ -57,6 +57,17 @@ service cloud.firestore {
       return role == 'organizador' || role == 'director_liga' || role == 'comisario';
     }
 
+    // Plazo de confirmación de continuidad de una nueva edición: sin plazo
+    // fijado, abierto; con plazo, hasta el final de ese día (margen de 1 día
+    // por las zonas horarias) y mientras no se haya cerrado.
+    function continuidadAbierta(edition) {
+      let plazo = edition.get('continuityDeadline', null);
+      return edition.get('continuityClosedFor', null) == null && (
+        plazo == null || plazo == '' ||
+        request.time <= timestamp.date(int(plazo[0:4]), int(plazo[5:7]), int(plazo[8:10])) + duration.value(48, 'h')
+      );
+    }
+
     // Plazo de reclamación por día de carrera (ver match /claims).
     function claimDentroDePlazo(champId, trackId) {
       let track = get(/databases/$(database)/documents/championships/$(champId)/tracks/$(string(trackId)));
@@ -206,6 +217,27 @@ service cloud.firestore {
           && request.resource.data.cars is list
           && request.resource.data.cars.size() <= 20
           && request.resource.data.updatedAt is string;
+        allow delete: if isOrgAdmin(parentChampOrgId(champId));
+      }
+
+      // ── continuations/{registrationId} ─────────────────────────────────
+      // Respuesta de continuidad de un veterano en una nueva edición
+      // («Confirmo» / «No continúo»). Mismo nivel de confianza que las
+      // declaraciones de autos: los pilotos no tienen cuenta. Solo en
+      // campeonatos creados como nueva edición y hasta el fin del día del
+      // plazo en España (+1 día de margen para zonas de Latinoamérica; el
+      // cierre real lo hace close_edition_continuity). El admin puede
+      // escribir siempre y borrar (volver a «pendiente»).
+      match /continuations/{registrationId} {
+        allow read: if true;
+        allow create, update: if request.resource.data.keys().hasOnly(['status', 'by', 'updatedAt'])
+          && request.resource.data.status in ['confirmed', 'declined']
+          && request.resource.data.updatedAt is string
+          && (isOrgAdmin(parentChampOrgId(champId)) || (
+            request.resource.data.get('by', 'piloto') == 'piloto'
+            && parentChampDoc(champId).get('edition', null) != null
+            && continuidadAbierta(parentChampDoc(champId).edition)
+          ));
         allow delete: if isOrgAdmin(parentChampOrgId(champId));
       }
 

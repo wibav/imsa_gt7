@@ -1018,9 +1018,11 @@ export class FirebaseService {
   /**
    * Crear un nuevo campeonato
    */
-  static async createChampionship(championshipData) {
+  static async createChampionship(championshipData, { orgId = null } = {}) {
     try {
-      const championship = new Championship({ ...championshipData, orgId: currentOrgId });
+      // orgId explícito: una nueva edición va siempre en la organización de la
+      // anterior, aunque el admin tenga otra seleccionada.
+      const championship = new Championship({ ...championshipData, orgId: orgId || currentOrgId });
       const validation = championship.validate();
 
       if (!validation.isValid) {
@@ -1626,11 +1628,14 @@ export class FirebaseService {
         // Duplicado (mismo gt7Id o psnId)
         const gt7Id = data.gt7Id?.trim().toLowerCase();
         const psnId = data.psnId?.trim().toLowerCase();
-        const isDuplicate = existing.some(r =>
+        const duplicada = existing.find(r =>
           (gt7Id && r.gt7Id?.toLowerCase() === gt7Id) ||
           (psnId && r.psnId?.toLowerCase() === psnId)
         );
-        if (isDuplicate) throw new Error('Ya tienes una inscripción enviada para este campeonato');
+        // Un veterano de la edición anterior ya está inscrito: lo que tiene
+        // que hacer es confirmar su continuidad, no inscribirse de nuevo.
+        if (duplicada?.carryover) throw new Error('Ya estás en esta edición por venir de la anterior: confirma tu continuidad con el botón «🔁 Confirmar mi continuidad».');
+        if (duplicada) throw new Error('Ya tienes una inscripción enviada para este campeonato');
       }
 
       const regData = {
@@ -2083,6 +2088,41 @@ export class FirebaseService {
       updatedAt: new Date().toISOString(),
     });
     return { success: true };
+  }
+
+  /**
+   * Respuestas de continuidad de una nueva edición: { [registrationId]: {status, updatedAt} }.
+   * Viven en su propia subcolección (como `declarations`) para no abrir
+   * `registrations` a escritura pública.
+   */
+  static async getContinuations(championshipId) {
+    try {
+      const snapshot = await getDocs(collection(db, 'championships', championshipId, 'continuations'));
+      const map = {};
+      snapshot.forEach(d => { map[d.id] = d.data(); });
+      return map;
+    } catch (error) {
+      console.error('Error fetching continuations:', error);
+      return {};
+    }
+  }
+
+  /**
+   * Guarda la respuesta de continuidad de un veterano ('confirmed' | 'declined')
+   * y la relee del servidor para confirmar que quedó escrita.
+   * @param {string} [by] - 'piloto' | 'admin'
+   */
+  static async setContinuation(championshipId, registrationId, status, by = 'piloto') {
+    const ref = doc(db, 'championships', championshipId, 'continuations', declarationDocId(registrationId));
+    await setDoc(ref, { status, by, updatedAt: new Date().toISOString() });
+    const snap = await getDocFromServer(ref);
+    if (!snap.exists() || snap.data().status !== status) throw new Error('No se pudo comprobar la respuesta guardada');
+    return { success: true };
+  }
+
+  /** Borra la respuesta de un veterano (vuelve a «pendiente»). Solo admin. */
+  static async clearContinuation(championshipId, registrationId) {
+    await deleteDoc(doc(db, 'championships', championshipId, 'continuations', declarationDocId(registrationId)));
   }
 
   /**

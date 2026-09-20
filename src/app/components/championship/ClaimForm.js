@@ -360,6 +360,10 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
                                 </button>
                             </div>
                             <p className="text-gray-600 text-xs mt-1">Puedes agregar más de un clip (distintas perspectivas del mismo incidente)</p>
+                            <p className="text-gray-500 text-xs mt-1">
+                                Súbelo a YouTube como «Oculto» (no «Privado», que los comisarios no podrían verlo).
+                                Si no puedes, envíalo por privado a la organización y escríbelo en la descripción.
+                            </p>
                         </div>
 
                         <div className="flex gap-3 justify-end pt-2">

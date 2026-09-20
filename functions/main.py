@@ -1709,6 +1709,86 @@ def auto_assign_declared_cars(event: scheduler_fn.ScheduledEvent) -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# Cierre de la confirmación de continuidad de una nueva edición
+#
+# Un campeonato creado con «Nueva edición» (campo `edition`) trae a los
+# pilotos de la anterior como inscripciones pendientes (`carryover`). Cada uno
+# responde desde la web (subcolección `continuations`). Al vencer
+# `edition.continuityDeadline` (fin del día en hora de España):
+#   - confirmó     → status 'approved'
+#   - no continúa  → status 'withdrawn'
+#   - sin respuesta→ status 'withdrawn' (continuity 'expired'): baja, plaza libre
+# Misma lógica que sincronizarContinuidad() en src/app/utils/newEdition.js.
+# `edition.continuityClosedFor` guarda el plazo ya cerrado para no repetir.
+# ══════════════════════════════════════════════════════════════════════════
+
+def cerrar_continuidad(champ_ref, champ: dict, dry_run: bool = False) -> dict:
+    ahora = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+    respuestas = {snap.id: (snap.to_dict() or {}).get('status')
+                  for snap in champ_ref.collection('continuations').stream()}
+    resumen = {'confirmados': [], 'rechazados': [], 'caducados': []}
+    registrations = []
+    for reg in champ.get('registrations') or []:
+        co = reg.get('carryover')
+        if co is None or co.get('continuity') not in (None, 'pending'):
+            registrations.append(reg)
+            continue
+        nombre = reg.get('gt7Id') or reg.get('name') or reg.get('psnId') or '?'
+        r = respuestas.get(str(reg.get('id') or '').replace('/', '_'))
+        if r == 'confirmed':
+            continuity, status = 'confirmed', 'approved'
+            resumen['confirmados'].append(nombre)
+        elif r == 'declined':
+            continuity, status = 'declined', 'withdrawn'
+            resumen['rechazados'].append(nombre)
+        else:
+            continuity, status = 'expired', 'withdrawn'
+            resumen['caducados'].append(nombre)
+        registrations.append({**reg, 'status': status, 'updatedAt': ahora,
+                              'carryover': {**co, 'continuity': continuity, 'resolvedAt': ahora}})
+    if not dry_run:
+        edicion = dict(champ.get('edition') or {})
+        edicion['continuityClosedFor'] = edicion.get('continuityDeadline')
+        edicion['continuityClosedAt'] = ahora
+        champ_ref.update({'registrations': registrations, 'edition': edicion, 'updatedAt': ahora})
+    return resumen
+
+
+@scheduler_fn.on_schedule(schedule='every 15 minutes', timezone=scheduler_fn.Timezone(_ZONA_ESPANA),
+                          region='us-central1', secrets=['TELEGRAM_BOT_TOKEN'])
+def close_edition_continuity(event: scheduler_fn.ScheduledEvent) -> None:
+    from zoneinfo import ZoneInfo
+    hoy = datetime.now(ZoneInfo(_ZONA_ESPANA)).date()
+    db = fb_firestore.client()
+    for snap in db.collection('championships').stream():
+        champ = snap.to_dict() or {}
+        edicion = champ.get('edition') or {}
+        plazo_txt = edicion.get('continuityDeadline')
+        if not plazo_txt or edicion.get('continuityClosedFor') == plazo_txt:
+            continue
+        try:
+            plazo = datetime.strptime(plazo_txt, '%Y-%m-%d').date()
+        except ValueError:
+            continue
+        if not plazo < hoy:
+            continue
+        try:
+            resumen = cerrar_continuidad(snap.reference, champ)
+        except Exception:
+            print(f'[close_edition_continuity] {snap.id}: {tb.format_exc()}')
+            continue
+        lineas = [f'🔁 <b>{champ.get("name") or snap.id}</b> — cierre de confirmaciones de continuidad ({plazo_txt})',
+                  f'✅ Confirmaron: {len(resumen["confirmados"])}']
+        if resumen['rechazados']:
+            lineas.append(f'🚪 No continúan: {", ".join(resumen["rechazados"])}')
+        if resumen['caducados']:
+            lineas.append(f'⌛ Baja por no confirmar: {", ".join(resumen["caducados"])}')
+        if not resumen['rechazados'] and not resumen['caducados']:
+            lineas.append('Todos los pendientes habían confirmado.')
+        _send_telegram_message('\n'.join(lineas))
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # Páginas de compartición dinámicas
 #
 # Las previews de enlace (Telegram, WhatsApp…) se pre-generan en el build con

@@ -70,6 +70,9 @@ export class Championship {
         // `|| []` — con `|| []` se pierde la distinción ausente/vacío y el
         // filtro de la UI degrada en silencio a "mostrar todo".
         this.comisarioUids = data.comisarioUids ?? null;
+        // Enlace con la edición anterior cuando se creó con «Nueva edición»:
+        // { previousChampionshipId, previousName, continuityDeadline, createdAt }
+        this.edition = data.edition || null;
     }
 
     /**
@@ -169,7 +172,8 @@ export class Championship {
             carUsageTracking: this.carUsageTracking,
             preQualy: this.preQualy,
             divisionsConfig: this.divisionsConfig,
-            comisarioUids: this.comisarioUids
+            comisarioUids: this.comisarioUids,
+            edition: this.edition
         };
     }
 

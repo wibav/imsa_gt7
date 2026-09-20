@@ -18,6 +18,7 @@ import {
     estadoCarrera,
     getRegistrationState,
     buildGt7IdMap,
+    inscripcionCuenta,
     applyPilotIdentities,
     getStandings,
     getDriverStandings,
@@ -44,6 +45,8 @@ import RegistrationForm from "../components/championship/RegistrationForm";
 import ClaimForm from '../components/championship/ClaimForm';
 import AppealForm, { getAppealWindowStatus, getEligibleAppellants } from '../components/championship/AppealForm';
 import CarDeclarationModal from '../components/championship/CarDeclarationModal';
+import ContinuityModal from '../components/championship/ContinuityModal';
+import { CONTINUIDAD, estadoContinuidad } from '../utils/newEdition';
 import ExportableStandings from '../components/championship/ExportableStandings';
 import RaceBriefing from '../components/championship/RaceBriefing';
 import Navbar from '../components/Navbar';
@@ -86,6 +89,9 @@ export default function ChampionshipDetailPage() {
     const [showRegistration, setShowRegistration] = useState(false);
     const [showClaimForm, setShowClaimForm] = useState(false);
     const [showCarDeclaration, setShowCarDeclaration] = useState(false);
+    // Nueva edición: respuestas de continuidad de los veteranos
+    const [continuations, setContinuations] = useState({});
+    const [showContinuity, setShowContinuity] = useState(false);
     const [appealFormClaim, setAppealFormClaim] = useState(null);
     const [penalties, setPenalties] = useState([]);
     const [claims, setClaims] = useState([]);
@@ -126,6 +132,9 @@ export default function ChampionshipDetailPage() {
                 FirebaseService.getPilotIdentities()
             ]);
             setDeclarations(declarationsData || {});
+            if (champData?.edition) {
+                FirebaseService.getContinuations(championshipId).then(setContinuations).catch(() => {});
+            }
 
             setChampionship(champData);
             setTeams(teamsData || []);
@@ -884,7 +893,7 @@ export default function ChampionshipDetailPage() {
                         {activeTab === 'salas' && championship?.divisionsConfig?.enabled && (() => {
                             const maxPerSala = championship.divisionsConfig.maxDriversPerDivision || 15;
                             const approvedRegistrations = (championship.registrations || [])
-                                .filter(r => r.status === 'approved' || !championship.registration?.requiresApproval);
+                                .filter(r => inscripcionCuenta(r, championship));
                             const totalAssigned = divisions.reduce((sum, d) => sum + (d.drivers || []).length, 0);
                             const allAssignedDrivers = new Set(divisions.flatMap(d => d.drivers || []));
                             // `division.drivers[]` guarda un solo string por piloto, con prioridad
@@ -1176,7 +1185,10 @@ export default function ChampionshipDetailPage() {
                                                                     </td>
                                                                     <td className="px-5 py-3 text-white font-medium"><span className="flex items-center gap-2"><PilotTeamAvatar name={gt7Id} aliases={[r.driverName]} size="xs" />{gt7Id}</span></td>
                                                                     <td className="px-5 py-3 text-gray-300">{psnId}</td>
-                                                                    <td className="px-5 py-3 text-right font-mono text-yellow-300">{r.time || '—'}</td>
+                                                                    <td className="px-5 py-3 text-right font-mono text-yellow-300">
+                                                                        {r.fromPreviousEdition && <span className="mr-2 font-sans text-[11px] text-emerald-300" title="Tiempo conservado de la edición anterior">🔁 ed. anterior</span>}
+                                                                        {r.time || '—'}
+                                                                    </td>
                                                                 </tr>
                                                             );
                                                         })}
@@ -1602,7 +1614,7 @@ export default function ChampionshipDetailPage() {
                                         // a cualquier visitante mientras haya inscritos, y es dentro
                                         // del modal donde el piloto se identifica.
                                         const eligible = flatRegs.filter(r =>
-                                            r.status === 'approved' || !championship.registration?.requiresApproval
+                                            inscripcionCuenta(r, championship)
                                         );
                                         const myReg = currentUser
                                             ? eligible.find(r =>
@@ -1732,7 +1744,7 @@ export default function ChampionshipDetailPage() {
                                             {(() => {
                                                 const registrations = championship.registrations || [];
                                                 const eligible = registrations.filter(r =>
-                                                    r.status === 'approved' || (!championship.registration?.requiresApproval && r.status !== 'rejected')
+                                                    inscripcionCuenta(r, championship)
                                                 );
                                                 if (eligible.length === 0) return null;
                                                 return (
@@ -1840,6 +1852,31 @@ export default function ChampionshipDetailPage() {
                                 );
                             })()}
 
+                            {/* Nueva edición: los veteranos confirman aquí si continúan */}
+                            {championship.edition && (championship.registrations || []).some(r => r.carryover) && (() => {
+                                const veteranos = championship.registrations.filter(r => r.carryover);
+                                const confirmados = veteranos.filter(r => estadoContinuidad(r, continuations) === CONTINUIDAD.CONFIRMADA).length;
+                                const plazo = championship.edition.continuityDeadline;
+                                const cerrado = Boolean(championship.edition.continuityClosedFor) || (plazo && hoyEnEspana() > plazo);
+                                return (
+                                    <div className="bg-gradient-to-br from-emerald-900/50 to-teal-900/40 border border-emerald-400/40 rounded-lg p-4">
+                                        <h3 className="text-white font-bold mb-1">🔁 ¿Continúas?</h3>
+                                        <p className="text-gray-200 text-sm mb-3">
+                                            {cerrado
+                                                ? 'El plazo para confirmar la continuidad ya terminó.'
+                                                : <>Si corriste {championship.edition.previousName || 'la edición anterior'}, confirma que sigues para reservar tu plaza{plazo ? <> antes del <strong>{new Date(`${plazo}T12:00:00`).toLocaleDateString('es-ES')}</strong></> : ''}.</>}
+                                        </p>
+                                        <button
+                                            onClick={() => setShowContinuity(true)}
+                                            className={`w-full px-3 py-2 text-sm rounded-lg font-semibold transition-colors ${cerrado ? 'bg-gray-600 hover:bg-gray-700 text-gray-200' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+                                        >
+                                            {cerrado ? '🔒 Ver confirmaciones' : '✅ Confirmar mi continuidad'}
+                                        </button>
+                                        <p className="text-gray-400 text-xs mt-2 text-center">{confirmados} de {veteranos.length} ya confirmaron</p>
+                                    </div>
+                                );
+                            })()}
+
                             {/* Declaración de autos — la sección completa vive en la
                                 pestaña Información, a media página: sin este acceso en
                                 la barra lateral (siempre visible) los pilotos no la
@@ -1849,7 +1886,7 @@ export default function ChampionshipDetailPage() {
                                 && (() => {
                                     const cat = championship.carUsageTracking;
                                     const elegibles = flatRegs.filter(r =>
-                                        r.status === 'approved' || !championship.registration?.requiresApproval
+                                        inscripcionCuenta(r, championship)
                                     );
                                     if (elegibles.length === 0) return null;
                                     const declarados = elegibles.filter(r => (r.declaredCars || []).length > 0).length;
@@ -2037,7 +2074,7 @@ export default function ChampionshipDetailPage() {
                 // Inscritos que pueden declarar (aprobados, o todos si el
                 // campeonato es de auto-aprobación).
                 const eligible = flatRegs.filter(r =>
-                    r.status === 'approved' || !championship.registration?.requiresApproval
+                    inscripcionCuenta(r, championship)
                 );
                 // Si el visitante tiene sesión y coincide con un inscrito, se
                 // le abre ya su propia declaración; si no (el caso normal: los
@@ -2058,6 +2095,16 @@ export default function ChampionshipDetailPage() {
                     />
                 );
             })()}
+
+            {showContinuity && championship?.edition && (
+                <ContinuityModal
+                    championship={championship}
+                    divisions={divisions}
+                    continuations={continuations}
+                    onClose={() => setShowContinuity(false)}
+                    onSaved={() => FirebaseService.getContinuations(championshipId).then(setContinuations).catch(() => {})}
+                />
+            )}
 
             {/* Modal de Reclamación */}
             {showClaimForm && (

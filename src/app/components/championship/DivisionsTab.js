@@ -6,6 +6,7 @@ import { DEFAULT_DIVISION_COLORS } from '../../utils/constants';
 import { hoyEnEspana, localRaceTime } from '../../utils/dateUtils';
 import { repartirPorPreQualy, cuposTotales } from '../../utils/divisionAssignment';
 import { calculateAdvancedStandings } from '../../utils/standingsCalculator';
+import { repartirNuevaEdicion } from '../../utils/newEdition';
 
 /** Convierte "M:SS.mmm" o "SS.mmm" a milisegundos para comparación correcta de tiempos */
 function parseTimeToMs(str) {
@@ -51,6 +52,9 @@ export default function DivisionsTab({
     const [promotionPreview, setPromotionPreview] = useState(null);
     const [showPreQualyModal, setShowPreQualyModal] = useState(false);
     const [preQualyAssignPreview, setPreQualyAssignPreview] = useState([]);
+    // El mismo modal sirve para el reparto por Pre-Qualy y para el de una
+    // nueva edición (veteranos por ascenso/descenso + nuevos por tiempo).
+    const [tituloReparto, setTituloReparto] = useState('🏁 Auto-asignar por Pre-Qualy');
 
     // Estado local de tiempos Pre-Qualy: driverName → time
     const [pqTimes, setPqTimes] = useState(() => {
@@ -256,7 +260,10 @@ export default function DivisionsTab({
                         driverName: name,
                         gt7Id: regMap[name]?.gt7Id || existing?.gt7Id || '',
                         time: pqTimes[name],
-                        classified: existing?.classified !== undefined ? existing.classified : true
+                        classified: existing?.classified !== undefined ? existing.classified : true,
+                        // El tiempo heredado de la edición anterior sigue
+                        // marcado mientras nadie lo cambie.
+                        ...(existing?.fromPreviousEdition && existing.time === pqTimes[name] ? { fromPreviousEdition: true } : {}),
                     };
                 })
                 .sort((a, b) => parseTimeToMs(a.time) - parseTimeToMs(b.time));
@@ -284,10 +291,36 @@ export default function DivisionsTab({
         // dos salas de 15, entran 15 y 15 y los 3 últimos quedan sin asignar,
         // en vez de meter 17 y 16 en salas que no admiten tantos.
         const sortedDivs = [...divisions].sort((a, b) => a.order - b.order);
+        setTituloReparto('🏁 Auto-asignar por Pre-Qualy');
         setPreQualyAssignPreview(repartirPorPreQualy(
             classifiedByTime.map(r => ({ driverName: r.driverName, time: r.time })),
             sortedDivs
         ));
+        setShowPreQualyModal(true);
+    };
+
+    // Nueva edición: veteranos confirmados a la división que les toca por su
+    // ascenso/descenso, y los nuevos, por tiempo de Pre-Qualy, a los huecos
+    // empezando por arriba (utils/newEdition.js → repartirNuevaEdicion).
+    const nombreReg = (r) => r.name || r.psnId || r.gt7Id || '';
+    const veteranosSinAplicar = registrations.filter(r => r.carryover && r.status === 'pending').length;
+    const handleOpenRepartoEdicion = () => {
+        if (divisions.length === 0) { alert('Primero crea al menos una división.'); return; }
+        const sortedDivs = [...divisions].sort((a, b) => a.order - b.order);
+        const veteranos = approvedRegs.filter(r => r.carryover).map(r => ({
+            driverName: nombreReg(r),
+            divisionIndex: r.carryover.divisionIndex,
+            divisionName: r.carryover.divisionName,
+            movement: r.carryover.movement,
+        }));
+        const nuevos = approvedRegs.filter(r => !r.carryover).map(r => ({ driverName: nombreReg(r), time: pqTimes[nombreReg(r)] || '' }));
+        const filas = repartirNuevaEdicion(veteranos, nuevos, sortedDivs, parseTimeToMs);
+        setTituloReparto('🔁 Reparto de la nueva edición');
+        setPreQualyAssignPreview(filas.map(f => ({
+            driverName: f.driverName,
+            time: `${f.detalle}${f.excedeCupo ? ' · ⚠️ supera el cupo' : ''}`,
+            divId: f.divId,
+        })));
         setShowPreQualyModal(true);
     };
 
@@ -399,6 +432,13 @@ export default function DivisionsTab({
                     </p>
                 </div>
                 <div className="flex gap-2">
+                    {championship?.edition && divisions.length > 0 && (
+                        <button onClick={handleOpenRepartoEdicion} disabled={saving}
+                            title="Veteranos a su división según ascenso/descenso; nuevos por tiempo de Pre-Qualy en los huecos"
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
+                            🔁 Repartir nueva edición
+                        </button>
+                    )}
                     {classifiedByTime.length > 0 && divisions.length > 0 && (
                         <button onClick={handleOpenPreQualyAssign} disabled={saving}
                             className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
@@ -525,6 +565,12 @@ export default function DivisionsTab({
                                                 {r.psnId || <span className="text-gray-600 italic text-xs">—</span>}
                                             </td>
                                             <td className="px-4 py-2.5">
+                                                {(() => {
+                                                    const previo = (championship?.preQualy?.results || []).find(x => x.driverName === driverName && x.fromPreviousEdition);
+                                                    return previo && previo.time === pqTimes[driverName]
+                                                        ? <span className="mr-2 text-[11px] text-emerald-300" title="Tiempo de la edición anterior">🔁</span>
+                                                        : null;
+                                                })()}
                                                 <input
                                                     type="text"
                                                     value={pqTimes[driverName] || ''}
@@ -623,9 +669,9 @@ export default function DivisionsTab({
                     <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-white/30 rounded-xl p-6 w-full max-w-2xl max-h-[85vh] flex flex-col">
                         <div className="flex items-center justify-between mb-4 flex-shrink-0">
                             <div>
-                                <h3 className="text-xl font-bold text-white">🏁 Auto-asignar por Pre-Qualy</h3>
+                                <h3 className="text-xl font-bold text-white">{tituloReparto}</h3>
                                 <p className="text-gray-400 text-sm mt-0.5">
-                                    {classifiedByTime.length} pilotos por tiempo · {cuposTotales(sortedDivisions)} cupos
+                                    {preQualyAssignPreview.length} pilotos · {cuposTotales(sortedDivisions)} cupos
                                     {preQualyAssignPreview.filter(p => !p.divId).length > 0 && (
                                         <span className="text-orange-400">
                                             {' '}· {preQualyAssignPreview.filter(p => !p.divId).length} sin asignar
@@ -636,13 +682,19 @@ export default function DivisionsTab({
                             <button onClick={() => setShowPreQualyModal(false)}
                                 className="text-gray-400 hover:text-white text-xl">✕</button>
                         </div>
+                        {tituloReparto.startsWith('🔁') && veteranosSinAplicar > 0 && (
+                            <div className="mb-3 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-200 text-xs flex-shrink-0">
+                                ⚠️ {veteranosSinAplicar} piloto(s) de la edición anterior siguen pendientes y no entran en el reparto.
+                                Aplica las respuestas en la pestaña 🔁 Continuidad (o espera al cierre del plazo).
+                            </div>
+                        )}
                         <div className="overflow-y-auto flex-1">
                             <table className="w-full text-sm">
                                 <thead className="sticky top-0 bg-slate-800 z-10">
                                     <tr className="text-left text-xs text-gray-400 border-b border-white/10">
                                         <th className="pb-2 px-3 py-2 font-medium">#</th>
                                         <th className="pb-2 px-3 py-2 font-medium">GT7 ID</th>
-                                        <th className="pb-2 px-3 py-2 font-medium">⏱ Tiempo</th>
+                                        <th className="pb-2 px-3 py-2 font-medium">{tituloReparto.startsWith('🔁') ? 'Motivo' : '⏱ Tiempo'}</th>
                                         <th className="pb-2 px-3 py-2 font-medium">División asignada</th>
                                     </tr>
                                 </thead>

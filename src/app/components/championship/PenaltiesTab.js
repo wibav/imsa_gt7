@@ -1576,6 +1576,37 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
     const [extraPointsReason, setExtraPointsReason] = useState('');
     const [customForm, setCustomForm] = useState({ name: '', points: 0, warningPoints: 0, type: 'points', severity: 'moderate' });
     const [saving, setSaving] = useState(false);
+    // Muchos pilotos mandan el video por privado en vez de pegar la URL: el
+    // comisario lo sube a YouTube y lo añade aquí, que es lo que la IA
+    // necesita para poder analizarlo.
+    const [evidencias, setEvidencias] = useState(claim.evidence || []);
+    const [nuevaEvidencia, setNuevaEvidencia] = useState('');
+    const [guardandoEvidencia, setGuardandoEvidencia] = useState(false);
+    const [errorEvidencia, setErrorEvidencia] = useState('');
+    const esYouTube = (u) => /youtube\.com|youtu\.be/i.test(u);
+    const hayYouTube = evidencias.some(esYouTube);
+
+    const guardarEvidencias = async (lista) => {
+        setGuardandoEvidencia(true);
+        setErrorEvidencia('');
+        try {
+            await FirebaseService.updateClaim(championshipId, claim.id, { evidence: lista });
+            setEvidencias(lista);
+            setNuevaEvidencia('');
+        } catch (e) {
+            setErrorEvidencia('No se pudo guardar: ' + (e.message || e));
+        } finally {
+            setGuardandoEvidencia(false);
+        }
+    };
+
+    const anadirEvidencia = () => {
+        const url = nuevaEvidencia.trim();
+        if (!url) return;
+        if (!/^https?:\/\//i.test(url)) { setErrorEvidencia('Pega el enlace completo, empezando por https://'); return; }
+        if (evidencias.includes(url)) { setErrorEvidencia('Ese enlace ya está.'); return; }
+        guardarEvidencias([...evidencias, url]);
+    };
 
     // Backward compat: accusedNames[] o legacy accusedName string
     const accusedList = claim.accusedNames?.length > 0 ? claim.accusedNames : (claim.accusedName ? [claim.accusedName] : []);
@@ -1696,19 +1727,73 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                         </div>
                     )}
 
+                    {/* Evidencia: se puede añadir aquí (video que llegó por privado) */}
+                    <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-gray-400 text-sm">🎥 Evidencia en video</span>
+                            {evidencias.length > 0 && (
+                                <span className={`text-xs ${hayYouTube ? 'text-green-300' : 'text-orange-300'}`}>
+                                    {hayYouTube ? 'La IA puede analizarla' : 'Solo se analizan enlaces de YouTube'}
+                                </span>
+                            )}
+                        </div>
+                        {evidencias.length > 0 ? (
+                            <ul className="space-y-1 mb-2">
+                                {evidencias.map(url => (
+                                    <li key={url} className="flex items-center gap-2 text-xs">
+                                        <span>{esYouTube(url) ? '▶️' : '🔗'}</span>
+                                        <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-300 hover:underline truncate flex-1">{url}</a>
+                                        <button
+                                            type="button"
+                                            onClick={() => guardarEvidencias(evidencias.filter(u => u !== url))}
+                                            disabled={guardandoEvidencia}
+                                            className="text-gray-500 hover:text-red-400 disabled:opacity-40"
+                                            aria-label="Quitar evidencia"
+                                        >✕</button>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-gray-500 text-xs mb-2">
+                                Sin evidencia. Si el piloto te mandó el video por privado, súbelo a YouTube como «Oculto» y pega aquí el enlace.
+                            </p>
+                        )}
+                        <div className="flex gap-2">
+                            <input
+                                type="url"
+                                value={nuevaEvidencia}
+                                onChange={e => { setNuevaEvidencia(e.target.value); setErrorEvidencia(''); }}
+                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); anadirEvidencia(); } }}
+                                placeholder="https://youtube.com/watch?v=..."
+                                className="flex-1 min-w-0 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-white text-xs"
+                            />
+                            <button
+                                type="button"
+                                onClick={anadirEvidencia}
+                                disabled={guardandoEvidencia || !nuevaEvidencia.trim()}
+                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-lg text-xs font-semibold"
+                            >
+                                {guardandoEvidencia ? '⏳' : 'Añadir'}
+                            </button>
+                        </div>
+                        {errorEvidencia && <p className="text-orange-300 text-xs mt-1">⚠️ {errorEvidencia}</p>}
+                    </div>
+
                     <div>
                         <div className="flex items-center justify-between mb-1">
                             <label className="text-gray-400 text-sm">Resolución *</label>
                             <button
                                 type="button"
                                 onClick={handleAskAi}
-                                disabled={aiLoading || !aiAvailable}
+                                disabled={aiLoading || !aiAvailable || !hayYouTube}
                                 className="text-xs px-2.5 py-1 bg-purple-600/20 hover:bg-purple-600/40 disabled:opacity-50 text-purple-300 rounded-lg transition-all"
-                                title={aiAvailable
-                                    ? "Analiza el video de evidencia (solo YouTube) con el reglamento, el catálogo de sanciones y el historial del piloto — no reemplaza tu criterio"
-                                    : "Disponible en el plan Pro + IA — actualiza el plan en Facturación"}
+                                title={!aiAvailable
+                                    ? "Disponible en el plan Pro + IA — actualiza el plan en Facturación"
+                                    : !hayYouTube
+                                        ? "Añade arriba un enlace de YouTube con el video del incidente"
+                                        : "Analiza el video de evidencia (solo YouTube) con el reglamento, el catálogo de sanciones y el historial del piloto — no reemplaza tu criterio"}
                             >
-                                {aiLoading ? '🤖 Analizando video...' : (aiAvailable ? '🤖 Pedir sugerencia' : '🔒 Sugerencia IA (Pro + IA)')}
+                                {aiLoading ? '🤖 Analizando video...' : !aiAvailable ? '🔒 Sugerencia IA (Pro + IA)' : !hayYouTube ? '🤖 Sugerencia (falta YouTube)' : '🤖 Pedir sugerencia'}
                             </button>
                         </div>
                         <textarea

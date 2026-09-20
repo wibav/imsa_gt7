@@ -192,13 +192,29 @@ export const getNextEvent = (championship, tracks) => {
  * @returns {{abierta: boolean, motivo: string|null, etiqueta: string,
  *            inscritos: number, cupos: number}}
  */
+/**
+ * Si una inscripción cuenta como participante.
+ *
+ * Aprobada, siempre. Rechazada o de baja ('withdrawn'), nunca. Un veterano de
+ * una nueva edición que aún no confirmó su continuidad tampoco. El resto
+ * (pendientes) cuenta solo si el campeonato no exige aprobación manual.
+ *
+ * Antes cada pantalla repetía `approved || !requiresApproval`, que dejaba
+ * pasar las bajas y a los veteranos sin confirmar.
+ */
+export const inscripcionCuenta = (r, championship) => {
+    if (!r) return false;
+    if (r.status === 'approved') return true;
+    if (r.status === 'rejected' || r.status === 'withdrawn') return false;
+    if (r.carryover && r.carryover.continuity !== 'confirmed') return false;
+    return !championship?.registration?.requiresApproval;
+};
+
 export const getRegistrationState = (championship, tracks = []) => {
     const reg = championship?.registration || {};
     const cupos = reg.maxParticipants || 0;
 
-    const inscritos = (championship?.registrations || []).filter(
-        r => r.status === 'approved' || (!reg.requiresApproval && r.status !== 'rejected')
-    ).length;
+    const inscritos = (championship?.registrations || []).filter(r => inscripcionCuenta(r, championship)).length;
 
     const cerrada = (motivo, etiqueta) => ({ abierta: false, motivo, etiqueta, inscritos, cupos });
 

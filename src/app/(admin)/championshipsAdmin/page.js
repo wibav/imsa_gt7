@@ -11,6 +11,7 @@ import LoadingSkeleton from '../../components/common/LoadingSkeleton';
 import PenaltiesTab from '../../components/championship/PenaltiesTab';
 import DivisionsTab from '../../components/championship/DivisionsTab';
 import CarDeclarationModal from '../../components/championship/CarDeclarationModal';
+import ContinuityTab from '../../components/championship/ContinuityTab';
 import { DEFAULT_SPRINT_POINTS } from '../../utils/constants';
 import { notifyResultsSaved, notifyRegistrationUpdated } from '../../utils/telegram';
 import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations, applyDeclarations, CHAMPIONSHIP_CATEGORIES, categoryLabel } from '../../utils/carUsageCalculator';
@@ -389,6 +390,16 @@ export default function ChampionshipDetail() {
         });
     }
 
+    // Nueva edición: confirmación de continuidad de los veteranos
+    if (!userIsComisario && championship.edition) {
+        tabs.push({
+            id: 'continuity',
+            label: '🔁 Continuidad',
+            icon: '🔁',
+            count: (championship.registrations || []).filter(r => r.carryover).length
+        });
+    }
+
     // Panel de autos — solo para admins cuando carUsageTracking está habilitado
     if (!userIsComisario && championship.carUsageTracking?.enabled) {
         tabs.push({ id: 'cars', label: '🚗 Autos', icon: '🚗' });
@@ -432,6 +443,13 @@ export default function ChampionshipDetail() {
                                         className={`flex-1 md:flex-none px-4 py-2 rounded-lg transition-all font-medium text-sm md:text-base whitespace-nowrap ${editMode ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
                                     >
                                         {editMode ? '🔒 Cerrar edición' : '⚡ Edición rápida'}
+                                    </button>
+                                    <button
+                                        onClick={() => router.push(`/championshipsAdmin/nuevaEdicion?id=${championshipId}`)}
+                                        className="flex-1 md:flex-none px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all font-medium text-sm md:text-base whitespace-nowrap"
+                                        title="Crear la siguiente edición con los pilotos que continúan, sus ascensos y descensos"
+                                    >
+                                        🔁 Nueva edición
                                     </button>
                                 </>
                             )}
@@ -558,6 +576,14 @@ export default function ChampionshipDetail() {
                             tracks={tracks}
                             penalties={penalties}
                             registrations={championship.registrations || []}
+                            onUpdate={loadChampionshipData}
+                        />
+                    )}
+
+                    {currentTab === 'continuity' && (
+                        <ContinuityTab
+                            championship={championship}
+                            divisions={divisions}
                             onUpdate={loadChampionshipData}
                         />
                     )}
