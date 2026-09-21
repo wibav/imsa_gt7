@@ -72,6 +72,25 @@ export default function PilotTeamAvatar({ name, aliases = [], size = 'sm', enlaz
 }
 
 /**
+ * Nombre del equipo de la comunidad del piloto (el confirmado en
+ * /equiposAdmin), enlazado a su ficha. null si no tiene equipo.
+ *
+ * No confundir con los equipos de un campeonato por equipos (IMSA GT7 2025):
+ * esos son solo de ese campeonato y no se muestran fuera de él.
+ */
+export function PilotTeamName({ name, aliases = [], className = '' }) {
+    const { porPiloto, hay } = usePilotTeams();
+    if (!hay) return null;
+    const equipo = [name, ...aliases].map(n => porPiloto[n]).find(Boolean);
+    if (!equipo) return null;
+    return (
+        <a href={`/equipos?id=${equipo.id}`} onClick={e => e.stopPropagation()} className={`hover:underline ${className}`}>
+            {equipo.name}
+        </a>
+    );
+}
+
+/**
  * Versión para las imágenes exportables (clasificación y resultados en PNG).
  *
  * Siempre las siglas sobre el color del equipo, nunca el avatar: html-to-image

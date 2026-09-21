@@ -6,16 +6,8 @@ import { getPositionDisplay, getPositionBg } from "../utils/constants";
 import { resumirEventos } from "../utils/pilotEvents";
 import { cargarEstadisticasPilotos } from "../utils/globalPilotStats";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
-import PilotTeamAvatar from "../components/common/PilotTeamAvatar";
+import PilotTeamAvatar, { PilotTeamName } from "../components/common/PilotTeamAvatar";
 import PageHeader from "../components/PageHeader";
-
-/**
- * Equipo de cada campeonato por equipos en el que corrió el piloto, con el
- * campeonato: "N2O Turbo Speed Racing Team (IMSA GT7 2025)".
- */
-const equiposDeCampeonato = (pilot) => [...new Set((pilot.championships || [])
-    .filter(c => c.team)
-    .map(c => `${c.team} (${c.name})`))];
 
 /**
  * Página pública de Perfiles Globales de Piloto.
@@ -85,12 +77,10 @@ export default function PilotsPage() {
                     titulo={<><PilotTeamAvatar name={pilot.name} aliases={pilot.aliases} size="md" />{pilot.name}</>}
                 >
                     <div className="flex items-center gap-4 flex-wrap">
-                        {/* Equipos de campeonatos por equipos (inventados para ese
-                            campeonato): se nombra el campeonato para no confundirlos
-                            con el equipo de la comunidad, que va en el avatar. */}
-                        {equiposDeCampeonato(pilot).length > 0 && (
-                            <span className="text-white/80 text-sm">🏢 {equiposDeCampeonato(pilot).join(' · ')}</span>
-                        )}
+                        {/* Equipo de la comunidad. Los equipos de un campeonato por
+                            equipos (IMSA GT7 2025) eran solo de ese campeonato: se
+                            ven en su fila del historial, no aquí. */}
+                        <PilotTeamName name={pilot.name} aliases={pilot.aliases} className="text-white/80 text-sm" />
                         {pilot.categories.length > 0 && (
                             <span className="text-white/80 text-sm">🏷️ {pilot.categories.join(', ')}</span>
                         )}
@@ -362,9 +352,9 @@ export default function PilotsPage() {
                                                         <PilotTeamAvatar name={pilot.name} aliases={pilot.aliases} />
                                                         {pilot.name}
                                                     </div>
-                                                    {equiposDeCampeonato(pilot).length > 0 && (
-                                                        <div className="text-gray-500 text-xs">{equiposDeCampeonato(pilot).join(' · ')}</div>
-                                                    )}
+                                                    <div className="text-gray-500 text-xs">
+                                                        <PilotTeamName name={pilot.name} aliases={pilot.aliases} />
+                                                    </div>
                                                 </td>
                                                 <td className="px-4 py-3 text-center text-gray-300 text-sm">{pilot.championships.length}</td>
                                                 <td className="px-4 py-3 text-center text-gray-300 text-sm">{pilot.events.length || '-'}</td>
