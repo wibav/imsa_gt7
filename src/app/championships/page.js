@@ -62,6 +62,70 @@ import RegulationsView from '../components/championship/RegulationsView';
 import RegulationsPdfButton from '../components/championship/RegulationsPdfButton';
 import PilotTeamAvatar from '../components/common/PilotTeamAvatar';
 
+/**
+ * Pole, top-3 de clasificación y vuelta rápida de una carrera (o de una
+ * división), listos para pintar junto a cada piloto.
+ *
+ * La tabla de resultados mostraba solo los puntos de carrera, así que un
+ * piloto con vuelta rápida aparecía con 25 pts en la carrera y 26 en la
+ * clasificación general, sin que se viera de dónde salía el punto.
+ *
+ * `canon` resuelve alias (PSN ↔ GT7 ID): la qualy suele guardarse con el
+ * nombre que eligió el admin, que no siempre es el de la lista de posiciones.
+ */
+function extrasDeCarrera(resultado, canon) {
+    const top3 = resultado?.qualifying?.top3 || {};
+    const qualyPts = resultado?.qualifying?.points || {};
+    const flDriver = resultado?.fastestLap?.driver || '';
+    const flPts = resultado?.fastestLap?.points || {};
+    const porPiloto = {};
+    const anotar = (nombre, datos) => {
+        if (!nombre) return;
+        const k = canon(nombre);
+        porPiloto[k] = { ...(porPiloto[k] || {}), ...datos };
+    };
+    [['first', 1], ['second', 2], ['third', 3]].forEach(([clave, pos]) => {
+        anotar(top3[clave], { qualyPos: pos, qualyPts: qualyPts[top3[clave]] || 0 });
+    });
+    anotar(flDriver, { fl: true, flPts: flPts[flDriver] || 0 });
+    const hayAlgo = Boolean(top3.first || top3.second || top3.third || flDriver);
+    return { porPiloto, top3, qualyPts, flDriver, flPts: flPts[flDriver] || 0, hayAlgo };
+}
+
+/** Línea «Clasificación: 1º … · ⚡ Vuelta rápida: …» bajo el título de cada división. */
+function ExtrasCarrera({ extras }) {
+    if (!extras.hayAlgo) return null;
+    const { top3, qualyPts, flDriver, flPts } = extras;
+    const puestos = [['first', '1º'], ['second', '2º'], ['third', '3º']]
+        .filter(([clave]) => top3[clave])
+        .map(([clave, etiqueta]) => `${etiqueta} ${top3[clave]}${qualyPts[top3[clave]] ? ` (+${qualyPts[top3[clave]]})` : ''}`);
+    return (
+        <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+            {puestos.length > 0 && <span>⏱️ Clasificación: <span className="text-gray-200">{puestos.join(' · ')}</span></span>}
+            {flDriver && <span>⚡ Vuelta rápida: <span className="text-gray-200">{flDriver}{flPts ? ` (+${flPts})` : ''}</span></span>}
+        </div>
+    );
+}
+
+/** Distintivos de pole/top-3 de qualy y vuelta rápida junto al nombre. */
+function ExtrasPiloto({ extra }) {
+    if (!extra) return null;
+    return (
+        <>
+            {extra.qualyPos && (
+                <span className="ml-1 text-[11px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 whitespace-nowrap" title={`${extra.qualyPos}º en clasificación`}>
+                    ⏱️ Q{extra.qualyPos}{extra.qualyPts ? ` +${extra.qualyPts}` : ''}
+                </span>
+            )}
+            {extra.fl && (
+                <span className="ml-1 text-[11px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 whitespace-nowrap" title="Vuelta rápida">
+                    ⚡{extra.flPts ? ` +${extra.flPts}` : ''}
+                </span>
+            )}
+        </>
+    );
+}
+
 export default function ChampionshipDetailPage() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -193,6 +257,8 @@ export default function ChampionshipDetailPage() {
     // todas las listas coteen igual (y cubre también pilotos de equipo, que
     // el mapeo anterior aquí se saltaba).
     const driverGt7Map = buildGt7IdMap(championship, pilotIdentities);
+    // Nombre canónico para cruzar posiciones con qualy/vuelta rápida.
+    const canonPiloto = (n) => String(driverGt7Map[n] || n || '').trim().toLowerCase();
 
     // Los datos se consolidan ANTES de calcular la clasificación: un piloto que
     // cambió de nombre a mitad de temporada tenía dos filas con los puntos
@@ -2221,6 +2287,7 @@ export default function ChampionshipDetailPage() {
                                                         if (!divResult?.racePositions || Object.keys(divResult.racePositions).length === 0) return null;
                                                         const divColor = div.color || '#f97316';
                                                         const entries = Object.entries(divResult.racePositions).sort(([, a], [, b]) => a - b);
+                                                        const extras = extrasDeCarrera(divResult, canonPiloto);
                                                         return (
                                                             <div key={div.id}>
                                                                 <div
@@ -2230,16 +2297,27 @@ export default function ChampionshipDetailPage() {
                                                                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: divColor }} />
                                                                     {div.name}
                                                                 </div>
+                                                                <ExtrasCarrera extras={extras} />
                                                                 <div className="space-y-1">
                                                                     {entries.map(([driverName, position], idx) => {
                                                                         const pts = divResult.racePoints?.[driverName];
+                                                                        const extra = extras.porPiloto[canonPiloto(driverName)];
+                                                                        const sumados = (extra?.qualyPts || 0) + (extra?.flPts || 0);
                                                                         const medal = getPositionMedal(idx);
                                                                         const colors = getResultColors(idx);
                                                                         return (
                                                                             <div key={driverName} className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${colors.bg}`}>
                                                                                 <span className="text-gray-400 w-6 text-right font-mono text-xs flex-shrink-0">{position}°</span>
-                                                                                <span className="text-gray-300 flex-1 truncate">{medal && <span className="mr-1">{medal}</span>}{driverName}</span>
-                                                                                {pts != null && <span className={`font-bold text-xs flex-shrink-0 ${colors.text}`}>{pts} pts</span>}
+                                                                                <span className="text-gray-300 flex-1 min-w-0 flex items-center">
+                                                                                    <span className="truncate">{medal && <span className="mr-1">{medal}</span>}{driverName}</span>
+                                                                                    <ExtrasPiloto extra={extra} />
+                                                                                </span>
+                                                                                {pts != null && (
+                                                                                    <span className={`font-bold text-xs flex-shrink-0 ${colors.text}`}>
+                                                                                        {sumados > 0 && <span className="text-gray-500 font-normal mr-1">{pts}+{sumados}=</span>}
+                                                                                        {pts + sumados} pts
+                                                                                    </span>
+                                                                                )}
                                                                             </div>
                                                                         );
                                                                     })}
@@ -2248,24 +2326,39 @@ export default function ChampionshipDetailPage() {
                                                         );
                                                     })}
                                             </div>
-                                        ) : hasNonDivResults ? (
+                                        ) : hasNonDivResults ? (() => {
+                                            const extras = extrasDeCarrera(selectedTrack.results, canonPiloto);
+                                            return (
                                             <div className="space-y-1">
+                                                <ExtrasCarrera extras={extras} />
                                                 {Object.entries(selectedTrack.results.racePositions)
                                                     .sort(([, a], [, b]) => a - b)
                                                     .map(([driverName, position], idx) => {
                                                         const pts = selectedTrack.results.racePoints?.[driverName];
+                                                        const extra = extras.porPiloto[canonPiloto(driverName)];
+                                                        const sumados = (extra?.qualyPts || 0) + (extra?.flPts || 0);
                                                         const medal = getPositionMedal(idx);
                                                         const colors = getResultColors(idx);
                                                         return (
                                                             <div key={driverName} className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${colors.bg}`}>
                                                                 <span className="text-gray-400 w-6 text-right font-mono text-xs flex-shrink-0">{position}°</span>
-                                                                <span className="text-gray-300 flex-1 truncate">{medal && <span className="mr-1">{medal}</span>}{driverName}</span>
-                                                                {pts != null && <span className={`font-bold text-xs flex-shrink-0 ${colors.text}`}>{pts} pts</span>}
+                                                                <span className="text-gray-300 flex-1 min-w-0 flex items-center">
+                                                                    <span className="truncate">{medal && <span className="mr-1">{medal}</span>}{driverName}</span>
+                                                                    <ExtrasPiloto extra={extra} />
+                                                                </span>
+                                                                {pts != null && (
+                                                                    <span className={`font-bold text-xs flex-shrink-0 ${colors.text}`}>
+                                                                        {sumados > 0 && <span className="text-gray-500 font-normal mr-1">{pts}+{sumados}=</span>}
+                                                                        {pts + sumados} pts
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         );
                                                     })}
                                             </div>
-                                        ) : (
+                                            );
+                                        })()
+                                            : (
                                             /* Fallback para circuitos sin datos de posiciones (guardados antes de la actualización) */
                                             <div className="grid grid-cols-2 gap-2">
                                                 {Object.entries(selectedTrack.points)

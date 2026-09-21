@@ -195,18 +195,24 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
         // Compatibilidad con formato dividido por salas (results.divisions) y formato plano
         // Si hay divisions, fusionar racePositions, qualifying y fastestLap de todas las divisiones
         let racePositions = {};
-        let qualyData = {};
-        let fastestLap = {};
+        // Cada división tiene su propia pole y su propia vuelta rápida, así que
+        // se juntan TODAS. Antes se guardaba solo la de la primera división con
+        // datos: en la GR.4, la pole y la vuelta rápida de Zeus no contaban
+        // (las columnas 🎯 y ⚡ salían a 0) porque mandaba la de Poseidon.
+        const poleDrivers = new Set();
+        const fastestLapDrivers = new Set();
         let sprintPointsMap = track.sprintPoints || {};
+
+        const anotarExtras = (qualifying, fastestLap) => {
+            if (qualifying?.top3?.first) poleDrivers.add(qualifying.top3.first);
+            if (fastestLap?.driver) fastestLapDrivers.add(fastestLap.driver);
+        };
 
         if (results.divisions && Object.keys(results.divisions).length > 0) {
             // Nuevo formato: resultados por división
             Object.values(results.divisions).forEach(divResult => {
                 Object.assign(racePositions, divResult.racePositions || {});
-                // Qualy: el primero que tenga datos gana (por división)
-                if (!qualyData.top3 && divResult.qualifying?.top3) qualyData = divResult.qualifying;
-                // Fastest lap: igual, tomar el primero que tenga driver
-                if (!fastestLap.driver && divResult.fastestLap?.driver) fastestLap = divResult.fastestLap;
+                anotarExtras(divResult.qualifying, divResult.fastestLap);
                 // Sprint: fusionar también
                 if (divResult.sprintPositions) {
                     Object.assign(sprintPointsMap, divResult.sprintPoints || {});
@@ -215,8 +221,7 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
         } else {
             // Formato legado: plano
             racePositions = results.racePositions || {};
-            qualyData = results.qualifying || {};
-            fastestLap = results.fastestLap || {};
+            anotarExtras(results.qualifying, results.fastestLap);
         }
 
         const isSprint = track.raceType === 'sprint_carrera';
@@ -276,8 +281,9 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             const sprintPts = isSprint ? fromMap(sprintPointsMap, 0) : 0;
             const points = racePoints + sprintPts;
 
-            const hasFl = fastestLap?.driver === driverName || aliases.includes(fastestLap?.driver);
-            const hasPole = qualyData?.top3?.first === driverName || aliases.includes(qualyData?.top3?.first);
+            const esSuyo = (conjunto) => conjunto.has(driverName) || aliases.some(a => conjunto.has(a));
+            const hasFl = esSuyo(fastestLapDrivers);
+            const hasPole = esSuyo(poleDrivers);
 
             // Si no participó en esta carrera
             // Si el driver está en track.points (aunque con 0), sí participó — no saltar
