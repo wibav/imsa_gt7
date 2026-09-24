@@ -14,6 +14,7 @@ import CarDeclarationModal from '../../components/championship/CarDeclarationMod
 import ContinuityTab from '../../components/championship/ContinuityTab';
 import { DEFAULT_SPRINT_POINTS } from '../../utils/constants';
 import { notifyResultsSaved, notifyRegistrationUpdated } from '../../utils/telegram';
+import { buildGt7IdMap } from '../../utils/championshipUtils';
 import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations, applyDeclarations, CHAMPIONSHIP_CATEGORIES, categoryLabel } from '../../utils/carUsageCalculator';
 import CarNameInput from '../../components/common/CarNameInput';
 import { isPenaltyCounting } from '../../models/Penalty';
@@ -2272,6 +2273,29 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
 // Tab de Pilotos con clasificación individual
 function DriversTab({ championshipId, championship, teams, tracks, divisions = [], onUpdate, editMode }) {
     const { org } = useOrganization();
+    // `championship.drivers` guarda el nombre con el que se aprobó la
+    // inscripción (a menudo el PSN: «LEo_Alabau»), pero los resultados van
+    // por GT7 ID («LEo»). Sin cruzarlos, pilotos que sí corrieron salían con
+    // 0 carreras y 0 puntos.
+    const [identidades, setIdentidades] = useState([]);
+    useEffect(() => { FirebaseService.getPilotIdentities().then(setIdentidades).catch(() => {}); }, []);
+    const gt7Map = buildGt7IdMap(championship, identidades);
+    const canonico = (n) => gt7Map[n] || n;
+    const aliasesDe = (nombre) => {
+        const c = canonico(nombre);
+        const set = new Set([nombre, c]);
+        Object.entries(gt7Map).forEach(([alias, destino]) => { if (destino === c) set.add(alias); });
+        return [...set].filter(Boolean);
+    };
+    const corrio = (track, aliases) => {
+        const posiciones = [
+            track.results?.racePositions || {},
+            ...Object.values(track.results?.divisions || {}).map(d => d.racePositions || {}),
+        ];
+        return posiciones.some(p => aliases.some(a => p[a] !== undefined && p[a] !== ''))
+            || aliases.some(a => (track.points?.[a] || 0) > 0);
+    };
+    const puntosEn = (track, aliases) => aliases.reduce((s, a) => s + (track.points?.[a] || 0), 0);
     const [confirmDelete, setConfirmDelete] = useState(null); // nombre del piloto a eliminar
     const [deleting, setDeleting] = useState(false);
 
@@ -2320,9 +2344,10 @@ function DriversTab({ championshipId, championship, teams, tracks, divisions = [
                     ? (Array.isArray(driver.categories) ? driver.categories : [driver.categories])
                     : (driver.category ? [driver.category] : []);
 
+                const aliases = aliasesDe(driver.name);
                 // Calcular puntos en cada pista
                 tracks.forEach(track => {
-                    const points = track.points?.[driver.name] || 0;
+                    const points = puntosEn(track, aliases);
                     totalPoints += points;
 
                     // Agrupar por categoría si existe
@@ -2330,7 +2355,7 @@ function DriversTab({ championshipId, championship, teams, tracks, divisions = [
                         if (!racesByCategory[cat]) {
                             racesByCategory[cat] = 0;
                         }
-                        if (points > 0) {
+                        if (corrio(track, aliases)) {
                             racesByCategory[cat]++;
                         }
                     });
@@ -2338,13 +2363,14 @@ function DriversTab({ championshipId, championship, teams, tracks, divisions = [
 
                 driversData.push({
                     name: driver.name,
+                    displayName: canonico(driver.name),
                     teamId: team.id,
                     teamName: team.name,
                     teamColor: team.color,
                     categories: categories,
                     totalPoints,
                     racesByCategory,
-                    racesCompleted: tracks.filter(t => (t.points?.[driver.name] || 0) > 0).length
+                    racesCompleted: tracks.filter(t => corrio(t, aliases)).length
                 });
             });
         });
@@ -2355,11 +2381,13 @@ function DriversTab({ championshipId, championship, teams, tracks, divisions = [
             let racesByCategory = {};
 
             // Normalizar categories
-            const categories = Array.isArray(driver.category) ? driver.category : [driver.category];
+            // Sin categoría no se pinta la línea «: 1 carrera» vacía.
+            const categories = (Array.isArray(driver.category) ? driver.category : [driver.category]).filter(Boolean);
 
+            const aliases = aliasesDe(driver.name);
             // Calcular puntos en cada pista
             tracks.forEach(track => {
-                const points = track.points?.[driver.name] || 0;
+                const points = puntosEn(track, aliases);
                 totalPoints += points;
 
                 // Agrupar por categoría si existe
@@ -2367,7 +2395,7 @@ function DriversTab({ championshipId, championship, teams, tracks, divisions = [
                     if (!racesByCategory[cat]) {
                         racesByCategory[cat] = 0;
                     }
-                    if (points > 0) {
+                    if (corrio(track, aliases)) {
                         racesByCategory[cat]++;
                     }
                 });
@@ -2375,12 +2403,13 @@ function DriversTab({ championshipId, championship, teams, tracks, divisions = [
 
             driversData.push({
                 name: driver.name,
+                displayName: canonico(driver.name),
                 teamName: 'Individual',
                 teamColor: '#888888',
                 categories: categories,
                 totalPoints,
                 racesByCategory,
-                racesCompleted: tracks.filter(t => (t.points?.[driver.name] || 0) > 0).length
+                racesCompleted: tracks.filter(t => corrio(t, aliases)).length
             });
         });
     }
@@ -2425,7 +2454,12 @@ function DriversTab({ championshipId, championship, teams, tracks, divisions = [
 
                                     {/* Info del piloto */}
                                     <div className="flex-1">
-                                        <h3 className="text-lg font-bold">{driver.name}</h3>
+                                        <h3 className="text-lg font-bold">
+                                            {driver.displayName || driver.name}
+                                            {driver.displayName && driver.displayName !== driver.name && (
+                                                <span className="ml-2 text-xs font-normal text-gray-400">PSN: {driver.name}</span>
+                                            )}
+                                        </h3>
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <p className="text-sm text-gray-400">
                                                 {driver.teamName}
@@ -2585,6 +2619,11 @@ function RegistrationsTab({ championshipId, championship, divisions = [], onUpda
     const [editSaving, setEditSaving] = useState(false);
     const [confirmWithdrawId, setConfirmWithdrawId] = useState(null);
     const [withdrawing, setWithdrawing] = useState(false);
+    // Alta manual del admin: sirve también con la inscripción cerrada.
+    const [altaAbierta, setAltaAbierta] = useState(false);
+    const [alta, setAlta] = useState({ gt7Id: '', psnId: '', category: '', notes: '' });
+    const [altaGuardando, setAltaGuardando] = useState(false);
+    const [altaMensaje, setAltaMensaje] = useState('');
 
     const registrations = championship.registrations || [];
     const filtered = filter === 'all' ? registrations : registrations.filter(r => r.status === filter);
@@ -2706,8 +2745,87 @@ function RegistrationsTab({ championshipId, championship, divisions = [], onUpda
 
     const reg = championship.registration || {};
 
+    const inscripcionCerrada = Boolean(reg.deadline) && new Date() > new Date(reg.deadline + 'T23:59:59');
+    const guardarAlta = async () => {
+        setAltaGuardando(true);
+        setAltaMensaje('');
+        try {
+            await FirebaseService.adminAddRegistration(championshipId, alta);
+            notifyRegistrationUpdated({
+                championshipName: championship?.name || championshipId,
+                driverName: alta.gt7Id.trim(),
+                psnId: alta.psnId.trim() || null,
+                status: 'approved',
+                orgName: org?.name,
+            });
+            setAltaMensaje(`✅ ${alta.gt7Id.trim()} inscrito y aprobado. Asígnale división en la pestaña Divisiones.`);
+            setAlta({ gt7Id: '', psnId: '', category: alta.category, notes: '' });
+            onUpdate();
+        } catch (e) {
+            setAltaMensaje('❌ ' + e.message);
+        } finally {
+            setAltaGuardando(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
+            {/* Alta manual (excepción: funciona aunque la inscripción esté cerrada) */}
+            {!championship.settings?.isTeamChampionship && (
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <p className="text-sm font-semibold text-white">➕ Inscribir a un piloto a mano</p>
+                            <p className="text-xs text-gray-400">
+                                {inscripcionCerrada
+                                    ? 'La inscripción pública está cerrada: esto es una excepción del admin (no mira plazo ni cupo).'
+                                    : 'Queda aprobado directamente. No mira plazo ni cupo.'}
+                            </p>
+                        </div>
+                        <button onClick={() => { setAltaAbierta(v => !v); setAltaMensaje(''); }}
+                            className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm rounded-lg">
+                            {altaAbierta ? 'Cerrar' : 'Añadir piloto'}
+                        </button>
+                    </div>
+                    {altaAbierta && (
+                        <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                            <label className="block">
+                                <span className="text-xs text-gray-400">GT7 ID *</span>
+                                <input value={alta.gt7Id} onChange={e => setAlta(p => ({ ...p, gt7Id: e.target.value }))}
+                                    className="w-full mt-1 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm" />
+                            </label>
+                            <label className="block">
+                                <span className="text-xs text-gray-400">PSN ID</span>
+                                <input value={alta.psnId} onChange={e => setAlta(p => ({ ...p, psnId: e.target.value }))}
+                                    className="w-full mt-1 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm" />
+                            </label>
+                            {(championship.categories || []).length > 1 ? (
+                                <label className="block">
+                                    <span className="text-xs text-gray-400">Categoría</span>
+                                    <select value={alta.category} onChange={e => setAlta(p => ({ ...p, category: e.target.value }))}
+                                        className="w-full mt-1 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm">
+                                        <option value="" className="bg-slate-800">—</option>
+                                        {championship.categories.map(c => <option key={c} value={c} className="bg-slate-800">{categoryLabel(c)}</option>)}
+                                    </select>
+                                </label>
+                            ) : (
+                                <label className="block">
+                                    <span className="text-xs text-gray-400">Nota interna (opcional)</span>
+                                    <input value={alta.notes} onChange={e => setAlta(p => ({ ...p, notes: e.target.value }))}
+                                        placeholder="Ej: tercera división"
+                                        className="w-full mt-1 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm" />
+                                </label>
+                            )}
+                            <button onClick={guardarAlta} disabled={altaGuardando || !alta.gt7Id.trim()}
+                                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white rounded-lg text-sm font-semibold">
+                                {altaGuardando ? '⏳ Guardando…' : '✅ Inscribir y aprobar'}
+                            </button>
+                        </div>
+                    )}
+                    {altaMensaje && <p className="mt-3 text-sm text-gray-200">{altaMensaje}</p>}
+                </div>
+            )}
+
             {/* Configuración de inscripciones */}
             {reg.enabled && (
                 <div className="bg-white/5 border border-white/10 rounded-xl p-4">

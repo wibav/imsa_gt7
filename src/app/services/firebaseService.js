@@ -1687,6 +1687,55 @@ export class FirebaseService {
   }
 
   /**
+   * Alta manual de un piloto por el admin (inscripción individual).
+   *
+   * A diferencia de submitRegistration, no mira la fecha límite ni el cupo:
+   * es la vía para las excepciones (p. ej. abrir una tercera división con la
+   * inscripción ya cerrada). Queda aprobada y marcada como alta del admin.
+   * Sí rechaza duplicados por GT7 ID o PSN.
+   *
+   * @param {{gt7Id: string, psnId?: string, category?: string, country?: string, notes?: string}} data
+   */
+  static async adminAddRegistration(championshipId, data) {
+    const docRef = doc(db, 'championships', championshipId);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) throw new Error('Campeonato no encontrado');
+    const champ = snap.data();
+    if (champ.settings?.isTeamChampionship) throw new Error('En un campeonato por equipos los pilotos se añaden desde su equipo');
+
+    const gt7Id = (data.gt7Id || '').trim();
+    const psnId = (data.psnId || '').trim();
+    if (!gt7Id) throw new Error('Falta el GT7 ID');
+    const existentes = champ.registrations || [];
+    const repetido = existentes.find(r =>
+      [r.gt7Id, r.psnId, r.name].some(v => v && (v.toLowerCase() === gt7Id.toLowerCase() || (psnId && v.toLowerCase() === psnId.toLowerCase())))
+    );
+    if (repetido) throw new Error(`Ya existe una inscripción de ${repetido.gt7Id || repetido.psnId} (${repetido.status})`);
+
+    const ahora = new Date().toISOString();
+    const regData = {
+      id: `reg_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+      gt7Id,
+      psnId,
+      ...(data.category ? { category: data.category } : {}),
+      ...(data.country ? { country: data.country } : {}),
+      ...(data.notes ? { adminNotes: data.notes } : {}),
+      status: 'approved',
+      addedByAdmin: true,
+      createdAt: ahora,
+      reviewedAt: ahora,
+    };
+    const drivers = champ.drivers || [];
+    const yaEsPiloto = drivers.some(d => d.name?.toLowerCase() === gt7Id.toLowerCase());
+    await updateDoc(docRef, {
+      registrations: [...existentes, regData],
+      ...(yaEsPiloto ? {} : { drivers: [...drivers, { name: gt7Id, category: data.category || '' }] }),
+      updatedAt: ahora,
+    });
+    return { success: true, registration: regData };
+  }
+
+  /**
    * Actualizar estado de una o varias inscripciones (acción admin)
    * @param {string} championshipId
    * @param {Array<{id: string, status: string}>} updates
