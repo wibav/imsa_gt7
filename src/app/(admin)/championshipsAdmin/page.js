@@ -17,6 +17,7 @@ import { notifyResultsSaved, notifyRegistrationUpdated } from '../../utils/teleg
 import { buildGt7IdMap } from '../../utils/championshipUtils';
 import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations, applyDeclarations, CHAMPIONSHIP_CATEGORIES, categoryLabel } from '../../utils/carUsageCalculator';
 import CarNameInput from '../../components/common/CarNameInput';
+import PilotIdInput from '../../components/common/PilotIdInput';
 import { isPenaltyCounting } from '../../models/Penalty';
 
 /** Convierte "M:SS.mmm" o "SS.mmm" a milisegundos para sort correcto de tiempos */
@@ -2788,12 +2789,18 @@ function RegistrationsTab({ championshipId, championship, divisions = [], onUpda
                         </button>
                     </div>
                     {altaAbierta && (
-                        <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                            <label className="block">
+                        <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3 items-start">
+                            <div className="block self-start">
                                 <span className="text-xs text-gray-400">GT7 ID *</span>
-                                <input value={alta.gt7Id} onChange={e => setAlta(p => ({ ...p, gt7Id: e.target.value }))}
-                                    className="w-full mt-1 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm" />
-                            </label>
+                                <PilotIdInput
+                                    value={alta.gt7Id}
+                                    onChange={v => setAlta(p => ({ ...p, gt7Id: v }))}
+                                    onPick={({ gt7Id, psnId }) => setAlta(p => ({ ...p, gt7Id, psnId: psnId || p.psnId }))}
+                                    inscritos={registrations}
+                                    placeholder="Escribe para buscar pilotos conocidos…"
+                                    className="w-full mt-1 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm"
+                                />
+                            </div>
                             <label className="block">
                                 <span className="text-xs text-gray-400">PSN ID</span>
                                 <input value={alta.psnId} onChange={e => setAlta(p => ({ ...p, psnId: e.target.value }))}
@@ -2817,7 +2824,7 @@ function RegistrationsTab({ championshipId, championship, divisions = [], onUpda
                                 </label>
                             )}
                             <button onClick={guardarAlta} disabled={altaGuardando || !alta.gt7Id.trim()}
-                                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white rounded-lg text-sm font-semibold">
+                                className="md:mt-5 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white rounded-lg text-sm font-semibold">
                                 {altaGuardando ? '⏳ Guardando…' : '✅ Inscribir y aprobar'}
                             </button>
                         </div>
