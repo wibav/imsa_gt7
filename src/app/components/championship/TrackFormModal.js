@@ -4,7 +4,7 @@ import ImageSpecHint from '../common/ImageSpecHint';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { FirebaseService } from '../../services/firebaseService';
-import { DEFAULT_SPRINT_POINTS } from '../../utils/constants';
+import { DEFAULT_SPRINT_POINTS, permiteLluvia } from '../../utils/constants';
 import { REGLAS_POR_DEFECTO, normalizarReglas } from '../../utils/roomConfig';
 import RoomConfigEditor from './RoomConfigEditor';
 import { CarAdder } from '../common/CarNameInput';
@@ -395,7 +395,7 @@ export default function TrackFormModal({ track, championship, onSave, onClose })
 
                     {/* ══════════════ TAB: Configuración de sala ══════════════ */}
                     {tab === 'sala' && (
-                        <RoomConfigEditor reglas={form.rules} track={form} onChange={setRule} />
+                        <RoomConfigEditor reglas={form.rules} track={form} onChange={setRule} lluviaPermitida={permiteLluvia(form.name, firebaseTracks)} />
                     )}
 
                     {/* ══════════════ TAB: Autos y notas ══════════════ */}

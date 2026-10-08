@@ -6,7 +6,7 @@ import {
     COMPUESTOS,
     IGUAL_QUE_CARRERA,
 } from "../../utils/roomConfig";
-import { WEATHER_CONDITION_OPTIONS } from "../../utils/constants";
+import { WEATHER_PRESETS, WEATHER_PRESET_GROUPS, climaVisible } from "../../utils/constants";
 
 /**
  * Editor de la configuración de sala de una carrera, con las mismas secciones,
@@ -23,7 +23,9 @@ import { WEATHER_CONDITION_OPTIONS } from "../../utils/constants";
  * @param {Object} track - para los campos de solo lectura (categoría, duración)
  * @param {(campo: string, valor: any) => void} onChange
  */
-export default function RoomConfigEditor({ reglas = {}, track = {}, onChange, textoOrigenVictoria = 'se elige arriba' }) {
+export default function RoomConfigEditor({ reglas = {}, track = {}, onChange, textoOrigenVictoria = 'se elige arriba', lluviaPermitida = null }) {
+    // lluviaPermitida: true/false según el circuito; null si aún no se eligió.
+    const sinLluvia = lluviaPermitida === false;
     const inputCls = "w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500";
 
     const control = (campo) => {
@@ -56,11 +58,14 @@ export default function RoomConfigEditor({ reglas = {}, track = {}, onChange, te
                         onChange={e => onChange(campo.id, e.target.value === '__vacio' ? null : JSON.parse(e.target.value))}
                     >
                         {!tieneVacia && <option value="__vacio" className="bg-slate-800">— Sin definir —</option>}
-                        {campo.opciones.map(o => (
-                            <option key={String(o.value)} value={JSON.stringify(o.value)} className="bg-slate-800">
-                                {o.label}{o.sinVerificar ? ' *' : ''}
-                            </option>
-                        ))}
+                        {campo.opciones.map(o => {
+                            const bloqueada = campo.id === 'weather' && o.value === 'rain' && sinLluvia;
+                            return (
+                                <option key={String(o.value)} value={JSON.stringify(o.value)} disabled={bloqueada} className="bg-slate-800">
+                                    {o.label}{o.sinVerificar ? ' *' : ''}{bloqueada ? ' — no disponible en este circuito' : ''}
+                                </option>
+                            );
+                        })}
                     </select>
                 );
             }
@@ -174,11 +179,7 @@ export default function RoomConfigEditor({ reglas = {}, track = {}, onChange, te
                 const franjas = Array.isArray(v) ? v : [];
                 const normal = (f) => (typeof f === 'string' ? { weather: f } : f || {});
                 const cambiar = (i, weather) => onChange(campo.id, franjas.map((f, j) => (j === i ? { ...normal(f), weather } : f)));
-                const icono = (cond) => {
-                    const op = WEATHER_CONDITION_OPTIONS.find(o => o.value === cond);
-                    return op ? op.label.split(' ')[0] : '❓';
-                };
-                const texto = (label) => label.split(' ').slice(1).join(' ');
+                const hayLluviaNoPermitida = sinLluvia && franjas.some(f => climaVisible(normal(f).weather).esLluvia);
                 return (
                     <div className="space-y-2">
                         <div className="flex items-center justify-between text-[11px] text-gray-400 px-1">
@@ -198,7 +199,7 @@ export default function RoomConfigEditor({ reglas = {}, track = {}, onChange, te
                                             title="Quitar franja"
                                         >✕</button>
                                         <div className="text-[10px] text-gray-500">{i + 1}</div>
-                                        <div className="text-2xl leading-none my-1">{icono(cond)}</div>
+                                        <div className="text-2xl leading-none my-1">{climaVisible(cond).icon}</div>
                                         <select
                                             value={cond}
                                             onChange={e => cambiar(i, e.target.value)}
@@ -206,7 +207,19 @@ export default function RoomConfigEditor({ reglas = {}, track = {}, onChange, te
                                             aria-label={`Clima de la franja ${i + 1}`}
                                         >
                                             <option value="" className="bg-slate-800">Aleatoria</option>
-                                            {WEATHER_CONDITION_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-slate-800">{texto(o.label)}</option>)}
+                                            {/* Valor antiguo (Despejado, Lluvia…): se conserva hasta que se cambie */}
+                                            {cond && !WEATHER_PRESETS.some(p => p.value === cond) && (
+                                                <option value={cond} className="bg-slate-800">{climaVisible(cond).texto} (antiguo)</option>
+                                            )}
+                                            {WEATHER_PRESET_GROUPS.map(g => (
+                                                <optgroup key={g.id} label={g.id === 'rain' && sinLluvia ? `${g.label} — no disponible en este circuito` : g.label} className="bg-slate-800">
+                                                    {WEATHER_PRESETS.filter(p => p.group === g.id).map(p => (
+                                                        <option key={p.value} value={p.value} disabled={g.id === 'rain' && sinLluvia} className="bg-slate-800">
+                                                            {p.icon} {p.value}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            ))}
                                         </select>
                                     </div>
                                 );
@@ -223,6 +236,16 @@ export default function RoomConfigEditor({ reglas = {}, track = {}, onChange, te
                             )}
                             <span className="text-gray-500 ml-auto">{franjas.length} franja{franjas.length === 1 ? '' : 's'}</span>
                         </div>
+                        {sinLluvia && (
+                            <p className={`text-xs ${hayLluviaNoPermitida ? 'text-red-300' : 'text-gray-500'}`}>
+                                {hayLluviaNoPermitida
+                                    ? '⚠️ Este circuito no admite lluvia en el juego y hay franjas con lluvia: cámbialas.'
+                                    : '🌧️ Este circuito no admite lluvia en el juego: los presets R no se pueden elegir.'}
+                            </p>
+                        )}
+                        {lluviaPermitida === null && (
+                            <p className="text-xs text-gray-500">Elige el circuito para saber si admite lluvia.</p>
+                        )}
                         {franjas.length === 0 && (
                             <p className="text-xs text-gray-500">Sin franjas: pulsa «+ Añadir franja» para crear la primera.</p>
                         )}

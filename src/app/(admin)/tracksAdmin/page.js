@@ -6,6 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import { FirebaseService } from "../../services/firebaseService";
 import { validateImageFile, compressImage } from "../../utils/imageCompression";
 import Image from "next/image";
+import { permiteLluvia } from "../../utils/constants";
 import LoadingSkeleton from "../../components/common/LoadingSkeleton";
 
 export default function TracksAdminPage() {
@@ -91,7 +92,8 @@ export default function TracksAdminPage() {
         setTrackForm({
             name: '',
             country: '',
-            layoutImage: ''
+            layoutImage: '',
+            rain: false
         });
         setShowModal(true);
     };
@@ -102,7 +104,9 @@ export default function TracksAdminPage() {
         setTrackForm({
             name: track.name || '',
             country: track.country || '',
-            layoutImage: track.layoutImage || ''
+            layoutImage: track.layoutImage || '',
+            // Sin dato en el catálogo se parte de la lista de circuitos con lluvia.
+            rain: permiteLluvia(track.name, [track]) === true
         });
         setShowModal(true);
     };
@@ -440,6 +444,11 @@ export default function TracksAdminPage() {
                                     </p>
 
                                     <div className="flex flex-wrap gap-2 mb-4 text-xs">
+                                        {permiteLluvia(track.name, [track]) && (
+                                            <span className="bg-sky-600/30 text-sky-200 px-2 py-1 rounded" title={typeof track.rain === 'boolean' ? 'Confirmado en el catálogo' : 'Según la lista de partida: sin confirmar en el catálogo'}>
+                                                🌧️ Lluvia{typeof track.rain === 'boolean' ? '' : ' (sin confirmar)'}
+                                            </span>
+                                        )}
                                         {!track.layoutImage && (
                                             <span className="bg-red-600/30 text-red-200 px-2 py-1 rounded">
                                                 ⚠️ Sin imagen
@@ -518,6 +527,19 @@ export default function TracksAdminPage() {
                                         placeholder="Ej: España"
                                     />
                                 </div>
+
+                                <label className="flex items-start gap-3 bg-white/5 border border-white/15 rounded-lg p-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={Boolean(trackForm.rain)}
+                                        onChange={(e) => setTrackForm(prev => ({ ...prev, rain: e.target.checked }))}
+                                        className="w-4 h-4 mt-0.5"
+                                    />
+                                    <span>
+                                        <span className="block text-sm font-medium text-white">🌧️ Admite lluvia en el juego</span>
+                                        <span className="block text-xs text-gray-400">Si no, al configurar el clima de una carrera aquí no se podrán elegir los presets de lluvia (R01–R08).</span>
+                                    </span>
+                                </label>
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">

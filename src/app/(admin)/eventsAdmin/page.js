@@ -14,6 +14,7 @@ import { reorderByPosition } from "../../utils/eventResultsOrder";
 import StandardRoomSection from "../../components/event/StandardRoomSection";
 import RoomConfigEditor from "../../components/championship/RoomConfigEditor";
 import { CarAdder } from "../../components/common/CarNameInput";
+import { permiteLluvia } from "../../utils/constants";
 import { REGLAS_POR_DEFECTO, normalizarReglas, salaDeEvento, resumenSalaEvento } from "../../utils/roomConfig";
 
 // Identidad estable de fila para la sección Resultados (Bloque 3): generada
@@ -765,6 +766,7 @@ function EventForm({ event, onSave, onCancel, saving }) {
                     reglas={form.rules || {}}
                     track={{ victoria: salaDeEvento(form).victoria }}
                     textoOrigenVictoria="vueltas o duración, arriba"
+                    lluviaPermitida={permiteLluvia(form.track, firebaseTracks)}
                     onChange={updateRules}
                 />
             </CollapsibleSection>

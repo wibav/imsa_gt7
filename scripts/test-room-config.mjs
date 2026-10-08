@@ -83,4 +83,24 @@ test('eventos: nombres antiguos, clima en weather y vueltas', () => {
     assert.equal(tx('weatherSlots'), 'S18/C05');
     assert.ok(resumenSalaEvento(ev).length >= 4);
 });
+const K = await import(path.join(ROOT, 'src/app/utils/constants.js'));
+test('presets de clima del juego: 18 S, 6 C, 8 R', () => {
+    const por = (g) => K.WEATHER_PRESETS.filter(p => p.group === g).map(p => p.value);
+    assert.deepEqual([por('sun').length, por('cloud').length, por('rain').length], [18, 6, 8]);
+    assert.equal(por('sun')[0], 'S01'); assert.equal(por('rain')[7], 'R08');
+    assert.equal(K.climaVisible('R07').esLluvia, true);
+    assert.equal(K.climaVisible('light_rain').texto, 'Lluvia ligera');
+    assert.equal(K.climaVisible('').texto, 'Aleatoria');
+    assert.equal(t({ weather: 'variable', weatherSlots: [{ weather: 'S01' }, { weather: '' }, { weather: 'R06' }] }, 'weatherSlots'), '☀️ S01 → ❓ Aleatoria → 🌧️ R06');
+});
+test('lluvia: lista de partida y lo que diga el catálogo', () => {
+    assert.equal(K.permiteLluvia('Spa 24h layout'), true);
+    assert.equal(K.permiteLluvia('Nürburgring GP'), true);
+    assert.equal(K.permiteLluvia('Dragon Trail - Gardens Reverse'), true);
+    assert.equal(K.permiteLluvia('Dragon Trail - Seaside'), false);
+    assert.equal(K.permiteLluvia('Autodromo Nazionale Monza'), false);
+    assert.equal(K.permiteLluvia('Autodromo Nazionale Monza', [{ name: 'Autodromo Nazionale Monza', rain: true }]), true);
+    assert.equal(K.permiteLluvia('Suzuka Circuit', [{ name: 'Suzuka Circuit', rain: false }]), false);
+    assert.equal(K.permiteLluvia(''), null);
+});
 console.log(`\n${ok} tests OK`);

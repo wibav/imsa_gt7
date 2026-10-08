@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useChampionship } from '../../context/ChampionshipContext';
 import { Championship } from '../../models/Championship';
 import { FirebaseService } from '../../services/firebaseService';
-import { STREAMING_PLATFORMS, WEATHER_CONDITION_OPTIONS, WEATHER_TRANSITION_OPTIONS, DEFAULT_SPRINT_POINTS, DEFAULT_DIVISIONS_CONFIG, WEATHER_TIME_OPTIONS } from '../../utils/constants';
+import { STREAMING_PLATFORMS, WEATHER_CONDITION_OPTIONS, WEATHER_TRANSITION_OPTIONS, DEFAULT_SPRINT_POINTS, DEFAULT_DIVISIONS_CONFIG, WEATHER_TIME_OPTIONS, permiteLluvia } from '../../utils/constants';
 import { DEFAULT_PENALTIES_CONFIG } from '../../models/Penalty';
 import { validateImageFile, compressImage } from '../../utils/imageCompression';
 import { REGLAS_POR_DEFECTO, normalizarReglas } from '../../utils/roomConfig';
@@ -1826,6 +1826,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                         reglas={formData.preQualy.rules || {}}
                                                         track={{ category: (formData.categories || []).join(", "), victoria: `Límite de tiempo (${formData.preQualy.duration ?? 15} min)` }}
                                                         textoOrigenVictoria="sale de la duración"
+                                                        lluviaPermitida={permiteLluvia(formData.preQualy.track, firebaseTracks)}
                                                         onChange={(campo, valor) => setFormData(prev => ({
                                                             ...prev, preQualy: { ...prev.preQualy, rules: { ...prev.preQualy.rules, [campo]: valor } }
                                                         }))}
@@ -2906,7 +2907,7 @@ export default function ChampionshipForm({ isEditing = false }) {
 
                                 {/* Configuración de sala: mismo editor que el gestor de circuitos */}
                                 {trackModalTab === 'sala' && (
-                                    <RoomConfigEditor reglas={trackFormData.rules} track={trackFormData} onChange={handleTrackRuleChange} />
+                                    <RoomConfigEditor reglas={trackFormData.rules} track={trackFormData} onChange={handleTrackRuleChange} lluviaPermitida={permiteLluvia(trackFormData.name, firebaseTracks)} />
                                 )}
 
                                 {/* Carros Específicos */}

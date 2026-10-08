@@ -278,6 +278,72 @@ export const WEATHER_CONDITION_OPTIONS = [
 ];
 
 /**
+ * Presets de clima de GT7 para «Clima personalizado», con los mismos códigos
+ * que el juego (capturas de 2026-10-08): 18 de sol (S01–S18), 6 de nubes
+ * (C01–C06) y 8 de lluvia (R01–R08). El icono es el que el juego dibuja en
+ * cada preset: sol, sol con nubes, nube, lluvia o lluvia intensa.
+ *
+ * WEATHER_CONDITION_OPTIONS (arriba) son los valores genéricos anteriores;
+ * se conservan para seguir mostrando las carreras ya guardadas.
+ */
+const SOL_CON_NUBES = [3, 4, 8, 9, 10, 11, 12, 14, 17, 18];
+const dos = (n) => String(n).padStart(2, '0');
+export const WEATHER_PRESETS = [
+    ...Array.from({ length: 18 }, (_, i) => ({
+        value: `S${dos(i + 1)}`, group: 'sun',
+        icon: SOL_CON_NUBES.includes(i + 1) ? '⛅' : '☀️',
+    })),
+    ...Array.from({ length: 6 }, (_, i) => ({ value: `C${dos(i + 1)}`, group: 'cloud', icon: '☁️' })),
+    ...Array.from({ length: 8 }, (_, i) => ({
+        value: `R${dos(i + 1)}`, group: 'rain',
+        icon: i + 1 >= 7 ? '⛈️' : '🌧️',
+    })),
+];
+export const WEATHER_PRESET_GROUPS = [
+    { id: 'sun', label: 'Soleado (S)' },
+    { id: 'cloud', label: 'Nublado (C)' },
+    { id: 'rain', label: 'Lluvia (R)' },
+];
+
+/**
+ * Circuitos de GT7 que admiten lluvia, por si el catálogo no lo indica.
+ * Lista de partida del organizador (2026-10-08), pendiente de comprobar uno a
+ * uno en el juego: lo que manda es el campo `rain` de cada circuito del
+ * catálogo (/tracksAdmin), y esto solo se usa cuando ese campo no está.
+ */
+const CIRCUITOS_CON_LLUVIA = [
+    /tsukuba/i, /24 heures du mans/i, /autopolis/i, /dragon trail - gardens/i,
+    /high speed ring/i, /red bull ring/i, /tokyo expressway/i, /fuji/i,
+    /suzuka/i, /\bspa\b/i, /n[uü]rburgring/i,
+];
+
+/**
+ * ¿Se puede poner lluvia en este circuito?
+ * @param {string} nombre - nombre del circuito
+ * @param {Array} [catalogo] - circuitos del catálogo ({name, rain})
+ * @returns {boolean|null} null si no se sabe qué circuito es
+ */
+export function permiteLluvia(nombre, catalogo = []) {
+    if (!nombre) return null;
+    const enCatalogo = catalogo.find(t => t.name === nombre);
+    if (typeof enCatalogo?.rain === 'boolean') return enCatalogo.rain;
+    return CIRCUITOS_CON_LLUVIA.some(re => re.test(nombre));
+}
+
+/** Icono y texto de un clima guardado: preset del juego o valor antiguo. */
+export function climaVisible(valor) {
+    if (!valor) return { icon: '❓', texto: 'Aleatoria', esLluvia: false };
+    const preset = WEATHER_PRESETS.find(p => p.value === valor);
+    if (preset) return { icon: preset.icon, texto: preset.value, esLluvia: preset.group === 'rain' };
+    const antiguo = WEATHER_CONDITION_OPTIONS.find(o => o.value === valor);
+    if (antiguo) {
+        const [icon, ...resto] = antiguo.label.split(' ');
+        return { icon, texto: resto.join(' '), esLluvia: /rain|storm/.test(valor) };
+    }
+    return { icon: '❓', texto: String(valor), esLluvia: false };
+}
+
+/**
  * Opciones de transición climática
  */
 export const WEATHER_TRANSITION_OPTIONS = [

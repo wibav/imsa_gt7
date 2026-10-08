@@ -17,7 +17,7 @@
  * siguen viendo sin migrar nada.
  */
 
-import { TYRE_OPTIONS, WEATHER_TIME_OPTIONS, WEATHER_CONDITION_OPTIONS, WEATHER_TRANSITION_OPTIONS } from './constants.js';
+import { TYRE_OPTIONS, WEATHER_TIME_OPTIONS, WEATHER_TRANSITION_OPTIONS, climaVisible } from './constants.js';
 
 const SI_NO = (si = 'Activado', no = 'Desactivado') => [{ value: true, label: si }, { value: false, label: no }];
 const PROHIBIDO_SIN_LIMITE = [{ value: 'prohibited', label: 'Prohibido' }, { value: 'unlimited', label: 'Sin límite' }];
@@ -428,8 +428,8 @@ export function valorVisible(campo, reglas, track = {}) {
             if (typeof v === 'string') return v || null;
             if (!Array.isArray(v) || v.length === 0) return null;
             return v.map(s => {
-                const cond = typeof s === 'string' ? s : s?.weather;
-                return WEATHER_CONDITION_OPTIONS.find(o => o.value === cond)?.label || cond || 'Aleatoria';
+                const { icon, texto } = climaVisible(typeof s === 'string' ? s : s?.weather);
+                return `${icon} ${texto}`;
             }).join(' → ');
         }
         default:
