@@ -251,7 +251,7 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                                 icon="⚖️"
                                                 title="Configuración"
                                                 items={[
-                                                    `Modificaciones/BdR prohibidos: ${t('tuningProhibited')}`,
+                                                    `BoP: ${t('tuningProhibited')}`,
                                                     rules.maxPR != null ? `Límite de PR: ${t('maxPR')}` : null,
                                                     rules.maxCV != null ? `Potencia máx.: ${t('maxCV')}` : null,
                                                 ].filter(Boolean)}

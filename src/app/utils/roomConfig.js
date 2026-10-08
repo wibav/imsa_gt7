@@ -84,7 +84,9 @@ export const SECCIONES_SALA = [
                     { value: 'host', label: 'Definido por el anfitrión' },
                 ],
             },
-            { id: 'tuningProhibited', etiqueta: 'Modificaciones/BdR prohibidos', tipo: 'select', opciones: SI_NO() },
+            // «BdR» (balance de rendimiento) es como lo llama el juego en español de
+            // Latinoamérica; en España se conoce como BoP y la sigla confundía.
+            { id: 'tuningProhibited', etiqueta: 'BoP (BdR) · Modificaciones prohibidas', tipo: 'select', opciones: [{ value: true, label: 'Activado — con BoP, sin modificaciones' }, { value: false, label: 'Desactivado — sin BoP, modificaciones libres' }] },
             { id: 'tuningOptions', etiqueta: 'Opciones de configuración', tipo: 'ajustes', ancho: 'completo', visibleSi: r => r.tuningProhibited === true },
             { id: 'boost', etiqueta: 'Impulso', tipo: 'select', opciones: [{ value: 'off', label: 'Desactivado' }, { value: 'weak', label: 'Débil', sinVerificar: true }, { value: 'strong', label: 'Fuerte', sinVerificar: true }] },
             { id: 'raceSlipstream', etiqueta: 'Fuerza de rebufo', tipo: 'select', opciones: REBUFO },

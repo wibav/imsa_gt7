@@ -29,8 +29,8 @@ test('atajos: Moderado (no existe en el juego) se lee como Leve', () => {
     assert.equal(t({ penaltyShortcut: 'moderate' }, 'penaltyShortcut'), 'Leve');
 });
 test('BoP y ajustes, también en mayúsculas', () => {
-    assert.equal(t({ bop: 'SI', adjustments: 'NO' }, 'tuningProhibited'), 'Activado');
-    assert.equal(t({ bop: 'no', adjustments: 'no' }, 'tuningProhibited'), 'Desactivado');
+    assert.equal(t({ bop: 'SI', adjustments: 'NO' }, 'tuningProhibited'), 'Activado — con BoP, sin modificaciones');
+    assert.equal(t({ bop: 'no', adjustments: 'no' }, 'tuningProhibited'), 'Desactivado — sin BoP, modificaciones libres');
 });
 test('asistencias: no/off → Prohibido, on/default → Sin límite, ABS débil', () => {
     const r = normalizarReglas({ tcs: 'off', asm: 'on', counterSteering: 'no', abs: 'weak' });
@@ -78,7 +78,7 @@ test('eventos: nombres antiguos, clima en weather y vueltas', () => {
     assert.equal(tx('mandatoryCompoundChanges'), 'Activada');
     assert.equal(tx('mandatoryPitStops'), '1');
     assert.equal(tx('penaltyShortcut'), 'Desactiv.');
-    assert.equal(tx('tuningProhibited'), 'Activado');
+    assert.equal(tx('tuningProhibited'), 'Activado — con BoP, sin modificaciones');
     assert.equal(tx('timeOfDay'), 'Tarde');
     assert.equal(tx('weatherSlots'), 'S18/C05');
     assert.ok(resumenSalaEvento(ev).length >= 4);
