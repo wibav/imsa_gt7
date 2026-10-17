@@ -25,6 +25,8 @@ export {
     buildGt7IdMap,
     displayDriverName,
     inscripcionCuenta,
+    esAbandono,
+    ordenarPosiciones,
 } from './championshipUtils';
 export { calculateAdvancedStandings, getDriverStats, compareDrivers, getStandingsByCategory } from './standingsCalculator';
 export { flattenRegistrations } from './carUsageCalculator';
