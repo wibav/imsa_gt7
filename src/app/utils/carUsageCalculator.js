@@ -141,6 +141,7 @@ export function getCarsForCategories(categories = [], allCars = []) {
  *      concreta (gana siempre: puede ser un subconjunto muy acotado).
  *   2. Si no, los del catálogo oficial que correspondan a las categorías del
  *      campeonato (ej. categories:["Gr4"] → los 34 Gr.4).
+ * En ambos casos se quitan los de `carUsageTracking.excludedCars`.
  *
  * Devuelve [] solo si no hay catálogo cargado (colección vacía o fallo de
  * lectura), que es la señal para caer a texto libre.
@@ -150,14 +151,32 @@ export function getCarsForCategories(categories = [], allCars = []) {
  * @returns {Array<{name: string, carClass?: string, manufacturer?: string, pp?: number}>}
  */
 export function getAllowedCars(championship, allCars = []) {
+    const excluidos = new Set(getExcludedCars(championship));
     const catalog = championship?.carUsageTracking?.carCatalog || [];
     if (catalog.length > 0) {
         // El catálogo del organizador son nombres sueltos: se enriquecen con
         // los datos oficiales cuando el nombre coincide, si no van pelados.
         const byName = new Map(allCars.map(c => [c.name, c]));
-        return catalog.map(name => byName.get(name) || { name });
+        return catalog.filter(name => !excluidos.has(name)).map(name => byName.get(name) || { name });
     }
-    return getCarsForCategories(championship?.categories, allCars);
+    return getCarsForCategories(championship?.categories, allCars).filter(c => !excluidos.has(c.name));
+}
+
+/**
+ * Autos que el organizador excluyó del campeonato (lista negra). Se restan de
+ * lo que ofrece getAllowedCars, así que los coches que añada una actualización
+ * de GT7 entran solos salvo que se excluyan.
+ *
+ * @returns {string[]}
+ */
+export function getExcludedCars(championship) {
+    return (championship?.carUsageTracking?.excludedCars || []).filter(Boolean);
+}
+
+/** Autos declarados por el piloto que el organizador excluyó después. */
+export function declaredExcludedCars(championship, cars = []) {
+    const excluidos = new Set(getExcludedCars(championship));
+    return (cars || []).filter(c => excluidos.has(c));
 }
 
 /**

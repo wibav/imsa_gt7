@@ -122,7 +122,10 @@ async function run() {
     for (let i = 0; i < cars.length; i += CHUNK) {
         const batch = db.batch();
         cars.slice(i, i + CHUNK).forEach((car) => {
-            batch.set(db.collection("cars").doc(car.id), car);
+            // merge: conserva los campos que no vienen del catálogo oficial
+            // (sobre todo `bop`, que pone sync-gtengine-bop.js). Sin merge, cada
+            // sincronización borraba el BoP de todos los coches.
+            batch.set(db.collection("cars").doc(car.id), car, { merge: true });
         });
         await batch.commit();
         written += Math.min(CHUNK, cars.length - i);

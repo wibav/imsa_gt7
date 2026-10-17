@@ -111,7 +111,8 @@ function getEmptyFormData() {
             alertThreshold: 1,
             maxCarsPerDriver: 3,
             declarationDeadline: '',
-            carCatalog: []
+            carCatalog: [],
+            excludedCars: []
         },
         preQualy: {
             enabled: false,
@@ -368,7 +369,8 @@ export default function ChampionshipForm({ isEditing = false }) {
                 alertThreshold: champ.carUsageTracking?.alertThreshold ?? 1,
                 maxCarsPerDriver: champ.carUsageTracking?.maxCarsPerDriver ?? 3,
                 declarationDeadline: champ.carUsageTracking?.declarationDeadline || '',
-                carCatalog: champ.carUsageTracking?.carCatalog || []
+                carCatalog: champ.carUsageTracking?.carCatalog || [],
+                excludedCars: champ.carUsageTracking?.excludedCars || []
             },
             preQualy: {
                 enabled: champ.preQualy?.enabled || false,
@@ -2315,6 +2317,52 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                             ? `Si lo dejas vacío, los pilotos podrán elegir entre los ${categoryCars.length} autos de la categoría del campeonato. Agrega autos aquí solo para restringirlo más.`
                                                             : 'El catálogo oficial no está disponible: escribe los nombres a mano. Si lo dejas vacío, los pilotos podrán escribir cualquier nombre de auto.'}
                                                     </p>
+                                                )}
+                                            </div>
+
+                                            {/* Lista negra: se resta de lo que ve el piloto y del sorteo automático */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                    🚫 Autos excluidos <span className="text-gray-500 font-normal">(opcional — no aparecen al declarar ni en la asignación automática)</span>
+                                                </label>
+                                                <CarAdder
+                                                    existing={formData.carUsageTracking?.excludedCars || []}
+                                                    categories={formData.categories}
+                                                    placeholder="Busca el auto a excluir…"
+                                                    onAdd={(v) => setFormData(prev => ({
+                                                        ...prev,
+                                                        carUsageTracking: {
+                                                            ...prev.carUsageTracking,
+                                                            excludedCars: [...(prev.carUsageTracking?.excludedCars || []), v]
+                                                        }
+                                                    }))}
+                                                    buttonClassName="px-3 py-2 bg-red-700 hover:bg-red-800 text-white text-sm rounded-lg whitespace-nowrap"
+                                                />
+                                                {(formData.carUsageTracking?.excludedCars || []).length > 0 ? (
+                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                        {formData.carUsageTracking.excludedCars.map((car) => (
+                                                            <span key={car} className="flex items-center gap-1 px-3 py-1 bg-red-900/30 border border-red-500/40 rounded-full text-sm text-red-100">
+                                                                🚫 {car}
+                                                                <button type="button"
+                                                                    aria-label={`Volver a permitir ${car}`}
+                                                                    onClick={() => setFormData(prev => ({
+                                                                        ...prev,
+                                                                        carUsageTracking: {
+                                                                            ...prev.carUsageTracking,
+                                                                            excludedCars: prev.carUsageTracking.excludedCars.filter(c => c !== car)
+                                                                        }
+                                                                    }))}
+                                                                    className="text-red-300 hover:text-white ml-1 text-xs">✕</button>
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-xs text-gray-500 mt-2">
+                                                        Úsalo para quitar modelos concretos sin armar un catálogo entero: los autos nuevos de la categoría que añada GT7 seguirán apareciendo solos.
+                                                    </p>
+                                                )}
+                                                {(formData.carUsageTracking?.excludedCars || []).some(c => (formData.carUsageTracking?.carCatalog || []).includes(c)) && (
+                                                    <p className="text-xs text-yellow-300 mt-2">⚠️ Hay autos que están a la vez en el catálogo y en excluidos: gana la exclusión.</p>
                                                 )}
                                             </div>
                                         </div>

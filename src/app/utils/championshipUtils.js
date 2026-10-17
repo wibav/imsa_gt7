@@ -410,3 +410,18 @@ export const estadoCarrera = (track) => {
     }
     return 'programada';
 };
+
+/**
+ * Abandonos en `racePositions`: el admin marca DNF a quien no terminó en vez
+ * de dejarlo en la última posición (que suma puntos). El calculador de
+ * clasificación ya cuenta 'DNF'/'DSQ'/'DNS' como abandono.
+ */
+export const ABANDONOS = ['DNF', 'DNS', 'DSQ'];
+export const esAbandono = (posicion) => ABANDONOS.includes(String(posicion ?? '').trim().toUpperCase());
+
+/** Ordena entradas [piloto, posición]: primero las numéricas, al final los abandonos. */
+export const ordenarPosiciones = (entradas = []) => [...entradas].sort(([, a], [, b]) => {
+    const na = parseInt(a, 10), nb = parseInt(b, 10);
+    const va = Number.isNaN(na) ? Infinity : na, vb = Number.isNaN(nb) ? Infinity : nb;
+    return va - vb;
+});

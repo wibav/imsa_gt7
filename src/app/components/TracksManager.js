@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { FirebaseService } from '../services/firebaseService';
 import Image from 'next/image';
 import TrackFormModal, { getEmptyTrackData } from './championship/TrackFormModal';
+import TrackLogo from './common/TrackLogo';
 
 export default function TracksManager({
     championshipId,
@@ -132,7 +133,7 @@ export default function TracksManager({
                                     <div className="flex-1">
                                         <div className="flex items-start gap-3 mb-2">
                                             <div>
-                                                <h3 className="text-lg font-bold">{track.name}</h3>
+                                                <h3 className="text-lg font-bold flex items-center gap-2"><TrackLogo name={track.name} logo={track.logo} size="sm" />{track.name}</h3>
                                                 <p className="text-sm text-gray-400">📍 {track.country}</p>
                                                 {track.category && (
                                                     <span className="inline-block mt-1 text-xs bg-blue-600/30 text-blue-200 px-2 py-1 rounded">

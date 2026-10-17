@@ -222,7 +222,7 @@ export default function StandingsTable({
                                             const isInvalidated = entry.invalidatedRaces?.[raceIdx];
                                             const tooltipParts = [race.name];
                                             if (isInvalidated) tooltipParts.push(`⚠️ Pts anulados (uso de auto)`);
-                                            else if (pts !== null && pts !== undefined) tooltipParts.push(`P${pos || '?'} → ${pts} pts`);
+                                            else if (pts !== null && pts !== undefined) tooltipParts.push(`${Number.isNaN(pos) ? 'DNF' : `P${pos || '?'}`} → ${pts} pts`);
                                             else tooltipParts.push('No participó');
                                             if (isFl) tooltipParts.push('⚡ Vuelta Rápida');
                                             if (isPole) tooltipParts.push('🎯 Pole');

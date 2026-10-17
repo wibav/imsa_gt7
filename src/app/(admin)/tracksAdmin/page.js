@@ -8,6 +8,7 @@ import { validateImageFile, compressImage } from "../../utils/imageCompression";
 import Image from "next/image";
 import { permiteLluvia } from "../../utils/constants";
 import LoadingSkeleton from "../../components/common/LoadingSkeleton";
+import TrackLogo from '../../components/common/TrackLogo';
 
 export default function TracksAdminPage() {
     const router = useRouter();
@@ -438,7 +439,10 @@ export default function TracksAdminPage() {
 
                                 {/* Info */}
                                 <div className="p-4">
-                                    <h3 className="text-xl font-bold text-white mb-2">{track.name}</h3>
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <TrackLogo name={track.name} logo={track.logo} size="sm" />
+                                        <h3 className="text-xl font-bold text-white">{track.name}</h3>
+                                    </div>
                                     <p className="text-gray-300 text-sm mb-3">
                                         {track.country ? `📍 ${track.country}` : '📍 País no asignado'}
                                     </p>

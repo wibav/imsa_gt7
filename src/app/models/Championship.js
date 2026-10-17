@@ -56,7 +56,9 @@ export class Championship {
                 alertThreshold: data.carUsageTracking.alertThreshold ?? 1,
                 maxCarsPerDriver: data.carUsageTracking.maxCarsPerDriver ?? 3,
                 declarationDeadline: data.carUsageTracking.declarationDeadline || null,
-                carCatalog: data.carUsageTracking.carCatalog || []
+                carCatalog: data.carUsageTracking.carCatalog || [],
+                // Lista negra: autos que no se ofrecen al piloto ni salen en el sorteo
+                excludedCars: data.carUsageTracking.excludedCars || []
             }
             : null;
         this.preQualy = data.preQualy || null;

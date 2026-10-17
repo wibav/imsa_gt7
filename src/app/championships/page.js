@@ -16,6 +16,8 @@ import {
     getNextRace,
     getNextEvent,
     estadoCarrera,
+    esAbandono,
+    ordenarPosiciones,
     getRegistrationState,
     buildGt7IdMap,
     inscripcionCuenta,
@@ -61,6 +63,7 @@ import { isRegulationsEmpty } from '../utils/regulations';
 import RegulationsView from '../components/championship/RegulationsView';
 import RegulationsPdfButton from '../components/championship/RegulationsPdfButton';
 import PilotTeamAvatar from '../components/common/PilotTeamAvatar';
+import TrackLogo from '../components/common/TrackLogo';
 
 /**
  * Pole, top-3 de clasificación y vuelta rápida de una carrera (o de una
@@ -804,6 +807,7 @@ export default function ChampionshipDetailPage() {
                                                     <div className="flex-1">
                                                         <div className="flex items-center gap-3 mb-2">
                                                             <span className="text-2xl font-bold text-orange-400">R{track.round}</span>
+                                                            <TrackLogo name={track.name} size="sm" />
                                                             <h3 className="text-xl font-bold text-white">{track.name}</h3>
                                                         </div>
                                                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-gray-300">
@@ -1745,6 +1749,16 @@ export default function ChampionshipDetailPage() {
                                                                 </span>
                                                             </div>
                                                         )}
+                                                        {(cat.excludedCars || []).length > 0 && (
+                                                            <div className="p-3 bg-red-900/20 border border-red-500/20 rounded-lg">
+                                                                <p className="text-red-200 text-sm font-medium mb-2">🚫 Autos no permitidos:</p>
+                                                                <div className="flex flex-wrap gap-1.5">
+                                                                    {cat.excludedCars.map(car => (
+                                                                        <span key={car} className="px-2 py-0.5 bg-red-900/40 border border-red-500/30 text-red-100 text-xs rounded-full">{car}</span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                         {eligible.length > 0 && (
                                                             <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                                                                 <span className="text-gray-300">Pilotos que ya declararon</span>
@@ -1884,7 +1898,10 @@ export default function ChampionshipDetailPage() {
                                                 <div className="text-white/80 text-sm mb-1">
                                                     {esPq ? 'Clasificatoria previa' : `Ronda ${t.round}`}
                                                 </div>
-                                                <div className="text-white font-bold text-xl">{nextEvent.name}</div>
+                                                <div className="flex items-center gap-3">
+                                                    {!esPq && <TrackLogo name={t.name} size="md" />}
+                                                    <div className="text-white font-bold text-xl">{nextEvent.name}</div>
+                                                </div>
                                             </div>
                                             <div className="text-white/90 text-sm">
                                                 📅 {formatDateFull(nextEvent.date)}
@@ -2210,6 +2227,7 @@ export default function ChampionshipDetailPage() {
                             <div>
                                 <div className="flex items-center gap-3 mb-1">
                                     <span className="text-2xl font-bold text-orange-400">R{selectedTrack.round}</span>
+                                    <TrackLogo name={selectedTrack.name} size="md" />
                                     <h2 className="text-2xl font-bold text-white">{selectedTrack.name}</h2>
                                 </div>
                                 <div className="flex items-center gap-3 text-gray-400 text-sm flex-wrap">
@@ -2286,7 +2304,7 @@ export default function ChampionshipDetailPage() {
                                                         const divResult = selectedTrack.results.divisions[div.id];
                                                         if (!divResult?.racePositions || Object.keys(divResult.racePositions).length === 0) return null;
                                                         const divColor = div.color || '#f97316';
-                                                        const entries = Object.entries(divResult.racePositions).sort(([, a], [, b]) => a - b);
+                                                        const entries = ordenarPosiciones(Object.entries(divResult.racePositions));
                                                         const extras = extrasDeCarrera(divResult, canonPiloto);
                                                         return (
                                                             <div key={div.id}>
@@ -2303,11 +2321,12 @@ export default function ChampionshipDetailPage() {
                                                                         const pts = divResult.racePoints?.[driverName];
                                                                         const extra = extras.porPiloto[canonPiloto(driverName)];
                                                                         const sumados = (extra?.qualyPts || 0) + (extra?.flPts || 0);
-                                                                        const medal = getPositionMedal(idx);
-                                                                        const colors = getResultColors(idx);
+                                                                        const abandono = esAbandono(position);
+                                                                        const medal = abandono ? null : getPositionMedal(idx);
+                                                                        const colors = abandono ? { bg: 'bg-red-900/10', text: 'text-red-300' } : getResultColors(idx);
                                                                         return (
                                                                             <div key={driverName} className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${colors.bg}`}>
-                                                                                <span className="text-gray-400 w-6 text-right font-mono text-xs flex-shrink-0">{position}°</span>
+                                                                                <span className="text-gray-400 w-6 text-right font-mono text-xs flex-shrink-0">{abandono ? <span className="text-red-400 font-bold">{String(position).toUpperCase()}</span> : `${position}°`}</span>
                                                                                 <span className="text-gray-300 flex-1 min-w-0 flex items-center">
                                                                                     <span className="truncate">{medal && <span className="mr-1">{medal}</span>}{driverName}</span>
                                                                                     <ExtrasPiloto extra={extra} />
@@ -2331,17 +2350,17 @@ export default function ChampionshipDetailPage() {
                                             return (
                                             <div className="space-y-1">
                                                 <ExtrasCarrera extras={extras} />
-                                                {Object.entries(selectedTrack.results.racePositions)
-                                                    .sort(([, a], [, b]) => a - b)
+                                                {ordenarPosiciones(Object.entries(selectedTrack.results.racePositions))
                                                     .map(([driverName, position], idx) => {
                                                         const pts = selectedTrack.results.racePoints?.[driverName];
                                                         const extra = extras.porPiloto[canonPiloto(driverName)];
                                                         const sumados = (extra?.qualyPts || 0) + (extra?.flPts || 0);
-                                                        const medal = getPositionMedal(idx);
-                                                        const colors = getResultColors(idx);
+                                                        const abandono = esAbandono(position);
+                                                        const medal = abandono ? null : getPositionMedal(idx);
+                                                        const colors = abandono ? { bg: 'bg-red-900/10', text: 'text-red-300' } : getResultColors(idx);
                                                         return (
                                                             <div key={driverName} className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${colors.bg}`}>
-                                                                <span className="text-gray-400 w-6 text-right font-mono text-xs flex-shrink-0">{position}°</span>
+                                                                <span className="text-gray-400 w-6 text-right font-mono text-xs flex-shrink-0">{abandono ? <span className="text-red-400 font-bold">{String(position).toUpperCase()}</span> : `${position}°`}</span>
                                                                 <span className="text-gray-300 flex-1 min-w-0 flex items-center">
                                                                     <span className="truncate">{medal && <span className="mr-1">{medal}</span>}{driverName}</span>
                                                                     <ExtrasPiloto extra={extra} />

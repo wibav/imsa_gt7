@@ -159,6 +159,14 @@ export default function CarSpecsTable({ coches = [], titulo = '📊 Ficha técni
                     <a href="https://gt-engine.com/gt7/" target="_blank" rel="noopener noreferrer"
                         className="text-orange-400 hover:underline">GT Engine</a>
                     {' '}· versión {origen.version} del juego
+                    {(() => {
+                        // Una configuración puede venir de otra fuente más reciente
+                        // (p. ej. la tabla que publica Polyphony tras una
+                        // actualización, antes de que GT Engine la recoja).
+                        const propia = coches.find(c => c?.bop?.[varia ? config : 'medio']?.fuente)?.bop?.[varia ? config : 'medio'];
+                        if (!propia) return null;
+                        return <span className="block mt-1 text-amber-300/80">Esta configuración: {propia.fuente}{propia.fecha ? ` (${new Date(`${propia.fecha}T12:00:00`).toLocaleDateString('es-ES')})` : ''}.</span>;
+                    })()}
                 </p>
             )}
         </div>

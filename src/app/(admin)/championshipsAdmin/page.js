@@ -14,8 +14,8 @@ import CarDeclarationModal from '../../components/championship/CarDeclarationMod
 import ContinuityTab from '../../components/championship/ContinuityTab';
 import { DEFAULT_SPRINT_POINTS } from '../../utils/constants';
 import { notifyResultsSaved, notifyRegistrationUpdated } from '../../utils/telegram';
-import { buildGt7IdMap } from '../../utils/championshipUtils';
-import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations, applyDeclarations, CHAMPIONSHIP_CATEGORIES, categoryLabel } from '../../utils/carUsageCalculator';
+import { buildGt7IdMap, esAbandono } from '../../utils/championshipUtils';
+import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations, applyDeclarations, CHAMPIONSHIP_CATEGORIES, categoryLabel, getExcludedCars } from '../../utils/carUsageCalculator';
 import CarNameInput from '../../components/common/CarNameInput';
 import PilotIdInput from '../../components/common/PilotIdInput';
 import { isPenaltyCounting } from '../../models/Penalty';
@@ -1481,7 +1481,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                     const racePoints = {};
                     Object.entries(divPositions[divId] || {}).forEach(([driver, position]) => {
                         if (position !== '') {
-                            const pts = calculateRacePoints(parseInt(position));
+                            const pts = (esAbandono(position) ? 0 : calculateRacePoints(parseInt(position)));
                             racePoints[driver] = pts;
                             totalPoints[driver] = (totalPoints[driver] || 0) + pts;
                         }
@@ -1995,33 +1995,56 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                             {/* Sección: Posiciones de Carrera */}
                             <div className="mb-8">
                                 <h4 className="text-xl font-bold text-white mb-3 flex items-center gap-2">🏎️ Posiciones de Carrera</h4>
-                                <p className="text-sm text-gray-400 mb-4">Ingresa la posición final de cada piloto (1, 2, 3...). Los puntos se calcularán automáticamente.</p>
+                                <p className="text-sm text-gray-400 mb-4">Ingresa la posición final de cada piloto (1, 2, 3...). Los puntos se calcularán automáticamente. Si alguien no terminó, pulsa <strong className="text-red-300">DNF</strong>: queda al final de los resultados con 0 puntos.</p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {modalDriverNames.map(driver => {
                                         const pos = hasDivisions ? (divPositions[activeDivisionTab]?.[driver] || '') : (positions[driver] || '');
-                                        const pts = pos ? calculateRacePoints(parseInt(pos)) : null;
+                                        const abandono = esAbandono(pos);
+                                        const pts = pos && !abandono ? calculateRacePoints(parseInt(pos)) : null;
+                                        const fijarPos = (valor) => {
+                                            if (hasDivisions) {
+                                                setDivPositions(prev => ({
+                                                    ...prev,
+                                                    [activeDivisionTab]: { ...prev[activeDivisionTab], [driver]: valor }
+                                                }));
+                                            } else {
+                                                setPositions(prev => ({ ...prev, [driver]: valor }));
+                                            }
+                                        };
                                         return (
-                                            <div key={driver} className="bg-white/5 border border-white/20 rounded-lg p-3">
+                                            <div key={driver} className={`rounded-lg p-3 border ${abandono ? 'bg-red-900/20 border-red-500/40' : 'bg-white/5 border-white/20'}`}>
                                                 <div className="flex items-center justify-between mb-2">
                                                     <span className="text-white font-medium text-sm">{driverLabelMap[driver] || driver}</span>
                                                     {pts !== null && <span className="text-sm text-orange-400 font-bold">= {pts} pts</span>}
+                                                    {abandono && <span className="text-sm text-red-300 font-bold">DNF · 0 pts</span>}
                                                 </div>
-                                                <input
-                                                    type="number" min="1" max="99"
-                                                    value={pos}
-                                                    onChange={e => {
-                                                        if (hasDivisions) {
-                                                            setDivPositions(prev => ({
-                                                                ...prev,
-                                                                [activeDivisionTab]: { ...prev[activeDivisionTab], [driver]: e.target.value }
-                                                            }));
-                                                        } else {
-                                                            setPositions({ ...positions, [driver]: e.target.value });
-                                                        }
-                                                    }}
-                                                    placeholder="Pos (1, 2, 3...)"
-                                                    className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 text-sm"
-                                                />
+                                                <div className="flex gap-2">
+                                                    {abandono ? (
+                                                        <div className="flex-1 px-3 py-2 bg-red-900/30 border border-red-500/40 rounded-lg text-red-200 text-sm">
+                                                            💀 No terminó
+                                                        </div>
+                                                    ) : (
+                                                        <input
+                                                            type="number" min="1" max="99"
+                                                            value={pos}
+                                                            onChange={e => fijarPos(e.target.value)}
+                                                            placeholder="Pos (1, 2, 3...)"
+                                                            className="flex-1 min-w-0 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 text-sm"
+                                                        />
+                                                    )}
+                                                    {/* DNF: sale de la clasificación de la carrera sin sumar puntos
+                                                        y cuenta como abandono en sus estadísticas */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => fijarPos(abandono ? '' : 'DNF')}
+                                                        title={abandono ? 'Quitar el DNF para ponerle una posición' : 'Marcar que no terminó la carrera (0 puntos)'}
+                                                        className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${abandono
+                                                            ? 'bg-white/10 border-white/30 text-gray-200 hover:bg-white/20'
+                                                            : 'bg-red-900/30 border-red-500/40 text-red-200 hover:bg-red-800/50'}`}
+                                                    >
+                                                        {abandono ? '↩︎ Deshacer' : 'DNF'}
+                                                    </button>
+                                                </div>
                                             </div>
                                         );
                                     })}
@@ -3126,6 +3149,7 @@ function CarUsageTab({ championship, tracks, declarations = {}, onDeclarationsCh
     );
     const maxUses = cat.maxUsesPerCar ?? 2;
     const maxCars = cat.maxCarsPerDriver ?? 3;
+    const excluidos = new Set(getExcludedCars(championship));
     const alertAt = cat.alertThreshold ?? 1;
 
     const usage = calculateCarUsage(tracks);
@@ -3159,6 +3183,12 @@ function CarUsageTab({ championship, tracks, declarations = {}, onDeclarationsCh
                             </p>
                         ) : (
                             <p className="text-orange-400 text-xs mt-0.5">⚠️ Sin declaración de autos</p>
+                        )}
+                        {/* Excluidos después de declararlos: no se borran, se avisa */}
+                        {entry.declaredCars.some(c => excluidos.has(c)) && (
+                            <p className="text-red-300 text-xs mt-0.5">
+                                🚫 Autos excluidos: {entry.declaredCars.filter(c => excluidos.has(c)).join(' · ')} — cámbialos con «✏️ Editar autos»
+                            </p>
                         )}
                     </div>
                     <div className="text-right">
@@ -3258,6 +3288,9 @@ function CarUsageTab({ championship, tracks, declarations = {}, onDeclarationsCh
                     )}
                     {cat.carCatalog?.length > 0 && (
                         <StatRow label="Autos en catálogo" value={cat.carCatalog.length} color="text-blue-300" />
+                    )}
+                    {excluidos.size > 0 && (
+                        <StatRow label="Autos excluidos" value={[...excluidos].join(' · ')} color="text-red-300" />
                     )}
                 </div>
             </div>

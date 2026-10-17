@@ -1553,9 +1553,13 @@ def _pilotos_planos(registrations: list) -> list[dict]:
 
 
 def _autos_permitidos(db, champ: dict) -> list[str]:
-    catalogo = (champ.get('carUsageTracking') or {}).get('carCatalog') or []
+    cut = champ.get('carUsageTracking') or {}
+    # Lista negra del organizador: nunca se sortea un auto excluido.
+    excluidos = {c for c in (cut.get('excludedCars') or []) if isinstance(c, str)}
+    catalogo = cut.get('carCatalog') or []
     if catalogo:
-        return [c if isinstance(c, str) else (c or {}).get('name') for c in catalogo if c]
+        nombres = [c if isinstance(c, str) else (c or {}).get('name') for c in catalogo if c]
+        return [n for n in nombres if n and n not in excluidos]
     clases = {_CATEGORIA_A_CLASE[c] for c in (champ.get('categories') or []) if c in _CATEGORIA_A_CLASE}
     if not clases:
         # Sin clase de GT7 reconocible no se sortea entre los 574 coches del juego.
@@ -1563,7 +1567,7 @@ def _autos_permitidos(db, champ: dict) -> list[str]:
     nombres = set()
     for snap in db.collection('cars').stream():
         car = snap.to_dict() or {}
-        if car.get('carClass') in clases and car.get('name'):
+        if car.get('carClass') in clases and car.get('name') and car['name'] not in excluidos:
             nombres.add(car['name'])
     return sorted(nombres)
 

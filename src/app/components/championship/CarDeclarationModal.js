@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
-import { getAllowedCars } from '../../utils/carUsageCalculator';
+import { getAllowedCars, getExcludedCars } from '../../utils/carUsageCalculator';
 import { hoyEnEspana } from '../../utils/dateUtils';
 import { resumenBop, textoBop } from '../../utils/carSpecs';
 
@@ -71,6 +71,7 @@ export default function CarDeclarationModal({ championship, registration, regist
         [championship, allCars]
     );
     const allowedNames = useMemo(() => allowedCars.map(c => c.name), [allowedCars]);
+    const excludedNames = useMemo(() => new Set(getExcludedCars(championship)), [championship]);
 
     // Varios pilotos avisaron de que «declararon y el sistema falló». En
     // realidad elegían un auto en el selector sin pulsar «+ Agregar», o
@@ -347,8 +348,14 @@ export default function CarDeclarationModal({ championship, registration, regist
                             ) : (
                                 <div className="space-y-2">
                                     {cars.map((car, idx) => (
-                                        <div key={idx} className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-                                            <span className="text-white text-sm">🏎️ {car}</span>
+                                        <div key={idx} className={`flex items-center justify-between rounded-lg px-3 py-2 border ${excludedNames.has(car) ? 'bg-red-900/20 border-red-500/40' : 'bg-white/5 border-white/10'}`}>
+                                            <span className="text-white text-sm">
+                                                🏎️ {car}
+                                                {/* Excluido después de declararlo: no se borra, se avisa */}
+                                                {excludedNames.has(car) && (
+                                                    <span className="block text-xs text-red-300 mt-0.5">⚠️ Este auto ya no está permitido en el campeonato. Habla con la organización para cambiarlo.</span>
+                                                )}
+                                            </span>
                                             {!isReadOnly && (
                                                 <button onClick={() => handleRemove(idx)}
                                                     className="text-gray-500 hover:text-red-400 text-sm transition-colors">
