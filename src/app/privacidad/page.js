@@ -1,5 +1,4 @@
 import PageHeader from "../components/PageHeader";
-import Footer from "../components/Footer";
 
 export const metadata = {
     title: "Política de Privacidad | GT7 Championships",
@@ -102,7 +101,6 @@ export default function PrivacidadPage() {
                     </p>
                 </Section>
             </div>
-            <Footer />
         </div>
     );
 }

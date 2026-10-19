@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import PageHeader from "../components/PageHeader";
-import Footer from "../components/Footer";
 import { FirebaseService } from "../services/firebaseService";
 
 export default function EquipamientoPage() {
@@ -73,7 +72,6 @@ export default function EquipamientoPage() {
                 </p>
             </div>
 
-            <Footer />
         </div>
     );
 }

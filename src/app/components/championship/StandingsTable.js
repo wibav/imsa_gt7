@@ -100,11 +100,14 @@ export default function StandingsTable({
                         <thead className={`bg-gradient-to-r ${gradient} text-white`}>
                             <tr>
                                 {/* Columnas fijas (sticky) */}
-                                <th className={`${headerPx} text-left ${hasRaces ? 'sticky left-0 z-10 bg-inherit' : ''}`}
-                                    style={hasRaces ? { background: 'inherit' } : undefined}>
+                                {/* Con carreras, Pos mide exactamente 52 px: la columna del nombre
+                                    se fija con left: 52px y, si Pos era más ancha, se montaban y el
+                                    nombre se cortaba en el móvil. */}
+                                <th className={`${hasRaces ? 'px-2 py-3' : headerPx} text-left ${hasRaces ? 'sticky left-0 z-10 bg-inherit' : ''}`}
+                                    style={hasRaces ? { background: 'inherit', width: 52, minWidth: 52, maxWidth: 52 } : undefined}>
                                     Pos
                                 </th>
-                                <th className={`${headerPx} text-left ${hasRaces ? 'sticky z-10' : ''}`}
+                                <th className={`${headerPx} text-left ${hasRaces ? 'sticky z-10 min-w-[150px]' : ''}`}
                                     style={hasRaces ? { left: '52px', background: 'inherit' } : undefined}>
                                     {isTeams ? 'Equipo' : 'Piloto'}
                                 </th>
@@ -164,7 +167,8 @@ export default function StandingsTable({
                                         `}
                                     >
                                         {/* Posición - sticky */}
-                                        <td className={`${cellPx} font-bold ${compact ? 'text-sm' : ''} ${hasRaces ? 'sticky left-0 z-10 bg-slate-800/95' : ''}`}>
+                                        <td className={`${hasRaces ? 'px-2 py-2' : cellPx} font-bold ${compact ? 'text-sm' : ''} ${hasRaces ? 'sticky left-0 z-10 bg-slate-800/95' : ''}`}
+                                            style={hasRaces ? { width: 52, minWidth: 52, maxWidth: 52 } : undefined}>
                                             <span className="flex items-center gap-1">
                                                 {promotionZone > 0 && index < promotionZone && <span className="text-green-400 text-xs">▲</span>}
                                                 {relegationZone > 0 && index >= standings.length - relegationZone && <span className="text-red-400 text-xs">▼</span>}
@@ -173,7 +177,7 @@ export default function StandingsTable({
                                         </td>
 
                                         {/* Nombre - sticky */}
-                                        <td className={`${cellPx} ${hasRaces ? 'sticky z-10 bg-slate-800/95' : ''}`}
+                                        <td className={`${cellPx} ${hasRaces ? 'sticky z-10 bg-slate-800/95 min-w-[150px]' : ''}`}
                                             style={hasRaces ? { left: '52px' } : undefined}>
                                             <div className="flex items-center gap-2">
                                                 {(entry.color || entry.teamColor) && (
@@ -236,12 +240,12 @@ export default function StandingsTable({
                                                             {pts !== null && pts !== undefined ? pts : '-'}
                                                         </span>
                                                         {isInvalidated && (
-                                                            <span className="text-red-400" style={{ fontSize: '9px' }} title="Puntos anulados por uso de auto">⚠️</span>
+                                                            <span className="text-red-400" style={{ fontSize: '11px' }} title="Puntos anulados por uso de auto">⚠️</span>
                                                         )}
                                                         {!isInvalidated && (isFl || isPole) && (
                                                             <div className="flex gap-0.5 mt-0.5">
-                                                                {isPole && <span className="text-purple-400" style={{ fontSize: '9px' }}>🎯</span>}
-                                                                {isFl && <span className="text-yellow-400" style={{ fontSize: '9px' }}>⚡</span>}
+                                                                {isPole && <span className="text-purple-400" style={{ fontSize: '11px' }}>🎯</span>}
+                                                                {isFl && <span className="text-yellow-400" style={{ fontSize: '11px' }}>⚡</span>}
                                                             </div>
                                                         )}
                                                     </div>

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useOrganization } from '../context/OrganizationContext';
 import Image from 'next/image';
@@ -22,6 +22,25 @@ export default function Navbar() {
     const { currentUser, logout, isAdmin, isComisario, myOrgIds } = useAuth();
     const { org, isRootView } = useOrganization();
     const fondo = useHeaderBackground();
+    const barraRef = useRef(null);
+
+    // En el móvil la cabecera no es fija (ocupaba ~150 px de pantalla). Su
+    // altura cuando sí lo es (md+) se publica en --navbar-h para que las
+    // barras fijas de cada página (pestañas del campeonato) se peguen debajo
+    // en vez de quedar tapadas.
+    useEffect(() => {
+        const el = barraRef.current;
+        if (!el) return;
+        const publicar = () => {
+            const fija = getComputedStyle(el).position === 'sticky';
+            document.documentElement.style.setProperty('--navbar-h', fija ? `${el.offsetHeight}px` : '0px');
+        };
+        publicar();
+        const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(publicar) : null;
+        ro?.observe(el);
+        window.addEventListener('resize', publicar);
+        return () => { ro?.disconnect(); window.removeEventListener('resize', publicar); };
+    }, []);
 
     // En la vista raíz (agregada, todas las orgs) un usuario logueado con
     // organización propia no tenía forma de volver a ella sin teclear la
@@ -58,7 +77,8 @@ export default function Navbar() {
 
     return (
         <div
-            className={`${fondo.className} px-4 py-4 sm:py-6 sticky top-0 z-50 backdrop-blur-lg bg-opacity-95`}
+            ref={barraRef}
+            className={`${fondo.className} px-4 py-4 sm:py-6 relative md:sticky md:top-0 z-50 backdrop-blur-lg bg-opacity-95`}
             style={fondo.style}
         >
             <div className="max-w-7xl mx-auto w-full">

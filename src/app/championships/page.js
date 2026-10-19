@@ -64,6 +64,7 @@ import RegulationsView from '../components/championship/RegulationsView';
 import RegulationsPdfButton from '../components/championship/RegulationsPdfButton';
 import PilotTeamAvatar from '../components/common/PilotTeamAvatar';
 import TrackLogo from '../components/common/TrackLogo';
+import ScrollTabs from '../components/common/ScrollTabs';
 
 /**
  * Pole, top-3 de clasificación y vuelta rápida de una carrera (o de una
@@ -173,6 +174,10 @@ export default function ChampionshipDetailPage() {
     useEffect(() => {
         if (championshipId) {
             loadChampionshipData();
+        } else {
+            // Sin ?id= se quedaba en «Cargando…» para siempre: el listado de
+            // campeonatos está en el inicio.
+            router.replace('/');
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [championshipId]);
@@ -460,9 +465,9 @@ export default function ChampionshipDetailPage() {
             </div>
 
             {/* Tabs Navigation */}
-            <div className="border-b border-white/10 bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10">
+            <div className="border-b border-white/10 bg-slate-900/95 backdrop-blur-sm sticky z-40" style={{ top: 'var(--navbar-h, 0px)' }}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
-                    <div className="flex gap-1 overflow-x-auto">
+                    <ScrollTabs activeKey={activeTab}>
                         {[
                             { id: 'info', label: 'ℹ️ Información', icon: 'ℹ️' },
                             { id: 'standings', label: '📊 Clasificación', icon: '📊' },
@@ -475,9 +480,11 @@ export default function ChampionshipDetailPage() {
                         ].map(tab => (
                             <button
                                 key={tab.id}
+                                role="tab"
+                                aria-selected={activeTab === tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`
-                                    px-6 py-4 font-semibold text-sm whitespace-nowrap transition-all
+                                    px-4 sm:px-6 py-4 font-semibold text-sm whitespace-nowrap transition-all
                                     ${activeTab === tab.id
                                         ? 'text-white border-b-2 border-orange-500 bg-white/5'
                                         : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -487,7 +494,7 @@ export default function ChampionshipDetailPage() {
                                 {tab.label}
                             </button>
                         ))}
-                    </div>
+                    </ScrollTabs>
                 </div>
             </div>
 
@@ -803,12 +810,12 @@ export default function ChampionshipDetailPage() {
                                                 key={track.id || index}
                                                 className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10 hover:border-orange-500/50 transition-all"
                                             >
-                                                <div className="flex items-start justify-between mb-4">
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-3 mb-2">
+                                                <div className="flex items-start justify-between gap-3 mb-4">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
                                                             <span className="text-2xl font-bold text-orange-400">R{track.round}</span>
                                                             <TrackLogo name={track.name} size="sm" />
-                                                            <h3 className="text-xl font-bold text-white">{track.name}</h3>
+                                                            <h3 className="text-xl font-bold text-white break-words min-w-0">{track.name}</h3>
                                                         </div>
                                                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-gray-300">
                                                             <span>📅 {formatDateFull(track.date)}</span>
@@ -821,7 +828,7 @@ export default function ChampionshipDetailPage() {
                                                             )}
                                                         </div>
                                                     </div>
-                                                    <div>
+                                                    <div className="flex-shrink-0 whitespace-nowrap">
                                                         {/* El estado sale de los datos, no de track.status:
                                                             nadie actualiza ese campo al correr la carrera. */}
                                                         {estadoCarrera(track) === 'completada' && (

@@ -293,7 +293,7 @@ export default function PilotsPage() {
                                 ].map(({ pilot: p, gradient, medal, label, featured }) => (
                                     <div
                                         key={p.name}
-                                        className={`bg-gradient-to-br ${gradient} rounded-xl p-6 text-white text-center cursor-pointer hover:scale-[1.02] transition-transform ${featured ? 'md:-mt-4 md:mb-4 shadow-2xl' : ''}`}
+                                        className={`bg-gradient-to-br ${gradient} rounded-xl p-6 text-white text-center cursor-pointer hover:scale-[1.02] transition-transform ${featured ? 'order-first md:order-none md:-mt-4 md:mb-4 shadow-2xl' : ''}`}
                                         onClick={() => router.push(`/pilots?name=${encodeURIComponent(p.name)}`)}
                                     >
                                         <div className="text-4xl mb-2">{medal}</div>

@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext';
 import { FirebaseService } from '../services/firebaseService';
 import { validateOrgSlug } from '../utils/orgRouting';
 import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
 
 function slugify(text) {
     return text
@@ -229,7 +228,6 @@ export default function SignupPage() {
                 )}
             </div>
 
-            <Footer />
         </div>
     );
 }

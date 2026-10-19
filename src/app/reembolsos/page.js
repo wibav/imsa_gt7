@@ -1,5 +1,4 @@
 import PageHeader from "../components/PageHeader";
-import Footer from "../components/Footer";
 
 export const metadata = {
     title: "Política de Reembolso | GT7 Championships",
@@ -74,7 +73,6 @@ export default function ReembolsosPage() {
                     </p>
                 </Section>
             </div>
-            <Footer />
         </div>
     );
 }

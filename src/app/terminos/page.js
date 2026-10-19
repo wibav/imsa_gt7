@@ -1,5 +1,4 @@
 import PageHeader from "../components/PageHeader";
-import Footer from "../components/Footer";
 
 export const metadata = {
     title: "Términos de Servicio | GT7 Championships",
@@ -101,7 +100,6 @@ export default function TerminosPage() {
                     </p>
                 </Section>
             </div>
-            <Footer />
         </div>
     );
 }
