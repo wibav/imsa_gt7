@@ -64,7 +64,9 @@ export default function PenaltiesTab({
         allowClaims: championship?.penaltiesConfig?.allowClaims ?? false,
         allowAppeals: championship?.penaltiesConfig?.allowAppeals ?? DEFAULT_PENALTIES_CONFIG.allowAppeals,
         appealWindowHours: championship?.penaltiesConfig?.appealWindowHours ?? DEFAULT_PENALTIES_CONFIG.appealWindowHours,
-        presets: championship?.penaltiesConfig?.presets || DEFAULT_PENALTIES_CONFIG.presets
+        presets: championship?.penaltiesConfig?.presets || DEFAULT_PENALTIES_CONFIG.presets,
+        // Criterio no escrito de los comisarios: la IA lo recibe junto al reglamento
+        stewardCriteria: championship?.penaltiesConfig?.stewardCriteria || ''
     });
 
     useEffect(() => {
@@ -483,6 +485,22 @@ export default function PenaltiesTab({
                                         />
                                     </div>
                                 )}
+                            </div>
+
+                            {/* Criterio de los comisarios: contexto extra para la sugerencia con IA */}
+                            <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+                                <h3 className="text-lg font-bold text-white">🧭 Criterio de los comisarios</h3>
+                                <p className="text-gray-400 text-sm mt-1 mb-3">
+                                    Reglas no escritas con las que soléis decidir. La sugerencia con IA las tiene en cuenta junto al reglamento y a las resoluciones anteriores.
+                                </p>
+                                <textarea
+                                    value={config.stewardCriteria}
+                                    onChange={e => setConfig(prev => ({ ...prev, stewardCriteria: e.target.value }))}
+                                    rows={5}
+                                    maxLength={4000}
+                                    placeholder={'Ej.:\n- Contacto en la primera curva de la salida: incidente de carrera salvo que sea claramente evitable.\n- Devolver la posición en la misma vuelta evita la sanción.'}
+                                    className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500"
+                                />
                             </div>
 
                             {/* Catálogo de Presets */}
@@ -1025,7 +1043,7 @@ function ClaimsSection({ claims, appeals = [], penalties = [], championshipId, c
         }
     };
 
-    const handleResolveClaim = async (claimId, resolution, penaltyData) => {
+    const handleResolveClaim = async (claimId, resolution, penaltyData, ia = null) => {
         try {
             // D3.3: resolvedBy nunca se persistía pese a existir en el modelo
             // y ser vigilado por firestore.rules en el create — sin este dato
@@ -1049,6 +1067,20 @@ function ClaimsSection({ claims, appeals = [], penalties = [], championshipId, c
                 updates.status = 'accepted';
             } else {
                 updates.status = 'rejected';
+            }
+
+            // Lo que sugirió la IA frente a lo que decidió el comisario: las
+            // resoluciones en que se la corrigió pesan más como precedente.
+            if (ia) {
+                const decisionFinal = updates.status === 'accepted' ? 'aceptar' : 'rechazar';
+                const presetFinal = penaltyData?.presetId || null;
+                updates.ia = {
+                    decision: ia.decision || null,
+                    presetId: ia.presetId || null,
+                    valoracion: ia.valoracion || null,
+                    coincide: ia.decision === decisionFinal && (decisionFinal === 'rechazar' || (ia.presetId || null) === presetFinal),
+                    at: new Date().toISOString(),
+                };
             }
 
             await FirebaseService.updateClaim(championshipId, claimId, updates);
@@ -1679,6 +1711,7 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                     trackName: claim.trackName,
                     round: claim.round,
                     name: selectedPreset.name,
+                    presetId: selectedPreset.id || null,
                     description: desc,
                     type: selectedPreset.type,
                     severity: selectedPreset.severity,
@@ -1694,7 +1727,7 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
             }
         }
 
-        await onResolve(claim.id, resolution, penaltyData);
+        await onResolve(claim.id, resolution, penaltyData, aiSuggestion?.structured || null);
         setSaving(false);
     };
 
@@ -1856,9 +1889,21 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                                             ...Object.entries(aiSuggestion.context.historial || {}).map(([piloto, h]) =>
                                                 `historial de ${piloto} (${h.sanciones} sanción(es), ${h.amonestacion} pts de amonestación)`),
                                             aiSuggestion.context.salaCarrera && 'configuración de sala de la carrera',
+                                            aiSuggestion.context.criterio && 'criterio de los comisarios',
+                                            aiSuggestion.context.precedentes > 0 && `${aiSuggestion.context.precedentes} resoluciones anteriores`,
                                         ].filter(Boolean).join(' · ') || 'solo el video y la descripción (no hay reglamento ni sanciones configurados)'}
                                         {aiSuggestion.context.recortado && ' · el reglamento se recortó por longitud'}
                                     </p>
+                                )}
+                                {aiSuggestion.structured?.precedentesCitados?.length > 0 && (
+                                    <div className="mt-2 text-xs text-gray-400">
+                                        <p className="text-gray-300 font-medium">📚 Precedentes en que se apoya:</p>
+                                        <ul className="mt-1 space-y-1">
+                                            {aiSuggestion.structured.precedentesCitados.map(p => (
+                                                <li key={p.ref} className="bg-white/5 rounded px-2 py-1">{p.ref} · {p.texto}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
                                 )}
                                 {aiSuggestion.skippedUrls?.length > 0 && (
                                     <p className="text-gray-500 text-xs mt-2">

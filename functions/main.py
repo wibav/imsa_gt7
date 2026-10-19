@@ -1145,6 +1145,9 @@ def _is_youtube_url(url: str) -> bool:
 _CTX_REGLAMENTO_CAMPEONATO_MAX = 30_000
 _CTX_REGLAMENTO_ORG_MAX = 30_000
 _CTX_HISTORIAL_MAX = 15
+_CTX_PRECEDENTES_MAX = 8          # resoluciones anteriores que se pasan como precedente
+_CTX_PRECEDENTE_TEXTO_MAX = 320   # caracteres de hechos/resolución por precedente
+_CTX_CRITERIO_MAX = 4_000
 
 # Ajustes de sala que cambian la valoración de un incidente (p. ej. si el
 # juego ya penalizó un atajo, o si los fantasmas estaban activos).
@@ -1270,7 +1273,111 @@ def _contexto_reclamacion(db, champ_ref, champ: dict, org: dict, claim: dict, ac
             usado['salaCarrera'] = True
             lineas += ['', '=== CONFIGURACIÓN DE SALA DE ESA CARRERA (lo que el propio juego ya penaliza) ==='] + sala
 
+    criterio = (cfg.get('stewardCriteria') or '').strip()
+    if criterio:
+        criterio, rec = _recortar_contexto(criterio, _CTX_CRITERIO_MAX)
+        usado['criterio'] = True
+        usado['recortado'] = usado['recortado'] or rec
+        lineas += ['', '=== CRITERIO DE LOS COMISARIOS (cómo suelen aplicar el reglamento) ===', criterio]
+
+    precedentes = _precedentes_reclamacion(db, champ_ref, champ, claim, accused_names)
+    usado['precedentes'] = len(precedentes)
+    usado['_precedentes'] = precedentes
+    if precedentes:
+        lineas += ['', '=== RESOLUCIONES ANTERIORES DE LOS COMISARIOS (precedentes, de más a menos parecidas) ===']
+        for i, p in enumerate(precedentes, 1):
+            lineas.append(
+                f'[P{i}] {p["campeonato"]} · {p["carrera"]} · {p["reclamante"]} contra {p["acusados"]}. '
+                f'Hechos: {p["hechos"]} → Reclamación {p["decision"]}'
+                + (f'; sanción: {p["sancion"]}' if p['sancion'] else '')
+                + f'. Resolución: {p["resolucion"]}'
+                + (' (el comisario corrigió la sugerencia de la IA en este caso: pesa más)' if p['corregido'] else '')
+            )
+
     return lineas, usado
+
+
+_PALABRAS_VACIAS = {
+    'para', 'pero', 'como', 'esta', 'este', 'estaba', 'cuando', 'donde', 'desde', 'hasta', 'sobre', 'entre',
+    'tras', 'porque', 'pues', 'muy', 'mas', 'más', 'sin', 'con', 'que', 'del', 'los', 'las', 'una', 'uno',
+    'vuelta', 'curva', 'carrera', 'piloto', 'video', 'vídeo', 'minuto',
+}
+
+
+def _palabras_clave(texto: str) -> set[str]:
+    import unicodedata
+    plano = unicodedata.normalize('NFD', (texto or '').lower())
+    plano = ''.join(c for c in plano if unicodedata.category(c) != 'Mn')
+    return {w for w in re.findall(r'[a-z0-9]{4,}', plano) if w not in _PALABRAS_VACIAS}
+
+
+def _precedentes_reclamacion(db, champ_ref, champ: dict, claim: dict, accused_names: list[str]) -> list[dict]:
+    """Resoluciones anteriores de la organización más parecidas a esta
+    reclamación, para que la IA sea coherente con el criterio de los
+    comisarios. No es un modelo entrenado: se eligen por parecido (palabras de
+    los hechos, pilotos y circuito) y pesan más los casos en que el comisario
+    corrigió a la IA."""
+    org_id = champ.get('orgId')
+    campeonatos = []
+    if org_id:
+        for snap in db.collection('championships').where('orgId', '==', org_id).stream():
+            campeonatos.append((snap.reference, snap.to_dict() or {}))
+    if not any(ref.id == champ_ref.id for ref, _ in campeonatos):
+        campeonatos.append((champ_ref, champ))
+
+    clave_actual = _palabras_clave(claim.get('description') or '')
+    implicados = {n.strip().lower() for n in accused_names + [claim.get('reporterName') or ''] if n and n.strip()}
+    pista = (claim.get('trackName') or '').strip().lower()
+
+    candidatos = []
+    for ref, datos in campeonatos:
+        for snap in ref.collection('claims').stream():
+            c = snap.to_dict() or {}
+            if snap.id == claim.get('id') or c.get('status') not in ('accepted', 'rejected'):
+                continue
+            if not (c.get('resolution') or '').strip():
+                continue
+            claves = _palabras_clave(c.get('description') or '')
+            union = clave_actual | claves
+            puntos = 10 * (len(clave_actual & claves) / len(union)) if union else 0
+            nombres = {n.strip().lower() for n in (c.get('accusedNames') or []) + [c.get('reporterName') or ''] if n}
+            if implicados & nombres:
+                puntos += 2
+            if pista and (c.get('trackName') or '').strip().lower() == pista:
+                puntos += 1
+            corregido = (c.get('ia') or {}).get('coincide') is False
+            if corregido:
+                puntos += 3
+            candidatos.append((puntos, c.get('resolvedAt') or '', ref, datos, c, corregido))
+
+    candidatos.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    elegidos = []
+    for puntos, _, ref, datos, c, corregido in candidatos[:_CTX_PRECEDENTES_MAX]:
+        sancion = ''
+        if c.get('penaltyId'):
+            pen = ref.collection('penalties').document(c['penaltyId']).get()
+            pd = pen.to_dict() or {} if pen.exists else {}
+            if pd.get('status') == 'revoked':
+                sancion = 'sanción revocada después'
+            elif pd:
+                efectos = []
+                if pd.get('points'):
+                    efectos.append(f'-{pd["points"]} pts')
+                if pd.get('warningPoints'):
+                    efectos.append(f'+{pd["warningPoints"]} amonestación')
+                sancion = f'{pd.get("name") or "sanción"}' + (f' ({", ".join(efectos)})' if efectos else '')
+        elegidos.append({
+            'campeonato': datos.get('name') or ref.id,
+            'carrera': f'{c.get("trackName") or "?"} R{c.get("round") or "?"}',
+            'reclamante': c.get('reporterName') or '?',
+            'acusados': ', '.join(c.get('accusedNames') or []) or '?',
+            'hechos': _recortar_contexto(c.get('description') or '', _CTX_PRECEDENTE_TEXTO_MAX)[0],
+            'decision': 'aceptada' if c.get('status') == 'accepted' else 'rechazada',
+            'sancion': sancion,
+            'resolucion': _recortar_contexto(c.get('resolution') or '', _CTX_PRECEDENTE_TEXTO_MAX)[0],
+            'corregido': corregido,
+        })
+    return elegidos
 
 
 _RESPUESTA_SCHEMA = {
@@ -1284,6 +1391,7 @@ _RESPUESTA_SCHEMA = {
         'articulos': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
         'justificacion': {'type': 'STRING'},
         'resolucion': {'type': 'STRING'},
+        'precedentes': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
     },
     'required': ['observacion', 'valoracion', 'decision', 'articulos', 'justificacion', 'resolucion'],
 }
@@ -1408,6 +1516,7 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
     accused = ', '.join(accused_list)
     claim['id'] = claim_id
     contexto, contexto_usado = _contexto_reclamacion(db, champ_ref, champ, org, claim, accused_list)
+    lista_precedentes = contexto_usado.pop('_precedentes', [])
     ids_validos = {p.get('id') for p in ((champ.get('penaltiesConfig') or {}).get('presets') or [])
                    if p.get('active', True) and p.get('id')}
 
@@ -1415,7 +1524,8 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
         'Eres un asistente para comisarios de una liga de sim racing de Gran Turismo 7. '
         'Analiza el/los video(s) del incidente reportado y da una SUGERENCIA de resolución — '
         'no un fallo definitivo, la decisión final la toma siempre el comisario humano.',
-        'Básate SOLO en el reglamento, el catálogo de sanciones, el historial y la configuración de sala '
+        'Básate SOLO en el reglamento, el catálogo de sanciones, el historial, la configuración de sala, '
+        'el criterio de los comisarios y las resoluciones anteriores '
         'que se incluyen abajo. No inventes normas ni sanciones que no estén ahí. Si el reglamento no cubre '
         'el caso, dilo en la justificación y deja "articulos" vacío.',
         '',
@@ -1442,6 +1552,10 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
         '- articulos: los apartados del reglamento en que te basas, citando su numeración o título tal cual aparecen.',
         '- justificacion: por qué, relacionando lo observado con esos artículos (máx. 80 palabras).',
         '- resolucion: texto breve y neutral listo para publicar como resolución (máx. 60 palabras).',
+        '- precedentes: las referencias [P1], [P2]… de las resoluciones anteriores que sean casos realmente '
+        'parecidos y en las que te apoyas (vacío si ninguna lo es). Sé coherente con ellas: ante hechos '
+        'equivalentes, la misma decisión y una sanción equivalente; si te apartas, explica por qué en la '
+        'justificación. Si un precedente contradice el reglamento, manda el reglamento.',
     ]
     prompt = '\n'.join(prompt_lines)
 
@@ -1498,6 +1612,15 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
 
     articulos = [a for a in (data.get('articulos') or []) if isinstance(a, str) and a.strip()]
     data['articulos'] = articulos
+    citados = []
+    for ref in data.get('precedentes') or []:
+        m = re.search(r'(\d+)', str(ref))
+        i = int(m.group(1)) - 1 if m else -1
+        if 0 <= i < len(lista_precedentes) and not any(c['ref'] == f'P{i + 1}' for c in citados):
+            p = lista_precedentes[i]
+            citados.append({'ref': f'P{i + 1}', 'texto': f'{p["carrera"]} ({p["campeonato"]}): reclamación {p["decision"]}'
+                            + (f', {p["sancion"]}' if p['sancion'] else '') + f'. {p["resolucion"]}'})
+    data['precedentesCitados'] = citados
     suggestion = '\n'.join(filter(None, [
         f'1) {data.get("observacion") or ""}'.strip(),
         f'2) Valoración: {(data.get("valoracion") or "").replace("_", " ")} · Decisión: {data.get("decision") or "?"}',
