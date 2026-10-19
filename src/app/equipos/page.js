@@ -31,6 +31,7 @@ function EquiposContent() {
     const [equipos, setEquipos] = useState([]);
     const [statsPilotos, setStatsPilotos] = useState([]);
     const [busqueda, setBusqueda] = useState('');
+    const [orden, setOrden] = useState('victorias');
 
     useEffect(() => {
         (async () => {
@@ -70,7 +71,7 @@ function EquiposContent() {
     const visibles = conStats
         .filter(e => !t || e.equipo.name.toLowerCase().includes(t) || e.equipo.tag.toLowerCase().includes(t)
             || miembrosActuales(e.equipo).some(m => m.pilot.toLowerCase().includes(t)))
-        .sort((a, b) => b.total.puntos - a.total.puntos || a.equipo.name.localeCompare(b.equipo.name));
+        .sort(comparadorEquipos(orden));
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
@@ -96,11 +97,27 @@ function EquiposContent() {
                             placeholder="🔍 Buscar equipo, siglas o piloto..."
                             className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
                         />
+                        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                            <span className="text-gray-400">Ordenar por:</span>
+                            {Object.entries(CRITERIOS).map(([clave, c]) => (
+                                <button
+                                    key={clave}
+                                    type="button"
+                                    onClick={() => setOrden(clave)}
+                                    aria-pressed={orden === clave}
+                                    className={`px-3 py-1 rounded-full border transition-colors ${orden === clave
+                                        ? 'bg-orange-600 border-orange-500 text-white'
+                                        : 'bg-white/5 border-white/20 text-gray-300 hover:bg-white/10'}`}
+                                >
+                                    {c.etiqueta}
+                                </button>
+                            ))}
+                        </div>
                         {visibles.length === 0 ? (
                             <p className="mt-6 text-gray-400">Ningún equipo coincide con la búsqueda.</p>
                         ) : (
                             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                {visibles.map(e => <TarjetaEquipo key={e.equipo.id} datos={e} />)}
+                                {visibles.map((e, i) => <TarjetaEquipo key={e.equipo.id} datos={e} posicion={t ? null : i + 1} orden={orden} />)}
                             </div>
                         )}
                     </>
@@ -110,6 +127,28 @@ function EquiposContent() {
             </div>
         </div>
     );
+}
+
+/**
+ * Criterios del ranking de equipos. Cada uno desempata con los siguientes,
+ * como un medallero: victorias, luego podios, luego puntos.
+ */
+const CRITERIOS = {
+    victorias: { etiqueta: '🥇 Victorias', claves: ['victorias', 'podios', 'puntos'] },
+    podios: { etiqueta: '🏅 Podios', claves: ['podios', 'victorias', 'puntos'] },
+    puntos: { etiqueta: '⭐ Puntos', claves: ['puntos', 'victorias', 'podios'] },
+    titulos: { etiqueta: '🏆 Títulos', claves: ['titulos', 'victorias', 'podios', 'puntos'] },
+};
+
+function comparadorEquipos(orden) {
+    const claves = (CRITERIOS[orden] || CRITERIOS.victorias).claves;
+    return (a, b) => {
+        for (const k of claves) {
+            const d = (b.total[k] || 0) - (a.total[k] || 0);
+            if (d) return d;
+        }
+        return a.equipo.name.localeCompare(b.equipo.name);
+    };
 }
 
 function BannerEquipo({ equipo, className }) {
@@ -124,7 +163,7 @@ function BannerEquipo({ equipo, className }) {
     );
 }
 
-function TarjetaEquipo({ datos }) {
+function TarjetaEquipo({ datos, posicion, orden }) {
     const { equipo, total, plantilla } = datos;
     return (
         // Enlace y no <button>: un botón centra su contenido en vertical, y
@@ -142,15 +181,21 @@ function TarjetaEquipo({ datos }) {
             <div className="relative z-10 px-4 pb-4">
                 <div className="flex items-start gap-3">
                     <TeamAvatar team={equipo} size="lg" className="-mt-8 ring-4 ring-slate-900 shadow-lg" />
-                    <div className="min-w-0 pt-2">
+                    <div className="min-w-0 pt-2 flex-1">
                         <div className="text-white font-bold leading-tight truncate">{equipo.name}</div>
                         <div className="text-gray-400 text-xs">{equipo.tag} · {total.pilotos} piloto{total.pilotos === 1 ? '' : 's'}</div>
                     </div>
+                    {posicion && (
+                        <span className={`pt-2 text-lg font-bold tabular-nums ${posicion <= 3 ? 'text-orange-400' : 'text-gray-500'}`}>#{posicion}</span>
+                    )}
                 </div>
-                <div className="grid grid-cols-3 gap-2 mt-4 text-center">
-                    <Dato valor={total.campeonatos} label="campeonatos" />
-                    <Dato valor={total.victorias} label="victorias" />
-                    <Dato valor={total.podios} label="podios" />
+                <div className="grid grid-cols-4 gap-2 mt-4 text-center">
+                    {orden === 'titulos'
+                        ? <Dato valor={total.titulos} label="títulos" activo />
+                        : <Dato valor={total.campeonatos} label="campeonatos" />}
+                    <Dato valor={total.victorias} label="victorias" activo={orden === 'victorias'} />
+                    <Dato valor={total.podios} label="podios" activo={orden === 'podios'} />
+                    <Dato valor={total.puntos} label="puntos" activo={orden === 'puntos'} />
                 </div>
                 {plantilla.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-4">
@@ -165,10 +210,10 @@ function TarjetaEquipo({ datos }) {
     );
 }
 
-function Dato({ valor, label }) {
+function Dato({ valor, label, activo = false }) {
     return (
         <div>
-            <div className="text-white text-xl font-bold tabular-nums">{valor}</div>
+            <div className={`text-xl font-bold tabular-nums ${activo ? 'text-orange-400' : 'text-white'}`}>{valor}</div>
             <div className="text-gray-400 text-[11px]">{label}</div>
         </div>
     );

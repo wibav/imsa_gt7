@@ -10,7 +10,8 @@ import { FirebaseService } from '../../services/firebaseService';
 import { STREAMING_PLATFORMS, WEATHER_CONDITION_OPTIONS, WEATHER_TRANSITION_OPTIONS, DEFAULT_SPRINT_POINTS, DEFAULT_DIVISIONS_CONFIG, WEATHER_TIME_OPTIONS, permiteLluvia } from '../../utils/constants';
 import { DEFAULT_PENALTIES_CONFIG } from '../../models/Penalty';
 import { validateImageFile, compressImage } from '../../utils/imageCompression';
-import { REGLAS_POR_DEFECTO, normalizarReglas } from '../../utils/roomConfig';
+import { REGLAS_POR_DEFECTO, normalizarReglas, textoAjuste } from '../../utils/roomConfig';
+import ModalPortal from '../common/ModalPortal';
 import RoomConfigEditor from './RoomConfigEditor';
 import { REGULATIONS_MAX_BYTES, regulationsByteSize, normalizeRegulationsForSave } from '../../utils/regulations';
 import { sanitizeRegulationsHtml } from '../../utils/regulationsSanitize';
@@ -173,6 +174,9 @@ export default function ChampionshipForm({ isEditing = false }) {
     const [championship, setChampionship] = useState(null);
     const [currentStep, setCurrentStep] = useState(1);
     const [trackModalTab, setTrackModalTab] = useState('info');
+    // La sala de la Pre-Qualy se edita en un modal: incrustada alargaba
+    // demasiado el paso del formulario.
+    const [salaPreQualyAbierta, setSalaPreQualyAbierta] = useState(false);
     const [formData, setFormData] = useState(isEditing ? null : getEmptyFormData());
     const [formErrors, setFormErrors] = useState([]);
     const [saving, setSaving] = useState(false);
@@ -1821,19 +1825,71 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                     )}
                                                 </div>
 
-                                                {/* Sala de la Pre-Qualy: mismo menú que una carrera */}
-                                                <div>
-                                                    <h4 className="text-white font-semibold mb-3">🎮 Configuración de sala</h4>
-                                                    <RoomConfigEditor
-                                                        reglas={formData.preQualy.rules || {}}
-                                                        track={{ category: (formData.categories || []).join(", "), victoria: `Límite de tiempo (${formData.preQualy.duration ?? 15} min)` }}
-                                                        textoOrigenVictoria="sale de la duración"
-                                                        lluviaPermitida={permiteLluvia(formData.preQualy.track, firebaseTracks)}
-                                                        onChange={(campo, valor) => setFormData(prev => ({
-                                                            ...prev, preQualy: { ...prev.preQualy, rules: { ...prev.preQualy.rules, [campo]: valor } }
-                                                        }))}
-                                                    />
-                                                </div>
+                                                {/* Sala de la Pre-Qualy: mismo menú que una carrera, en un modal;
+                                                    aquí solo el resumen de lo más relevante. */}
+                                                {(() => {
+                                                    const trackSala = { category: (formData.categories || []).join(", "), victoria: `Límite de tiempo (${formData.preQualy.duration ?? 15} min)` };
+                                                    const reglas = normalizarReglas(formData.preQualy.rules || {});
+                                                    const t = (id) => textoAjuste(trackSala, id, reglas);
+                                                    const chips = [
+                                                        t('__victoria'),
+                                                        reglas.weather && t('weather'),
+                                                        reglas.mechanicalDamage && `Daño mecánico: ${t('mechanicalDamage')}`,
+                                                        reglas.tireWear && `Desgaste ${t('tireWear')}`,
+                                                        reglas.fuelConsumption && `Consumo ${t('fuelConsumption')}`,
+                                                        reglas.requiredCompounds?.length > 0 && `Requeridos: ${t('requiredCompounds')}`,
+                                                    ].filter(Boolean);
+                                                    return (
+                                                        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                                                            <div className="flex items-center justify-between gap-3 flex-wrap">
+                                                                <h4 className="text-white font-semibold">🎮 Configuración de sala</h4>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSalaPreQualyAbierta(true)}
+                                                                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg"
+                                                                >
+                                                                    ⚙️ Editar sala
+                                                                </button>
+                                                            </div>
+                                                            {chips.length > 0 && (
+                                                                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                                                                    {chips.map(c => <span key={c} className="bg-white/5 border border-white/10 text-gray-200 px-2 py-1 rounded">{c}</span>)}
+                                                                </div>
+                                                            )}
+                                                            {salaPreQualyAbierta && (
+                                                                <ModalPortal>
+                                                                    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto" onClick={() => setSalaPreQualyAbierta(false)}>
+                                                                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-white/20 rounded-xl w-full max-w-4xl my-8" onClick={e => e.stopPropagation()}>
+                                                                            <div className="flex items-center justify-between p-5 border-b border-white/10 sticky top-0 bg-slate-800 rounded-t-xl z-10">
+                                                                                <div>
+                                                                                    <h3 className="text-xl font-bold text-white">🎮 Sala de la Pre-Qualy</h3>
+                                                                                    <p className="text-gray-400 text-sm">Los cambios se aplican al momento; se guardan con el campeonato.</p>
+                                                                                </div>
+                                                                                <button type="button" onClick={() => setSalaPreQualyAbierta(false)} className="text-gray-400 hover:text-white text-2xl" aria-label="Cerrar">✕</button>
+                                                                            </div>
+                                                                            <div className="p-5">
+                                                                                <RoomConfigEditor
+                                                                                    reglas={formData.preQualy.rules || {}}
+                                                                                    track={trackSala}
+                                                                                    textoOrigenVictoria="sale de la duración"
+                                                                                    lluviaPermitida={permiteLluvia(formData.preQualy.track, firebaseTracks)}
+                                                                                    onChange={(campo, valor) => setFormData(prev => ({
+                                                                                        ...prev, preQualy: { ...prev.preQualy, rules: { ...prev.preQualy.rules, [campo]: valor } }
+                                                                                    }))}
+                                                                                />
+                                                                            </div>
+                                                                            <div className="p-5 border-t border-white/10 flex justify-end">
+                                                                                <button type="button" onClick={() => setSalaPreQualyAbierta(false)} className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg">
+                                                                                    ✓ Listo
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </ModalPortal>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
 
                                                 {/* Notas */}
                                                 <div>

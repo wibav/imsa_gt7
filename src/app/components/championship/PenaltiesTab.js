@@ -8,6 +8,7 @@ import {
 } from '../../models/Penalty';
 import { notifyPenaltyApplied, notifyClaimResolved, notifyAppealResolved } from '../../utils/telegram';
 import { useAuth } from '../../context/AuthContext';
+import ModalPortal from '../common/ModalPortal';
 
 /**
  * Tab de Sanciones para el admin de campeonatos.
@@ -701,6 +702,7 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
     };
 
     return (
+        <ModalPortal>
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
             <div className="bg-slate-800 rounded-2xl border border-white/20 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                 <div className="p-6 border-b border-white/10">
@@ -946,6 +948,7 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
                 </div>
             </div>
         </div>
+        </ModalPortal>
     );
 }
 
@@ -1333,6 +1336,7 @@ function ClaimsSection({ claims, appeals = [], penalties = [], championshipId, c
 
             {/* Modal rechazar reclamación */}
             {rejectModal && (
+                <ModalPortal>
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setRejectModal(null)}>
                     <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-white/10 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between p-5 border-b border-white/10">
@@ -1382,6 +1386,7 @@ function ClaimsSection({ claims, appeals = [], penalties = [], championshipId, c
                         </div>
                     </div>
                 </div>
+                </ModalPortal>
             )}
 
             {/* Modal resolver reclamación */}
@@ -1452,6 +1457,7 @@ function ResolveAppealModal({ appeal, allDrivers, presets, onClose, onResolve })
     };
 
     return (
+        <ModalPortal>
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
             <div className="bg-slate-800 rounded-2xl border border-white/20 w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="p-6 border-b border-white/10">
@@ -1553,6 +1559,7 @@ function ResolveAppealModal({ appeal, allDrivers, presets, onClose, onResolve })
                 </div>
             </div>
         </div>
+        </ModalPortal>
     );
 }
 
@@ -1692,6 +1699,7 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
     };
 
     return (
+        <ModalPortal>
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
             <div className="bg-slate-800 rounded-2xl border border-white/20 w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="p-6 border-b border-white/10">
@@ -1996,6 +2004,7 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                 </div>
             </div>
         </div>
+        </ModalPortal>
     );
 }
 
