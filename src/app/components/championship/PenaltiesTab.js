@@ -74,9 +74,11 @@ export default function PenaltiesTab({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [championshipId]);
 
-    const loadData = async () => {
+    // silencioso: refresca sin pasar por el esqueleto de carga, que desmontaría
+    // un modal abierto (p. ej. al añadir evidencia mientras se resuelve).
+    const loadData = async (silencioso = false) => {
         if (!championshipId) return;
-        setLoading(true);
+        if (!silencioso) setLoading(true);
         try {
             const [penaltiesData, claimsData, appealsData] = await Promise.all([
                 FirebaseService.getPenaltiesByChampionship(championshipId).catch(() => []),
@@ -596,7 +598,8 @@ export default function PenaltiesTab({
                             tracks={completedTracks}
                             config={config}
                             isAdminUser={isAdminUser}
-                            onReload={loadData}
+                            onReload={() => loadData()}
+                            onRefresh={() => loadData(true)}
                             onUpdate={onUpdate}
                         />
                     )}
@@ -989,7 +992,7 @@ function formatClaimForShare(claim, championshipName) {
     );
 }
 
-function ClaimsSection({ claims, appeals = [], penalties = [], championshipId, championship, org, allDrivers, tracks, config, isAdminUser = false, onReload, onUpdate }) {
+function ClaimsSection({ claims, appeals = [], penalties = [], championshipId, championship, org, allDrivers, tracks, config, isAdminUser = false, onReload, onRefresh, onUpdate }) {
     const { currentUser, isAdmin } = useAuth();
     const [resolveModal, setResolveModal] = useState(null);
     const [rejectModal, setRejectModal] = useState(null);
@@ -1432,6 +1435,7 @@ function ClaimsSection({ claims, appeals = [], penalties = [], championshipId, c
                     presets={config.presets?.filter(p => p.active) || []}
                     onClose={() => setResolveModal(null)}
                     onResolve={handleResolveClaim}
+                    onEvidenceSaved={onRefresh}
                 />
             )}
 
@@ -1598,7 +1602,7 @@ function ResolveAppealModal({ appeal, allDrivers, presets, onClose, onResolve })
 // ═══════════════════════════════════════════════
 // MODAL: Resolver Reclamación
 // ═══════════════════════════════════════════════
-function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, presets, onClose, onResolve }) {
+function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, presets, onClose, onResolve, onEvidenceSaved }) {
     // Gemini tiene coste por llamada, así que la sugerencia con IA solo está
     // disponible en el plan 'pro_ia' (Pro + IA) o para orgs exentas de
     // facturación — el backend también lo valida (402/429), esto solo evita
@@ -1632,6 +1636,9 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
             await FirebaseService.updateClaim(championshipId, claim.id, { evidence: lista });
             setEvidencias(lista);
             setNuevaEvidencia('');
+            // Refresca la lista: sin esto, al reabrir la reclamación la
+            // evidencia recién añadida no aparecía hasta recargar la página.
+            onEvidenceSaved?.();
         } catch (e) {
             setErrorEvidencia('No se pudo guardar: ' + (e.message || e));
         } finally {
@@ -1697,7 +1704,9 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                     timeSeconds: 0,
                     lap: claim.lap,
                     incident: claim.description,
-                    evidence: (claim.evidence || []).join('\n')
+                    // `evidencias` y no claim.evidence: la del comisario añadida en
+                    // este modal no estaba en el objeto con que se abrió.
+                    evidence: evidencias.join('\n')
                 };
             } else if (selectedPreset) {
                 const totalPoints = (selectedPreset.points || 0) + (extraPoints || 0);
@@ -1722,7 +1731,9 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                     extraPointsReason: extraPointsReason || '',
                     lap: claim.lap,
                     incident: claim.description,
-                    evidence: (claim.evidence || []).join('\n')
+                    // `evidencias` y no claim.evidence: la del comisario añadida en
+                    // este modal no estaba en el objeto con que se abrió.
+                    evidence: evidencias.join('\n')
                 };
             }
         }
