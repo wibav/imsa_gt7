@@ -2623,4 +2623,38 @@ export class FirebaseService {
     }
     return data;
   }
+
+  /**
+   * Lee con IA las capturas de la pantalla de resultados de GT7 de una sala.
+   * No guarda nada: devuelve las filas para que el admin las revise.
+   * @param {string} championshipId
+   * @param {Array<{mimeType: string, data: string}>} images - base64 sin prefijo
+   * @returns {Promise<{ok: boolean, sala: string, filas: Array}>}
+   */
+  static async extractRaceResults(championshipId, images) {
+    if (!auth.currentUser) throw new Error('Debes iniciar sesión');
+    const idToken = await auth.currentUser.getIdToken();
+    // En local no hay reescrituras de Hosting: se llama a la función directamente
+    const url = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      ? 'https://us-central1-imsa-bd5b6.cloudfunctions.net/extract_race_results'
+      : '/api/extract-race-results';
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+      body: JSON.stringify({ championshipId, images }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'No se pudieron leer las capturas');
+    }
+    return data;
+  }
+
+  /** Recuerda qué piloto es un nombre leído en una captura (apodo, sustituto…). */
+  static async saveCaptureAliases(championshipId, aliases) {
+    const entradas = Object.entries(aliases || {});
+    if (entradas.length === 0) return;
+    await updateDoc(doc(db, 'championships', championshipId),
+      Object.fromEntries(entradas.map(([k, v]) => [`aliasCapturas.${k}`, v])));
+  }
 }

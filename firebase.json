@@ -43,6 +43,10 @@
         "function": "suggest_claim_resolution"
       },
       {
+        "source": "/api/extract-race-results",
+        "function": "extract_race_results"
+      },
+      {
         "source": "/share/**",
         "function": "share_page"
       },

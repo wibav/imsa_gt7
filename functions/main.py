@@ -13,7 +13,7 @@ import urllib.error
 import urllib.request
 from io import BytesIO
 
-from firebase_functions import firestore_fn, https_fn, scheduler_fn
+from firebase_functions import firestore_fn, https_fn, options, scheduler_fn
 from PIL import Image, ImageEnhance, ImageFilter, UnidentifiedImageError
 import vtracer
 
@@ -1137,6 +1137,39 @@ def _is_youtube_url(url: str) -> bool:
     return 'youtube.com' in url or 'youtu.be' in url
 
 
+def _youtube_accesible(url: str) -> bool:
+    """False si YouTube dice que el video es privado o no existe (oEmbed
+    responde 401/403/404). Ante cualquier otro fallo se da por bueno y que
+    decida Gemini."""
+    import urllib.parse
+    # Con el enlace corto (youtu.be) oEmbed responde 200 aunque el video sea
+    # privado: se comprueba siempre con la forma watch?v=.
+    m = re.search(r'(?:youtu\.be/|[?&]v=|/shorts/|/live/|/embed/)([A-Za-z0-9_-]{11})', url)
+    if m:
+        url = f'https://www.youtube.com/watch?v={m.group(1)}'
+    try:
+        q = urllib.parse.urlencode({'url': url, 'format': 'json'})
+        with urllib.request.urlopen(f'https://www.youtube.com/oembed?{q}', timeout=10):
+            return True
+    except urllib.error.HTTPError as e:
+        return e.code not in (401, 403, 404)
+    except Exception:
+        return True
+
+
+def _devolver_uso_ia(db, org_ref, mes: str) -> None:
+    """Devuelve la sugerencia al cupo mensual cuando Gemini falla."""
+    @fb_firestore.transactional
+    def _restar(transaction):
+        usage = (org_ref.get(transaction=transaction).to_dict() or {}).get('aiUsage') or {}
+        if usage.get('month') == mes and usage.get('count', 0) > 0:
+            transaction.set(org_ref, {'aiUsage': {'month': mes, 'count': usage['count'] - 1}}, merge=True)
+    try:
+        _restar(db.transaction())
+    except Exception:
+        pass
+
+
 # Sin este contexto Gemini juzgaba con un criterio genérico de sim racing y
 # sugería una severidad «leve/moderada/grave» que no correspondía a ninguna
 # sanción del campeonato. Los topes acotan el coste por llamada: el
@@ -1191,6 +1224,14 @@ def _reglamento_org_a_texto(reglamento: dict) -> str:
             for k, item in enumerate(bloque.get('items') or [], start=1):
                 texto = item if isinstance(item, str) else json.dumps(item, ensure_ascii=False)
                 lineas.append(f'{i}.{j}.{k} {texto}')
+            # Tablas (sanciones, definiciones): antes no llegaban a la IA
+            cabeceras = bloque.get('headers') or []
+            for fila in bloque.get('rows') or []:
+                celdas = fila.get('cells') if isinstance(fila, dict) else fila
+                if not celdas:
+                    continue
+                pares = [f'{cabeceras[n]}: {c}' if n < len(cabeceras) and n > 0 else str(c) for n, c in enumerate(celdas)]
+                lineas.append(f'{i}.{j} · ' + ' | '.join(pares))
     return '\n'.join(lineas).strip()
 
 
@@ -1463,36 +1504,6 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
                      'Actualiza el plan de tu organización en Facturación para usarla.',
         }, 402)
 
-    # Tope de uso mensual — acota el coste de Gemini incluso dentro de un
-    # plan de pago. billingExempt (GT7 ESP) no tiene tope, y platformOwner
-    # tampoco consume el cupo de una organización ajena (mismo criterio que
-    # el chequeo de plan de arriba). La transacción evita que dos llamadas
-    # casi simultáneas se cuelen ambas justo en el límite (leer-comprobar-
-    # incrementar no es atómico sin ella).
-    if org_ref and not is_billing_exempt and not caller_claims.get('platformOwner'):
-        cap = (org.get('limits') or {}).get('maxAiSuggestionsPerMonth', _AI_MONTHLY_CAP_DEFAULT)
-        current_month = datetime.now(timezone.utc).strftime('%Y-%m')
-
-        @fb_firestore.transactional
-        def _check_and_bump_ai_usage(transaction):
-            snap = org_ref.get(transaction=transaction)
-            usage = (snap.to_dict() or {}).get('aiUsage') or {}
-            count = usage.get('count', 0) if usage.get('month') == current_month else 0
-            if count >= cap:
-                return False
-            transaction.set(org_ref, {
-                'aiUsage': {'month': current_month, 'count': count + 1},
-                'updatedAt': fb_firestore.SERVER_TIMESTAMP,
-            }, merge=True)
-            return True
-
-        if not _check_and_bump_ai_usage(db.transaction()):
-            return _role_json({
-                'ok': False,
-                'error': f'Se alcanzó el límite de {cap} sugerencias de IA este mes para tu organización. '
-                         'Vuelve a intentarlo el próximo mes, o contacta al Administrador de Plataforma.',
-            }, 429)
-
     claim_snap = champ_ref.collection('claims').document(claim_id).get()
     if not claim_snap.exists:
         return _role_json({'ok': False, 'error': 'Reclamación no encontrada'}, 404)
@@ -1511,6 +1522,50 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
                      'analizar videos de YouTube por URL directa.',
             'skippedUrls': skipped_urls,
         }, 422)
+
+    # Gemini solo ve videos públicos u ocultos: con uno privado responde 403
+    # «The caller does not have permission», que parecía un fallo de la clave.
+    privados = [u for u in youtube_urls if not _youtube_accesible(u)]
+    if privados:
+        return _role_json({
+            'ok': False,
+            'error': 'Gemini no puede ver estos videos porque están en «Privado» en YouTube: '
+                     + ', '.join(privados) + '. Cámbialos a «Oculto» (No listado) en YouTube Studio y vuelve a pedir la sugerencia.',
+            'privateUrls': privados,
+        }, 422)
+
+    # Tope de uso mensual (se comprueba después de validar los videos, para
+    # que una reclamación sin video válido no gaste cupo) — acota el coste de Gemini incluso dentro de un
+    # plan de pago. billingExempt (GT7 ESP) no tiene tope, y platformOwner
+    # tampoco consume el cupo de una organización ajena (mismo criterio que
+    # el chequeo de plan de arriba). La transacción evita que dos llamadas
+    # casi simultáneas se cuelen ambas justo en el límite (leer-comprobar-
+    # incrementar no es atómico sin ella).
+    cupo_consumido = False
+    current_month = datetime.now(timezone.utc).strftime('%Y-%m')
+    if org_ref and not is_billing_exempt and not caller_claims.get('platformOwner'):
+        cap = (org.get('limits') or {}).get('maxAiSuggestionsPerMonth', _AI_MONTHLY_CAP_DEFAULT)
+
+        @fb_firestore.transactional
+        def _check_and_bump_ai_usage(transaction):
+            snap = org_ref.get(transaction=transaction)
+            usage = (snap.to_dict() or {}).get('aiUsage') or {}
+            count = usage.get('count', 0) if usage.get('month') == current_month else 0
+            if count >= cap:
+                return False
+            transaction.set(org_ref, {
+                'aiUsage': {'month': current_month, 'count': count + 1},
+                'updatedAt': fb_firestore.SERVER_TIMESTAMP,
+            }, merge=True)
+            return True
+
+        cupo_consumido = _check_and_bump_ai_usage(db.transaction())
+        if not cupo_consumido:
+            return _role_json({
+                'ok': False,
+                'error': f'Se alcanzó el límite de {cap} sugerencias de IA este mes para tu organización. '
+                         'Vuelve a intentarlo el próximo mes, o contacta al Administrador de Plataforma.',
+            }, 429)
 
     accused_list = claim.get('accusedNames') or ([claim.get('accusedName')] if claim.get('accusedName') else [])
     accused = ', '.join(accused_list)
@@ -1581,8 +1636,12 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
             result = json.loads(resp.read().decode('utf-8'))
     except urllib.error.HTTPError as e:
         detail = e.read().decode('utf-8', errors='ignore')
+        if cupo_consumido:
+            _devolver_uso_ia(db, org_ref, current_month)
         return _role_json({'ok': False, 'error': f'Error de Gemini ({e.code}): {detail[:300]}'}, 502)
     except Exception as e:
+        if cupo_consumido:
+            _devolver_uso_ia(db, org_ref, current_month)
         return _role_json({'ok': False, 'error': f'Error llamando a Gemini: {e}'}, 502)
 
     try:
@@ -2077,3 +2136,125 @@ def share_page(req: https_fn.Request) -> https_fn.Response:
         # uno. 10 minutos basta para que un cambio de banner se vea pronto.
         'Cache-Control': 'public, max-age=600, s-maxage=600',
     })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Lectura de capturas de resultados (GT7) con Gemini
+# ─────────────────────────────────────────────────────────────────────────────
+# El modal «Asignar resultados» sube las capturas de la pantalla final de cada
+# sala y aquí se convierten en filas (posición, piloto, coche, tiempo, estado,
+# mejor vuelta). No guarda nada: el admin revisa y guarda en el modal.
+
+_RESULTADOS_MAX_IMAGENES = 6
+_RESULTADOS_MAX_BYTES = 4 * 1024 * 1024
+_RESULTADOS_TIPOS = {'image/jpeg', 'image/png', 'image/webp'}
+
+_RESULTADOS_SCHEMA = {
+    'type': 'OBJECT',
+    'properties': {
+        'sala': {'type': 'STRING'},
+        'filas': {
+            'type': 'ARRAY',
+            'items': {
+                'type': 'OBJECT',
+                'properties': {
+                    'posicion': {'type': 'INTEGER'},
+                    'piloto': {'type': 'STRING'},
+                    'coche': {'type': 'STRING'},
+                    'tiempo': {'type': 'STRING', 'description': 'Tal cual: tiempo total del líder, +diferencia, «N Vuelta(s)» o «No terminó»'},
+                    'estado': {'type': 'STRING', 'enum': ['terminado', 'doblado', 'no_termino']},
+                    'vueltasPerdidas': {'type': 'INTEGER'},
+                    'penalizacion': {'type': 'STRING'},
+                    'mejorVuelta': {'type': 'STRING'},
+                },
+                'required': ['posicion', 'piloto', 'coche', 'tiempo', 'estado', 'mejorVuelta'],
+            },
+        },
+    },
+    'required': ['filas'],
+}
+
+
+@https_fn.on_request(region='us-central1', secrets=['GEMINI_API_KEY'], timeout_sec=180, memory=options.MemoryOption.MB_512)
+def extract_race_results(req: https_fn.Request) -> https_fn.Response:
+    if req.method == 'OPTIONS':
+        return https_fn.Response('', status=204, headers=_ROLE_CORS)
+    if req.method != 'POST':
+        return _role_json({'ok': False, 'error': 'Method not allowed'}, 405)
+
+    auth_header = req.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return _role_json({'ok': False, 'error': 'Falta token de autorización'}, 401)
+    try:
+        caller_claims = fb_auth.verify_id_token(auth_header.split(' ', 1)[1])
+    except Exception:
+        return _role_json({'ok': False, 'error': 'Token inválido o expirado'}, 401)
+
+    body = req.get_json(silent=True) or {}
+    championship_id = (body.get('championshipId') or '').strip()
+    imagenes = body.get('images') or []
+    if not championship_id or not isinstance(imagenes, list) or not imagenes:
+        return _role_json({'ok': False, 'error': 'Falta championshipId o images'}, 400)
+    if len(imagenes) > _RESULTADOS_MAX_IMAGENES:
+        return _role_json({'ok': False, 'error': f'Máximo {_RESULTADOS_MAX_IMAGENES} capturas por lectura'}, 400)
+
+    db = fb_firestore.client()
+    champ_snap = db.collection('championships').document(championship_id).get()
+    if not champ_snap.exists:
+        return _role_json({'ok': False, 'error': 'Campeonato no encontrado'}, 404)
+    org_id = (champ_snap.to_dict() or {}).get('orgId')
+
+    # Cargar resultados es cosa de dirección de liga (no de comisarios)
+    caller_rank = _ROLE_RANK.get((caller_claims.get('orgs') or {}).get(org_id), 0)
+    if not caller_claims.get('platformOwner') and caller_rank < _ROLE_RANK['director_liga']:
+        return _role_json({'ok': False, 'error': 'Requiere rol de director de liga u organizador'}, 403)
+
+    org_snap = db.collection('organizations').document(org_id).get() if org_id else None
+    org = org_snap.to_dict() if org_snap and org_snap.exists else {}
+    if not caller_claims.get('platformOwner') and not org.get('billingExempt') and not org.get('aiEnabled'):
+        return _role_json({'ok': False, 'error': 'La lectura de capturas con IA es parte del plan Pro + IA.'}, 402)
+
+    partes = []
+    for img in imagenes:
+        tipo = (img or {}).get('mimeType') or ''
+        datos = (img or {}).get('data') or ''
+        if tipo not in _RESULTADOS_TIPOS or not datos:
+            return _role_json({'ok': False, 'error': 'Formato de imagen no admitido (usa JPG, PNG o WebP)'}, 400)
+        if len(datos) * 3 // 4 > _RESULTADOS_MAX_BYTES:
+            return _role_json({'ok': False, 'error': 'Alguna captura supera los 4 MB'}, 400)
+        partes.append({'inlineData': {'mimeType': tipo, 'data': datos}})
+
+    partes.append({'text': (
+        'Son capturas de la pantalla de resultados de una carrera de Gran Turismo 7 (puede ser una sola '
+        'sala repartida en varias pantallas). Extrae TODAS las filas visibles, tal cual aparecen, sin '
+        'inventar ni corregir nombres de pilotos ni de coches. Si una fila aparece en dos capturas, '
+        'inclúyela una sola vez. Ordena por posición.'
+    )})
+
+    api_key = os.environ.get('GEMINI_API_KEY', '')
+    gemini_url = f'https://generativelanguage.googleapis.com/v1beta/models/{_GEMINI_MODEL}:generateContent'
+    payload = json.dumps({
+        'contents': [{'parts': partes}],
+        'generationConfig': {'responseMimeType': 'application/json', 'responseSchema': _RESULTADOS_SCHEMA, 'temperature': 0},
+    }).encode('utf-8')
+    gemini_req = urllib.request.Request(gemini_url, data=payload, method='POST',
+                                        headers={'Content-Type': 'application/json', 'x-goog-api-key': api_key})
+    try:
+        with urllib.request.urlopen(gemini_req, timeout=160) as resp:
+            result = json.loads(resp.read().decode('utf-8'))
+        texto = result['candidates'][0]['content']['parts'][0]['text']
+        datos = json.loads(texto)
+    except urllib.error.HTTPError as e:
+        return _role_json({'ok': False, 'error': f'Error de Gemini ({e.code}): {e.read().decode("utf-8", errors="ignore")[:300]}'}, 502)
+    except Exception as e:
+        return _role_json({'ok': False, 'error': f'No se pudieron leer las capturas: {e}'}, 502)
+
+    # Una fila por posición (si se solapan dos capturas, gana la primera)
+    filas, vistas = [], set()
+    for f in sorted(datos.get('filas') or [], key=lambda x: x.get('posicion') or 999):
+        pos = f.get('posicion')
+        if not isinstance(pos, int) or pos in vistas or not (f.get('piloto') or '').strip():
+            continue
+        vistas.add(pos)
+        filas.append(f)
+    return _role_json({'ok': True, 'sala': datos.get('sala') or '', 'filas': filas})

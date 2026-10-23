@@ -17,6 +17,7 @@ import { notifyResultsSaved, notifyRegistrationUpdated } from '../../utils/teleg
 import { buildGt7IdMap, esAbandono } from '../../utils/championshipUtils';
 import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations, applyDeclarations, CHAMPIONSHIP_CATEGORIES, categoryLabel, getExcludedCars } from '../../utils/carUsageCalculator';
 import CarNameInput from '../../components/common/CarNameInput';
+import ResultsImport from '../../components/championship/ResultsImport';
 import PilotIdInput from '../../components/common/PilotIdInput';
 import { isPenaltyCounting } from '../../models/Penalty';
 
@@ -1326,6 +1327,11 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
     const [activeDivisionTab, setActiveDivisionTab] = useState(null);
     const [divPositions, setDivPositions] = useState({});
     const [divSprintPositions, setDivSprintPositions] = useState({});
+    // Carga desde capturas de GT7: tiempos e invitados por sala ('_' sin divisiones)
+    const [tiemposCarrera, setTiemposCarrera] = useState({});
+    const [invitadosCarrera, setInvitadosCarrera] = useState({});
+    const [importandoCapturas, setImportandoCapturas] = useState(false);
+    const [aliasCapturasLocal, setAliasCapturasLocal] = useState({});
     const [divQualyTop3, setDivQualyTop3] = useState({});
     const [divFastestLap, setDivFastestLap] = useState({});
 
@@ -1425,6 +1431,8 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
             });
             setDivPositions(divPos);
             setDivSprintPositions(divSprint);
+            setTiemposCarrera(Object.fromEntries(sortedDivisions.map(div => [div.id, track.results?.divisions?.[div.id]?.raceTimes || {}])));
+            setInvitadosCarrera(Object.fromEntries(sortedDivisions.map(div => [div.id, track.results?.divisions?.[div.id]?.invitados || []])));
             setDivQualyTop3(divQualy);
             setDivFastestLap(divFL);
             setActiveDivisionTab(sortedDivisions[0]?.id || null);
@@ -1441,6 +1449,8 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
             });
             setPositions(currentPositions);
             setSprintPositions(currentSprintPositions);
+            setTiemposCarrera({ _: existing.raceTimes || {} });
+            setInvitadosCarrera({ _: existing.invitados || [] });
             setQualyTop3(existing.qualifying?.top3 || { first: '', second: '', third: '' });
             setFastestLapDriver(existing.fastestLap?.driver || '');
         }
@@ -1460,6 +1470,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
         });
         setCarsUsed(rehydratedCarsUsed);
         setCarUsageErrors([]);
+        setImportandoCapturas(false);
 
         setShowPositionsModal(true);
     };
@@ -1532,6 +1543,9 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                         ...(selectedTrack.raceType === 'sprint_carrera' ? { sprintPositions: divSprintPositions[divId] || {}, sprintPoints: sprintPtsMap } : {}),
                         ...(ps.qualifying?.enabled ? { qualifying: { top3: divQualyTop3[divId] || {}, points: qualyPoints } } : {}),
                         ...(ps.fastestLap?.enabled ? { fastestLap: { driver: fl, points: fastestLapPoints } } : {}),
+                        // Tiempos leídos de las capturas (base de las penalizaciones de tiempo)
+                        ...(Object.keys(tiemposCarrera[divId] || {}).length ? { raceTimes: normalizeDriverKeys(tiemposCarrera[divId]) } : {}),
+                        ...((invitadosCarrera[divId] || []).length ? { invitados: invitadosCarrera[divId] } : {}),
                     };
                 });
 
@@ -1644,6 +1658,8 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                 if (championship?.settings?.pointsSystem?.fastestLap?.enabled) {
                     trackUpdate.results.fastestLap = { driver: fastestLapDriver, points: fastestLapPoints };
                 }
+                if (Object.keys(tiemposCarrera._ || {}).length) trackUpdate.results.raceTimes = normalizeDriverKeys(tiemposCarrera._);
+                if ((invitadosCarrera._ || []).length) trackUpdate.results.invitados = invitadosCarrera._;
                 await FirebaseService.updateTrack(championshipId, selectedTrack.id, trackUpdate);
             }
 
@@ -1991,6 +2007,63 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                     ))}
                                 </div>
                             )}
+
+                            {/* Carga desde capturas del juego (IA): rellena el formulario, no guarda */}
+                            {(() => {
+                                const claveSala = hasDivisions ? activeDivisionTab : '_';
+                                const regDe = (d) => approvedRegs.find(r => [r.name, r.gt7Id, r.psnId].includes(d));
+                                const candidatos = modalDriverNames.map(d => {
+                                    const r = regDe(d);
+                                    return { driver: d, label: driverLabelMap[d] || d, nombres: [d, r?.gt7Id, r?.psnId, r?.name].filter(Boolean) };
+                                });
+                                const declarados = applyDeclarations(flattenRegistrations(championship.registrations || []), declarations);
+                                const cochesDeclarados = (d) => {
+                                    const r = declarados.find(x => [x.name, x.gt7Id, x.psnId].includes(d));
+                                    return r?.declaredCars || [];
+                                };
+                                const aplicarCapturas = ({ posiciones, coches, vueltaRapida, tiempos, aprendidos, invitados }) => {
+                                    // La captura es el resultado completo de la sala: quien no aparece queda vacío
+                                    const nuevas = Object.fromEntries(modalDriverNames.map(d => [d, posiciones[d] || '']));
+                                    if (hasDivisions) setDivPositions(prev => ({ ...prev, [claveSala]: nuevas }));
+                                    else setPositions(prev => ({ ...prev, ...nuevas }));
+                                    if (championship?.carUsageTracking?.enabled) setCarsUsed(prev => ({ ...prev, ...coches }));
+                                    if (ps.fastestLap?.enabled && vueltaRapida) {
+                                        if (hasDivisions) setDivFastestLap(prev => ({ ...prev, [claveSala]: vueltaRapida }));
+                                        else setFastestLapDriver(vueltaRapida);
+                                    }
+                                    setTiemposCarrera(prev => ({ ...prev, [claveSala]: tiempos }));
+                                    setInvitadosCarrera(prev => ({ ...prev, [claveSala]: invitados }));
+                                    setCarUsageErrors([]);
+                                    if (Object.keys(aprendidos).length) {
+                                        setAliasCapturasLocal(prev => ({ ...prev, ...aprendidos }));
+                                        FirebaseService.saveCaptureAliases(championshipId, aprendidos).catch(e => console.error('No se pudieron recordar los apodos:', e));
+                                    }
+                                    setImportandoCapturas(false);
+                                };
+                                return importandoCapturas ? (
+                                    <ResultsImport
+                                        key={claveSala}
+                                        championship={{ ...championship, id: championshipId }}
+                                        salaNombre={activeDivObj?.name || ''}
+                                        candidatos={candidatos}
+                                        cochesDeclarados={cochesDeclarados}
+                                        aprendidos={{ ...(championship.aliasCapturas || {}), ...aliasCapturasLocal }}
+                                        onAplicar={aplicarCapturas}
+                                        onCerrar={() => setImportandoCapturas(false)}
+                                    />
+                                ) : (
+                                    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 bg-blue-950/30 border border-blue-500/30 rounded-xl px-4 py-3">
+                                        <p className="text-sm text-blue-100">
+                                            📷 ¿Tienes la pantalla de resultados del juego? Súbela y se rellenan posiciones, DNF, coches y vuelta rápida{activeDivObj ? ` de ${activeDivObj.name}` : ''}.
+                                            {Object.keys(tiemposCarrera[claveSala] || {}).length > 0 && <span className="text-green-300"> · Tiempos cargados ✓</span>}
+                                        </p>
+                                        <button type="button" onClick={() => setImportandoCapturas(true)}
+                                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg whitespace-nowrap">
+                                            📷 Cargar desde capturas
+                                        </button>
+                                    </div>
+                                );
+                            })()}
 
                             {/* Sección: Posiciones de Carrera */}
                             <div className="mb-8">

@@ -18,7 +18,7 @@ import { buildRegulationsDocDefinition } from '../../utils/regulationsPdf';
  * @param {unknown} vfsModule
  * @returns {object|null}
  */
-function extractVfs(vfsModule) {
+export function extractVfs(vfsModule) {
     const isVfsObject = (candidate) =>
         candidate && typeof candidate === 'object' && 'Roboto-Regular.ttf' in candidate;
 
@@ -49,7 +49,7 @@ function extractVfs(vfsModule) {
     return plain;
 }
 
-async function fetchAsDataUrl(url) {
+export async function fetchAsDataUrl(url) {
     if (!url) return null;
     try {
         const response = await fetch(url);
