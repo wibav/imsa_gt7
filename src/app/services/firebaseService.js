@@ -49,6 +49,19 @@ const storage = getStorage(app);
 // cualquier ruta que no use el prefijo /l/{slug}).
 let currentOrgId = 'gt7-esp';
 
+/**
+ * Copia sin los campos `undefined` (a cualquier profundidad), que Firestore no
+ * admite. Solo recorre objetos planos y arrays: Timestamp, FieldValue, Date…
+ * se dejan tal cual.
+ */
+function sinUndefined(valor) {
+  if (Array.isArray(valor)) return valor.map(sinUndefined);
+  if (valor && typeof valor === 'object' && Object.getPrototypeOf(valor) === Object.prototype) {
+    return Object.fromEntries(Object.entries(valor).filter(([, v]) => v !== undefined).map(([k, v]) => [k, sinUndefined(v)]));
+  }
+  return valor;
+}
+
 export class FirebaseService {
   static setCurrentOrgId(orgId) {
     currentOrgId = orgId;
@@ -1031,7 +1044,7 @@ export class FirebaseService {
 
       const docRef = await addDoc(
         collection(db, "championships"),
-        championship.toFirestore()
+        sinUndefined(championship.toFirestore())
       );
 
       return {
@@ -1050,22 +1063,15 @@ export class FirebaseService {
    */
   static async updateChampionship(championshipId, updates) {
     try {
-      console.log('🔥 FirebaseService.updateChampionship recibió:');
-      console.log('championshipId:', championshipId);
-      console.log('updates:', JSON.stringify(updates, null, 2));
-      console.log('updates.drivers:', updates.drivers);
-
       const docRef = doc(db, "championships", championshipId);
-      const updateData = {
+      // Firestore rechaza el documento entero si algún campo vale `undefined`
+      // (pasó con preQualy.rules.raceSlipstream): se descartan esos campos.
+      const updateData = sinUndefined({
         ...updates,
         updatedAt: new Date().toISOString()
-      };
-
-      console.log('🔥 Enviando a Firebase:', JSON.stringify(updateData, null, 2));
+      });
 
       await updateDoc(docRef, updateData);
-
-      console.log('✅ Actualización exitosa en Firebase');
 
       return { success: true };
     } catch (error) {

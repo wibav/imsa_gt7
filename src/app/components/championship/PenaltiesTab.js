@@ -4,11 +4,12 @@ import { FirebaseService } from '../../services/firebaseService';
 import {
     PENALTY_PRESETS, DEFAULT_PENALTIES_CONFIG,
     PENALTY_TYPE_CONFIG, SEVERITY_CONFIG, CLAIM_STATUS_CONFIG, APPEAL_STATUS_CONFIG,
-    isPenaltyCounting
+    isPenaltyCounting, NIVELES_DANOS,
 } from '../../models/Penalty';
 import { notifyPenaltyApplied, notifyClaimResolved, notifyAppealResolved } from '../../utils/telegram';
 import { useAuth } from '../../context/AuthContext';
 import ModalPortal from '../common/ModalPortal';
+import SancionDetalle, { puntosBase, resumenPreset, cambiaResultado, EfectoSancion } from './SancionDetalle';
 
 /**
  * Tab de Sanciones para el admin de campeonatos.
@@ -342,17 +343,7 @@ export default function PenaltiesTab({
                                                         </div>
                                                     </div>
                                                     <div className="text-right flex-shrink-0">
-                                                        <div className="flex flex-col items-end gap-1">
-                                                            {penalty.points > 0 && (
-                                                                <span className="text-red-400 font-bold text-sm">-{penalty.points} pts</span>
-                                                            )}
-                                                            {penalty.warningPoints > 0 && (
-                                                                <span className="text-yellow-400 text-xs">+{penalty.warningPoints} ⚠️</span>
-                                                            )}
-                                                            {penalty.timeSeconds > 0 && (
-                                                                <span className="text-orange-400 text-xs">+{penalty.timeSeconds}s</span>
-                                                            )}
-                                                        </div>
+                                                        <EfectoSancion penalty={penalty} />
                                                         {!isRevoked && (
                                                             <div className="flex gap-1 mt-2">
                                                                 <button
@@ -536,15 +527,44 @@ export default function PenaltiesTab({
                                                 </label>
                                                 {preset.active && (
                                                     <div className="flex items-center gap-3 flex-shrink-0 pl-10 sm:pl-0">
-                                                        <div className="flex items-center gap-1">
-                                                            <span className="text-red-400 text-xs">Pts:</span>
-                                                            <input
-                                                                type="number" min="0" max="50"
-                                                                value={preset.points}
-                                                                onChange={e => handleEditPreset(preset.id, 'points', parseInt(e.target.value) || 0)}
-                                                                className="w-14 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs text-center"
-                                                            />
-                                                        </div>
+                                                        {Array.isArray(preset.damagePoints) ? (
+                                                            // Según daños: sin / leves / moderados / graves
+                                                            <div className="flex items-center gap-1" title="Puntos según daños: sin, leves, moderados, graves">
+                                                                <span className="text-red-400 text-xs">Daños:</span>
+                                                                {preset.damagePoints.map((v, i) => (
+                                                                    <input
+                                                                        key={i}
+                                                                        type="number" min="0" max="50"
+                                                                        value={v}
+                                                                        aria-label={`Puntos con nivel de daños ${i}`}
+                                                                        onChange={e => handleEditPreset(preset.id, 'damagePoints', preset.damagePoints.map((x, k) => (k === i ? (parseInt(e.target.value) || 0) : x)))}
+                                                                        className="w-11 bg-white/10 border border-white/20 rounded px-1 py-1 text-white text-xs text-center"
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                        ) : preset.type === 'position' ? (
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="text-orange-400 text-xs">Posiciones:</span>
+                                                                <input
+                                                                    type="number" min="1" max="30"
+                                                                    value={preset.positionsLost || 0}
+                                                                    onChange={e => handleEditPreset(preset.id, 'positionsLost', parseInt(e.target.value) || 1)}
+                                                                    className="w-14 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs text-center"
+                                                                />
+                                                            </div>
+                                                        ) : preset.type === 'disqualification' ? (
+                                                            <span className="text-red-400 text-xs font-bold">DSQ</span>
+                                                        ) : (
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="text-red-400 text-xs">Pts:</span>
+                                                                <input
+                                                                    type="number" min="0" max="50"
+                                                                    value={preset.points}
+                                                                    onChange={e => handleEditPreset(preset.id, 'points', parseInt(e.target.value) || 0)}
+                                                                    className="w-14 bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs text-center"
+                                                                />
+                                                            </div>
+                                                        )}
                                                         <div className="flex items-center gap-1">
                                                             <span className="text-yellow-400 text-xs">⚠️:</span>
                                                             <input
@@ -631,6 +651,8 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
     const [selectedPreset, setSelectedPreset] = useState(null);
     const [extraPoints, setExtraPoints] = useState(0);
     const [extraPointsReason, setExtraPointsReason] = useState('');
+    const [nivelDanos, setNivelDanos] = useState(null);
+    const [posiciones, setPosiciones] = useState(0);
     const [form, setForm] = useState({
         driverName: '',
         teamName: '',
@@ -655,6 +677,8 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
         setSelectedPreset(preset);
         setExtraPoints(0);
         setExtraPointsReason('');
+        setNivelDanos(null);
+        setPosiciones(preset.positionsLost || 0);
         setForm(prev => ({
             ...prev,
             name: preset.name,
@@ -687,7 +711,10 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
     const handleSubmit = async () => {
         if (!form.driverName) return alert('Selecciona un piloto');
         if (!form.name) return alert('Nombre de sanción requerido');
-        const totalPoints = form.points + (extraPoints || 0);
+        if (mode === 'preset' && Array.isArray(selectedPreset?.damagePoints) && nivelDanos == null) return alert('Indica el nivel de daños');
+        if (mode === 'preset' && cambiaResultado(selectedPreset) && !form.trackId) return alert('Esta sanción cambia el resultado de una carrera: elige la carrera');
+        const base = mode === 'preset' && selectedPreset ? puntosBase(selectedPreset, nivelDanos) : form.points;
+        const totalPoints = base + (extraPoints || 0);
         const description = extraPointsReason
             ? `${form.description || form.name}. Puntos adicionales: ${extraPointsReason}`
             : form.description;
@@ -701,6 +728,11 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
                 extraPoints: extraPoints || 0,
                 extraPointsReason: extraPointsReason || '',
                 presetId: selectedPreset?.id || null,
+                ...(mode === 'preset' && selectedPreset ? {
+                    damageLevel: nivelDanos,
+                    positionsLost: selectedPreset.type === 'position' ? posiciones : 0,
+                    article: selectedPreset.article || '',
+                } : {}),
                 appliedAt: new Date().toISOString()
             });
             notifyPenaltyApplied({
@@ -767,7 +799,7 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
                                         <span className="font-medium">{preset.name}</span>
                                     </div>
                                     <div className="text-xs text-gray-500 mt-1">
-                                        {preset.points > 0 && <span className="text-red-400">-{preset.points}pts </span>}
+                                        {resumenPreset(preset) && <span className="text-red-400">{resumenPreset(preset)} </span>}
                                         {preset.warningPoints > 0 && <span className="text-yellow-400">+{preset.warningPoints}⚠️</span>}
                                     </div>
                                 </button>
@@ -831,12 +863,18 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
                         </div>
                     )}
 
+                    {mode === 'preset' && selectedPreset && (
+                        <SancionDetalle preset={selectedPreset} nivel={nivelDanos}
+                            onNivel={(n) => { setNivelDanos(n); setForm(prev => ({ ...prev, points: puntosBase(selectedPreset, n) })); }}
+                            posiciones={posiciones} onPosiciones={setPosiciones} />
+                    )}
+
                     {/* Puntos adicionales sobre preset */}
                     {mode === 'preset' && selectedPreset && (
                         <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 space-y-3">
                             <div className="flex items-center justify-between">
                                 <h4 className="text-orange-300 font-semibold text-sm">➕ Puntos adicionales</h4>
-                                <span className="text-gray-400 text-xs">Base: <span className="text-red-400 font-bold">-{selectedPreset.points} pts</span></span>
+                                <span className="text-gray-400 text-xs">Base: <span className="text-red-400 font-bold">-{puntosBase(selectedPreset, nivelDanos)} pts</span></span>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
@@ -863,8 +901,8 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
                             {extraPoints > 0 && (
                                 <div className="text-center">
                                     <span className="text-gray-400 text-xs">Total: </span>
-                                    <span className="text-red-400 font-bold">-{selectedPreset.points + extraPoints} pts</span>
-                                    <span className="text-gray-500 text-xs"> ({selectedPreset.points} base + {extraPoints} extra)</span>
+                                    <span className="text-red-400 font-bold">-{puntosBase(selectedPreset, nivelDanos) + extraPoints} pts</span>
+                                    <span className="text-gray-500 text-xs"> ({puntosBase(selectedPreset, nivelDanos)} base + {extraPoints} extra)</span>
                                 </div>
                             )}
                         </div>
@@ -1617,6 +1655,8 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
     const [customMode, setCustomMode] = useState(false);
     const [extraPoints, setExtraPoints] = useState(0);
     const [extraPointsReason, setExtraPointsReason] = useState('');
+    const [nivelDanos, setNivelDanos] = useState(null);
+    const [posiciones, setPosiciones] = useState(0);
     const [customForm, setCustomForm] = useState({ name: '', points: 0, warningPoints: 0, type: 'points', severity: 'moderate' });
     const [saving, setSaving] = useState(false);
     // Muchos pilotos mandan el video por privado en vez de pegar la URL: el
@@ -1677,6 +1717,8 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
         setCustomMode(false);
         setExtraPoints(0);
         setExtraPointsReason('');
+        setNivelDanos(null);
+        setPosiciones(preset.positionsLost || 0);
     };
 
     const handleSubmit = async () => {
@@ -1684,6 +1726,8 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
         if (applyPenalty && !selectedAccused) return alert('Selecciona el piloto a sancionar');
         if (applyPenalty && !customMode && !selectedPreset) return alert('Selecciona una sanción');
         if (applyPenalty && customMode && !customForm.name) return alert('Escribe el nombre de la sanción');
+        if (applyPenalty && !customMode && Array.isArray(selectedPreset?.damagePoints) && nivelDanos == null) return alert('Indica el nivel de daños');
+        if (applyPenalty && !customMode && cambiaResultado(selectedPreset) && !claim.trackId) return alert('La reclamación no tiene carrera asociada: esta sanción no se puede aplicar');
         setSaving(true);
 
         let penaltyData = null;
@@ -1709,7 +1753,7 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                     evidence: evidencias.join('\n')
                 };
             } else if (selectedPreset) {
-                const totalPoints = (selectedPreset.points || 0) + (extraPoints || 0);
+                const totalPoints = puntosBase(selectedPreset, nivelDanos) + (extraPoints || 0);
                 const desc = extraPointsReason
                     ? `${resolution}. Pts adicionales: ${extraPointsReason}`
                     : resolution;
@@ -1727,6 +1771,9 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                     points: totalPoints,
                     warningPoints: selectedPreset.warningPoints || 0,
                     timeSeconds: selectedPreset.timeSeconds || 0,
+                    damageLevel: nivelDanos,
+                    positionsLost: selectedPreset.type === 'position' ? posiciones : 0,
+                    article: selectedPreset.article || '',
                     extraPoints: extraPoints || 0,
                     extraPointsReason: extraPointsReason || '',
                     lap: claim.lap,
@@ -1876,12 +1923,18 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                                     if (!sugerido) return null;
                                     return (
                                         <div className="mt-2 flex flex-wrap items-center justify-between gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-2 py-1.5">
-                                            <span className="text-xs text-red-200">⚖️ Sanción sugerida: {sugerido.icon} {sugerido.name}</span>
+                                            <span className="text-xs text-red-200">⚖️ Sanción sugerida: {sugerido.icon} {sugerido.name}
+                                                {Array.isArray(sugerido.damagePoints) && Number.isInteger(aiSuggestion.structured?.nivelDanos) && (
+                                                    <> · {NIVELES_DANOS[aiSuggestion.structured.nivelDanos]} (-{sugerido.damagePoints[aiSuggestion.structured.nivelDanos]} pts)</>
+                                                )}
+                                            </span>
                                             <button
                                                 type="button"
                                                 onClick={() => {
                                                     setApplyPenalty(true);
                                                     handleSelectPreset(sugerido);
+                                                    const nivel = aiSuggestion.structured?.nivelDanos;
+                                                    if (Array.isArray(sugerido.damagePoints) && Number.isInteger(nivel) && nivel >= 0 && nivel <= 3) setNivelDanos(nivel);
                                                     if (aiSuggestion.structured?.resolucion) setResolution(aiSuggestion.structured.resolucion);
                                                 }}
                                                 className="text-xs px-2 py-0.5 bg-red-600 hover:bg-red-700 text-white rounded transition-all"
@@ -1951,7 +2004,7 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                                     >
                                         <span>{preset.icon} {preset.name}</span>
                                         <div className="text-gray-500 mt-0.5">
-                                            {preset.points > 0 && <span className="text-red-400">-{preset.points}pts </span>}
+                                            {resumenPreset(preset) && <span className="text-red-400">{resumenPreset(preset)} </span>}
                                             {preset.warningPoints > 0 && <span className="text-yellow-400">+{preset.warningPoints}⚠️</span>}
                                         </div>
                                     </button>
@@ -1969,12 +2022,16 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                                 </button>
                             </div>
 
+                            {!customMode && selectedPreset && (
+                                <SancionDetalle preset={selectedPreset} nivel={nivelDanos} onNivel={setNivelDanos} posiciones={posiciones} onPosiciones={setPosiciones} />
+                            )}
+
                             {/* Puntos adicionales cuando hay preset seleccionado */}
                             {!customMode && selectedPreset && (
                                 <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3 space-y-2">
                                     <div className="flex items-center justify-between">
                                         <span className="text-orange-300 text-xs font-semibold">➕ Puntos adicionales</span>
-                                        <span className="text-gray-400 text-xs">Base: <span className="text-red-400 font-bold">-{selectedPreset.points} pts</span></span>
+                                        <span className="text-gray-400 text-xs">Base: <span className="text-red-400 font-bold">-{puntosBase(selectedPreset, nivelDanos)} pts</span></span>
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <div>
@@ -2000,7 +2057,7 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                                     {extraPoints > 0 && (
                                         <div className="text-center text-xs">
                                             <span className="text-gray-400">Total: </span>
-                                            <span className="text-red-400 font-bold">-{selectedPreset.points + extraPoints} pts</span>
+                                            <span className="text-red-400 font-bold">-{puntosBase(selectedPreset, nivelDanos) + extraPoints} pts</span>
                                         </div>
                                     )}
                                 </div>

@@ -368,6 +368,10 @@ export function normalizarReglas(reglas = {}) {
     }
 
     if (r.mandatoryPitStops === 0) r.mandatoryPitStops = null;
+
+    // Un campo que no estaba no puede volver como `undefined`: Firestore
+    // rechaza la escritura entera (le pasaba al rebufo de las Pre-Qualy antiguas)
+    Object.keys(r).forEach(k => { if (r[k] === undefined) delete r[k]; });
     return r;
 }
 

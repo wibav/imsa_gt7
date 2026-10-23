@@ -40,9 +40,10 @@ const GR4_PARALELO_DESPUES = '<p>Hay paralelo cuando, antes del punto de giro, e
 
     const dirBackup = path.join(raiz, "scripts", "backups");
     fs.mkdirSync(dirBackup, { recursive: true });
-    const sello = new Date().toISOString().slice(0, 10);
-    fs.writeFileSync(path.join(dirBackup, `reglamento-${ORG_ID}-antes-v2-${sello}.json`), JSON.stringify(actual, null, 1));
-    fs.writeFileSync(path.join(dirBackup, `regulations-gr4-antes-v2-${sello}.html`), htmlGr4);
+    // Versión y hora en el nombre: dos publicaciones el mismo día no se pisan
+    const sello = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    fs.writeFileSync(path.join(dirBackup, `reglamento-${ORG_ID}-v${actual.version || '1'}-${sello}.json`), JSON.stringify(actual, null, 1));
+    fs.writeFileSync(path.join(dirBackup, `regulations-gr4-${sello}.html`), htmlGr4);
 
     await orgRef.update({
         reglamento: {

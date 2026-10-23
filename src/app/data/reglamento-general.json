@@ -1,5 +1,5 @@
 {
- "version": "2.0",
+ "version": "2.1",
  "fecha": "2026-10-23",
  "sections": [
   {
@@ -110,9 +110,7 @@
      "items": [
       "Todos los pilotos deben mantener un comportamiento deportivo y respetuoso en todo momento, tanto en pista como en los canales de comunicación (WhatsApp, chat de PlayStation, stream, etc.).",
       "Está terminantemente prohibido insultar, amenazar o faltar al respeto a cualquier piloto, organizador, comisario, caster o miembro de la comunidad.",
-      "Se espera fair play: si causas un incidente involuntario que perjudica a otro piloto, espera y devuélvele la posición cuando sea seguro hacerlo. Es un atenuante que reduce la sanción a la mitad (ver 6.5).",
-      "El uso de exploits, bugs, glitches o cualquier ventaja no legítima del juego supone la descalificación de la carrera y la posible expulsión del campeonato.",
-      "Los campeonatos son INDIVIDUALES salvo que se indique lo contrario. Están prohibidas las órdenes de equipo que perjudiquen a terceros (dejarse adelantar deliberadamente o perjudicar a un rival para beneficiar a un compañero). Se sanciona a los dos pilotos implicados."
+      "Se espera fair play: si causas un incidente involuntario que perjudica a otro piloto, espera y devuélvele la posición cuando sea seguro hacerlo. Es un atenuante que reduce la sanción a la mitad (ver 6.5)."
      ]
     },
     {
@@ -177,7 +175,6 @@
      "subtitle": "Normas de clasificación",
      "items": [
       "La duración de la clasificación la fija cada carrera (normalmente 10-15 minutos).",
-      "Hay que usar el compuesto de neumático indicado para la sesión.",
       "Respeta el espacio de los demás: no bloquees ni estorbes a quien esté en vuelta rápida.",
       "En las vueltas de salida o de enfriamiento, mantén una línea predecible y apártate de la trazada.",
       "Permanece en pista al terminar el tiempo de clasificación. Si sales, el juego puede colocarte en una posición que no te corresponde."
@@ -188,31 +185,29 @@
      "type": "table",
      "headers": [
       "Infracción",
-      "Sanción"
+      "Sanción",
+      "Amonestación"
      ],
      "rows": [
       {
        "cells": [
-        "Bloquear deliberadamente a un piloto en vuelta rápida",
-        "-2 puntos"
+        "Bloquear a un piloto en vuelta rápida",
+        "-2 puntos",
+        "1"
        ]
       },
       {
        "cells": [
         "Empujar o contacto intencionado en clasificación",
-        "-5 puntos"
-       ]
-      },
-      {
-       "cells": [
-        "No usar el compuesto obligatorio de clasificación",
-        "-3 puntos"
+        "-5 puntos",
+        "2"
        ]
       },
       {
        "cells": [
         "Penalizaciones automáticas del juego (límites de pista)",
-        "Se respetan tal cual"
+        "Se respetan tal cual",
+        "—"
        ]
       }
      ]
@@ -238,8 +233,7 @@
       "Un coche está dentro de los límites si al menos dos ruedas de ejes distintos (una delantera y una trasera) siguen sobre la pista. La línea blanca es pista; el piano, no.",
       "Las penalizaciones por atajar son las que impone el juego según la configuración de la sala, y se respetan.",
       "Adelantar con el coche fuera de los límites, o ganar una ventaja duradera saliéndose de ellos, obliga a devolver la posición de inmediato, como muy tarde antes del final de la vuelta. No hacerlo: -3 posiciones en el resultado final.",
-      "Si se detecta un abuso sistemático de los límites que el juego no penaliza, los comisarios pueden aplicar sanciones adicionales.",
-      "Está TOTALMENTE PROHIBIDO quitarse penalizaciones del juego saliéndose de pista a propósito (ruedas en la hierba o fuera del asfalto). Es actuar de mala fe: DESCALIFICACIÓN de la carrera."
+      "Si se detecta un abuso sistemático de los límites que el juego no penaliza, los comisarios pueden aplicar sanciones adicionales."
      ],
      "figuras": [
       {
@@ -258,7 +252,6 @@
       "Sin paralelo, el piloto de delante puede elegir cualquier trazada sin que se considere bloqueo.",
       "Con paralelo, cada piloto tiene derecho a su mitad de la pista (exterior o interior) hasta la salida de la curva. Ninguno puede empujar al otro fuera de los límites.",
       "El adelantamiento termina cuando el coche que adelanta ha superado por completo al otro, sin solaparse. Hasta entonces, el paralelo sigue vigente.",
-      "No se adelanta a un coche que está esquivando un accidente (bandera amarilla). Si lo haces, devuelve la posición en esa vuelta o en la siguiente. No hacerlo: -4 puntos.",
       "No aproveches el doblaje de otro piloto para adelantar a un rival directo. Espera a la siguiente curva."
      ],
      "figuras": [
@@ -277,8 +270,7 @@
      "items": [
       "Para defender en recta se permite UN solo cambio de trayectoria, que hay que mantener hasta la siguiente curva.",
       "Quien vuelve hacia la trazada tras defender por un lado debe dejar al menos el ancho de un coche entre su coche y el borde de la pista.",
-      "Está prohibido: zigzaguear, cambiar de trayectoria durante la frenada, frenar deliberadamente para perjudicar al de atrás, cerrar a un coche que ya está en paralelo y empujar al rival fuera de pista.",
-      "En carreras por tiempo, está prohibido frenar o perder tiempo a propósito en la última vuelta para evitar dar una vuelta más. Sanción: última posición de la carrera."
+      "Está prohibido: zigzaguear, cambiar de trayectoria durante la frenada, frenar deliberadamente para perjudicar al de atrás, cerrar a un coche que ya está en paralelo y empujar al rival fuera de pista."
      ],
      "figuras": [
       {
@@ -293,8 +285,7 @@
       "El piloto que va a ser doblado DEBE facilitar el paso de forma segura, predecible y sin obstruir.",
       "Para dejar pasar, pégate a un borde de la pista y mantén esa línea hasta que te superen. Puedes levantar el pie.",
       "Puede haber varios coches intentando doblarte: mira a ambos lados y usa el radar de proximidad.",
-      "El piloto doblado NO debe competir con quien le dobla ni aprovechar el paso para ganar posiciones a rivales directos.",
-      "No facilitar el doblaje: -5 puntos."
+      "El piloto doblado NO debe competir con quien le dobla ni aprovechar el paso para ganar posiciones a rivales directos."
      ]
     },
     {
@@ -308,9 +299,7 @@
     {
      "subtitle": "Neumáticos obligatorios",
      "items": [
-      "Cuando se indican compuestos obligatorios, hay que usar todos ellos durante la carrera.",
-      "Hay que montar siempre el MISMO compuesto en las cuatro ruedas. Mezclar compuestos supone la descalificación de la carrera.",
-      "No usar el compuesto obligatorio: -3 puntos.",
+      "Los compuestos obligatorios los fija la configuración de la sala y los controla el propio juego.",
       "Los compuestos de cada carrera se publican en su ficha: CD (duro), CM (medio), CB (blando)."
      ]
     },
@@ -382,16 +371,18 @@
       "Sin daños",
       "D. leves",
       "D. moderados",
-      "D. graves"
+      "D. graves",
+      "Amonestación"
      ],
      "rows": [
       {
        "cells": [
-        "Golpe por detrás",
+        "Golpe por detrás (incluida pasada de frenada)",
         "-2 pts",
         "-3 pts",
         "-4 pts",
-        "-6 pts"
+        "-6 pts",
+        "1"
        ]
       },
       {
@@ -400,7 +391,8 @@
         "-2 pts",
         "-3 pts",
         "-4 pts",
-        "-6 pts"
+        "-6 pts",
+        "2"
        ]
       },
       {
@@ -409,16 +401,18 @@
         "-3 pts",
         "-6 pts",
         "-8 pts",
-        "-10 pts"
+        "-10 pts",
+        "2"
        ]
       },
       {
        "cells": [
-        "Adelantamiento sin paralelo, o con ventaja fuera de pista sin devolverla",
-        "-3 posiciones en el resultado final",
+        "Adelantamiento sin paralelo, o ventaja fuera de pista sin devolverla",
+        "-3 posiciones en el resultado",
         "—",
         "—",
-        "—"
+        "—",
+        "1"
        ]
       }
      ]
@@ -467,55 +461,31 @@
      "headers": [
       "Infracción",
       "Sanción",
+      "Amonestación",
       "Gravedad"
      ],
      "rows": [
       {
        "cells": [
-        "No usar el compuesto obligatorio en carrera",
-        "-3 puntos",
-        "🟡 Leve"
-       ]
-      },
-      {
-       "cells": [
-        "No usar el compuesto obligatorio en clasificación",
-        "-3 puntos",
-        "🟡 Leve"
-       ]
-      },
-      {
-       "cells": [
-        "Bloquear a un piloto en vuelta rápida (clasificación)",
-        "-2 puntos",
-        "🟡 Leve"
-       ]
-      },
-      {
-       "cells": [
-        "No llevar el dorsal obligatorio",
-        "-2 puntos",
-        "🟡 Leve"
-       ]
-      },
-      {
-       "cells": [
-        "No llevar un sticker obligatorio",
-        "-3 puntos por sticker",
+        "Amonestación por incidente leve",
+        "Sin puntos",
+        "1",
         "🟡 Leve"
        ]
       },
       {
        "cells": [
         "No presentarse a la sala sin avisar",
-        "-3 puntos (individual) / -15 puntos (equipos)",
+        "-3 puntos (individual) / -15 (equipos)",
+        "0",
         "🟡 Leve"
        ]
       },
       {
        "cells": [
-        "Trompo sin causar daños",
-        "-2 puntos",
+        "No facilitar el paso circulando con daños graves",
+        "-3 puntos",
+        "1",
         "🟡 Leve"
        ]
       },
@@ -523,13 +493,7 @@
        "cells": [
         "Detener el coche fuera de boxes en carrera",
         "-5 puntos",
-        "🟠 Moderada"
-       ]
-      },
-      {
-       "cells": [
-        "Empujar en clasificación",
-        "-5 puntos",
+        "1",
         "🟠 Moderada"
        ]
       },
@@ -537,6 +501,7 @@
        "cells": [
         "Uso abusivo de ráfagas de luces para distraer",
         "-3 puntos",
+        "1",
         "🟠 Moderada"
        ]
       },
@@ -544,55 +509,15 @@
        "cells": [
         "Estorbar al cumplir una penalización del juego",
         "-6 puntos",
+        "2",
         "🟠 Moderada"
-       ]
-      },
-      {
-       "cells": [
-        "Trompo causando daños graves",
-        "-5 puntos",
-        "🟠 Moderada"
-       ]
-      },
-      {
-       "cells": [
-        "Pasarse de frenada y chocar con otro piloto",
-        "-5 puntos",
-        "🟠 Moderada"
-       ]
-      },
-      {
-       "cells": [
-        "Pasarse de frenada causando un accidente múltiple",
-        "-7 puntos",
-        "🔴 Grave"
-       ]
-      },
-      {
-       "cells": [
-        "No respetar la bandera azul (doblaje)",
-        "-5 puntos",
-        "🔴 Grave"
-       ]
-      },
-      {
-       "cells": [
-        "Adelantar con bandera amarilla sin devolver la posición",
-        "-4 puntos",
-        "🔴 Grave"
        ]
       },
       {
        "cells": [
         "Más de un cambio de trayectoria en recta, o moverse con un coche en paralelo",
         "-5 puntos",
-        "🔴 Grave"
-       ]
-      },
-      {
-       "cells": [
-        "No correr con el diseño o logo obligatorio",
-        "-10 puntos",
+        "2",
         "🔴 Grave"
        ]
       },
@@ -600,6 +525,7 @@
        "cells": [
         "Reclamación manifiestamente infundada o de mala fe",
         "-5 puntos",
+        "0",
         "🔴 Grave"
        ]
       },
@@ -607,41 +533,23 @@
        "cells": [
         "Reclamar fuera del formulario oficial",
         "-5 puntos",
+        "0",
         "🔴 Grave"
-       ]
-      },
-      {
-       "cells": [
-        "Quitarse una penalización saliéndose de pista a propósito",
-        "Descalificación de la carrera",
-        "🔴 Muy grave"
-       ]
-      },
-      {
-       "cells": [
-        "Perder tiempo a propósito en la última vuelta (carreras por tiempo)",
-        "Última posición",
-        "🔴 Muy grave"
        ]
       },
       {
        "cells": [
         "Quedarse sin combustible y tapar deliberadamente a un rival",
         "Descalificación de la carrera",
+        "3",
         "🔴 Muy grave"
        ]
       },
       {
        "cells": [
         "Colisión intencionada / torpedeo",
-        "Descalificación + posible expulsión",
-        "🔴 Muy grave"
-       ]
-      },
-      {
-       "cells": [
-        "Órdenes de equipo que perjudiquen a terceros",
-        "Descenso de división (ambos pilotos)",
+        "Descalificación de la carrera + posible expulsión",
+        "4",
         "🔴 Muy grave"
        ]
       },
@@ -649,6 +557,7 @@
        "cells": [
         "Circular en sentido contrario (práctica, clasificación o carrera)",
         "Descalificación de la carrera",
+        "3",
         "🔴 Muy grave"
        ]
       },
@@ -656,13 +565,7 @@
        "cells": [
         "Insultar a la organización, a los comisarios o a otros pilotos",
         "Expulsión",
-        "🔴 Muy grave"
-       ]
-      },
-      {
-       "cells": [
-        "Uso de exploits, trampas o mala fe reiterada",
-        "Expulsión + veto",
+        "—",
         "🔴 Muy grave"
        ]
       }
@@ -681,7 +584,7 @@
      "subtitle": "Notas importantes",
      "items": [
       "Las sanciones en puntos se descuentan del total del campeonato. Un piloto puede quedar con puntos negativos.",
-      "Las penalizaciones automáticas del juego se suman a las sanciones de los comisarios cuando corresponde.",
+      "Lo que ya penaliza el propio Gran Turismo 7 durante la carrera (atajos, contactos, salida anticipada, línea de boxes, banderas, neumáticos obligatorios…) no se vuelve a sancionar. Los comisarios solo actúan sobre lo que el juego no controla.",
       "Los valores de este reglamento son los estándar. Cada campeonato puede configurar los suyos.",
       "La organización puede excluir de futuras ediciones o expulsar a pilotos conflictivos o con sanciones graves reiteradas."
      ]

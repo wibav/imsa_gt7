@@ -13,6 +13,7 @@
  */
 
 import { isPenaltyCounting } from '../models/Penalty.js';
+import { aplicarSancionesDeCarrera } from './raceSanctions.js';
 
 /**
  * Calcula la clasificación avanzada con estadísticas y desempate.
@@ -36,6 +37,10 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
     if (!championship) {
         return { driverStandings: [], teamStandings: [], raceColumns: [] };
     }
+
+    // Sanciones de posiciones y descalificación: recolocan el resultado de la
+    // carrera antes de calcular (sobre una copia; lo guardado no cambia)
+    tracks = aplicarSancionesDeCarrera(tracks, penalties, championship);
 
     // Ordenar tracks por round
     const sortedTracks = [...tracks]

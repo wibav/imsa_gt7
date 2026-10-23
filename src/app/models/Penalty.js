@@ -1,3 +1,5 @@
+import catalogoSanciones from '../data/sanciones.js';
+
 /**
  * Modelo de Sanción para campeonatos.
  * Cada sanción es un documento en la subcolección championships/{id}/penalties.
@@ -26,7 +28,9 @@ export class Penalty {
         // Valores de la sanción
         this.points = data.points || 0;               // Puntos a deducir de la clasificación
         this.timeSeconds = data.timeSeconds || 0;      // Segundos de penalización (informativo)
-        this.positionsLost = data.positionsLost || 0;   // Posiciones perdidas (informativo)
+        this.positionsLost = data.positionsLost || 0;   // Posiciones que pierde en el resultado de la carrera (type 'position')
+        this.damageLevel = data.damageLevel ?? null;    // Nivel de daños elegido (0-3) en sanciones por contacto
+        this.article = data.article || '';              // Artículo del reglamento
         this.warningPoints = data.warningPoints || 0;   // Puntos de amonestación acumulativos
 
         // Estado
@@ -213,134 +217,15 @@ export class Appeal {
 }
 
 /**
- * Presets de sanciones predefinidas para sim racing.
+ * Catálogo de sanciones: sale del reglamento general (fuente única en
+ * scripts/reglamento/reglamento-general-v2.py → src/app/data/sanciones.js).
  * Cada campeonato puede activar/desactivar y editar valores.
+ *
+ * `damagePoints` [sin, leves, moderados, graves]: el comisario elige el nivel
+ * de daños al aplicarla y los puntos salen de ahí.
  */
-export const PENALTY_PRESETS = [
-    {
-        id: 'contact_minor',
-        name: 'Contacto Menor',
-        description: 'Contacto leve sin consecuencias graves',
-        type: 'warning',
-        severity: 'minor',
-        points: 0,
-        warningPoints: 1,
-        icon: '🟡'
-    },
-    {
-        id: 'contact_major',
-        name: 'Contacto Mayor',
-        description: 'Contacto que causa pérdida de posiciones o daño',
-        type: 'points',
-        severity: 'moderate',
-        points: 3,
-        warningPoints: 2,
-        icon: '🟠'
-    },
-    {
-        id: 'divebomb',
-        name: 'Divebomb / Adelantamiento Peligroso',
-        description: 'Maniobra de adelantamiento excesivamente agresiva',
-        type: 'points',
-        severity: 'moderate',
-        points: 5,
-        warningPoints: 2,
-        icon: '💥'
-    },
-    {
-        id: 'track_limits',
-        name: 'Abuso de Límites de Pista',
-        description: 'Salida de pista reiterada para ganar ventaja',
-        type: 'time',
-        severity: 'minor',
-        points: 2,
-        timeSeconds: 5,
-        warningPoints: 1,
-        icon: '🚧'
-    },
-    {
-        id: 'unsafe_rejoin',
-        name: 'Reingreso Inseguro',
-        description: 'Reingreso a pista afectando a otros pilotos',
-        type: 'points',
-        severity: 'moderate',
-        points: 5,
-        warningPoints: 2,
-        icon: '⚠️'
-    },
-    {
-        id: 'blocking',
-        name: 'Bloqueo / Defensa Excesiva',
-        description: 'Movimientos defensivos ilegales o bloqueo deliberado',
-        type: 'points',
-        severity: 'moderate',
-        points: 3,
-        warningPoints: 1,
-        icon: '🚫'
-    },
-    {
-        id: 'pit_incident',
-        name: 'Incidente en Pit Lane',
-        description: 'Velocidad excesiva o maniobra peligrosa en pits',
-        type: 'time',
-        severity: 'minor',
-        points: 2,
-        timeSeconds: 10,
-        warningPoints: 1,
-        icon: '🔧'
-    },
-    {
-        id: 'intentional_wreck',
-        name: 'Choque Intencional',
-        description: 'Colisión deliberada contra otro piloto',
-        type: 'disqualification',
-        severity: 'critical',
-        points: 25,
-        warningPoints: 4,
-        icon: '🔴'
-    },
-    {
-        id: 'false_start',
-        name: 'Salida Falsa',
-        description: 'Arranque antes de la señal de partida',
-        type: 'time',
-        severity: 'minor',
-        points: 3,
-        timeSeconds: 5,
-        warningPoints: 1,
-        icon: '🏳️'
-    },
-    {
-        id: 'unsportsmanlike',
-        name: 'Conducta Antideportiva',
-        description: 'Comportamiento antideportivo general',
-        type: 'points',
-        severity: 'severe',
-        points: 10,
-        warningPoints: 3,
-        icon: '🃏'
-    },
-    {
-        id: 'no_show',
-        name: 'No Presentarse (DNS sin aviso)',
-        description: 'Ausencia sin notificación previa',
-        type: 'points',
-        severity: 'minor',
-        points: 5,
-        warningPoints: 1,
-        icon: '👻'
-    },
-    {
-        id: 'slow_driving',
-        name: 'Conducción Lenta Deliberada',
-        description: 'Ir intencionalmente lento para obstruir',
-        type: 'points',
-        severity: 'moderate',
-        points: 5,
-        warningPoints: 2,
-        icon: '🐌'
-    }
-];
+export const PENALTY_PRESETS = catalogoSanciones.presets;
+export const NIVELES_DANOS = catalogoSanciones.nivelesDanos;
 
 /**
  * Configuración por defecto del sistema de sanciones
@@ -362,7 +247,7 @@ export const DEFAULT_PENALTIES_CONFIG = {
 export const PENALTY_TYPE_CONFIG = {
     warning: { label: 'Amonestación', color: 'yellow', icon: '🟡' },
     time: { label: 'Penalización de Tiempo', color: 'orange', icon: '⏱️' },
-    position: { label: 'Pérdida de Posiciones', color: 'orange', icon: '📉' },
+    position: { label: 'Pérdida de posiciones', color: 'orange', icon: '📉' },
     points: { label: 'Deducción de Puntos', color: 'red', icon: '➖' },
     disqualification: { label: 'Descalificación', color: 'red', icon: '🔴' },
     custom: { label: 'Personalizada', color: 'purple', icon: '⚙️' }

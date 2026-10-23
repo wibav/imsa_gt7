@@ -1264,15 +1264,20 @@ def _contexto_reclamacion(db, champ_ref, champ: dict, org: dict, claim: dict, ac
         lineas += ['', '=== CATÁLOGO DE SANCIONES DEL CAMPEONATO (usa su "id" en presetId) ===']
         for p in presets:
             efectos = []
-            if p.get('points'):
+            danos = p.get('damagePoints')
+            if isinstance(danos, list) and len(danos) == 4:
+                efectos.append('según daños (usa nivelDanos): sin daños -{} / leves -{} / moderados -{} / graves -{} puntos'.format(*danos))
+            elif p.get('points'):
                 efectos.append(f'-{p["points"]} puntos de campeonato')
+            if p.get('type') == 'position' and p.get('positionsLost'):
+                efectos.append(f'-{p["positionsLost"]} posiciones en el resultado de la carrera')
             if p.get('warningPoints'):
                 efectos.append(f'+{p["warningPoints"]} puntos de amonestación')
             if p.get('timeSeconds'):
                 efectos.append(f'+{p["timeSeconds"]} s')
             if p.get('type') == 'disqualification':
                 efectos.append('descalificación')
-            lineas.append(f'- id="{p["id"]}" · {p.get("name") or ""}: {p.get("description") or ""}'
+            lineas.append(f'- id="{p["id"]}"' + (f' (art. {p["article"]})' if p.get('article') else '') + f' · {p.get("name") or ""}: {p.get("description") or ""}'
                           f' [{", ".join(efectos) or "sin efecto en puntos"}]')
     if cfg.get('warningThreshold'):
         lineas.append(f'Umbrales: al acumular {cfg["warningThreshold"]} puntos de amonestación se restan '
@@ -1429,6 +1434,8 @@ _RESPUESTA_SCHEMA = {
                                                   'responsabilidad_del_reclamante', 'no_concluyente']},
         'decision': {'type': 'STRING', 'enum': ['aceptar', 'rechazar']},
         'presetId': {'type': 'STRING', 'nullable': True},
+        'nivelDanos': {'type': 'INTEGER', 'nullable': True,
+                       'description': '0 sin daños, 1 leves, 2 moderados, 3 graves (solo si la sanción es según daños)'},
         'articulos': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
         'justificacion': {'type': 'STRING'},
         'resolucion': {'type': 'STRING'},
@@ -1602,6 +1609,8 @@ def suggest_claim_resolution(req: https_fn.Request) -> https_fn.Response:
         '- observacion: qué se ve en el video y en qué momento aproximado (máx. 60 palabras).',
         '- valoracion: incidente de carrera, responsabilidad del acusado, del reclamante, o no concluyente.',
         '- decision: aceptar o rechazar la reclamación.',
+        '- nivelDanos: si la sanción es «según daños», el nivel de daños del coche afectado visto en el video '
+        '(0 sin daños, 1 leves, 2 moderados, 3 graves, según el reglamento); si no, null.',
         '- presetId: el id EXACTO de la sanción del catálogo que corresponde, o null si se rechaza o ninguna encaja. '
         'Ten en cuenta la reincidencia del historial y lo que ya penalizó el juego según la sala.',
         '- articulos: los apartados del reglamento en que te basas, citando su numeración o título tal cual aparecen.',

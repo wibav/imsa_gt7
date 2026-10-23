@@ -65,6 +65,8 @@ import RegulationsPdfButton from '../components/championship/RegulationsPdfButto
 import PilotTeamAvatar from '../components/common/PilotTeamAvatar';
 import TrackLogo from '../components/common/TrackLogo';
 import ScrollTabs from '../components/common/ScrollTabs';
+import { EfectoSancion } from '../components/championship/SancionDetalle';
+import { aplicarSancionesDeCarrera } from '../utils/raceSanctions';
 
 /**
  * Pole, top-3 de clasificación y vuelta rápida de una carrera (o de una
@@ -1365,8 +1367,7 @@ export default function ChampionshipDetailPage() {
                                                             </div>
                                                         </div>
                                                         <div className="text-right flex-shrink-0">
-                                                            {penalty.points > 0 && <span className="text-red-400 font-bold text-sm">-{penalty.points} pts</span>}
-                                                            {penalty.warningPoints > 0 && <div className="text-yellow-400 text-xs">+{penalty.warningPoints} ⚠️</div>}
+                                                            <EfectoSancion penalty={penalty} compacto />
                                                         </div>
                                                     </div>
                                                 </div>
@@ -2295,9 +2296,11 @@ export default function ChampionshipDetailPage() {
 
                             {/* Resultados del circuito */}
                             {vistaCarrera === 'resultados' && (() => {
-                                const hasDivResults = championship?.divisionsConfig?.enabled && divisions.length > 0 && selectedTrack.results?.divisions;
-                                const hasNonDivResults = !championship?.divisionsConfig?.enabled && selectedTrack.results?.racePositions && Object.keys(selectedTrack.results.racePositions).length > 0;
-                                const hasFallbackPoints = selectedTrack.points && Object.keys(selectedTrack.points).length > 0;
+                                // Resultado con las sanciones de posiciones y descalificación ya aplicadas
+                                const trackVista = aplicarSancionesDeCarrera([selectedTrack], penalties, championship)[0];
+                                const hasDivResults = championship?.divisionsConfig?.enabled && divisions.length > 0 && trackVista.results?.divisions;
+                                const hasNonDivResults = !championship?.divisionsConfig?.enabled && trackVista.results?.racePositions && Object.keys(trackVista.results.racePositions).length > 0;
+                                const hasFallbackPoints = trackVista.points && Object.keys(trackVista.points).length > 0;
                                 if (!hasDivResults && !hasNonDivResults && !hasFallbackPoints) return null;
                                 return (
                                     <div className="bg-white/5 rounded-xl p-4">
@@ -2308,7 +2311,7 @@ export default function ChampionshipDetailPage() {
                                                     .slice()
                                                     .sort((a, b) => (a.order || 0) - (b.order || 0))
                                                     .map(div => {
-                                                        const divResult = selectedTrack.results.divisions[div.id];
+                                                        const divResult = trackVista.results.divisions[div.id];
                                                         if (!divResult?.racePositions || Object.keys(divResult.racePositions).length === 0) return null;
                                                         const divColor = div.color || '#f97316';
                                                         const entries = ordenarPosiciones(Object.entries(divResult.racePositions));
@@ -2323,6 +2326,7 @@ export default function ChampionshipDetailPage() {
                                                                     {div.name}
                                                                 </div>
                                                                 <ExtrasCarrera extras={extras} />
+                                                                <NotaSancionesCarrera cambios={divResult.sancionesAplicadas} />
                                                                 <div className="space-y-1">
                                                                     {entries.map(([driverName, position], idx) => {
                                                                         const pts = divResult.racePoints?.[driverName];
@@ -2353,13 +2357,14 @@ export default function ChampionshipDetailPage() {
                                                     })}
                                             </div>
                                         ) : hasNonDivResults ? (() => {
-                                            const extras = extrasDeCarrera(selectedTrack.results, canonPiloto);
+                                            const extras = extrasDeCarrera(trackVista.results, canonPiloto);
                                             return (
                                             <div className="space-y-1">
                                                 <ExtrasCarrera extras={extras} />
-                                                {ordenarPosiciones(Object.entries(selectedTrack.results.racePositions))
+                                                <NotaSancionesCarrera cambios={trackVista.results.sancionesAplicadas} />
+                                                {ordenarPosiciones(Object.entries(trackVista.results.racePositions))
                                                     .map(([driverName, position], idx) => {
-                                                        const pts = selectedTrack.results.racePoints?.[driverName];
+                                                        const pts = trackVista.results.racePoints?.[driverName];
                                                         const extra = extras.porPiloto[canonPiloto(driverName)];
                                                         const sumados = (extra?.qualyPts || 0) + (extra?.flPts || 0);
                                                         const abandono = esAbandono(position);
@@ -2387,7 +2392,7 @@ export default function ChampionshipDetailPage() {
                                             : (
                                             /* Fallback para circuitos sin datos de posiciones (guardados antes de la actualización) */
                                             <div className="grid grid-cols-2 gap-2">
-                                                {Object.entries(selectedTrack.points)
+                                                {Object.entries(trackVista.points)
                                                     .sort(([, a], [, b]) => b - a)
                                                     .map(([driverName, pts], idx) => {
                                                         const colors = getResultColors(idx);
@@ -2417,6 +2422,25 @@ export default function ChampionshipDetailPage() {
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+
+/** «⚖️ Resultado corregido por sanciones»: quién bajó puestos o fue descalificado. */
+function NotaSancionesCarrera({ cambios }) {
+    if (!cambios || cambios.length === 0) return null;
+    return (
+        <div className="mb-2 px-3 py-2 rounded-lg bg-red-900/20 border border-red-500/30 text-xs text-red-100 space-y-0.5">
+            <p className="font-semibold">⚖️ Resultado corregido por sanciones</p>
+            {cambios.map((c, i) => (
+                <p key={i}>
+                    {c.piloto}: {c.tipo === 'disqualification'
+                        ? <>descalificado{c.de ? ` (llegó ${c.de}º)` : ''}</>
+                        : <>-{c.puestos} posiciones (de {c.de}º a {c.a}º)</>}
+                    <span className="text-red-300/70"> · {c.sancion}</span>
+                </p>
+            ))}
         </div>
     );
 }

@@ -14,7 +14,7 @@ no alterar esa numeración.
 import json
 from pathlib import Path
 
-VERSION = '2.0'
+VERSION = '2.1'
 FECHA = '2026-10-23'
 
 
@@ -27,6 +27,87 @@ def lista(subtitulo, items, figuras=None):
 
 def tabla(subtitulo, cabeceras, filas):
     return {'subtitle': subtitulo, 'type': 'table', 'headers': cabeceras, 'rows': [{'cells': f} for f in filas]}
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Catálogo de sanciones: FUENTE ÚNICA
+# ─────────────────────────────────────────────────────────────────────────────
+# De aquí salen las tablas del reglamento (4.2, 6.3 y 7.1) y el catálogo que
+# usan los comisarios al resolver una reclamación o aplicar una sanción
+# (src/app/data/sanciones.json → PENALTY_PRESETS). No se sancionan aquí las
+# infracciones que ya penaliza el propio juego.
+#
+#   tipo: points | warning | position | disqualification
+#   danos: puntos por nivel de daños [sin, leves, moderados, graves] (el
+#          comisario elige el nivel al aplicarla)
+#   tabla: 'clasificacion' (4.2) | 'contacto' (6.3) | 'general' (7.1) | None
+DANOS = ['Sin daños', 'Daños leves', 'Daños moderados', 'Daños graves']
+SANCIONES = [
+    # 4.2 Clasificación
+    dict(id='bloqueo_vuelta_rapida', nombre='Bloquear a un piloto en vuelta rápida', icon='🚧', tipo='points', puntos=2, amon=1, gravedad='minor', tabla='clasificacion', articulo='4.2',
+         descripcion='Bloquear deliberadamente a un piloto que está en vuelta rápida durante la clasificación.'),
+    dict(id='empujar_clasificacion', nombre='Empujar o contacto intencionado en clasificación', icon='💢', tipo='points', puntos=5, amon=2, gravedad='moderate', tabla='clasificacion', articulo='4.2',
+         descripcion='Empujar o golpear a propósito a otro piloto durante la clasificación.'),
+    # 6.3 Contactos (según daños) y adelantamiento ilegal
+    dict(id='golpe_detras', nombre='Golpe por detrás (incluida pasada de frenada)', icon='💥', tipo='points', danos=[2, 3, 4, 6], amon=1, gravedad='moderate', tabla='contacto', articulo='6.3',
+         descripcion='El piloto de detrás golpea al de delante, también al pasarse de frenada.'),
+    dict(id='golpe_curva', nombre='Golpe en adelantamiento en curva (incluido divebomb)', icon='🎯', tipo='points', danos=[2, 3, 4, 6], amon=2, gravedad='moderate', tabla='contacto', articulo='6.3',
+         descripcion='Contacto al intentar adelantar en una curva sin derecho a espacio, o divebomb (5.3).'),
+    dict(id='reincorporacion', nombre='Reincorporación peligrosa a pista', icon='↩️', tipo='points', danos=[3, 6, 8, 10], amon=2, gravedad='moderate', tabla='contacto', articulo='6.3',
+         descripcion='Volver a la pista sin ceder el paso a quien circula por ella (5.8).'),
+    dict(id='sin_paralelo', nombre='Adelantamiento sin paralelo, o ventaja fuera de pista sin devolverla', icon='📉', tipo='position', posiciones=3, amon=1, gravedad='moderate', tabla='contacto', articulo='6.3',
+         descripcion='Adelantar sin derecho a espacio o ganando ventaja fuera de los límites sin devolver la posición (5.2.3, 5.3).'),
+    # 7.1 General
+    dict(id='amonestacion', nombre='Amonestación por incidente leve', icon='🟡', tipo='warning', puntos=0, amon=1, gravedad='minor', tabla='general', articulo='7.1',
+         descripcion='Incidente leve sin consecuencias suficientes para restar puntos (6.2).'),
+    dict(id='no_presentarse', nombre='No presentarse a la sala sin avisar', icon='👻', tipo='points', puntos=3, amon=0, gravedad='minor', tabla='general', articulo='7.1',
+         descripcion='Inscrito que no se presenta a la carrera sin haber avisado. En campeonatos por equipos, -15 puntos al equipo.'),
+    dict(id='danos_graves_no_ceder', nombre='No facilitar el paso circulando con daños graves', icon='🛠️', tipo='points', puntos=3, amon=1, gravedad='minor', tabla='general', articulo='7.1',
+         descripcion='Con daños graves, no dejar pasar a quien llega por detrás (salvo en la última vuelta) (5.8.3).'),
+    dict(id='detenerse_fuera_boxes', nombre='Detener el coche fuera de boxes en carrera', icon='🅿️', tipo='points', puntos=5, amon=1, gravedad='moderate', tabla='general', articulo='7.1',
+         descripcion='Parar el coche en pista o en la escapatoria durante la carrera (5.6.2).'),
+    dict(id='rafagas', nombre='Uso abusivo de ráfagas de luces para distraer', icon='🔦', tipo='points', puntos=3, amon=1, gravedad='moderate', tabla='general', articulo='7.1',
+         descripcion='Ráfagas reiteradas para presionar o distraer al piloto de delante.'),
+    dict(id='estorbar_penalizacion', nombre='Estorbar al cumplir una penalización del juego', icon='⏳', tipo='points', puntos=6, amon=2, gravedad='moderate', tabla='general', articulo='7.1',
+         descripcion='Cumplir una penalización del juego en la trazada, estorbando a otros pilotos (5.6.3).'),
+    dict(id='cambio_trayectoria', nombre='Más de un cambio de trayectoria en recta, o moverse con un coche en paralelo', icon='↔️', tipo='points', puntos=5, amon=2, gravedad='severe', tabla='general', articulo='7.1',
+         descripcion='Defensa ilegal: zigzaguear, moverse en la frenada o cerrar a un coche en paralelo (5.4).'),
+    dict(id='reclamacion_infundada', nombre='Reclamación manifiestamente infundada o de mala fe', icon='🚩', tipo='points', puntos=5, amon=0, gravedad='severe', tabla='general', articulo='7.1',
+         descripcion='Reclamación sin base o presentada de mala fe (8.3.3).'),
+    dict(id='reclamar_fuera_formulario', nombre='Reclamar fuera del formulario oficial', icon='📵', tipo='points', puntos=5, amon=0, gravedad='severe', tabla='general', articulo='7.1',
+         descripcion='Reclamar por WhatsApp, el chat del stream u otro medio en lugar del formulario (8.1.1).'),
+    dict(id='sin_combustible_tapar', nombre='Quedarse sin combustible y tapar deliberadamente a un rival', icon='⛽', tipo='disqualification', amon=3, gravedad='critical', tabla='general', articulo='7.1',
+         descripcion='Usar el coche parado o sin combustible para obstaculizar a otro piloto.'),
+    dict(id='torpedeo', nombre='Colisión intencionada / torpedeo', icon='☠️', tipo='disqualification', amon=4, gravedad='critical', tabla='general', articulo='7.1', extra='+ posible expulsión',
+         descripcion='Golpear a propósito a otro piloto. La organización puede además expulsarle del campeonato.'),
+    dict(id='sentido_contrario', nombre='Circular en sentido contrario (práctica, clasificación o carrera)', icon='⛔', tipo='disqualification', amon=3, gravedad='critical', tabla='general', articulo='7.1',
+         descripcion='Circular en sentido contrario al de la carrera en cualquier sesión.'),
+    # 10.2 Diseño, logo y dorsal (sanciones propias del campeonato)
+    dict(id='sin_diseno', nombre='No correr con el diseño o logo obligatorio', icon='🎨', tipo='points', puntos=10, amon=0, gravedad='severe', tabla=None, articulo='10.2',
+         descripcion='No llevar el diseño o logo que exige el campeonato.'),
+    dict(id='sin_dorsal', nombre='No llevar el dorsal obligatorio', icon='🔢', tipo='points', puntos=2, amon=0, gravedad='minor', tabla=None, articulo='10.2',
+         descripcion='El dorsal no se ve según las indicaciones del campeonato.'),
+    dict(id='sin_sticker', nombre='No llevar un sticker obligatorio', icon='🏷️', tipo='points', puntos=3, amon=0, gravedad='minor', tabla=None, articulo='10.2',
+         descripcion='Falta un sticker obligatorio. Se aplica una vez por cada sticker que falte.'),
+]
+# Sin preset en el catálogo: la expulsión la decide la organización fuera de la plataforma
+EXPULSION = ['Insultar a la organización, a los comisarios o a otros pilotos', 'Expulsión', '—', '🔴 Muy grave']
+GRAVEDAD = {'minor': '🟡 Leve', 'moderate': '🟠 Moderada', 'severe': '🔴 Grave', 'critical': '🔴 Muy grave'}
+
+
+def texto_sancion(x):
+    if x['tipo'] == 'disqualification':
+        return 'Descalificación de la carrera' + (f" {x['extra']}" if x.get('extra') else '')
+    if x['tipo'] == 'position':
+        return f"-{x['posiciones']} posiciones en el resultado"
+    if x['tipo'] == 'warning':
+        return 'Sin puntos'
+    return f"-{x['puntos']} puntos" + (' (individual) / -15 (equipos)' if x['id'] == 'no_presentarse' else '')
+
+
+def filas_tabla(tabla):
+    return [x for x in SANCIONES if x.get('tabla') == tabla]
 
 
 SECCIONES = [
@@ -62,8 +143,6 @@ SECCIONES = [
                 'Todos los pilotos deben mantener un comportamiento deportivo y respetuoso en todo momento, tanto en pista como en los canales de comunicación (WhatsApp, chat de PlayStation, stream, etc.).',
                 'Está terminantemente prohibido insultar, amenazar o faltar al respeto a cualquier piloto, organizador, comisario, caster o miembro de la comunidad.',
                 'Se espera fair play: si causas un incidente involuntario que perjudica a otro piloto, espera y devuélvele la posición cuando sea seguro hacerlo. Es un atenuante que reduce la sanción a la mitad (ver 6.5).',
-                'El uso de exploits, bugs, glitches o cualquier ventaja no legítima del juego supone la descalificación de la carrera y la posible expulsión del campeonato.',
-                'Los campeonatos son INDIVIDUALES salvo que se indique lo contrario. Están prohibidas las órdenes de equipo que perjudiquen a terceros (dejarse adelantar deliberadamente o perjudicar a un rival para beneficiar a un compañero). Se sanciona a los dos pilotos implicados.',
             ]),
             lista('Primero conduce, después compite', [
                 'Tu primera prioridad es mantener el control de tu coche. Solo cuando lo tengas, preocúpate de competir con los rivales.',
@@ -106,17 +185,13 @@ SECCIONES = [
         'content': [
             lista('Normas de clasificación', [
                 'La duración de la clasificación la fija cada carrera (normalmente 10-15 minutos).',
-                'Hay que usar el compuesto de neumático indicado para la sesión.',
                 'Respeta el espacio de los demás: no bloquees ni estorbes a quien esté en vuelta rápida.',
                 'En las vueltas de salida o de enfriamiento, mantén una línea predecible y apártate de la trazada.',
                 'Permanece en pista al terminar el tiempo de clasificación. Si sales, el juego puede colocarte en una posición que no te corresponde.',
             ]),
-            tabla('Sanciones en clasificación', ['Infracción', 'Sanción'], [
-                ['Bloquear deliberadamente a un piloto en vuelta rápida', '-2 puntos'],
-                ['Empujar o contacto intencionado en clasificación', '-5 puntos'],
-                ['No usar el compuesto obligatorio de clasificación', '-3 puntos'],
-                ['Penalizaciones automáticas del juego (límites de pista)', 'Se respetan tal cual'],
-            ]),
+            tabla('Sanciones en clasificación', ['Infracción', 'Sanción', 'Amonestación'],
+                  [[x['nombre'], texto_sancion(x), str(x['amon'])] for x in filas_tabla('clasificacion')]
+                  + [['Penalizaciones automáticas del juego (límites de pista)', 'Se respetan tal cual', '—']]),
         ],
     },
     {
@@ -132,7 +207,6 @@ SECCIONES = [
                 'Las penalizaciones por atajar son las que impone el juego según la configuración de la sala, y se respetan.',
                 'Adelantar con el coche fuera de los límites, o ganar una ventaja duradera saliéndose de ellos, obliga a devolver la posición de inmediato, como muy tarde antes del final de la vuelta. No hacerlo: -3 posiciones en el resultado final.',
                 'Si se detecta un abuso sistemático de los límites que el juego no penaliza, los comisarios pueden aplicar sanciones adicionales.',
-                'Está TOTALMENTE PROHIBIDO quitarse penalizaciones del juego saliéndose de pista a propósito (ruedas en la hierba o fuera del asfalto). Es actuar de mala fe: DESCALIFICACIÓN de la carrera.',
             ], figuras=[('limites-pista', 'Límites de pista: dos ruedas de ejes distintos sobre la pista')]),
             lista('Adelantamientos', [
                 'El piloto de detrás es responsable de no golpear al coche de delante.',
@@ -142,7 +216,6 @@ SECCIONES = [
                 'Sin paralelo, el piloto de delante puede elegir cualquier trazada sin que se considere bloqueo.',
                 'Con paralelo, cada piloto tiene derecho a su mitad de la pista (exterior o interior) hasta la salida de la curva. Ninguno puede empujar al otro fuera de los límites.',
                 'El adelantamiento termina cuando el coche que adelanta ha superado por completo al otro, sin solaparse. Hasta entonces, el paralelo sigue vigente.',
-                'No se adelanta a un coche que está esquivando un accidente (bandera amarilla). Si lo haces, devuelve la posición en esa vuelta o en la siguiente. No hacerlo: -4 puntos.',
                 'No aproveches el doblaje de otro piloto para adelantar a un rival directo. Espera a la siguiente curva.',
             ], figuras=[('adelantamiento-interior', 'Adelantamiento por dentro: cuándo hay paralelo'),
                         ('adelantamiento-exterior', 'Adelantamiento por fuera: cuándo hay derecho a espacio')]),
@@ -150,14 +223,12 @@ SECCIONES = [
                 'Para defender en recta se permite UN solo cambio de trayectoria, que hay que mantener hasta la siguiente curva.',
                 'Quien vuelve hacia la trazada tras defender por un lado debe dejar al menos el ancho de un coche entre su coche y el borde de la pista.',
                 'Está prohibido: zigzaguear, cambiar de trayectoria durante la frenada, frenar deliberadamente para perjudicar al de atrás, cerrar a un coche que ya está en paralelo y empujar al rival fuera de pista.',
-                'En carreras por tiempo, está prohibido frenar o perder tiempo a propósito en la última vuelta para evitar dar una vuelta más. Sanción: última posición de la carrera.',
             ], figuras=[('defensa-recta', 'Defensa de posición en recta')]),
             lista('Banderas azules (doblajes)', [
                 'El piloto que va a ser doblado DEBE facilitar el paso de forma segura, predecible y sin obstruir.',
                 'Para dejar pasar, pégate a un borde de la pista y mantén esa línea hasta que te superen. Puedes levantar el pie.',
                 'Puede haber varios coches intentando doblarte: mira a ambos lados y usa el radar de proximidad.',
                 'El piloto doblado NO debe competir con quien le dobla ni aprovechar el paso para ganar posiciones a rivales directos.',
-                'No facilitar el doblaje: -5 puntos.',
             ]),
             lista('Boxes', [
                 'Respeta la entrada y salida de boxes. El juego penaliza automáticamente pisar la línea de boxes.',
@@ -165,9 +236,7 @@ SECCIONES = [
                 'Si, al cumplir una penalización del juego, estorbas a otros pilotos, tienes que cumplirla cediendo el paso fuera de la trazada. No hacerlo: -6 puntos.',
             ]),
             lista('Neumáticos obligatorios', [
-                'Cuando se indican compuestos obligatorios, hay que usar todos ellos durante la carrera.',
-                'Hay que montar siempre el MISMO compuesto en las cuatro ruedas. Mezclar compuestos supone la descalificación de la carrera.',
-                'No usar el compuesto obligatorio: -3 puntos.',
+                'Los compuestos obligatorios los fija la configuración de la sala y los controla el propio juego.',
                 'Los compuestos de cada carrera se publican en su ficha: CD (duro), CM (medio), CB (blando).',
             ]),
             lista('Reincorporaciones', [
@@ -194,12 +263,10 @@ SECCIONES = [
                 'INCIDENTE MUY GRAVE: acción deliberada para sacar a otro piloto, torpedeo intencionado o represalia. Descalificación de la carrera y posible expulsión del campeonato.',
                 'Se sanciona al piloto total o predominantemente responsable. Si la responsabilidad es compartida, los comisarios pueden declarar incidente de carrera o sancionar a ambos de forma proporcional.',
             ]),
-            tabla('Sanciones por contacto en carrera', ['Tipo de contacto', 'Sin daños', 'D. leves', 'D. moderados', 'D. graves'], [
-                ['Golpe por detrás', '-2 pts', '-3 pts', '-4 pts', '-6 pts'],
-                ['Golpe en adelantamiento en curva (incluido divebomb)', '-2 pts', '-3 pts', '-4 pts', '-6 pts'],
-                ['Reincorporación peligrosa a pista', '-3 pts', '-6 pts', '-8 pts', '-10 pts'],
-                ['Adelantamiento sin paralelo, o con ventaja fuera de pista sin devolverla', '-3 posiciones en el resultado final', '—', '—', '—'],
-            ]),
+            tabla('Sanciones por contacto en carrera', ['Tipo de contacto', 'Sin daños', 'D. leves', 'D. moderados', 'D. graves', 'Amonestación'],
+                  [[x['nombre'], *[f'-{p} pts' for p in x['danos']], str(x['amon'])] if x.get('danos')
+                   else [x['nombre'], texto_sancion(x), '—', '—', '—', str(x['amon'])]
+                   for x in filas_tabla('contacto')]),
             lista('Extras por daños al rival', [
                 'Cada parte aerodinámica dañada del coche rival: +1 punto a la sanción.',
                 'Cada suspensión dañada del coche rival: +1 punto.',
@@ -227,36 +294,9 @@ SECCIONES = [
     {
         'id': 'sanciones', 'icon': '⚖️', 'title': 'Sistema de Sanciones',
         'content': [
-            tabla('Tabla general de sanciones', ['Infracción', 'Sanción', 'Gravedad'], [
-                ['No usar el compuesto obligatorio en carrera', '-3 puntos', '🟡 Leve'],
-                ['No usar el compuesto obligatorio en clasificación', '-3 puntos', '🟡 Leve'],
-                ['Bloquear a un piloto en vuelta rápida (clasificación)', '-2 puntos', '🟡 Leve'],
-                ['No llevar el dorsal obligatorio', '-2 puntos', '🟡 Leve'],
-                ['No llevar un sticker obligatorio', '-3 puntos por sticker', '🟡 Leve'],
-                ['No presentarse a la sala sin avisar', '-3 puntos (individual) / -15 puntos (equipos)', '🟡 Leve'],
-                ['Trompo sin causar daños', '-2 puntos', '🟡 Leve'],
-                ['Detener el coche fuera de boxes en carrera', '-5 puntos', '🟠 Moderada'],
-                ['Empujar en clasificación', '-5 puntos', '🟠 Moderada'],
-                ['Uso abusivo de ráfagas de luces para distraer', '-3 puntos', '🟠 Moderada'],
-                ['Estorbar al cumplir una penalización del juego', '-6 puntos', '🟠 Moderada'],
-                ['Trompo causando daños graves', '-5 puntos', '🟠 Moderada'],
-                ['Pasarse de frenada y chocar con otro piloto', '-5 puntos', '🟠 Moderada'],
-                ['Pasarse de frenada causando un accidente múltiple', '-7 puntos', '🔴 Grave'],
-                ['No respetar la bandera azul (doblaje)', '-5 puntos', '🔴 Grave'],
-                ['Adelantar con bandera amarilla sin devolver la posición', '-4 puntos', '🔴 Grave'],
-                ['Más de un cambio de trayectoria en recta, o moverse con un coche en paralelo', '-5 puntos', '🔴 Grave'],
-                ['No correr con el diseño o logo obligatorio', '-10 puntos', '🔴 Grave'],
-                ['Reclamación manifiestamente infundada o de mala fe', '-5 puntos', '🔴 Grave'],
-                ['Reclamar fuera del formulario oficial', '-5 puntos', '🔴 Grave'],
-                ['Quitarse una penalización saliéndose de pista a propósito', 'Descalificación de la carrera', '🔴 Muy grave'],
-                ['Perder tiempo a propósito en la última vuelta (carreras por tiempo)', 'Última posición', '🔴 Muy grave'],
-                ['Quedarse sin combustible y tapar deliberadamente a un rival', 'Descalificación de la carrera', '🔴 Muy grave'],
-                ['Colisión intencionada / torpedeo', 'Descalificación + posible expulsión', '🔴 Muy grave'],
-                ['Órdenes de equipo que perjudiquen a terceros', 'Descenso de división (ambos pilotos)', '🔴 Muy grave'],
-                ['Circular en sentido contrario (práctica, clasificación o carrera)', 'Descalificación de la carrera', '🔴 Muy grave'],
-                ['Insultar a la organización, a los comisarios o a otros pilotos', 'Expulsión', '🔴 Muy grave'],
-                ['Uso de exploits, trampas o mala fe reiterada', 'Expulsión + veto', '🔴 Muy grave'],
-            ]),
+            tabla('Tabla general de sanciones', ['Infracción', 'Sanción', 'Amonestación', 'Gravedad'],
+                  [[x['nombre'], texto_sancion(x), str(x['amon']), GRAVEDAD[x['gravedad']]] for x in filas_tabla('general')]
+                  + [EXPULSION]),
             lista('Puntos de amonestación', [
                 'Algunas sanciones suman puntos de amonestación además de restar puntos. Se acumulan durante todo el campeonato y no se reinician entre carreras.',
                 'Cada vez que un piloto alcanza el umbral del campeonato (por defecto, 8 puntos de amonestación, y de nuevo a los 16, 24…), se le restan automáticamente 10 puntos de la clasificación. Umbral y descuento pueden variar en cada campeonato.',
@@ -265,7 +305,7 @@ SECCIONES = [
             ]),
             lista('Notas importantes', [
                 'Las sanciones en puntos se descuentan del total del campeonato. Un piloto puede quedar con puntos negativos.',
-                'Las penalizaciones automáticas del juego se suman a las sanciones de los comisarios cuando corresponde.',
+                'Lo que ya penaliza el propio Gran Turismo 7 durante la carrera (atajos, contactos, salida anticipada, línea de boxes, banderas, neumáticos obligatorios…) no se vuelve a sancionar. Los comisarios solo actúan sobre lo que el juego no controla.',
                 'Los valores de este reglamento son los estándar. Cada campeonato puede configurar los suyos.',
                 'La organización puede excluir de futuras ediciones o expulsar a pilotos conflictivos o con sanciones graves reiteradas.',
             ]),
@@ -368,3 +408,21 @@ SECCIONES = [
 salida = Path(__file__).resolve().parents[2] / 'src' / 'app' / 'data' / 'reglamento-general.json'
 salida.write_text(json.dumps({'version': VERSION, 'fecha': FECHA, 'sections': SECCIONES}, ensure_ascii=False, indent=1), encoding='utf-8')
 print(f'✓ {salida} · {len(SECCIONES)} secciones')
+
+# Catálogo para la plataforma (formato de preset de Penalty.js)
+presets = []
+for x in SANCIONES:
+    presets.append({
+        'id': x['id'], 'name': x['nombre'], 'description': x['descripcion'], 'icon': x['icon'],
+        'type': x['tipo'], 'severity': x['gravedad'], 'points': x.get('puntos', 0), 'warningPoints': x['amon'],
+        'positionsLost': x.get('posiciones', 0), 'timeSeconds': 0,
+        **({'damagePoints': x['danos']} if x.get('danos') else {}),
+        'article': x['articulo'],
+    })
+# Módulo JS (no JSON): Penalty.js también se importa desde Node, donde un
+# import de JSON exige atributos que el bundler no necesita
+cat = salida.parent / 'sanciones.js'
+cat.write_text('// Generado por scripts/reglamento/reglamento-general-v2.py — no editar a mano\n'
+               'const catalogoSanciones = ' + json.dumps({'version': VERSION, 'nivelesDanos': DANOS, 'presets': presets}, ensure_ascii=False, indent=1)
+               + ';\n\nexport default catalogoSanciones;\n', encoding='utf-8')
+print(f'✓ {cat} · {len(presets)} sanciones')

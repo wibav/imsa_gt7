@@ -12,7 +12,7 @@ import PenaltiesTab from '../../components/championship/PenaltiesTab';
 import DivisionsTab from '../../components/championship/DivisionsTab';
 import CarDeclarationModal from '../../components/championship/CarDeclarationModal';
 import ContinuityTab from '../../components/championship/ContinuityTab';
-import { DEFAULT_SPRINT_POINTS } from '../../utils/constants';
+import { DEFAULT_SPRINT_POINTS, STATUS_LABELS } from '../../utils/constants';
 import { notifyResultsSaved, notifyRegistrationUpdated } from '../../utils/telegram';
 import { buildGt7IdMap, esAbandono } from '../../utils/championshipUtils';
 import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations, applyDeclarations, CHAMPIONSHIP_CATEGORIES, categoryLabel, getExcludedCars } from '../../utils/carUsageCalculator';
@@ -703,21 +703,24 @@ function InfoTab({ championship, editMode, onUpdate }) {
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Estado</label>
-                        {championship.status === 'completed' ? (
-                            <div className="w-full px-4 py-2 bg-white/5 border border-white/20 rounded-lg text-gray-400 cursor-not-allowed flex items-center gap-2">
-                                🔒 Finalizado <span className="text-xs">(no editable)</span>
-                            </div>
-                        ) : (
-                            <select
-                                value={formData.status}
-                                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                                className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white"
-                            >
-                                <option value="draft" className="bg-slate-800">Borrador</option>
-                                <option value="active" className="bg-slate-800">Activo</option>
-                                <option value="completed" className="bg-slate-800">Completado</option>
-                                <option value="archived" className="bg-slate-800">Archivado</option>
-                            </select>
+                        <select
+                            value={formData.status}
+                            onChange={(e) => {
+                                const nuevo = e.target.value;
+                                // Reabrir un campeonato finalizado se confirma: vuelve a aceptar resultados y sanciones
+                                if (championship.status === 'completed' && nuevo !== 'completed'
+                                    && !confirm(`¿Reabrir «${championship.name}»? Dejará de figurar como finalizado y pasará a «${STATUS_LABELS[nuevo] || nuevo}».`)) return;
+                                setFormData({ ...formData, status: nuevo });
+                            }}
+                            className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white"
+                        >
+                            <option value="draft" className="bg-slate-800">📝 Borrador (no visible al público)</option>
+                            <option value="active" className="bg-slate-800">🟢 Activo</option>
+                            <option value="completed" className="bg-slate-800">🏁 Finalizado</option>
+                            <option value="archived" className="bg-slate-800">🗄️ Archivado</option>
+                        </select>
+                        {formData.status !== championship.status && (
+                            <p className="text-xs text-orange-300 mt-1">Pasará de «{STATUS_LABELS[championship.status] || championship.status}» a «{STATUS_LABELS[formData.status] || formData.status}» al guardar.</p>
                         )}
                     </div>
                     <div>
