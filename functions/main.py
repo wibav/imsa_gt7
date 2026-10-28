@@ -1743,14 +1743,43 @@ def _pilotos_planos(registrations: list) -> list[dict]:
     return planos
 
 
+def _cumple_limitadores(car: dict, lim: dict) -> bool:
+    """Mismos limitadores que aplicarLimitadores() en la web (carUsageCalculator.js).
+    Un dato que falta en el coche no lo descarta."""
+    if not lim:
+        return True
+    traccion = set(lim.get('traccion') or [])
+    fabricantes = set(lim.get('fabricantes') or [])
+    if traccion and car.get('driveTrain') and car['driveTrain'] not in traccion:
+        return False
+    if fabricantes and car.get('manufacturer') and car['manufacturer'] not in fabricantes:
+        return False
+    if lim.get('ppMax') and car.get('pp') is not None and car['pp'] > lim['ppMax']:
+        return False
+    if lim.get('cvMax') and car.get('power') is not None and car['power'] > lim['cvMax']:
+        return False
+    if lim.get('pesoMin') and car.get('weight') is not None and car['weight'] < lim['pesoMin']:
+        return False
+    return True
+
+
 def _autos_permitidos(db, champ: dict) -> list[str]:
     cut = champ.get('carUsageTracking') or {}
     # Lista negra del organizador: nunca se sortea un auto excluido.
     excluidos = {c for c in (cut.get('excludedCars') or []) if isinstance(c, str)}
+    lim = cut.get('limitadores') or {}
     catalogo = cut.get('carCatalog') or []
     if catalogo:
         nombres = [c if isinstance(c, str) else (c or {}).get('name') for c in catalogo if c]
-        return [n for n in nombres if n and n not in excluidos]
+        nombres = [n for n in nombres if n and n not in excluidos]
+        if not lim:
+            return nombres
+        datos = {}
+        for snap in db.collection('cars').stream():
+            car = snap.to_dict() or {}
+            if car.get('name') in nombres:
+                datos[car['name']] = car
+        return [n for n in nombres if _cumple_limitadores(datos.get(n, {}), lim)]
     clases = {_CATEGORIA_A_CLASE[c] for c in (champ.get('categories') or []) if c in _CATEGORIA_A_CLASE}
     if not clases:
         # Sin clase de GT7 reconocible no se sortea entre los 574 coches del juego.
@@ -1758,7 +1787,7 @@ def _autos_permitidos(db, champ: dict) -> list[str]:
     nombres = set()
     for snap in db.collection('cars').stream():
         car = snap.to_dict() or {}
-        if car.get('carClass') in clases and car.get('name') and car['name'] not in excluidos:
+        if car.get('carClass') in clases and car.get('name') and car['name'] not in excluidos and _cumple_limitadores(car, lim):
             nombres.add(car['name'])
     return sorted(nombres)
 

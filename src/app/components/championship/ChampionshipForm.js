@@ -15,7 +15,7 @@ import ModalPortal from '../common/ModalPortal';
 import RoomConfigEditor from './RoomConfigEditor';
 import { REGULATIONS_MAX_BYTES, regulationsByteSize, normalizeRegulationsForSave } from '../../utils/regulations';
 import { sanitizeRegulationsHtml } from '../../utils/regulationsSanitize';
-import { getCarsForCategories, CHAMPIONSHIP_CATEGORIES, categoryLabel } from '../../utils/carUsageCalculator';
+import { getCarsForCategories, CHAMPIONSHIP_CATEGORIES, categoryLabel, aplicarLimitadores, opcionesLimitadores, hayLimitadores } from '../../utils/carUsageCalculator';
 import { CarAdder } from '../common/CarNameInput';
 import { DEFAULT_RACE_TIME, getRaceTime, getPreQualyTime, formatTimeWindow, localTimeWindow } from '../../utils/dateUtils';
 import ImageSpecHint from '../common/ImageSpecHint';
@@ -113,7 +113,8 @@ function getEmptyFormData() {
             maxCarsPerDriver: 3,
             declarationDeadline: '',
             carCatalog: [],
-            excludedCars: []
+            excludedCars: [],
+            limitadores: {}
         },
         preQualy: {
             enabled: false,
@@ -374,7 +375,8 @@ export default function ChampionshipForm({ isEditing = false }) {
                 maxCarsPerDriver: champ.carUsageTracking?.maxCarsPerDriver ?? 3,
                 declarationDeadline: champ.carUsageTracking?.declarationDeadline || '',
                 carCatalog: champ.carUsageTracking?.carCatalog || [],
-                excludedCars: champ.carUsageTracking?.excludedCars || []
+                excludedCars: champ.carUsageTracking?.excludedCars || [],
+                limitadores: champ.carUsageTracking?.limitadores || {}
             },
             preQualy: {
                 enabled: champ.preQualy?.enabled || false,
@@ -2314,7 +2316,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                             <option value="" className="bg-slate-800">
                                                                 {`Selecciona un auto (${categoryCars.length} de ${(formData.categories || []).join(', ')})...`}
                                                             </option>
-                                                            {categoryCars
+                                                            {aplicarLimitadores(categoryCars, formData.carUsageTracking?.limitadores)
                                                                 .filter(c => !(formData.carUsageTracking?.carCatalog || []).includes(c.name))
                                                                 .map(c => (
                                                                     <option key={c.id} value={c.name} className="bg-slate-800">
@@ -2375,6 +2377,79 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                     </p>
                                                 )}
                                             </div>
+
+                                            {/* Limitadores: solo se ofrecen los valores que existen en las categorías elegidas */}
+                                            {categoryCars.length > 0 && (() => {
+                                                const lim = formData.carUsageTracking?.limitadores || {};
+                                                const ops = opcionesLimitadores(categoryCars);
+                                                const quedan = aplicarLimitadores(categoryCars, lim).length;
+                                                const setLim = (cambio) => setFormData(prev => ({
+                                                    ...prev,
+                                                    carUsageTracking: { ...prev.carUsageTracking, limitadores: { ...(prev.carUsageTracking?.limitadores || {}), ...cambio } }
+                                                }));
+                                                const alternar = (campo, valor) => {
+                                                    const actual = lim[campo] || [];
+                                                    setLim({ [campo]: actual.includes(valor) ? actual.filter(v => v !== valor) : [...actual, valor] });
+                                                };
+                                                const chip = (activo) => `px-2.5 py-1 rounded-full text-xs border transition-colors ${activo
+                                                    ? 'bg-orange-600 border-orange-400 text-white'
+                                                    : 'bg-white/5 border-white/20 text-gray-300 hover:bg-white/10'}`;
+                                                const numero = (campo, etiqueta, unidad) => (
+                                                    <label className="flex items-center gap-2 text-xs text-gray-300">
+                                                        {etiqueta}
+                                                        <input
+                                                            type="number" min="0"
+                                                            value={lim[campo] || ''}
+                                                            onChange={e => setLim({ [campo]: e.target.value ? Number(e.target.value) : null })}
+                                                            placeholder="Sin límite"
+                                                            className="w-24 px-2 py-1 bg-white/10 border border-white/30 rounded text-white text-xs"
+                                                        />
+                                                        {unidad && <span className="text-gray-500">{unidad}</span>}
+                                                    </label>
+                                                );
+                                                return (
+                                                    <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-3">
+                                                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                            <h4 className="text-sm font-semibold text-white">🔧 Limitadores de coches <span className="text-gray-500 font-normal">(opcional)</span></h4>
+                                                            <span className={`text-xs ${hayLimitadores(lim) ? 'text-orange-300' : 'text-gray-500'}`}>
+                                                                Quedan {quedan} de {categoryCars.length} coches
+                                                                {hayLimitadores(lim) && (
+                                                                    <button type="button" onClick={() => setLim({ traccion: [], fabricantes: [], ppMax: null, cvMax: null, pesoMin: null })} className="ml-2 underline text-gray-400 hover:text-white">quitar todos</button>
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs text-gray-400 mb-1.5">Tracción permitida <span className="text-gray-500">(ninguna marcada = todas)</span></p>
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {ops.traccion.map(t => (
+                                                                    <button key={t.valor} type="button" onClick={() => alternar('traccion', t.valor)} aria-pressed={(lim.traccion || []).includes(t.valor)} className={chip((lim.traccion || []).includes(t.valor))}>
+                                                                        {t.valor} <span className="opacity-70">({t.coches})</span>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        {ops.fabricantes.length > 1 && (
+                                                            <div>
+                                                                <p className="text-xs text-gray-400 mb-1.5">Fabricante <span className="text-gray-500">(ninguno marcado = todos)</span></p>
+                                                                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                                                                    {ops.fabricantes.map(f => (
+                                                                        <button key={f.valor} type="button" onClick={() => alternar('fabricantes', f.valor)} aria-pressed={(lim.fabricantes || []).includes(f.valor)} className={chip((lim.fabricantes || []).includes(f.valor))}>
+                                                                            {f.valor} <span className="opacity-70">({f.coches})</span>
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        <div className="flex flex-wrap gap-4">
+                                                            {numero('ppMax', 'PR máximo')}
+                                                            {numero('cvMax', 'Potencia máx.', 'CV')}
+                                                            {numero('pesoMin', 'Peso mínimo', 'kg')}
+                                                        </div>
+                                                        <p className="text-[11px] text-gray-500">PR, potencia y peso son los valores de serie del catálogo: con BoP activado (Gr.1 a Gr.4) el juego los iguala, así que sirven sobre todo para Gr.N. Los limitadores se aplican a lo que pueden declarar los pilotos y a la asignación automática.</p>
+                                                        {quedan === 0 && <p className="text-xs text-red-300">⚠️ Con estos limitadores no queda ningún coche.</p>}
+                                                    </div>
+                                                );
+                                            })()}
 
                                             {/* Lista negra: se resta de lo que ve el piloto y del sorteo automático */}
                                             <div>

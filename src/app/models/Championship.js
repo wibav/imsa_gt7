@@ -58,7 +58,9 @@ export class Championship {
                 declarationDeadline: data.carUsageTracking.declarationDeadline || null,
                 carCatalog: data.carUsageTracking.carCatalog || [],
                 // Lista negra: autos que no se ofrecen al piloto ni salen en el sorteo
-                excludedCars: data.carUsageTracking.excludedCars || []
+                excludedCars: data.carUsageTracking.excludedCars || [],
+                // Limitadores (tracción, fabricante, PR, potencia, peso): filtran lo que se puede declarar
+                limitadores: data.carUsageTracking.limitadores || {}
             }
             : null;
         this.preQualy = data.preQualy || null;

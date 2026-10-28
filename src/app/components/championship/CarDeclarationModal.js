@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
-import { getAllowedCars, getExcludedCars } from '../../utils/carUsageCalculator';
+import { getAllowedCars, getExcludedCars, resumenLimitadores } from '../../utils/carUsageCalculator';
 import { hoyEnEspana } from '../../utils/dateUtils';
 import { resumenBop, textoBop } from '../../utils/carSpecs';
 
@@ -424,6 +424,7 @@ export default function CarDeclarationModal({ championship, registration, regist
                                             {(championship.categories || []).length > 0 && !(cat.carCatalog || []).length
                                                 ? ` (categoría ${(championship.categories).join(', ')})`
                                                 : ''}
+                                            {resumenLimitadores(cat.limitadores) && <span className="block text-orange-300/80">🔧 {resumenLimitadores(cat.limitadores)}</span>}
                                         </p>
                                     </>
                                 ) : (

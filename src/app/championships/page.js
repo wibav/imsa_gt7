@@ -58,7 +58,7 @@ import RoomConfigView from '../components/championship/RoomConfigView';
 import ShareButton from '../components/ShareButton';
 import { STATUS_LABELS } from '../utils/constants';
 import { SEVERITY_CONFIG, isPenaltyCounting } from '../models/Penalty';
-import { getInvalidatedEntries, flattenRegistrations, applyDeclarations, categoryLabel } from '../utils/carUsageCalculator';
+import { getInvalidatedEntries, flattenRegistrations, applyDeclarations, categoryLabel, resumenLimitadores } from '../utils/carUsageCalculator';
 import { isRegulationsEmpty } from '../utils/regulations';
 import RegulationsView from '../components/championship/RegulationsView';
 import RegulationsPdfButton from '../components/championship/RegulationsPdfButton';
@@ -1755,6 +1755,12 @@ export default function ChampionshipDetailPage() {
                                                                 <span className={`font-semibold text-sm ${deadlinePassed ? 'text-red-300' : 'text-blue-300'}`}>
                                                                     {deadlinePassed ? '⛔ Vencido — ' : '📅 '}{deadline.toLocaleDateString('es-ES')}
                                                                 </span>
+                                                            </div>
+                                                        )}
+                                                        {resumenLimitadores(cat.limitadores) && (
+                                                            <div className="flex items-center justify-between gap-3 p-3 bg-orange-900/20 border border-orange-500/20 rounded-lg">
+                                                                <span className="text-gray-300">🔧 Limitadores</span>
+                                                                <span className="text-orange-200 text-sm font-semibold text-right">{resumenLimitadores(cat.limitadores)}</span>
                                                             </div>
                                                         )}
                                                         {(cat.excludedCars || []).length > 0 && (

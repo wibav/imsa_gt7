@@ -152,14 +152,70 @@ export function getCarsForCategories(categories = [], allCars = []) {
  */
 export function getAllowedCars(championship, allCars = []) {
     const excluidos = new Set(getExcludedCars(championship));
+    const limitadores = championship?.carUsageTracking?.limitadores;
     const catalog = championship?.carUsageTracking?.carCatalog || [];
     if (catalog.length > 0) {
         // El catálogo del organizador son nombres sueltos: se enriquecen con
         // los datos oficiales cuando el nombre coincide, si no van pelados.
         const byName = new Map(allCars.map(c => [c.name, c]));
-        return catalog.filter(name => !excluidos.has(name)).map(name => byName.get(name) || { name });
+        return aplicarLimitadores(catalog.filter(name => !excluidos.has(name)).map(name => byName.get(name) || { name }), limitadores);
     }
-    return getCarsForCategories(championship?.categories, allCars).filter(c => !excluidos.has(c.name));
+    return aplicarLimitadores(getCarsForCategories(championship?.categories, allCars).filter(c => !excluidos.has(c.name)), limitadores);
+}
+
+/** Tracciones de GT7, en el orden del juego. */
+export const TRACCIONES = ['FF', 'FR', 'MR', 'RR', '4WD'];
+
+/** ¿Hay algún limitador activo? */
+export function hayLimitadores(lim) {
+    return Boolean(lim && ((lim.traccion || []).length || (lim.fabricantes || []).length || lim.ppMax || lim.cvMax || lim.pesoMin));
+}
+
+/**
+ * Filtra coches con los limitadores del campeonato (carUsageTracking.limitadores):
+ *   traccion: ['FF', 'FR'…]  · fabricantes: ['Toyota'…]  (vacío = sin restricción)
+ *   ppMax · cvMax · pesoMin  (valores de serie del catálogo; vacío = sin límite)
+ * Un coche sin el dato correspondiente (p. ej. escrito a mano) no se descarta.
+ */
+export function aplicarLimitadores(cars = [], lim) {
+    if (!hayLimitadores(lim)) return cars;
+    const tracciones = new Set(lim.traccion || []);
+    const fabricantes = new Set(lim.fabricantes || []);
+    return cars.filter(c => {
+        if (tracciones.size && c.driveTrain && !tracciones.has(c.driveTrain)) return false;
+        if (fabricantes.size && c.manufacturer && !fabricantes.has(c.manufacturer)) return false;
+        if (lim.ppMax && c.pp != null && c.pp > lim.ppMax) return false;
+        if (lim.cvMax && c.power != null && c.power > lim.cvMax) return false;
+        if (lim.pesoMin && c.weight != null && c.weight < lim.pesoMin) return false;
+        return true;
+    });
+}
+
+/** Valores que existen en unos coches (para ofrecer solo los que permite la categoría). */
+export function opcionesLimitadores(cars = []) {
+    const contar = (campo) => {
+        const m = new Map();
+        cars.forEach(c => { if (c[campo]) m.set(c[campo], (m.get(c[campo]) || 0) + 1); });
+        return m;
+    };
+    const traccion = contar('driveTrain');
+    const fabricantes = contar('manufacturer');
+    return {
+        traccion: TRACCIONES.filter(t => traccion.has(t)).map(t => ({ valor: t, coches: traccion.get(t) })),
+        fabricantes: [...fabricantes.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([valor, coches]) => ({ valor, coches })),
+    };
+}
+
+/** Texto corto de los limitadores activos: «Tracción FF, FR · PR ≤ 500». */
+export function resumenLimitadores(lim) {
+    if (!hayLimitadores(lim)) return '';
+    return [
+        (lim.traccion || []).length && `Tracción ${lim.traccion.join(', ')}`,
+        (lim.fabricantes || []).length && `Fabricante: ${lim.fabricantes.join(', ')}`,
+        lim.ppMax && `PR ≤ ${lim.ppMax}`,
+        lim.cvMax && `Potencia ≤ ${lim.cvMax} CV`,
+        lim.pesoMin && `Peso ≥ ${lim.pesoMin} kg`,
+    ].filter(Boolean).join(' · ');
 }
 
 /**
