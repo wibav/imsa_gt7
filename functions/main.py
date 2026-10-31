@@ -94,6 +94,109 @@ def _ensure_viewbox(svg_text: str) -> str:
     return svg_text.replace(svg_tag, new_tag, 1)
 
 
+_SVG_NUM = r'-?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?'
+
+
+def _fmt_num(v: float) -> str:
+    """Número con 2 decimales como mucho y sin ceros sobrantes: 0.50 → .5"""
+    s = f'{v:.2f}'.rstrip('0').rstrip('.')
+    if s in ('-0', ''):
+        return '0'
+    if s.startswith('0.'):
+        return s[1:]
+    if s.startswith('-0.'):
+        return '-' + s[2:]
+    return s
+
+
+def _join_nums(prev: str, nums) -> str:
+    """Encadena números con el mínimo de separadores: el signo menos ya separa,
+    y un «.5» tras un número que ya lleva punto también."""
+    out = ''
+    for n in nums:
+        texto = prev + out
+        if texto and texto[-1] not in 'MLCmlcz' and not n.startswith('-') \
+                and not (n.startswith('.') and re.search(r'\.\d*$', texto)):
+            out += ' '
+        out += n
+    return out
+
+
+def _compact_path_d(d: str, tx: float, ty: float) -> str:
+    """Reescribe el `d` de vtracer (M/L/C/Z absolutos + translate) en relativo.
+
+    Mismo dibujo con un ~40 % menos de texto: coordenadas relativas (números
+    cortos), comandos repetidos implícitos y la traslación sumada al trazo.
+    Las relativas se calculan sobre coordenadas ya redondeadas, así que el
+    error de redondeo no se acumula a lo largo del trazo.
+    """
+    tokens = re.findall(r'[MLCZmlcz]|' + _SVG_NUM, d)
+    out = ''
+    prev = None            # último comando escrito
+    cx = cy = sx = sy = 0.0
+    primero = True
+    i = 0
+    while i < len(tokens):
+        cmd = tokens[i].upper()
+        i += 1
+        if cmd == 'Z':
+            out += 'z'
+            prev = 'z'
+            cx, cy = sx, sy
+            continue
+        n = 6 if cmd == 'C' else 2
+        while i < len(tokens) and tokens[i] not in 'MLCZmlcz':
+            vals = [float(t) for t in tokens[i:i + n]]
+            i += n
+            vals = [round(v + (tx if k % 2 == 0 else ty), 2) for k, v in enumerate(vals)]
+            if primero:
+                c, nums = 'M', [_fmt_num(vals[0]), _fmt_num(vals[1])]
+                primero = False
+            else:
+                c = cmd.lower()
+                nums = [_fmt_num(vals[k] - (cx if k % 2 == 0 else cy)) for k in range(n)]
+            cx, cy = vals[-2], vals[-1]
+            if c in ('M', 'm'):
+                sx, sy = cx, cy
+            # Tras un moveto relativo, los pares siguientes son lineto relativos
+            # implícitos. Tras la «M» absoluta inicial serían absolutos: ahí la
+            # «l» se escribe siempre.
+            implicito = prev == c or (prev == 'm' and c == 'l')
+            if not implicito:
+                out += c
+            out += _join_nums(out, nums)
+            prev = c
+            if c in ('M', 'm'):
+                cmd, n = 'L', 2
+    return out
+
+
+def _compact_svg(svg_text: str) -> str:
+    """Compacta los <path> de vtracer sin cambiar el dibujo (ver _compact_path_d).
+
+    Con logos densos es la diferencia entre entrar en 15 KB con 8-10 colores a
+    384 px o tener que bajar a 6 colores y 320 px, que es donde se pierden la
+    cara, los auriculares y el volante del logo de Fantasmas Team.
+    """
+    def compactar(m):
+        tag = m.group(0)
+        d = re.search(r'\sd="([^"]*)"', tag)
+        t = re.search(r'transform="translate\(\s*(' + _SVG_NUM + r')[ ,]+(' + _SVG_NUM + r')\s*\)"', tag)
+        # Cualquier otra transformación se deja tal cual
+        if not d or ('transform=' in tag and not t):
+            return tag
+        tx, ty = (float(t.group(1)), float(t.group(2))) if t else (0.0, 0.0)
+        fill = re.search(r'fill="([^"]*)"', tag)
+        color = (fill.group(1) if fill else '#000').lower()
+        corto = re.fullmatch(r'#([0-9a-f])\1([0-9a-f])\2([0-9a-f])\3', color)
+        if corto:
+            color = '#' + ''.join(corto.groups())
+        return f'<path d="{_compact_path_d(d.group(1), tx, ty)}" fill="{color}"/>'
+
+    svg_text = re.sub(r'<path\b[^>]*/>', compactar, svg_text)
+    return svg_text.replace(' version="1.1"', '', 1)
+
+
 def _preprocess_for_tracing(image: Image.Image, quantize_colors, denoise_size: int) -> Image.Image:
     """Reduce la complejidad del raster ANTES de vectorizar, preservando la transparencia.
 
@@ -175,7 +278,12 @@ def _build_attempt_ladder(base_speckle: int, base_color: int, requested_precisio
         # 4-5) Polígonos a resolución completa: más compacto sin perder nitidez
         (p, s,    c,    None, 16,   3, 'polygon'),
         (p, s_hi, c,    None, 12,   3, 'polygon'),
-        # 6-9) Reducir resolución gradualmente + paleta más chica (denoise fuerte)
+        # 6-9) Reducir resolución gradualmente + paleta más chica (denoise fuerte).
+        # Escalones finos: con el SVG compactado, muchos logos densos entran
+        # aquí con 10-12 colores en vez de caer directamente a 6.
+        (p, s_hi, c,    448,  12,   3, 'polygon'),
+        (p, s_hi, c,    448,  10,   3, 'polygon'),
+        (p, s_hi, c,    384,  10,   3, 'polygon'),
         (p, s_hi, c,    384,  8,    3, 'polygon'),
         (p, s_hi, c_lo, 320,  6,    5, 'polygon'),
         (1, 16,   4,    320,  4,    5, 'polygon'),
@@ -286,7 +394,7 @@ def _build_svg_payload(image_bytes: bytes, requested_precision: int, form) -> di
             splice_threshold=options['splice_threshold'],
             path_precision=precision,
         )
-        candidate = _ensure_viewbox(_minify_svg(svg_candidate))
+        candidate = _compact_svg(_ensure_viewbox(_minify_svg(svg_candidate)))
         size = len(candidate.encode('utf-8'))
         if best is None or size < best[0]:
             best = (size, candidate, precision, speckle, color, dim, quantize_colors, mode)
