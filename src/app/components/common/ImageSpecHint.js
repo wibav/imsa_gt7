@@ -37,6 +37,11 @@ export const IMAGE_SPECS = {
         formato: 'horizontal (se guarda en PNG)',
         nota: 'Va en la cabecera de la ficha del equipo y en su tarjeta, con el avatar encima por la izquierda.',
     },
+    casterBanner: {
+        medidas: '1600 × 900 px',
+        formato: 'horizontal 16:9 (se guarda en PNG)',
+        nota: 'Se muestra en la tarjeta del caster en la Zona Caster, recortado a 16:9.',
+    },
     orgLogo: {
         medidas: '512 × 512 px',
         formato: 'PNG cuadrado con fondo transparente',

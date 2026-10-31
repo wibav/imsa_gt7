@@ -28,6 +28,7 @@ import {
 import { app, auth } from "../api/firebase/firebaseConfig";
 import { declarationDocId } from "../utils/carUsageCalculator";
 import { planificarDescarte } from "../utils/pilotIdentityMatcher";
+import { normalizarRedes } from "../utils/casterLinks";
 import { conflictosDeMiembros } from "../utils/teamTagMatcher";
 // Fuente única de límites por plan, compartida con functions/main.py (que
 // la importa desde el mismo archivo) — antes vivían duplicados a mano aquí
@@ -509,6 +510,87 @@ export class FirebaseService {
   static async deleteRacingTeam(teamId) {
     await deleteDoc(doc(db, 'racingTeams', teamId));
     FirebaseService._racingTeamsPromise = null;
+    return { success: true };
+  }
+
+  // ── Zona Caster (casters) ──
+  //
+  // Colección global: los casters retransmiten carreras de cualquier
+  // organización. Los gestiona el Administrador de Plataforma en /castersAdmin.
+  static _castersPromise = null;
+
+  static async getCasters() {
+    if (!FirebaseService._castersPromise) {
+      FirebaseService._castersPromise = (async () => {
+        const snapshot = await getDocs(collection(db, 'casters'));
+        return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      })().catch(error => {
+        FirebaseService._castersPromise = null;
+        console.error('Error fetching casters: ', error);
+        return [];
+      });
+    }
+    return FirebaseService._castersPromise;
+  }
+
+  /** Crea o actualiza un caster. Las redes se guardan con la URL completa. */
+  static async saveCaster(caster, actorEmail = '') {
+    const name = String(caster?.name || '').trim();
+    if (!name) throw new Error('El caster necesita un nombre');
+
+    const redes = normalizarRedes(caster.redes);
+    if (!caster.bannerUrl && redes.length === 0) {
+      throw new Error('Añade al menos el banner o una red social');
+    }
+
+    const ahora = new Date().toISOString();
+    const datos = {
+      name,
+      bannerUrl: caster.bannerUrl || '',
+      redes,
+      active: caster.active !== false,
+      updatedAt: ahora,
+      updatedBy: actorEmail,
+    };
+
+    let id = caster.id;
+    if (id) {
+      const ref = doc(db, 'casters', id);
+      const previo = (await getDoc(ref)).data() || {};
+      await setDoc(ref, { ...datos, createdAt: previo.createdAt || ahora });
+    } else {
+      id = (await addDoc(collection(db, 'casters'), { ...datos, createdAt: ahora })).id;
+    }
+    FirebaseService._castersPromise = null;
+    return { success: true, id };
+  }
+
+  /**
+   * Borra de Storage un banner de caster que ya no usa ningún caster.
+   * Mismo criterio que deleteTeamImageIfUnused: solo la carpeta casters/.
+   */
+  static async deleteCasterImageIfUnused(url, enUso = []) {
+    const path = FirebaseService.storagePathFromUrl(url);
+    if (!path || !path.startsWith('casters/')) return false;
+    const mismoArchivo = (u) => FirebaseService.storagePathFromUrl(u) === path;
+    if (enUso.some(mismoArchivo)) return false;
+
+    FirebaseService._castersPromise = null;
+    const casters = await FirebaseService.getCasters();
+    if (casters.some(c => mismoArchivo(c.bannerUrl))) return false;
+
+    try {
+      await FirebaseService.deleteImage(path);
+      return true;
+    } catch (error) {
+      console.warn('No se pudo borrar la imagen sin uso:', path, error);
+      return false;
+    }
+  }
+
+  static async deleteCaster(casterId) {
+    await deleteDoc(doc(db, 'casters', casterId));
+    FirebaseService._castersPromise = null;
     return { success: true };
   }
 

@@ -33,6 +33,7 @@ const STATIC_ROUTES = [
     { path: '/championships/', priority: '0.9', changefreq: 'daily' },
     { path: '/pilots/', priority: '0.8', changefreq: 'weekly' },
     { path: '/equipos/', priority: '0.7', changefreq: 'weekly' },
+    { path: '/zona-caster/', priority: '0.6', changefreq: 'weekly' },
     { path: '/events/', priority: '0.8', changefreq: 'weekly' },
     { path: '/reglamento/', priority: '0.6', changefreq: 'monthly' },
     { path: '/equipamiento/', priority: '0.6', changefreq: 'monthly' },

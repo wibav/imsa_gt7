@@ -376,6 +376,14 @@ service cloud.firestore {
       allow write: if isPlatformOwner();
     }
 
+    // Zona Caster: casters de la comunidad con su banner y sus redes. Lectura
+    // pública (página /zona-caster); los gestiona el Administrador de
+    // Plataforma desde /castersAdmin.
+    match /casters/{casterId} {
+      allow read: if true;
+      allow write: if isPlatformOwner();
+    }
+
     // Siglas marcadas como "no es un equipo". Solo las usa /equiposAdmin.
     match /teamTagDismissals/{tag} {
       allow read, write: if isPlatformOwner();

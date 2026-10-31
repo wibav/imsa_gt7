@@ -84,6 +84,8 @@ export default function AdminLayout({ children }) {
                 // Equipos de la comunidad (HGT, RRT…). Globales por la misma
                 // razón: un equipo corre en ligas de varias organizaciones.
                 { name: 'Equipos', path: '/equiposAdmin', icon: '🛡️' },
+                // Casters de la comunidad (página pública /zona-caster).
+                { name: 'Zona Caster', path: '/castersAdmin', icon: '🎙️' },
                 // /teamsAdmin (equipos inventados del IMSA GT7 2025) ya no sale en
                 // el menú: era un campeonato cerrado y se confundía con los equipos
                 // de la comunidad. La página sigue accesible por URL.

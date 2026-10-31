@@ -65,6 +65,11 @@ SECTIONS = [
         'subtitle': 'Los equipos de la comunidad y sus pilotos',
     },
     {
+        'filename': 'og-zona-caster.png',
+        'title': 'ZONA CASTER',
+        'subtitle': 'Los casters que retransmiten nuestras carreras',
+    },
+    {
         'filename': 'og-events.png',
         'title': 'EVENTOS',
         'subtitle': 'Calendario, carreras especiales e inscripciones',

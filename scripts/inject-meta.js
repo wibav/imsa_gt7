@@ -44,6 +44,14 @@ const PAGES = [
         imageAlt: 'Equipos - GT7 Championships',
     },
     {
+        file: 'zona-caster/index.html',
+        title: 'Zona Caster | GT7 Championships',
+        description: 'Los casters que retransmiten las carreras de GT7 Championships: dónde seguirlos en directo y en redes.',
+        url: `${BASE_URL}/zona-caster/`,
+        image: `${BASE_URL}/og-zona-caster.png`,
+        imageAlt: 'Zona Caster - GT7 Championships',
+    },
+    {
         file: 'reglamento/index.html',
         title: 'Reglamento Oficial | GT7 Championships',
         description: 'Normativa oficial: conducta en pista, sanciones por puntos, reclamaciones y reglas de carrera del GT7 Championships.',

@@ -24,6 +24,7 @@ const ESPERADAS = [
     'og-tools.png',
     'og-equipos.png',
     'og-events.png',
+    'og-zona-caster.png',
 ];
 
 const faltan = ESPERADAS.filter(f => !fs.existsSync(path.join(PUBLIC_DIR, f)));
