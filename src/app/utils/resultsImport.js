@@ -105,6 +105,8 @@ export function emparejarPilotos(filas, candidatos, aprendidos = {}) {
  * («Scirocco Gr.4» → «Volkswagen Scirocco Gr.4»). null si no hay uno claro.
  */
 export function emparejarCoche(leido, opciones = []) {
+    // El juego abrevia «Vision Gran Turismo» como «VGT»: «SUZUKI VGT (Gr.3)»
+    leido = String(leido ?? '').replace(/\bVGT\b/gi, 'Vision Gran Turismo');
     const n = normalizar(leido);
     if (!n) return null;
     let mejor = null;
@@ -114,7 +116,10 @@ export function emparejarCoche(leido, opciones = []) {
         if (!c) continue;
         let p = 0;
         if (c === n) p = 100;
-        else if (c.includes(n) || n.includes(c)) p = 80 - Math.abs(c.length - n.length) / 10;
+        // Mejor la opción que contiene todo lo leído («… (Gr.3 Version)») que una
+        // a la que le falta parte («SUZUKI Vision Gran Turismo», la de calle)
+        else if (c.includes(n)) p = 80 - (c.length - n.length) / 10;
+        else if (n.includes(c)) p = 70 - (n.length - c.length) / 10;
         else {
             // por palabras: «Genesis Gr.4» ↔ «Genesis X Gr.4»
             const pal = (t) => new Set(String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 2));

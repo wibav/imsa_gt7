@@ -33,6 +33,9 @@ function parseTimeToMs(str) {
     return Math.round((parseFloat(parts[0]) || 0) * 1000);
 }
 
+/** Hay al menos un piloto elegido en el top 3 de Qualy. */
+const tieneTop3 = (t) => Boolean(t?.first || t?.second || t?.third);
+
 export default function ChampionshipDetail() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -1544,7 +1547,8 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                         ),
                         racePoints,
                         ...(selectedTrack.raceType === 'sprint_carrera' ? { sprintPositions: divSprintPositions[divId] || {}, sprintPoints: sprintPtsMap } : {}),
-                        ...(ps.qualifying?.enabled ? { qualifying: { top3: divQualyTop3[divId] || {}, points: qualyPoints } } : {}),
+                        // El top 3 de Qualy se guarda siempre, dé puntos o no: así cuentan las poles
+                        ...(tieneTop3(divQualyTop3[divId]) ? { qualifying: { top3: divQualyTop3[divId], points: qualyPoints } } : {}),
                         ...(ps.fastestLap?.enabled ? { fastestLap: { driver: fl, points: fastestLapPoints } } : {}),
                         // Tiempos leídos de las capturas (base de las penalizaciones de tiempo)
                         ...(Object.keys(tiemposCarrera[divId] || {}).length ? { raceTimes: normalizeDriverKeys(tiemposCarrera[divId]) } : {}),
@@ -1655,7 +1659,8 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                     trackUpdate.sprintPoints = sprintPtsMap;
                     trackUpdate.results.sprintPositions = sprintPositions;
                 }
-                if (championship?.settings?.pointsSystem?.qualifying?.enabled) {
+                // El top 3 de Qualy se guarda siempre, dé puntos o no: así cuentan las poles
+                if (tieneTop3(qualyTop3)) {
                     trackUpdate.results.qualifying = { top3: qualyTop3, points: qualyPoints };
                 }
                 if (championship?.settings?.pointsSystem?.fastestLap?.enabled) {
@@ -2273,10 +2278,13 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                             )}
 
                             {/* Sección Qualifying */}
-                            {ps.qualifying?.enabled && (
+                            {(
                                 <div className="mb-8 pt-6 border-t border-white/20">
                                     <h4 className="text-xl font-bold text-white mb-3 flex items-center gap-2">⏱️ Qualifying - Top 3</h4>
-                                    <p className="text-sm text-gray-400 mb-4">Selecciona los 3 pilotos más rápidos en clasificación.</p>
+                                    <p className="text-sm text-gray-400 mb-4">
+                                        Selecciona los 3 pilotos más rápidos en clasificación.
+                                        {!ps.qualifying?.enabled && ' Este campeonato no da puntos por Qualy: solo cuenta para la estadística de poles.'}
+                                    </p>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         {[
                                             { key: 'first', medal: '🥇', label: '1º Lugar', posKey: 1, colorFrom: 'yellow-600', colorTo: 'yellow-700', border: 'yellow-500', textColor: 'yellow-400' },
@@ -2285,13 +2293,13 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                         ].map(({ key, medal, label, posKey, colorFrom, colorTo, border, textColor }) => {
                                             const qt3 = hasDivisions ? (divQualyTop3[activeDivisionTab] || {}) : qualyTop3;
                                             const val = qt3[key] || '';
-                                            const pts = ps.qualifying.positions?.[posKey] || 0;
+                                            const pts = ps.qualifying?.enabled ? (ps.qualifying.positions?.[posKey] || 0) : 0;
                                             return (
                                                 <div key={key} className={`bg-gradient-to-br from-${colorFrom}/20 to-${colorTo}/20 border border-${border}/30 rounded-lg p-4`}>
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <span className="text-2xl">{medal}</span>
                                                         <span className="text-white font-bold">{label}</span>
-                                                        <span className={`text-${textColor} text-sm`}>(+{pts} pts)</span>
+                                                        {ps.qualifying?.enabled && <span className={`text-${textColor} text-sm`}>(+{pts} pts)</span>}
                                                     </div>
                                                     <select
                                                         value={val}
