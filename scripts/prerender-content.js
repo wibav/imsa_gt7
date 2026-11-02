@@ -353,8 +353,9 @@ function injectIntoFile(relFile, contentHtml, jsonLd) {
     let html = fs.readFileSync(filePath, 'utf8');
 
     // Idempotencia: si ya se inyectó, removemos el bloque previo antes de re-inyectar
+    // (incluidos los saltos de línea que versiones anteriores dejaban alrededor).
     if (html.includes(MARKER)) {
-        html = html.replace(new RegExp(`${MARKER}[\\s\\S]*?<!-- /prerender-content -->`, 'g'), '');
+        html = html.replace(new RegExp(`\\n?${MARKER}[\\s\\S]*?<!-- /prerender-content -->\\n?`, 'g'), '');
         html = html.replace(/<script type="application\/ld\+json" data-prerender>[\s\S]*?<\/script>/g, '');
     }
 
@@ -368,9 +369,12 @@ function injectIntoFile(relFile, contentHtml, jsonLd) {
     }
 
     // 2. Bloque <noscript> con contenido real, justo tras <body ...>
+    //    SIN saltos de línea alrededor: React hidrata el <body> completo y tolera
+    //    el <noscript> y los comentarios, pero un nodo de texto "\n" suelto que no
+    //    existe en su árbol dispara el error de hidratación #418 en todo el sitio.
     if (contentHtml && contentHtml.trim()) {
         const block = `${MARKER}<noscript><div class="seo-content">${contentHtml}</div></noscript><!-- /prerender-content -->`;
-        html = html.replace(/(<body[^>]*>)/i, `$1\n${block}\n`);
+        html = html.replace(/(<body[^>]*>)/i, `$1${block}`);
         changed = true;
     }
 
