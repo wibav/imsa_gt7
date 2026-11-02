@@ -5,6 +5,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { ChampionshipProvider } from "./context/ChampionshipContext";
 import { OrganizationProvider } from "./context/OrganizationContext";
 import ClientLayout from "./components/ClientLayout";
+import { LanguageProvider } from "./i18n";
 import Analytics from "../components/Analytics";
 import AnalyticsDebugger from "../components/AnalyticsDebugger";
 
@@ -84,13 +85,15 @@ export default function RootLayout({ children }) {
         />
         <Analytics />
         <AnalyticsDebugger />
-        <OrganizationProvider>
-          <AuthProvider>
-            <ChampionshipProvider>
-              <ClientLayout>{children}</ClientLayout>
-            </ChampionshipProvider>
-          </AuthProvider>
-        </OrganizationProvider>
+        <LanguageProvider>
+          <OrganizationProvider>
+            <AuthProvider>
+              <ChampionshipProvider>
+                <ClientLayout>{children}</ClientLayout>
+              </ChampionshipProvider>
+            </AuthProvider>
+          </OrganizationProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

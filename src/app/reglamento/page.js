@@ -4,6 +4,14 @@ import PageHeader from "../components/PageHeader";
 import { useOrganization } from "../context/OrganizationContext";
 import ReglamentoPdfButton from "../components/ReglamentoPdfButton";
 import reglamentoGeneral from "../data/reglamento-general.json";
+import reglamentoEn from "../data/reglamento-general.en.json";
+import reglamentoPt from "../data/reglamento-general.pt.json";
+import { useI18n } from "../i18n";
+
+// Traducciones del reglamento general (scripts/reglamento/verificar-traducciones.mjs
+// comprueba que tengan la misma estructura y versión que el original). Son de
+// consulta: si hay dudas, prevalece el texto en español.
+const TRADUCCIONES = { en: reglamentoEn, pt: reglamentoPt };
 
 // ============================
 // DATOS DEL REGLAMENTO (respaldo)
@@ -21,10 +29,11 @@ const DEFAULT_SECTIONS = fromFirestoreSafe(reglamentoGeneral.sections);
 // ============================
 
 function SectionNav({ sections, activeSection, onSelect }) {
+    const { t } = useI18n();
     return (
         <nav className="hidden lg:block sticky top-24 w-64 flex-shrink-0">
             <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-1">
-                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-3">Contenido</p>
+                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-3">{t('reglamento.contenido')}</p>
                 {sections.map((s) => (
                     <button
                         key={s.id}
@@ -43,6 +52,7 @@ function SectionNav({ sections, activeSection, onSelect }) {
 }
 
 function SectionCard({ section, numero }) {
+    const { t } = useI18n();
     return (
         <div id={section.id} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden scroll-mt-28">
             {/* Header */}
@@ -100,11 +110,11 @@ function SectionCard({ section, numero }) {
 
                         {(block.figuras || []).map(fig => (
                             <figure key={fig.src} className="mt-4">
-                                <a href={fig.src} target="_blank" rel="noopener noreferrer" title="Ver a tamaño completo">
+                                <a href={fig.src} target="_blank" rel="noopener noreferrer" title={t('reglamento.tamanoCompleto')}>
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img src={fig.src} alt={fig.alt} loading="lazy" className="w-full max-w-2xl rounded-xl border border-white/10" />
                                 </a>
-                                <figcaption className="text-xs text-gray-500 mt-1.5">Figura · {fig.alt}</figcaption>
+                                <figcaption className="text-xs text-gray-500 mt-1.5">{t('reglamento.pdf.figura')} · {fig.alt}</figcaption>
                             </figure>
                         ))}
                     </div>
@@ -134,9 +144,20 @@ function fromFirestoreSafe(sections) {
 
 export default function ReglamentoPage() {
     const { org } = useOrganization();
-    const [sections, setSections] = useState(DEFAULT_SECTIONS);
+    const { t, lang, locale } = useI18n();
+    const [sectionsEs, setSectionsEs] = useState(DEFAULT_SECTIONS);
     const [meta, setMeta] = useState({ version: DEFAULT_REGLAMENTO.version, fecha: DEFAULT_REGLAMENTO.fecha });
     const [activeSection, setActiveSection] = useState(DEFAULT_SECTIONS[0].id);
+    // El piloto puede volver al original en español sin cambiar el idioma de la web
+    const [verOriginal, setVerOriginal] = useState(false);
+
+    // Traducción solo si corresponde a lo que se está mostrando: la del
+    // reglamento general, en la misma versión. Una organización con un
+    // reglamento propio distinto (otra versión) se ve en español con un aviso.
+    const traduccion = lang !== 'es' ? TRADUCCIONES[lang] : null;
+    const traduccionValida = Boolean(traduccion) && traduccion.version === meta.version;
+    const traducido = traduccionValida && !verOriginal;
+    const sections = traducido ? fromFirestoreSafe(traduccion.sections) : sectionsEs;
 
     // Usa el reglamento de la organización ya resuelta por OrganizationContext
     // (Fase 3). Si la org no tiene reglamento propio configurado, se mantiene
@@ -145,14 +166,14 @@ export default function ReglamentoPage() {
         const orgSections = org?.reglamento?.sections;
         if (Array.isArray(orgSections) && orgSections.length > 0) {
             const normalized = fromFirestoreSafe(orgSections);
-            setSections(normalized);
+            setSectionsEs(normalized);
             setActiveSection(normalized[0].id);
             setMeta({ version: org.reglamento.version || '', fecha: org.reglamento.fecha || '' });
         }
     }, [org]);
 
     const fechaLegible = meta.fecha
-        ? new Date(`${meta.fecha}T12:00:00`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+        ? new Date(`${meta.fecha}T12:00:00`).toLocaleDateString(traducido ? locale : 'es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
         : '';
 
     const handleSelectSection = (id) => {
@@ -167,18 +188,45 @@ export default function ReglamentoPage() {
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
             <PageHeader
                 ancho="max-w-6xl"
-                migas={[{ label: 'Reglamento' }]}
+                migas={[{ label: t('reglamento.miga') }]}
                 icono="📜"
-                titulo="Reglamento General"
-                subtitulo="Normas de conducta, sanciones y procedimientos para todos los campeonatos y eventos. Léelo antes de inscribirte para evitar sorpresas."
+                titulo={t('reglamento.titulo')}
+                subtitulo={t('reglamento.subtitulo')}
             >
                 <div className="flex flex-wrap items-center gap-4 text-sm text-white/70">
-                    {fechaLegible && <span>📅 Última actualización: {fechaLegible}</span>}
-                    {meta.version && <span>Versión {meta.version}</span>}
-                    <span>{sections.length} secciones</span>
-                    <ReglamentoPdfButton sections={sections} orgName={org?.name || 'GT7 Championships'} version={meta.version} fecha={fechaLegible} />
+                    {fechaLegible && <span>📅 {t('reglamento.ultimaActualizacion')}: {fechaLegible}</span>}
+                    {meta.version && <span>{t('reglamento.pdf.version')} {meta.version}</span>}
+                    <span>{t('reglamento.secciones', { n: sections.length })}</span>
+                    <ReglamentoPdfButton
+                        sections={sections}
+                        orgName={org?.name || 'GT7 Championships'}
+                        version={meta.version}
+                        fecha={fechaLegible}
+                        aviso={traducido ? t('reglamento.avisoTraduccion') : ''}
+                    />
                 </div>
             </PageHeader>
+
+            {/* Aviso de traducción: es de consulta y prevalece el original */}
+            {lang !== 'es' && (
+                <div className="max-w-6xl mx-auto px-4 pt-6">
+                    <div className="bg-amber-500/10 border border-amber-400/30 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                        <p className="text-amber-100 text-sm">
+                            🌐 {traduccionValida
+                                ? (verOriginal ? t('reglamento.viendoOriginal') : t('reglamento.avisoTraduccion'))
+                                : t('reglamento.soloEspanol')}
+                        </p>
+                        {traduccionValida && (
+                            <button
+                                onClick={() => setVerOriginal(v => !v)}
+                                className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-semibold transition-colors"
+                            >
+                                {verOriginal ? t('reglamento.verTraduccion') : t('reglamento.verOriginal')}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Mobile Section Selector */}
             <div className="lg:hidden sticky top-0 z-40 bg-slate-900/90 backdrop-blur-sm border-b border-white/10 px-4 py-3">
@@ -206,7 +254,7 @@ export default function ReglamentoPage() {
                 />
 
                 {/* Main Content */}
-                <div className="flex-1 space-y-6 min-w-0">
+                <div className="flex-1 space-y-6 min-w-0" lang={traducido ? lang : 'es'}>
                     {sections.map((section) => (
                         <SectionCard key={section.id} section={section} numero={sections.indexOf(section) + 1} />
                     ))}
@@ -214,7 +262,7 @@ export default function ReglamentoPage() {
                     {/* Footer note */}
                     <div className="bg-blue-600/10 border border-blue-500/30 rounded-xl p-5 text-center">
                         <p className="text-blue-300 text-sm">
-                            💡 Este reglamento aplica como base para todos los campeonatos y eventos. Cada campeonato puede tener reglas adicionales o valores de sanción personalizados que se especifican en su configuración individual.
+                            💡 {t('reglamento.notaFinal')}
                         </p>
                     </div>
 
@@ -224,7 +272,7 @@ export default function ReglamentoPage() {
                             onClick={() => window.location.href = "/"}
                             className="bg-white/10 border border-white/20 text-white px-6 py-3 rounded-lg font-semibold hover:bg-white/20 transition-all"
                         >
-                            ← Volver al Dashboard
+                            ← {t('reglamento.volver')}
                         </button>
                     </div>
                 </div>

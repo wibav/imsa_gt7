@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { extractVfs, fetchAsDataUrl } from './championship/RegulationsPdfButton';
 import { buildReglamentoGeneralDoc, reglamentoGeneralFilename } from '../utils/reglamentoGeneralPdf';
+import { useI18n } from '../i18n';
 
 /** Lee un SVG de /public como texto (pdfmake lo dibuja como vectorial). */
 async function fetchTexto(url) {
@@ -23,7 +24,8 @@ async function fetchTexto(url) {
  * @param {string} [version]
  * @param {string} [fecha]  - fecha de la versión, ya formateada
  */
-export default function ReglamentoPdfButton({ sections = [], orgName = '', version = '', fecha = '' }) {
+export default function ReglamentoPdfButton({ sections = [], orgName = '', version = '', fecha = '', aviso = '' }) {
+    const { t, lang, locale } = useI18n();
     const [estado, setEstado] = useState('listo'); // listo | generando | error
 
     const descargar = async () => {
@@ -48,9 +50,10 @@ export default function ReglamentoPdfButton({ sections = [], orgName = '', versi
             const doc = buildReglamentoGeneralDoc({
                 sections, orgName, version, fecha, svgs,
                 logos: { escudo, insignia },
-                generadoEl: new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                generadoEl: new Date().toLocaleString(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                textos: { ...t('reglamento.pdf'), aviso },
             });
-            await pdfMake.createPdf(doc).download(reglamentoGeneralFilename(orgName, version));
+            await pdfMake.createPdf(doc).download(reglamentoGeneralFilename(orgName, version, lang));
             setEstado('listo');
         } catch (err) {
             console.error('Error generando el PDF del reglamento:', err);
@@ -66,9 +69,9 @@ export default function ReglamentoPdfButton({ sections = [], orgName = '', versi
                 disabled={estado === 'generando' || sections.length === 0}
                 className="px-4 py-2 bg-white text-orange-700 hover:bg-orange-50 text-sm font-bold rounded-lg shadow transition-all disabled:opacity-60"
             >
-                {estado === 'generando' ? 'Generando PDF…' : '📄 Descargar PDF'}
+                {estado === 'generando' ? t('formularios.pdf.generando') : `📄 ${t('reglamento.descargarPdf')}`}
             </button>
-            {estado === 'error' && <span className="text-xs text-red-100">No se pudo generar el PDF. Inténtalo de nuevo.</span>}
+            {estado === 'error' && <span className="text-xs text-red-100">{t('formularios.pdf.error')}</span>}
         </div>
     );
 }

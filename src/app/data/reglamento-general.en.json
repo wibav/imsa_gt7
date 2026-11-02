@@ -1,0 +1,736 @@
+{
+ "version": "2.1",
+ "fecha": "2026-10-23",
+ "idioma": "en",
+ "sections": [
+  {
+   "id": "definiciones",
+   "icon": "📖",
+   "title": "Scope and Definitions",
+   "content": [
+    {
+     "subtitle": "Scope",
+     "items": [
+      "These general rules apply to every GT7 Championships championship and event.",
+      "The specific rules of each championship or event take precedence over these wherever they differ (cars, points system, warning thresholds, lobby settings, etc.).",
+      "Anything not covered here is decided by the stewards, using as reference the FIA Code of Driving Conduct on Circuits (International Sporting Code, Appendix L, Chapter IV) and its Driving Standards Guidelines, adapted to Gran Turismo 7.",
+      "Articles are quoted by their number (for example, 5.3.2). Each published version shows its update date; decisions follow the version in force on the day of the race."
+     ]
+    },
+    {
+     "subtitle": "Definitions",
+     "type": "table",
+     "headers": [
+      "Term",
+      "Meaning"
+     ],
+     "rows": [
+      {
+       "cells": [
+        "Track",
+        "Tarmac surface bounded by the white lines. The white lines are part of the track; kerbs, verges, grass and run-off areas are not."
+       ]
+      },
+      {
+       "cells": [
+        "Turn-in point",
+        "Point where the driver starts turning the steering wheel to enter the corner."
+       ]
+      },
+      {
+       "cells": [
+        "Apex",
+        "Point of the corner where the car passes closest to the inside edge."
+       ]
+      },
+      {
+       "cells": [
+        "Overlap",
+        "Situation in which the attacking car is entitled to room in a corner, as set out in article 5.3."
+       ]
+      },
+      {
+       "cells": [
+        "Divebomb",
+        "Late, uncontrolled attempt to overtake on the inside, in which the attacker could not take the corner without leaning on the rival or leaving the track."
+       ]
+      },
+      {
+       "cells": [
+        "Lasting advantage",
+        "Position or time gained by leaving the track limits or through an illegal move, and kept after the move."
+       ]
+      },
+      {
+       "cells": [
+        "Racing incident",
+        "Contact for which no driver is wholly or predominantly to blame. It is not penalised."
+       ]
+      },
+      {
+       "cells": [
+        "Predominant responsibility",
+        "When most of the blame for an incident lies with one driver, even if the other contributed."
+       ]
+      },
+      {
+       "cells": [
+        "Warning points",
+        "Points added by some penalties, accumulated over the championship (see 7.2)."
+       ]
+      },
+      {
+       "cells": [
+        "Stewards",
+        "People appointed by the organisation to review incidents and decide on protests."
+       ]
+      },
+      {
+       "cells": [
+        "Host",
+        "Driver who creates and sets up the lobby for each race (see section 3)."
+       ]
+      },
+      {
+       "cells": [
+        "DNF / OUT",
+        "DNF: did not finish the race. OUT: finished without completing the minimum number of laps to score (see 10.6)."
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "conducta",
+   "icon": "🤝",
+   "title": "General Conduct and Sportsmanship",
+   "content": [
+    {
+     "subtitle": "Basic principles",
+     "items": [
+      "All drivers must behave in a sporting and respectful way at all times, both on track and in the communication channels (WhatsApp, PlayStation chat, stream, etc.).",
+      "Insulting, threatening or disrespecting any driver, organiser, steward, caster or community member is strictly forbidden.",
+      "Fair play is expected: if you cause an unintentional incident that harms another driver, wait and give the position back when it is safe to do so. It is a mitigating factor that halves the penalty (see 6.5)."
+     ]
+    },
+    {
+     "subtitle": "Drive first, race second",
+     "items": [
+      "Your first priority is keeping your car under control. Only once you have it should you worry about racing your rivals.",
+      "If you can take a corner at 110 km/h on your own, do not try to take it at 150 km/h because you are racing someone.",
+      "If in doubt, lift off. In most situations, slowing down is the best way to avoid an accident.",
+      "The real fun is finishing the race. Taking unnecessary risks only hurts you."
+     ]
+    },
+    {
+     "subtitle": "Official communication",
+     "items": [
+      "Official communication goes through the channels designated by the organisation (WhatsApp Community — Stewards).",
+      "Complaints, protests or disputes are NEVER settled in public chats, on social media or during the broadcast. There is a formal procedure (see section 8).",
+      "The stewards’ decisions are final once published, unless the championship has appeals enabled (see 8.4)."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sala",
+   "icon": "🎮",
+   "title": "Lobby Settings",
+   "content": [
+    {
+     "subtitle": "The host",
+     "items": [
+      "The host creates and sets up the lobby according to the parameters published for each race.",
+      "The host of each race is announced in advance through the WhatsApp Community.",
+      "The lobby must be opened 15-20 minutes early for warm-up and connection checks.",
+      "The host saves the replay, captures the results and sends the race report to the organisation.",
+      "The host must also report to the stewards any illegal, unsporting or questionable action they see."
+     ]
+    },
+    {
+     "subtitle": "Opening and preparation",
+     "items": [
+      "Drivers must be in the lobby at least 5 minutes before the start time. Anyone missing when the lobby closes may be penalised.",
+      "A maximum of 5 minutes’ grace is given for connection problems. After that, the race starts without the driver.",
+      "If the lobby settings are wrong (wear, tyres, weather, etc.), it must be reported BEFORE qualifying starts. Once the session has started, the race is run with the active settings.",
+      "If the settings error is serious, the organisation may cancel the race. If it is minor, the race stands."
+     ]
+    },
+    {
+     "subtitle": "Bugs and restarts",
+     "items": [
+      "If a driver gets stuck at the start, they must report it immediately in the chat. Only the host can restart the race.",
+      "Affected drivers return to their grid position through a repositioning lap.",
+      "A restart is only done in the first sectors or laps. After that, the race goes on."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "clasificacion",
+   "icon": "⏱️",
+   "title": "Qualifying",
+   "content": [
+    {
+     "subtitle": "Qualifying rules",
+     "items": [
+      "The length of qualifying is set for each race (usually 10-15 minutes).",
+      "Respect other drivers’ space: do not block or impede anyone on a flying lap.",
+      "On out-laps and cool-down laps, keep a predictable line and stay off the racing line.",
+      "Stay on track when qualifying time runs out. If you leave, the game may place you in a position that is not yours."
+     ]
+    },
+    {
+     "subtitle": "Qualifying penalties",
+     "type": "table",
+     "headers": [
+      "Offence",
+      "Penalty",
+      "Warning points"
+     ],
+     "rows": [
+      {
+       "cells": [
+        "Blocking a driver on a flying lap",
+        "-2 points",
+        "1"
+       ]
+      },
+      {
+       "cells": [
+        "Pushing or deliberate contact in qualifying",
+        "-5 points",
+        "2"
+       ]
+      },
+      {
+       "cells": [
+        "Automatic in-game penalties (track limits)",
+        "Respected as given",
+        "—"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "carrera",
+   "icon": "🏁",
+   "title": "Race Rules",
+   "content": [
+    {
+     "subtitle": "Start",
+     "items": [
+      "The start type (grid, rolling or with false start check) is shown on each race’s page.",
+      "On rolling starts, hold your position until you cross the start line. Overtaking before then is penalised.",
+      "On grid starts, go when the lights go out. The game automatically penalises a jump start."
+     ]
+    },
+    {
+     "subtitle": "Track limits",
+     "items": [
+      "A car is within the limits if at least two wheels on different axles (one front and one rear) remain on the track. The white line is track; the kerb is not.",
+      "Shortcut penalties are those applied by the game according to the lobby settings, and they stand.",
+      "Overtaking with the car outside the limits, or gaining a lasting advantage by leaving them, means the position must be given back immediately, before the end of the lap at the latest. Failing to do so: -3 positions in the final result.",
+      "If systematic abuse of the limits that the game does not penalise is detected, the stewards may apply further penalties."
+     ],
+     "figuras": [
+      {
+       "src": "/reglamento/limites-pista.en.svg",
+       "alt": "Track limits: two wheels on different axles on the track"
+      }
+     ]
+    },
+    {
+     "subtitle": "Overtaking",
+     "items": [
+      "The driver behind is responsible for not hitting the car in front.",
+      "On the INSIDE, there is an overlap when, before the turn-in point, the attacker’s front axle is at least level with the rival’s mirror, and stays there until the apex. From then on, the defender must leave room.",
+      "On the OUTSIDE, the attacker is only entitled to room if at the apex their front axle is ahead of the rival’s front axle. It is the hardest move: whoever tries it takes the risk.",
+      "In both cases, the attacker must be in control, brake in time and be able to take the corner within the limits without leaning on the rival. Otherwise it is a divebomb and gives no right to room.",
+      "Without an overlap, the driver in front may choose any line without it being considered blocking.",
+      "With an overlap, each driver is entitled to their half of the track (outside or inside) until the corner exit. Neither may push the other beyond the limits.",
+      "The overtake ends when the overtaking car has fully passed the other, with no overlap. Until then, the overlap still applies.",
+      "Do not use another driver being lapped to overtake a direct rival. Wait for the next corner."
+     ],
+     "figuras": [
+      {
+       "src": "/reglamento/adelantamiento-interior.en.svg",
+       "alt": "Overtaking on the inside: when there is an overlap"
+      },
+      {
+       "src": "/reglamento/adelantamiento-exterior.en.svg",
+       "alt": "Overtaking on the outside: when there is a right to room"
+      }
+     ]
+    },
+    {
+     "subtitle": "Defending a position",
+     "items": [
+      "To defend on a straight, only ONE change of direction is allowed, and it must be held until the next corner.",
+      "A driver moving back towards the racing line after defending on one side must leave at least a car’s width between their car and the edge of the track.",
+      "Forbidden: weaving, changing line under braking, braking on purpose to harm the car behind, squeezing a car that is already alongside and pushing the rival off the track."
+     ],
+     "figuras": [
+      {
+       "src": "/reglamento/defensa-recta.en.svg",
+       "alt": "Defending a position on a straight"
+      }
+     ]
+    },
+    {
+     "subtitle": "Blue flags (lapping)",
+     "items": [
+      "A driver about to be lapped MUST let the faster car through safely, predictably and without obstructing.",
+      "To let someone by, move to one edge of the track and hold that line until they have passed. You may lift off.",
+      "Several cars may be trying to lap you: check both sides and use the proximity radar.",
+      "The driver being lapped must NOT race the one lapping them nor use the moment to gain positions on direct rivals."
+     ]
+    },
+    {
+     "subtitle": "Pits",
+     "items": [
+      "Respect the pit entry and exit. The game automatically penalises crossing the pit line.",
+      "Stopping the car outside the pits during the race is forbidden; if you need to stop, do it in the pits. Penalty: -5 points.",
+      "If you impede other drivers while serving an in-game penalty, you must serve it giving way off the racing line. Failing to do so: -6 points."
+     ]
+    },
+    {
+     "subtitle": "Mandatory tyres",
+     "items": [
+      "Mandatory compounds are set in the lobby settings and enforced by the game itself.",
+      "Each race’s compounds are published on its page: RH (hard), RM (medium), RS (soft)."
+     ]
+    },
+    {
+     "subtitle": "Rejoining the track",
+     "items": [
+      "After leaving the track, rejoin without causing any incident, giving way to everyone on the track.",
+      "Cars on the track have absolute priority over those off it.",
+      "After an accident, check your car’s condition. With heavy damage, make it easy to be overtaken so as not to endanger the rest. Failing to do so: -3 points (except on the last lap).",
+      "Penalties for an unsafe rejoin are in the table in article 6.3."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "incidentes",
+   "icon": "⚠️",
+   "title": "Incidents and Contact",
+   "content": [
+    {
+     "subtitle": "Damage levels",
+     "type": "table",
+     "headers": [
+      "Level",
+      "Description"
+     ],
+     "rows": [
+      {
+       "cells": [
+        "No damage",
+        "Contact causing loss of position or leaving the track with no visible damage"
+       ]
+      },
+      {
+       "cells": [
+        "LIGHT damage",
+        "1 aero part damaged, or 1 aero part + 1 wheel"
+       ]
+      },
+      {
+       "cells": [
+        "MODERATE damage",
+        "2 aero parts + 1-2 wheels, or 1 aero part + 2 wheels"
+       ]
+      },
+      {
+       "cells": [
+        "HEAVY damage",
+        "Any of the above + engine failure"
+       ]
+      }
+     ]
+    },
+    {
+     "subtitle": "Types of incident",
+     "items": [
+      "RACING INCIDENT (not penalised): contact that is part of racing, for which no driver is wholly or predominantly to blame.",
+      "MINOR INCIDENT: contact causing loss of position or minor damage, without intent. Warning or minor penalty.",
+      "SERIOUS INCIDENT: contact causing a retirement (DNF), a significant loss of positions or showing negligence. Points penalty.",
+      "VERY SERIOUS INCIDENT: deliberate action to take another driver out, intentional torpedo or retaliation. Disqualification from the race and possible expulsion from the championship.",
+      "The driver wholly or predominantly to blame is penalised. If responsibility is shared, the stewards may rule a racing incident or penalise both proportionally."
+     ]
+    },
+    {
+     "subtitle": "Penalties for contact in the race",
+     "type": "table",
+     "headers": [
+      "Type of contact",
+      "No damage",
+      "Light dmg.",
+      "Moderate dmg.",
+      "Heavy dmg.",
+      "Warning points"
+     ],
+     "rows": [
+      {
+       "cells": [
+        "Hitting from behind (including outbraking yourself)",
+        "-2 pts",
+        "-3 pts",
+        "-4 pts",
+        "-6 pts",
+        "1"
+       ]
+      },
+      {
+       "cells": [
+        "Contact while overtaking in a corner (including divebomb)",
+        "-2 pts",
+        "-3 pts",
+        "-4 pts",
+        "-6 pts",
+        "2"
+       ]
+      },
+      {
+       "cells": [
+        "Unsafe rejoin",
+        "-3 pts",
+        "-6 pts",
+        "-8 pts",
+        "-10 pts",
+        "2"
+       ]
+      },
+      {
+       "cells": [
+        "Overtaking without overlap, or gaining an advantage off track without giving it back",
+        "-3 positions in the result",
+        "—",
+        "—",
+        "—",
+        "1"
+       ]
+      }
+     ]
+    },
+    {
+     "subtitle": "Extras for damage to the rival",
+     "items": [
+      "Each damaged aero part on the rival’s car: +1 point to the penalty.",
+      "Each damaged suspension on the rival’s car: +1 point.",
+      "Engine failure on the rival’s car: +2 points.",
+      "Damage to third parties in an accident you caused: +1 point per car with light damage, +2 for moderate and +3 for heavy, plus +1 point for each position those third parties lose."
+     ]
+    },
+    {
+     "subtitle": "Aggravating and mitigating factors",
+     "items": [
+      "AGGRAVATING — incident on the first or last lap: penalty ×2.",
+      "AGGRAVATING — repeat offence (the same offence in the same championship): penalty ×2.",
+      "AGGRAVATING — intent or bad faith: penalty ×2.",
+      "MITIGATING — giving the position back after the incident: penalty halved.",
+      "MITIGATING — other circumstances that reduce the seriousness or the blame: penalty halved.",
+      "Aggravating and mitigating factors combine, but the final penalty never exceeds three times the base penalty. Damage extras are added afterwards."
+     ]
+    },
+    {
+     "subtitle": "Review procedure",
+     "items": [
+      "The stewards review incidents using the game replay, the videos provided and the live broadcast.",
+      "They may act on their own initiative, without a protest, if they see an infringement or receive the host’s report.",
+      "Before deciding, the accused driver may give their version and provide their own video within 24 hours of being notified of the protest, through the official stewards’ channel.",
+      "A steward may not decide on incidents they were involved in, nor those of their own team or lobby. In those cases another steward or the championship management decides.",
+      "The following are taken into account: intent, room left, relative speed, consequences for the other driver and incident history.",
+      "The stewards decide within a maximum of 48 hours after the protest period ends."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sanciones",
+   "icon": "⚖️",
+   "title": "Penalty System",
+   "content": [
+    {
+     "subtitle": "General penalty table",
+     "type": "table",
+     "headers": [
+      "Offence",
+      "Penalty",
+      "Warning points",
+      "Severity"
+     ],
+     "rows": [
+      {
+       "cells": [
+        "Warning for a minor incident",
+        "No points",
+        "1",
+        "🟡 Minor"
+       ]
+      },
+      {
+       "cells": [
+        "Not showing up to the lobby without notice",
+        "-3 points (individual) / -15 (teams)",
+        "0",
+        "🟡 Minor"
+       ]
+      },
+      {
+       "cells": [
+        "Not letting faster cars by while driving with heavy damage",
+        "-3 points",
+        "1",
+        "🟡 Minor"
+       ]
+      },
+      {
+       "cells": [
+        "Stopping the car outside the pits during the race",
+        "-5 points",
+        "1",
+        "🟠 Moderate"
+       ]
+      },
+      {
+       "cells": [
+        "Abusive headlight flashing to distract",
+        "-3 points",
+        "1",
+        "🟠 Moderate"
+       ]
+      },
+      {
+       "cells": [
+        "Impeding while serving an in-game penalty",
+        "-6 points",
+        "2",
+        "🟠 Moderate"
+       ]
+      },
+      {
+       "cells": [
+        "More than one change of direction on a straight, or moving on a car alongside",
+        "-5 points",
+        "2",
+        "🔴 Serious"
+       ]
+      },
+      {
+       "cells": [
+        "Clearly unfounded or bad-faith protest",
+        "-5 points",
+        "0",
+        "🔴 Serious"
+       ]
+      },
+      {
+       "cells": [
+        "Protesting outside the official form",
+        "-5 points",
+        "0",
+        "🔴 Serious"
+       ]
+      },
+      {
+       "cells": [
+        "Running out of fuel and deliberately blocking a rival",
+        "Disqualification from the race",
+        "3",
+        "🔴 Very serious"
+       ]
+      },
+      {
+       "cells": [
+        "Intentional collision / torpedo",
+        "Disqualification from the race + possible expulsion",
+        "4",
+        "🔴 Very serious"
+       ]
+      },
+      {
+       "cells": [
+        "Driving the wrong way (practice, qualifying or race)",
+        "Disqualification from the race",
+        "3",
+        "🔴 Very serious"
+       ]
+      },
+      {
+       "cells": [
+        "Insulting the organisation, the stewards or other drivers",
+        "Expulsion",
+        "—",
+        "🔴 Very serious"
+       ]
+      }
+     ]
+    },
+    {
+     "subtitle": "Warning points",
+     "items": [
+      "Some penalties add warning points as well as deducting points. They accumulate over the whole championship and are not reset between races.",
+      "Each time a driver reaches the championship threshold (by default, 8 warning points, and again at 16, 24…), 10 points are automatically deducted from the standings. The threshold and the deduction may vary in each championship.",
+      "On reaching the championship disqualification threshold (by default, 16 warning points), the stewards consider excluding the driver from the championship.",
+      "Each championship page shows its values in the Penalties section."
+     ]
+    },
+    {
+     "subtitle": "Important notes",
+     "items": [
+      "Points penalties are deducted from the championship total. A driver can end up with negative points.",
+      "Whatever Gran Turismo 7 already penalises during the race (shortcuts, contact, jump start, pit line, flags, mandatory tyres…) is not penalised again. The stewards only act on what the game does not control.",
+      "The values in these rules are the standard ones. Each championship may set its own.",
+      "The organisation may exclude from future editions or expel troublesome drivers or those with repeated serious penalties."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "reclamaciones",
+   "icon": "📋",
+   "title": "Protests",
+   "content": [
+    {
+     "subtitle": "How to file a protest",
+     "items": [
+      "Protests are ONLY accepted through the official form on the website. They are not accepted through WhatsApp, the stream chat or any other channel. Protesting outside the form: -5 points.",
+      "The deadline is 48 hours after the end of the race. After that, the form is no longer available for that race.",
+      "The form is on the championship page, Penalties section, button «📩 Report an incident» (only if the championship has protests enabled).",
+      "Include: your name, the driver or drivers involved, the race, the lap or minute (if you know it), a detailed description and the link to the video.",
+      "You can protest several drivers in the same protest if the incident involves all of them."
+     ]
+    },
+    {
+     "subtitle": "Evidence",
+     "items": [
+      "Video evidence is strongly recommended. Without it, the stewards can only decide using the replay or the broadcast; if there is not enough footage, the protest may be dismissed.",
+      "Upload the video to YouTube as «Unlisted», never as «Private»: a private video cannot be seen by the stewards or the analysis tool.",
+      "Show the damage HUD in the video so the level of damage can be assessed.",
+      "If you cannot upload it, send it privately to the stewards; they will attach it to the protest."
+     ]
+    },
+    {
+     "subtitle": "Decision",
+     "items": [
+      "The stewards review the evidence, complete it with the replay or the broadcast and hear the accused driver (see 6.6).",
+      "The decision is published on the website, with the ruling and, if any, the penalty applied.",
+      "A clearly unfounded or bad-faith protest costs the driver who filed it -5 points. A protest made in good faith that is dismissed is not penalised."
+     ]
+    },
+    {
+     "subtitle": "Appeal",
+     "items": [
+      "If the championship has appeals enabled, the penalised driver (if the protest was upheld) or the driver who protested (if it was rejected) may appeal the decision within the set period (by default, 48 hours from the decision).",
+      "The appeal is decided by a higher authority: a league director or organiser, never a steward or whoever decided the protest.",
+      "While it is decided, the penalty still applies and is shown as «⚖️ Under appeal».",
+      "The appeal decision is final: it may confirm, overturn or change the penalty, or reject the appeal on procedural grounds (late, not entitled or duplicated). There is no second appeal.",
+      "If no appeal is filed in time, or the championship has no appeals, the original decision is final."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "desconexiones",
+   "icon": "📡",
+   "title": "Disconnections and Lag",
+   "content": [
+    {
+     "subtitle": "Driver disconnection",
+     "items": [
+      "Each driver is responsible for their own connection. A wired (ethernet) connection is recommended instead of WiFi.",
+      "A driver who disconnects during the race is DNF.",
+      "A driver is given a maximum of 5 minutes to reconnect before the start. The lobby is NOT restarted to reset the grid.",
+      "Exception: if the driver proves an internet service outage, the organisation may review the case."
+     ]
+    },
+    {
+     "subtitle": "Lobby or server crash",
+     "items": [
+      "If the lobby crashes with MORE than 75% of the race completed, the race is considered finished with the positions from the last time across the line.",
+      "If it crashes between 50% and 75%, HALF of the points for each position are awarded according to the last time across the line.",
+      "If it crashes before 50%, the race is cancelled with no rerun. If between 10 and 20 minutes have been run, the organisation may resume it with the remaining time.",
+      "These decisions belong exclusively to the stewards, after receiving the race report."
+     ]
+    },
+    {
+     "subtitle": "Lag",
+     "items": [
+      "If a driver has severe lag that affects others (teleporting, bouncing), the organisation may ask them to retire from the race.",
+      "Incidents caused by lag are reviewed case by case. As a rule, neither the lagging driver (if it is not intentional) nor the affected driver is penalised.",
+      "A driver with extreme, repeated lag may be given a DNF to protect the competition."
+     ]
+    },
+    {
+     "subtitle": "GT7 bugs",
+     "items": [
+      "If the game repositions a driver wrongly, it is reviewed case by case.",
+      "If the bug affects the final positions and is detected in time, the organisation may restart the race."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "especificas",
+   "icon": "📐",
+   "title": "Championship Rules",
+   "content": [
+    {
+     "subtitle": "Cars and Balance of Performance",
+     "items": [
+      "Unless stated otherwise, BoP is ALWAYS on in competitive races.",
+      "Car setups (tuning) are forbidden unless the race page allows them.",
+      "Each championship may define the allowed cars and their usage rules (for example, number of cars per driver and maximum uses of each).",
+      "Using a car that is not allowed or breaking the usage rules means disqualification from the race."
+     ]
+    },
+    {
+     "subtitle": "Livery, logo and race number",
+     "items": [
+      "If the championship requires a livery or logo, it is mandatory. Failing to use it: -10 points.",
+      "The race number must be visible as the championship requires. Not carrying it: -2 points.",
+      "Mandatory stickers must be in the stated positions (usually windscreen and both sides). Not carrying them: -3 points per sticker.",
+      "The livery is free unless the championship states restrictions."
+     ]
+    },
+    {
+     "subtitle": "Sprint + Race format",
+     "items": [
+      "Some championships include a Sprint race (usually 5 laps) as well as the main race.",
+      "Each session (Sprint, qualifying and race) may have its own mandatory compounds and settings.",
+      "Sprint points are added to those of the main race."
+     ]
+    },
+    {
+     "subtitle": "Divisions, promotion and relegation",
+     "items": [
+      "Championships with several divisions use a promotion and relegation system between editions.",
+      "At the end of each edition, drivers in promotion places move up a division and those in relegation places move down.",
+      "If there are free spots, drivers just relegated from the division above have priority over those just promoted from the one below.",
+      "The number of promotions and relegations is set by each championship."
+     ]
+    },
+    {
+     "subtitle": "Scoring and tie-breaks",
+     "items": [
+      "Each championship publishes its points system (race, qualifying and fastest lap) in the Information section of its page.",
+      "If drivers are tied on points in the overall standings, the tie is broken by: 1) more wins, 2) more podiums, 3) best single race result."
+     ]
+    },
+    {
+     "subtitle": "Requirements to score",
+     "items": [
+      "To score, you must complete at least 75% of the winner’s laps.",
+      "Anyone below 75% is shown as OUT: it counts as attendance, but scores no points."
+     ]
+    }
+   ]
+  }
+ ]
+}

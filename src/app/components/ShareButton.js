@@ -13,6 +13,7 @@
 
 "use client";
 import { useState } from "react";
+import { useI18n } from "../i18n";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://imsa.trenkit.com';
 
@@ -27,6 +28,7 @@ const versionCorta = (version) => {
 };
 
 export default function ShareButton({ type, id, title = '', version = null }) {
+    const { t } = useI18n();
     const [copied, setCopied] = useState(false);
     const [error, setError] = useState(false);
 
@@ -73,8 +75,8 @@ export default function ShareButton({ type, id, title = '', version = null }) {
                         : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }
             `}
-            title="Compartir en redes sociales"
-            aria-label={`Compartir ${title || type} en redes sociales`}
+            title={t('nav.compartir.titulo')}
+            aria-label={t('nav.compartir.aria', { que: title || type })}
         >
             {error ? (
                 <>
@@ -88,7 +90,7 @@ export default function ShareButton({ type, id, title = '', version = null }) {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>¡Copiado!</span>
+                    <span>{t('nav.compartir.copiado')}</span>
                 </>
             ) : (
                 <>
@@ -97,7 +99,7 @@ export default function ShareButton({ type, id, title = '', version = null }) {
                             d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
                         />
                     </svg>
-                    <span>Compartir</span>
+                    <span>{t('nav.compartir.boton')}</span>
                 </>
             )}
         </button>

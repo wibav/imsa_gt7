@@ -3,6 +3,8 @@ import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { formatDateFull, getRaceTime } from "../../utils/dateUtils";
 import { normalizarReglas, textoAjuste } from "../../utils/roomConfig";
+import { traducirSala } from "../../utils/roomConfigI18n";
+import { useI18n } from "../../i18n";
 
 /**
  * Componente Briefing Pre-Carrera.
@@ -18,22 +20,24 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
     const briefingRef = useRef(null);
     const [exporting, setExporting] = useState(false);
     const [showBriefing, setShowBriefing] = useState(false);
+    const { t, lang, locale } = useI18n();
 
     if (!nextRace) return null;
 
     // Valores con los nombres del juego, sea cual sea el formato guardado
     // (ver utils/roomConfig.js).
     const rules = normalizarReglas(nextRace.rules || {});
-    const t = (id) => textoAjuste(nextRace, id, rules);
+    const ajuste = (id) => textoAjuste(nextRace, id, rules, lang);
+    const b = (clave, vars) => t(`componentes.briefing.${clave}`, vars);
     const weather = nextRace.weather || {};
     const timeOfDay = rules.timeOfDay || weather.timeOfDay;
     const timeMultiplier = rules.timeMultiplier || weather.multiplier;
     const weatherSlots = rules.weatherSlots || weather.slots;
-    const damageLabel = t('mechanicalDamage');
+    const damageLabel = ajuste('mechanicalDamage');
     const neumaticos = [
-        t('usableTyres') && `Utilizables: ${t('usableTyres')}`,
-        rules.usableCompounds?.length > 0 && `Tipos: ${t('usableCompounds')}`,
-        rules.requiredCompounds?.length > 0 && `Requeridos: ${t('requiredCompounds')}`,
+        ajuste('usableTyres') && `${b('utilizables')}: ${ajuste('usableTyres')}`,
+        rules.usableCompounds?.length > 0 && `${b('tipos')}: ${ajuste('usableCompounds')}`,
+        rules.requiredCompounds?.length > 0 && `${b('requeridos')}: ${ajuste('requiredCompounds')}`,
     ].filter(Boolean);
 
     const handleExport = async () => {
@@ -70,7 +74,7 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
             await navigator.clipboard.write([
                 new ClipboardItem({ 'image/png': blob })
             ]);
-            alert('✅ Briefing copiado al portapapeles');
+            alert(`✅ ${b('copiado')}`);
         } catch (error) {
             handleExport();
         } finally {
@@ -90,7 +94,7 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                 onClick={() => setShowBriefing(true)}
                 className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-all"
             >
-                📋 Briefing Pre-Carrera
+                📋 {b('titulo')}
             </button>
 
             {/* Modal del Briefing */}
@@ -99,7 +103,7 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                     <div className="bg-slate-800 rounded-2xl border border-white/10 max-w-xl w-full my-8">
                         {/* Header */}
                         <div className="flex items-center justify-between p-4 border-b border-white/10">
-                            <h3 className="text-white font-bold text-lg">📋 Briefing Pre-Carrera</h3>
+                            <h3 className="text-white font-bold text-lg">📋 {b('titulo')}</h3>
                             <button
                                 onClick={() => setShowBriefing(false)}
                                 className="text-gray-400 hover:text-white transition-colors text-xl"
@@ -115,14 +119,14 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                 disabled={exporting}
                                 className="flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white px-4 py-3 rounded-lg font-bold transition-all text-sm"
                             >
-                                {exporting ? '⏳ Generando...' : '💾 Descargar PNG'}
+                                {exporting ? `⏳ ${b('generando')}` : `💾 ${b('descargar')}`}
                             </button>
                             <button
                                 onClick={handleCopyToClipboard}
                                 disabled={exporting}
                                 className="flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white px-4 py-3 rounded-lg font-bold transition-all text-sm"
                             >
-                                {exporting ? '⏳...' : '📋 Copiar'}
+                                {exporting ? '⏳...' : `📋 ${b('copiar')}`}
                             </button>
                         </div>
 
@@ -143,14 +147,14 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                         textAlign: 'center'
                                     }}>
                                         <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', marginBottom: '4px', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                                            📋 Briefing Pre-Carrera
+                                            📋 {b('titulo')}
                                         </div>
                                         <div style={{ fontSize: '20px', fontWeight: 'bold', color: 'white' }}>
-                                            {championship?.name || 'Campeonato'}
+                                            {championship?.name || b('campeonato')}
                                         </div>
                                         {championship?.season && (
                                             <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', marginTop: '2px' }}>
-                                                Temporada {championship.season}
+                                                {t('campeonato.temporada', { temporada: championship.season })}
                                             </div>
                                         )}
                                     </div>
@@ -165,7 +169,7 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                         textAlign: 'center'
                                     }}>
                                         <div style={{ fontSize: '14px', color: '#fb923c', fontWeight: 'bold', marginBottom: '4px' }}>
-                                            Ronda {nextRace.round} de {progress?.total || '?'}
+                                            {b('rondaDe', { n: nextRace.round, total: progress?.total || '?' })}
                                         </div>
                                         <div style={{ fontSize: '22px', fontWeight: 'bold', color: 'white', marginBottom: '6px' }}>
                                             🏁 {nextRace.name}
@@ -175,10 +179,10 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                         )}
                                         {nextRace.date && (
                                             <div style={{ fontSize: '14px', color: '#60a5fa', marginTop: '8px', fontWeight: '600' }}>
-                                                📅 {formatDateFull(nextRace.date)} · 🕐 {getRaceTime(championship, nextRace)}h (España)
+                                                📅 {formatDateFull(nextRace.date, locale)} · 🕐 {getRaceTime(championship, nextRace)}h ({t('campeonato.espana')})
                                                 {daysUntil !== null && daysUntil > 0 && (
                                                     <span style={{ color: '#fbbf24', marginLeft: '8px' }}>
-                                                        ({daysUntil} día{daysUntil !== 1 ? 's' : ''})
+                                                        ({b('dias', { n: daysUntil })})
                                                     </span>
                                                 )}
                                             </div>
@@ -191,11 +195,11 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                         {(nextRace.laps || nextRace.duration || nextRace.raceType) && (
                                             <InfoBox
                                                 icon="🏎️"
-                                                title="Formato"
+                                                title={b('formato')}
                                                 items={[
-                                                    nextRace.raceType === 'sprint_carrera' ? 'Sprint + Carrera' :
-                                                        nextRace.raceType === 'resistencia' ? 'Resistencia' : 'Carrera',
-                                                    nextRace.laps ? `${nextRace.laps} vueltas` : null,
+                                                    nextRace.raceType === 'sprint_carrera' ? b('sprintCarrera') :
+                                                        nextRace.raceType === 'resistencia' ? b('resistencia') : b('carrera'),
+                                                    nextRace.laps ? b('vueltas', { n: nextRace.laps }) : null,
                                                     nextRace.duration ? `${nextRace.duration} min` : null
                                                 ].filter(Boolean)}
                                             />
@@ -205,7 +209,7 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                         {nextRace.category && (
                                             <InfoBox
                                                 icon="🏷️"
-                                                title="Categoría"
+                                                title={b('categoria')}
                                                 items={[nextRace.category]}
                                             />
                                         )}
@@ -214,11 +218,11 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                         {(timeOfDay || rules.weather || timeMultiplier) && (
                                             <InfoBox
                                                 icon="🌦️"
-                                                title="Climatología"
+                                                title={b('climatologia')}
                                                 items={[
-                                                    timeOfDay,
-                                                    timeMultiplier ? `Escala de tiempo ${timeMultiplier}x` : null,
-                                                    t('weather')
+                                                    traducirSala(timeOfDay, lang),
+                                                    timeMultiplier ? b('escalaTiempo', { x: timeMultiplier }) : null,
+                                                    ajuste('weather')
                                                 ].filter(Boolean)}
                                             />
                                         )}
@@ -227,11 +231,11 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                         {(rules.tireWear || rules.fuelConsumption) && (
                                             <InfoBox
                                                 icon="⚙️"
-                                                title="Desgaste"
+                                                title={b('desgaste')}
                                                 items={[
-                                                    rules.tireWear ? `Neumáticos: ${t('tireWear')}` : null,
-                                                    rules.fuelConsumption ? `Combustible: ${t('fuelConsumption')}` : null,
-                                                    rules.fuelRefillRate ? `Recarga: ${t('fuelRefillRate')}` : null
+                                                    rules.tireWear ? `${b('neumaticos')}: ${ajuste('tireWear')}` : null,
+                                                    rules.fuelConsumption ? `${b('combustible')}: ${ajuste('fuelConsumption')}` : null,
+                                                    rules.fuelRefillRate ? `${b('recarga')}: ${ajuste('fuelRefillRate')}` : null
                                                 ].filter(Boolean)}
                                             />
                                         )}
@@ -240,7 +244,7 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                         {damageLabel && (
                                             <InfoBox
                                                 icon="💥"
-                                                title="Daños"
+                                                title={b('danos')}
                                                 items={[damageLabel]}
                                             />
                                         )}
@@ -249,11 +253,11 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                         {rules.tuningProhibited !== undefined && (
                                             <InfoBox
                                                 icon="⚖️"
-                                                title="Configuración"
+                                                title={b('configuracion')}
                                                 items={[
-                                                    `BoP: ${t('tuningProhibited')}`,
-                                                    rules.maxPR != null ? `Límite de PR: ${t('maxPR')}` : null,
-                                                    rules.maxCV != null ? `Potencia máx.: ${t('maxCV')}` : null,
+                                                    `BoP: ${ajuste('tuningProhibited')}`,
+                                                    rules.maxPR != null ? `${traducirSala('Límite de PR', lang)}: ${ajuste('maxPR')}` : null,
+                                                    rules.maxCV != null ? `${traducirSala('Potencia de salida máx.', lang)}: ${ajuste('maxCV')}` : null,
                                                 ].filter(Boolean)}
                                             />
                                         )}
@@ -269,7 +273,7 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                             marginBottom: '12px'
                                         }}>
                                             <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#fb923c', marginBottom: '6px' }}>
-                                                🛞 Neumáticos
+                                                🛞 {b('neumaticos')}
                                             </div>
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                                 {neumaticos.map((label, idx) => (
@@ -298,7 +302,7 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                             marginBottom: '12px'
                                         }}>
                                             <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#60a5fa', marginBottom: '6px' }}>
-                                                🚗 Coches Permitidos
+                                                🚗 {b('cochesPermitidos')}
                                             </div>
                                             {nextRace.allowedCars.map((car, idx) => (
                                                 <div key={idx} style={{ fontSize: '12px', color: '#93c5fd', marginBottom: '2px' }}>
@@ -318,14 +322,14 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                             marginBottom: '12px'
                                         }}>
                                             <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#ef4444', marginBottom: '6px' }}>
-                                                ⚠️ Penalizaciones
+                                                ⚠️ {b('penalizaciones')}
                                             </div>
                                             <div style={{ fontSize: '12px', color: '#fca5a5' }}>
-                                                {rules.penaltyShortcut && <div>• Atajos: {t('penaltyShortcut')}</div>}
-                                                {rules.penaltyWall && <div>• Choque contra muros: {t('penaltyWall')}</div>}
-                                                {rules.penaltyPitLine && <div>• Cruzar la línea de boxes: {t('penaltyPitLine')}</div>}
-                                                {rules.penaltyCarCollision && <div>• Choque con autos: {t('penaltyCarCollision')}</div>}
-                                                {rules.ghostCar !== undefined && <div>• Fantasmas: {t('ghostCar')}</div>}
+                                                {rules.penaltyShortcut && <div>• {b('atajos')}: {ajuste('penaltyShortcut')}</div>}
+                                                {rules.penaltyWall && <div>• {b('muros')}: {ajuste('penaltyWall')}</div>}
+                                                {rules.penaltyPitLine && <div>• {b('lineaBoxes')}: {ajuste('penaltyPitLine')}</div>}
+                                                {rules.penaltyCarCollision && <div>• {b('choqueAutos')}: {ajuste('penaltyCarCollision')}</div>}
+                                                {rules.ghostCar !== undefined && <div>• {b('fantasmas')}: {ajuste('ghostCar')}</div>}
                                             </div>
                                         </div>
                                     )}
@@ -340,14 +344,14 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                             marginBottom: '12px'
                                         }}>
                                             <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#a78bfa', marginBottom: '6px' }}>
-                                                📺 {transmisiones.length > 1 ? 'Transmisiones' : 'Transmisión'}
+                                                📺 {transmisiones.length > 1 ? b('transmisiones') : t('campeonato.transmision')}
                                             </div>
-                                            {transmisiones.map(t => (
-                                                <div key={t.url} style={{ fontSize: '12px', color: '#c4b5fd', marginTop: '4px' }}>
-                                                    🎙️ <span style={{ color: 'white', fontWeight: 'bold' }}>{t.caster}</span>
-                                                    {t.plataforma && <span> · {t.plataforma.icon} {t.plataforma.label}</span>}
-                                                    {t.salas.length > 0 && <span> · {t.salas.map(x => x.name).join(', ')}</span>}
-                                                    {t.hosts.length > 0 && <span> · 🏠 {t.hosts.join(', ')}</span>}
+                                            {transmisiones.map(tm => (
+                                                <div key={tm.url} style={{ fontSize: '12px', color: '#c4b5fd', marginTop: '4px' }}>
+                                                    🎙️ <span style={{ color: 'white', fontWeight: 'bold' }}>{tm.caster}</span>
+                                                    {tm.plataforma && <span> · {tm.plataforma.icon} {tm.plataforma.label}</span>}
+                                                    {tm.salas.length > 0 && <span> · {tm.salas.map(x => x.name).join(', ')}</span>}
+                                                    {tm.hosts.length > 0 && <span> · 🏠 {tm.hosts.join(', ')}</span>}
                                                 </div>
                                             ))}
                                         </div>
@@ -364,10 +368,10 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                             marginBottom: '12px'
                                         }}>
                                             <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#9ca3af', marginBottom: '6px' }}>
-                                                🌤️ Clima durante la carrera
+                                                🌤️ {traducirSala('Clima durante la carrera', lang)}
                                             </div>
                                             <div style={{ fontSize: '12px', color: '#9ca3af' }}>
-                                                {t('weatherSlots')}
+                                                {ajuste('weatherSlots')}
                                             </div>
                                         </div>
                                     )}
@@ -385,7 +389,7 @@ export default function RaceBriefing({ nextRace, championship, progress, transmi
                                             GT7 Championships • imsa.trenkit.com
                                         </div>
                                         <div style={{ fontSize: '11px', color: '#6b7280' }}>
-                                            {progress?.completed || 0}/{progress?.total || 0} completadas
+                                            {b('completadas', { a: progress?.completed || 0, total: progress?.total || 0 })}
                                         </div>
                                     </div>
                                 </div>

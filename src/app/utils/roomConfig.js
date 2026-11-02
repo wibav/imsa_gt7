@@ -18,6 +18,7 @@
  */
 
 import { TYRE_OPTIONS, WEATHER_TIME_OPTIONS, WEATHER_TRANSITION_OPTIONS, climaVisible } from './constants.js';
+import { traducirSala, frasesSala, localeSala } from './roomConfigI18n.js';
 
 const SI_NO = (si = 'Activado', no = 'Desactivado') => [{ value: true, label: si }, { value: false, label: no }];
 const PROHIBIDO_SIN_LIMITE = [{ value: 'prohibited', label: 'Prohibido' }, { value: 'unlimited', label: 'Sin límite' }];
@@ -377,25 +378,28 @@ export function normalizarReglas(reglas = {}) {
 
 // ── Mostrar ─────────────────────────────────────────────────────────────────
 
-const etiquetaCompuestos = (lista, vacio) => {
-    if (!Array.isArray(lista) || lista.length === 0) return vacio;
-    if (lista.length === 3) return 'Todo';
-    return COMPUESTOS.filter(c => lista.includes(c.value)).map(c => c.label).join(', ');
+const etiquetaCompuestos = (lista, vacio, lang = 'es') => {
+    if (!Array.isArray(lista) || lista.length === 0) return traducirSala(vacio, lang);
+    if (lista.length === 3) return traducirSala('Todo', lang);
+    return COMPUESTOS.filter(c => lista.includes(c.value)).map(c => traducirSala(c.label, lang)).join(', ');
 };
 
-const numeroES = (n) => Number(n).toLocaleString('es-ES', { maximumFractionDigits: 2 });
+const numeroES = (n, lang = 'es') => Number(n).toLocaleString(localeSala(lang), { maximumFractionDigits: 2 });
 
 /**
  * Texto de un campo tal como lo muestra el juego, o null si no hay nada que
- * mostrar (campo no definido en esta carrera).
+ * mostrar (campo no definido en esta carrera). `lang` traduce la parte
+ * pública (ver roomConfigI18n.js); el admin usa siempre el español.
  */
-export function valorVisible(campo, reglas, track = {}) {
+export function valorVisible(campo, reglas, track = {}, lang = 'es') {
+    const tr = (texto) => traducirSala(texto, lang);
+    const frases = frasesSala(lang);
     if (campo.id === '__category') return track.category || null;
     if (campo.id === '__victoria') {
         if (track.victoria !== undefined) return track.victoria || null;
-        if (track.raceType === 'resistencia' && track.duration) return `Límite de tiempo (${track.duration} min)`;
-        if (track.raceType === 'sprint_carrera') return `Sprint ${track.sprintLaps || '?'} vueltas + carrera ${track.laps || '?'} vueltas`;
-        if (track.laps) return `${track.laps} vuelta${track.laps === 1 ? '' : 's'}`;
+        if (track.raceType === 'resistencia' && track.duration) return frases.limiteTiempo(track.duration);
+        if (track.raceType === 'sprint_carrera') return frases.sprint(track.sprintLaps || '?', track.laps || '?');
+        if (track.laps) return frases.vueltas(track.laps);
         return null;
     }
     const v = reglas[campo.id];
@@ -404,30 +408,30 @@ export function valorVisible(campo, reglas, track = {}) {
         case 'select': {
             if (v === undefined || v === null || v === '') {
                 const vacia = campo.opciones.find(o => o.value === '');
-                return vacia && v === '' ? vacia.label : null;
+                return vacia && v === '' ? tr(vacia.label) : null;
             }
             const op = campo.opciones.find(o => o.value === v);
-            return op ? op.label : String(v);
+            return op ? tr(op.label) : String(v);
         }
         case 'multiplicador':
-            if (v === IGUAL_QUE_CARRERA) return 'Igual que durante la carrera';
+            if (v === IGUAL_QUE_CARRERA) return tr('Igual que durante la carrera');
             if (v === undefined || v === null || v === '') return null;
-            return `${numeroES(v)}x`;
+            return `${numeroES(v, lang)}x`;
         case 'numero':
-            if (v === IGUAL_QUE_CARRERA) return 'Igual que durante la carrera';
+            if (v === IGUAL_QUE_CARRERA) return tr('Igual que durante la carrera');
             if (v === undefined || v === '' || (v === null && !campo.vacio) || (campo.ceroEsVacio && v === 0)) {
-                return campo.vacio && v !== undefined ? campo.vacio : null;
+                return campo.vacio && v !== undefined ? tr(campo.vacio) : null;
             }
-            if (v === null) return campo.vacio;
-            return campo.unidad ? `${numeroES(v)} ${campo.unidad}` : numeroES(v);
+            if (v === null) return tr(campo.vacio);
+            return campo.unidad ? `${numeroES(v, lang)} ${tr(campo.unidad)}` : numeroES(v, lang);
         case 'compuestos':
             if (v === undefined) return null;
-            return etiquetaCompuestos(v, campo.vacioEsNinguno ? '--' : 'Todo');
+            return etiquetaCompuestos(v, campo.vacioEsNinguno ? '--' : 'Todo', lang);
         case 'ajustes': {
             if (!Array.isArray(v)) return null;
-            if (v.length === 0) return 'Ninguna';
-            if (v.length === TODOS_LOS_AJUSTES.length) return 'Todas';
-            return `Algunas: ${v.join(', ')}`;
+            if (v.length === 0) return tr('Ninguna');
+            if (v.length === TODOS_LOS_AJUSTES.length) return tr('Todas');
+            return `${tr('Algunas')}: ${v.map(tr).join(', ')}`;
         }
         case 'clima': {
             // Eventos antiguos: códigos de preset escritos a mano ("S18/C05/R07").
@@ -435,7 +439,7 @@ export function valorVisible(campo, reglas, track = {}) {
             if (!Array.isArray(v) || v.length === 0) return null;
             return v.map(s => {
                 const { icon, texto } = climaVisible(typeof s === 'string' ? s : s?.weather);
-                return `${icon} ${texto}`;
+                return `${icon} ${tr(texto)}`;
             }).join(' → ');
         }
         default:
@@ -447,15 +451,15 @@ export function valorVisible(campo, reglas, track = {}) {
  * Secciones con los campos que tienen algo que mostrar, para la ficha pública.
  * @returns {Array<{id, titulo, campos: Array<{id, etiqueta, valor, ancho}>}>}
  */
-export function seccionesVisibles(track = {}) {
+export function seccionesVisibles(track = {}, lang = 'es') {
     const reglas = normalizarReglas(track.rules || {});
     return SECCIONES_SALA
         .map(s => ({
             id: s.id,
-            titulo: s.titulo,
+            titulo: traducirSala(s.titulo, lang),
             campos: s.campos
                 .filter(c => !c.visibleSi || c.visibleSi(reglas, track))
-                .map(c => ({ id: c.id, etiqueta: c.etiqueta, valor: valorVisible(c, reglas, track), ancho: c.ancho }))
+                .map(c => ({ id: c.id, etiqueta: traducirSala(c.etiqueta, lang), valor: valorVisible(c, reglas, track, lang), ancho: c.ancho }))
                 .filter(c => c.valor !== null && c.valor !== undefined),
         }))
         .filter(s => s.campos.length > 0);
@@ -466,10 +470,10 @@ export function seccionesVisibles(track = {}) {
  * Para quien necesita un par de valores sueltos (el briefing, las etiquetas
  * del calendario) sin pintar toda la configuración.
  */
-export function textoAjuste(track = {}, id, reglasNormalizadas = null) {
+export function textoAjuste(track = {}, id, reglasNormalizadas = null, lang = 'es') {
     const reglas = reglasNormalizadas || normalizarReglas(track.rules || {});
     const campo = SECCIONES_SALA.flatMap(sec => sec.campos).find(c => c.id === id);
-    return campo ? valorVisible(campo, reglas, track) : null;
+    return campo ? valorVisible(campo, reglas, track, lang) : null;
 }
 
 /**

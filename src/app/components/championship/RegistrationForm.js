@@ -6,6 +6,7 @@ import { sendTelegramNotification } from '../../utils/telegram';
 import { isRegulationsEmpty } from '../../utils/regulations';
 import RegulationsPdfButton from './RegulationsPdfButton';
 import SimilarPilotHint from '../common/SimilarPilotHint';
+import { useI18n } from '../../i18n';
 
 /**
  * Formulario público de inscripción a un campeonato.
@@ -16,6 +17,7 @@ import SimilarPilotHint from '../common/SimilarPilotHint';
  * El modo equipo se activa cuando isTeamChampionship || isMultiCategory.
  */
 export default function RegistrationForm({ championship, onClose, onSuccess }) {
+    const { t, locale } = useI18n();
     const registration = championship.registration || {};
     const settings = championship.settings || {};
     const isTeamMode = !!(settings.isTeamChampionship || settings.isMultiCategory);
@@ -59,23 +61,23 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
 
     // ── Validación modo equipo ──
     const validateTeam = () => {
-        if (!teamName.trim()) return 'El nombre del equipo es obligatorio';
+        if (!teamName.trim()) return t('formularios.inscripcion.errNombreEquipo');
 
         for (let i = 0; i < teamDrivers.length; i++) {
             const d = teamDrivers[i];
-            if (!d.gt7Id.trim()) return `GT7 ID del Piloto ${i + 1} es obligatorio`;
+            if (!d.gt7Id.trim()) return t('formularios.inscripcion.errGt7Piloto', { n: i + 1 });
         }
 
         if (requiredCategories.length > 0) {
             const usedCategories = teamDrivers.map(d => d.category).filter(Boolean);
             for (const cat of requiredCategories) {
-                if (!usedCategories.includes(cat)) return `Falta un piloto en la categoría ${cat}`;
+                if (!usedCategories.includes(cat)) return t('formularios.inscripcion.errFaltaCategoria', { cat });
             }
             const dupes = usedCategories.filter((c, i) => usedCategories.indexOf(c) !== i);
-            if (dupes.length > 0) return `La categoría "${dupes[0]}" está asignada a más de un piloto`;
+            if (dupes.length > 0) return t('formularios.inscripcion.errCategoriaRepetida', { cat: dupes[0] });
         }
 
-        if (registration.acceptRules && !formData.acceptedRules) return 'Debes aceptar el reglamento del campeonato';
+        if (registration.acceptRules && !formData.acceptedRules) return t('formularios.inscripcion.errReglamento');
 
         return null;
     };
@@ -90,10 +92,10 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
             if (teamError) { setError(teamError); return; }
         } else {
             if (fields.includes('gt7Id') && !formData.gt7Id.trim()) {
-                setError('El GT7 ID es obligatorio'); return;
+                setError(t('formularios.inscripcion.errGt7')); return;
             }
             if (registration.acceptRules && !formData.acceptedRules) {
-                setError('Debes aceptar el reglamento del campeonato'); return;
+                setError(t('formularios.inscripcion.errReglamento')); return;
             }
         }
 
@@ -144,7 +146,7 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
             setSuccess(true);
             onSuccess?.();
         } catch (err) {
-            setError(err.message || 'Error al enviar la inscripción');
+            setError(err.message || t('formularios.inscripcion.errEnviar'));
         } finally {
             setSubmitting(false);
         }
@@ -160,9 +162,9 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
             <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                 <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 rounded-xl border border-white/30 shadow-2xl w-full max-w-md p-8 text-center">
                     <div className="text-5xl mb-4">⏰</div>
-                    <h3 className="text-xl font-bold text-white mb-2">Plazo vencido</h3>
-                    <p className="text-gray-300 mb-6">El plazo de inscripción para este campeonato ha finalizado.</p>
-                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-all">Cerrar</button>
+                    <h3 className="text-xl font-bold text-white mb-2">{t('formularios.inscripcion.plazoVencido')}</h3>
+                    <p className="text-gray-300 mb-6">{t('formularios.inscripcion.plazoVencidoTexto')}</p>
+                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-all">{t('campeonato.cerrar')}</button>
                 </div>
             </div>
         );
@@ -173,9 +175,9 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
             <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                 <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 rounded-xl border border-white/30 shadow-2xl w-full max-w-md p-8 text-center">
                     <div className="text-5xl mb-4">🚫</div>
-                    <h3 className="text-xl font-bold text-white mb-2">Cupo lleno</h3>
-                    <p className="text-gray-300 mb-6">Se ha alcanzado el número máximo de participantes.</p>
-                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-all">Cerrar</button>
+                    <h3 className="text-xl font-bold text-white mb-2">{t('formularios.inscripcion.cupoLleno')}</h3>
+                    <p className="text-gray-300 mb-6">{t('formularios.inscripcion.cupoLlenoTexto')}</p>
+                    <button onClick={onClose} className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-all">{t('campeonato.cerrar')}</button>
                 </div>
             </div>
         );
@@ -187,14 +189,14 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                 <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 rounded-xl border border-white/30 shadow-2xl w-full max-w-md p-8 text-center">
                     <div className="text-5xl mb-4">✅</div>
                     <h3 className="text-xl font-bold text-white mb-2">
-                        {registration.requiresApproval ? '¡Inscripción enviada!' : '¡Inscripción confirmada!'}
+                        {registration.requiresApproval ? t('formularios.inscripcion.enviada') : t('formularios.inscripcion.confirmada')}
                     </h3>
                     <p className="text-gray-300 mb-4">
                         {registration.requiresApproval
-                            ? 'Tu solicitud será revisada por los administradores. Te notificaremos cuando sea aprobada.'
+                            ? t('formularios.inscripcion.revision')
                             : isTeamMode
-                                ? '¡El equipo está registrado! Ya pueden participar en el campeonato.'
-                                : '¡Bienvenido al campeonato! Ya estás registrado.'}
+                                ? t('formularios.inscripcion.equipoRegistrado')
+                                : t('formularios.inscripcion.bienvenido')}
                     </p>
 
                     {/* Si el campeonato exige declarar autos, es un paso pendiente con
@@ -205,19 +207,19 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                         && (
                             <div className="mb-6 p-4 bg-orange-900/30 border border-orange-500/40 rounded-lg text-left">
                                 <p className="text-orange-200 text-sm font-semibold mb-1">
-                                    🚗 Te falta un paso: declarar tus autos
+                                    🚗 {t('formularios.inscripcion.faltaPaso')}
                                 </p>
                                 <p className="text-orange-100/80 text-xs">
-                                    Este campeonato limita a {championship.carUsageTracking.maxCarsPerDriver ?? 3} autos por piloto.
-                                    {championship.carUsageTracking.declarationDeadline
-                                        ? ` Tienes hasta el ${new Date(championship.carUsageTracking.declarationDeadline + 'T23:59:59').toLocaleDateString('es-ES')} para declararlos`
-                                        : ' Declara los tuyos'} en la pestaña <strong>Información → Uso de Autos</strong>.
+                                    {t('formularios.inscripcion.limitaAutos', { n: championship.carUsageTracking.maxCarsPerDriver ?? 3 })}
+                                    {' '}{championship.carUsageTracking.declarationDeadline
+                                        ? t('formularios.inscripcion.tienesHasta', { fecha: new Date(championship.carUsageTracking.declarationDeadline + 'T23:59:59').toLocaleDateString(locale) })
+                                        : t('formularios.inscripcion.declaraLosTuyos')}{' '}{t('formularios.inscripcion.enLaPestana')} <strong>{t('formularios.inscripcion.rutaUsoAutos')}</strong>.
                                 </p>
                             </div>
                         )}
                     <button onClick={onClose}
                         className="px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg transition-all font-bold">
-                        Entendido
+                        {t('formularios.inscripcion.entendido')}
                     </button>
                 </div>
             </div>
@@ -226,19 +228,19 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
 
     // Configuración de campos individuales
     const fieldConfig = {
-        gt7Id: { label: 'GT7 ID', type: 'text', placeholder: 'Tu GT7 ID (nombre en el juego)', required: true },
-        psnId: { label: 'PSN ID', type: 'text', placeholder: 'Tu ID de PlayStation Network' },
-        country: { label: 'País', type: 'text', placeholder: 'Ej: Guatemala, México...' },
+        gt7Id: { label: 'GT7 ID', type: 'text', placeholder: t('formularios.inscripcion.phGt7'), required: true },
+        psnId: { label: 'PSN ID', type: 'text', placeholder: t('formularios.inscripcion.phPsn') },
+        country: { label: t('formularios.inscripcion.pais'), type: 'text', placeholder: t('formularios.inscripcion.phPais') },
         experience: {
-            label: 'Experiencia', type: 'select', options: [
-                { value: '', label: 'Selecciona...' },
-                { value: 'beginner', label: 'Principiante' },
-                { value: 'intermediate', label: 'Intermedio' },
-                { value: 'advanced', label: 'Avanzado' },
-                { value: 'pro', label: 'Profesional' }
+            label: t('formularios.inscripcion.experiencia'), type: 'select', options: [
+                { value: '', label: t('formularios.inscripcion.selecciona') },
+                { value: 'beginner', label: t('formularios.inscripcion.principiante') },
+                { value: 'intermediate', label: t('formularios.inscripcion.intermedio') },
+                { value: 'advanced', label: t('formularios.inscripcion.avanzado') },
+                { value: 'pro', label: t('formularios.inscripcion.profesional') }
             ]
         },
-        preferredCar: { label: 'Auto preferido', type: 'text', placeholder: 'Ej: Toyota GR Supra, Mazda RX-Vision...' }
+        preferredCar: { label: t('formularios.inscripcion.autoPreferido'), type: 'text', placeholder: t('formularios.inscripcion.phAuto') }
     };
     const visibleFields = fields.includes('gt7Id') ? fields : ['gt7Id', ...fields];
 
@@ -254,7 +256,7 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                     <div className="flex justify-between items-center">
                         <div>
                             <h3 className="text-2xl font-bold text-white">
-                                {isTeamMode ? '👥 Inscripción de Equipo' : '📝 Inscripción'}
+                                {isTeamMode ? `👥 ${t('formularios.inscripcion.tituloEquipo')}` : `📝 ${t('formularios.inscripcion.titulo')}`}
                             </h3>
                             <p className="text-gray-300 text-sm mt-1">{championship.name}</p>
                         </div>
@@ -265,17 +267,17 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                     <div className="flex flex-wrap gap-3 mt-4 text-sm">
                         {registration.maxParticipants > 0 && (
                             <span className="px-3 py-1 bg-blue-600/30 border border-blue-400/50 text-blue-200 rounded-full">
-                                👥 {approvedCount}/{registration.maxParticipants} cupos
+                                👥 {t('formularios.inscripcion.cupos', { a: approvedCount, total: registration.maxParticipants })}
                             </span>
                         )}
                         {registration.deadline && (
                             <span className="px-3 py-1 bg-orange-600/30 border border-orange-400/50 text-orange-200 rounded-full">
-                                📅 Hasta {new Date(registration.deadline).toLocaleDateString('es-ES')}
+                                📅 {t('campeonato.inscripcion.hasta', { fecha: new Date(registration.deadline).toLocaleDateString(locale) })}
                             </span>
                         )}
                         {registration.requiresApproval && (
                             <span className="px-3 py-1 bg-yellow-600/30 border border-yellow-400/50 text-yellow-200 rounded-full">
-                                ⏳ Requiere aprobación
+                                ⏳ {t('formularios.inscripcion.requiereAprobacion')}
                             </span>
                         )}
                         {isTeamMode && requiredCategories.length > 0 && (
@@ -300,13 +302,13 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                             {/* Nombre del equipo */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                                    Nombre del Equipo <span className="text-red-400">*</span>
+                                    {t('formularios.inscripcion.nombreEquipo')} <span className="text-red-400">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     value={teamName}
                                     onChange={e => setTeamName(e.target.value)}
-                                    placeholder="Ej: Velocidad Total Racing"
+                                    placeholder={t('formularios.inscripcion.phEquipo')}
                                     className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 />
                             </div>
@@ -315,7 +317,7 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                             {teamDrivers.map((driver, idx) => (
                                 <div key={idx} className="border border-white/20 rounded-xl p-4 bg-white/5 space-y-3">
                                     <h4 className="text-sm font-bold text-orange-300 uppercase tracking-wide">
-                                        Piloto {idx + 1}
+                                        {t('formularios.inscripcion.piloto', { n: idx + 1 })}
                                         {driver.category && (
                                             <span className="ml-2 px-2 py-0.5 bg-orange-600/30 rounded-full text-orange-200 text-xs normal-case">
                                                 {driver.category}
@@ -332,7 +334,7 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                                                 type="text"
                                                 value={driver.gt7Id}
                                                 onChange={e => handleDriverChange(idx, 'gt7Id', e.target.value)}
-                                                placeholder="GT7 ID en el juego"
+                                                placeholder={t('formularios.inscripcion.phGt7Corto')}
                                                 className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                                             />
                                             <SimilarPilotHint
@@ -346,7 +348,7 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                                                 type="text"
                                                 value={driver.psnId}
                                                 onChange={e => handleDriverChange(idx, 'psnId', e.target.value)}
-                                                placeholder="ID de PlayStation"
+                                                placeholder={t('formularios.inscripcion.phPsnCorto')}
                                                 className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                                             />
                                         </div>
@@ -356,14 +358,14 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                                     {allCategories.length > 0 && (
                                         <div>
                                             <label className="block text-xs text-gray-400 mb-1">
-                                                Categoría {requiredCategories.length > 0 && <span className="text-red-400">*</span>}
+                                                {t('formularios.inscripcion.categoria')} {requiredCategories.length > 0 && <span className="text-red-400">*</span>}
                                             </label>
                                             <select
                                                 value={driver.category}
                                                 onChange={e => handleDriverChange(idx, 'category', e.target.value)}
                                                 className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
                                             >
-                                                <option value="" className="bg-slate-800">Seleccionar categoría...</option>
+                                                <option value="" className="bg-slate-800">{t('formularios.inscripcion.seleccionarCategoria')}</option>
                                                 {allCategories.map(cat => (
                                                     <option
                                                         key={cat}
@@ -374,7 +376,7 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                                                             teamDrivers.some((d, i) => i !== idx && d.category === cat)
                                                         }
                                                     >
-                                                        {cat}{teamDrivers.some((d, i) => i !== idx && d.category === cat) ? ' (ya asignada)' : ''}
+                                                        {cat}{teamDrivers.some((d, i) => i !== idx && d.category === cat) ? ` (${t('formularios.inscripcion.yaAsignada')})` : ''}
                                                     </option>
                                                 ))}
                                             </select>
@@ -386,7 +388,7 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                             {/* Hint de categorías requeridas */}
                             {requiredCategories.length > 0 && (
                                 <p className="text-xs text-gray-400">
-                                    ℹ️ Este campeonato requiere un piloto por categoría: <strong className="text-gray-200">{requiredCategories.join(', ')}</strong>
+                                    ℹ️ {t('formularios.inscripcion.unoPorCategoria')}: <strong className="text-gray-200">{requiredCategories.join(', ')}</strong>
                                 </p>
                             )}
                         </>
@@ -450,7 +452,7 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                                     onChange={handleChange}
                                     className="mt-1 w-4 h-4 accent-orange-500" />
                                 <span className="text-sm text-gray-300">
-                                    He leído y acepto el{' '}
+                                    {t('formularios.inscripcion.heLeido')}{' '}
                                     {hasRegulations ? (
                                         <a
                                             href={`/championships/?id=${championship.id}#reglamento`}
@@ -459,12 +461,12 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                                             onClick={e => e.stopPropagation()}
                                             className="text-orange-400 font-medium underline hover:text-orange-300"
                                         >
-                                            reglamento del campeonato
+                                            {t('formularios.inscripcion.reglamentoCampeonato')}
                                         </a>
                                     ) : (
-                                        <span className="text-orange-400 font-medium">reglamento del campeonato</span>
+                                        <span className="text-orange-400 font-medium">{t('formularios.inscripcion.reglamentoCampeonato')}</span>
                                     )}
-                                    {' '}y me comprometo a seguir las reglas establecidas.
+                                    {' '}{t('formularios.inscripcion.meComprometo')}
                                 </span>
                             </label>
                             {hasRegulations && (
@@ -477,11 +479,11 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                     <div className="flex gap-3 pt-2">
                         <button type="button" onClick={onClose}
                             className="flex-1 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-all font-medium">
-                            Cancelar
+                            {t('formularios.inscripcion.cancelar')}
                         </button>
                         <button type="submit" disabled={submitting}
                             className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-lg transition-all font-bold disabled:opacity-50">
-                            {submitting ? 'Enviando...' : isTeamMode ? '👥 Inscribir Equipo' : '🏁 Inscribirme'}
+                            {submitting ? t('formularios.inscripcion.enviando') : isTeamMode ? `👥 ${t('formularios.inscripcion.inscribirEquipo')}` : `🏁 ${t('campeonato.inscripcion.inscribirme')}`}
                         </button>
                     </div>
                 </form>

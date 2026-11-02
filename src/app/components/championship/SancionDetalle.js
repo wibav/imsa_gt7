@@ -1,5 +1,6 @@
 "use client";
 import { NIVELES_DANOS } from '../../models/Penalty';
+import { useI18n } from '../../i18n';
 
 /** Puntos que resta un preset: los del nivel de daños elegido, o los fijos. */
 export function puntosBase(preset, nivel) {
@@ -78,15 +79,17 @@ export default function SancionDetalle({ preset, nivel, onNivel, posiciones, onP
 
 /** Efecto de una sanción ya impuesta, para los listados. */
 export function EfectoSancion({ penalty, compacto = false }) {
-    const nivel = Number.isInteger(penalty.damageLevel) ? NIVELES_DANOS[penalty.damageLevel] : null;
+    const { t } = useI18n();
+    const niveles = t('sanciones.nivelesDanos');
+    const nivel = Number.isInteger(penalty.damageLevel) ? (niveles[penalty.damageLevel] || NIVELES_DANOS[penalty.damageLevel]) : null;
     return (
         <div className={`flex flex-col items-end gap-0.5 ${compacto ? '' : 'gap-1'}`}>
             {penalty.type === 'disqualification' && <span className="text-red-400 font-bold text-sm">DSQ</span>}
-            {penalty.type === 'position' && penalty.positionsLost > 0 && <span className="text-orange-400 font-bold text-sm">-{penalty.positionsLost} pos.</span>}
+            {penalty.type === 'position' && penalty.positionsLost > 0 && <span className="text-orange-400 font-bold text-sm">-{penalty.positionsLost} {t('sanciones.pos')}</span>}
             {penalty.points > 0 && <span className="text-red-400 font-bold text-sm">-{penalty.points} pts</span>}
             {penalty.warningPoints > 0 && <span className="text-yellow-400 text-xs">+{penalty.warningPoints} ⚠️</span>}
             {nivel && <span className="text-gray-500 text-[11px]">{nivel}</span>}
-            {penalty.article && <span className="text-gray-500 text-[11px]">art. {penalty.article}</span>}
+            {penalty.article && <span className="text-gray-500 text-[11px]">{t('sanciones.art', { art: penalty.article })}</span>}
         </div>
     );
 }

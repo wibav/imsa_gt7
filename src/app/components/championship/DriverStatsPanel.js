@@ -1,11 +1,13 @@
 "use client";
 import PilotTeamAvatar from '../common/PilotTeamAvatar';
+import { useI18n } from '../../i18n';
 
 /**
  * Panel de estadísticas detalladas de pilotos.
  * Muestra rankings por victorias, podiums, poles, vueltas rápidas y récords.
  */
 export default function DriverStatsPanel({ driverStandings = [], stats = null, driverGt7Map = {} }) {
+    const { t } = useI18n();
     // Igual que StandingsTable: se muestra el GT7 ID, no el psnId con el que
     // el piloto pudiera haberse inscrito.
     const nombre = (n) => driverGt7Map[n] || n;
@@ -13,7 +15,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null, d
         return (
             <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
                 <div className="text-4xl mb-3">📈</div>
-                <p className="text-gray-400">Sin estadísticas disponibles aún</p>
+                <p className="text-gray-400">{t('componentes.stats.sinStats')}</p>
             </div>
         );
     }
@@ -29,7 +31,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null, d
                         <div className="bg-gradient-to-br from-yellow-600/20 to-amber-600/20 border border-yellow-500/30 rounded-xl p-5">
                             <div className="text-2xl mb-2">🔥</div>
                             <div className="text-yellow-400 text-xs font-semibold uppercase tracking-wider mb-1">
-                                Mejor Puntuación en Carrera
+                                {t('componentes.stats.mejorPuntuacion')}
                             </div>
                             <div className="text-white font-bold text-lg flex items-center gap-2"><PilotTeamAvatar name={nombre(records.bestSingleRace.driver)} aliases={[records.bestSingleRace.driver]} />{nombre(records.bestSingleRace.driver)}</div>
                             <div className="text-yellow-300 text-2xl font-bold">{records.bestSingleRace.points} pts</div>
@@ -39,13 +41,13 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null, d
                         <div className="bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-blue-500/30 rounded-xl p-5">
                             <div className="text-2xl mb-2">📊</div>
                             <div className="text-blue-400 text-xs font-semibold uppercase tracking-wider mb-1">
-                                Más Consistente
+                                {t('componentes.stats.masConsistente')}
                             </div>
                             <div className="text-white font-bold text-lg flex items-center gap-2"><PilotTeamAvatar name={nombre(records.mostConsistent.name)} aliases={[records.mostConsistent.name]} />{nombre(records.mostConsistent.name)}</div>
                             <div className="text-blue-300 text-2xl font-bold">
                                 {records.mostConsistent.races > 0
                                     ? (records.mostConsistent.totalPoints / records.mostConsistent.races).toFixed(1)
-                                    : '0'} pts/carrera
+                                    : '0'} {t('componentes.stats.ptsCarrera')}
                             </div>
                         </div>
                     )}
@@ -53,7 +55,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null, d
                         <div className="bg-gradient-to-br from-red-600/20 to-rose-600/20 border border-red-500/30 rounded-xl p-5">
                             <div className="text-2xl mb-2">💥</div>
                             <div className="text-red-400 text-xs font-semibold uppercase tracking-wider mb-1">
-                                Más Abandonos
+                                {t('componentes.stats.masAbandonos')}
                             </div>
                             <div className="text-white font-bold text-lg flex items-center gap-2"><PilotTeamAvatar name={nombre(records.mostDNFs.name)} aliases={[records.mostDNFs.name]} />{nombre(records.mostDNFs.name)}</div>
                             <div className="text-red-300 text-2xl font-bold">{records.mostDNFs.dnfs} DNFs</div>
@@ -67,7 +69,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null, d
                 {/* Top Victorias */}
                 <StatRankingCard
                     driverGt7Map={driverGt7Map}
-                    title="Victorias"
+                    title={t('componentes.tabla.victorias')}
                     icon="🏆"
                     items={topWinners}
                     valueKey="wins"
@@ -77,7 +79,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null, d
                 {/* Top Podiums */}
                 <StatRankingCard
                     driverGt7Map={driverGt7Map}
-                    title="Podiums"
+                    title={t('componentes.tabla.podios')}
                     icon="🥇"
                     items={topPodiums}
                     valueKey="podiums"
@@ -87,7 +89,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null, d
                 {/* Top Poles */}
                 <StatRankingCard
                     driverGt7Map={driverGt7Map}
-                    title="Pole Positions"
+                    title={t('componentes.tabla.poles')}
                     icon="⚡"
                     items={topPoles}
                     valueKey="poles"
@@ -97,7 +99,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null, d
                 {/* Top Vueltas Rápidas */}
                 <StatRankingCard
                     driverGt7Map={driverGt7Map}
-                    title="Vueltas Rápidas"
+                    title={t('componentes.tabla.vueltasRapidas')}
                     icon="⏱️"
                     items={topFastestLaps}
                     valueKey="fastestLaps"
@@ -110,7 +112,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null, d
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl overflow-hidden border border-white/10">
                 <div className="p-4 border-b border-white/10">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                        📊 Estadísticas Completas
+                        📊 {t('componentes.stats.completas')}
                     </h3>
                 </div>
                 <div className="overflow-x-auto">
@@ -118,15 +120,15 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null, d
                         <thead className="bg-white/5 text-gray-300 text-xs uppercase">
                             <tr>
                                 <th className="px-4 py-3 text-left">#</th>
-                                <th className="px-4 py-3 text-left">Piloto</th>
-                                <th className="px-4 py-3 text-left hidden md:table-cell">Equipo</th>
-                                <th className="px-4 py-3 text-center">Carr</th>
-                                <th className="px-4 py-3 text-center" title="Victorias">Vic</th>
-                                <th className="px-4 py-3 text-center" title="Podiums">Pod</th>
+                                <th className="px-4 py-3 text-left">{t('componentes.tabla.piloto')}</th>
+                                <th className="px-4 py-3 text-left hidden md:table-cell">{t('componentes.tabla.equipo')}</th>
+                                <th className="px-4 py-3 text-center">{t('componentes.stats.carr')}</th>
+                                <th className="px-4 py-3 text-center" title={t('componentes.tabla.victorias')}>{t('componentes.stats.vic')}</th>
+                                <th className="px-4 py-3 text-center" title={t('componentes.tabla.podios')}>{t('componentes.stats.pod')}</th>
                                 <th className="px-4 py-3 text-center" title="Poles">Pole</th>
-                                <th className="px-4 py-3 text-center" title="Vueltas Rápidas">VR</th>
+                                <th className="px-4 py-3 text-center" title={t('componentes.tabla.vueltasRapidas')}>{t('componentes.stats.vr')}</th>
                                 <th className="px-4 py-3 text-center hidden sm:table-cell" title="DNFs">DNF</th>
-                                <th className="px-4 py-3 text-center hidden sm:table-cell" title="Mejor Posición">Mejor</th>
+                                <th className="px-4 py-3 text-center hidden sm:table-cell" title={t('componentes.stats.mejorPosicion')}>{t('componentes.stats.mejor')}</th>
                                 <th className="px-4 py-3 text-right">Pts</th>
                             </tr>
                         </thead>
@@ -180,6 +182,7 @@ export default function DriverStatsPanel({ driverStandings = [], stats = null, d
  * Card de ranking para una estadística específica.
  */
 function StatRankingCard({ title, icon, items, valueKey, colorClass, bgClass, driverGt7Map = {} }) {
+    const { t } = useI18n();
     const nombre = (n) => driverGt7Map[n] || n;
     if (!items || items.length === 0) {
         return (
@@ -187,7 +190,7 @@ function StatRankingCard({ title, icon, items, valueKey, colorClass, bgClass, dr
                 <h4 className="text-white font-bold flex items-center gap-2 mb-3">
                     {icon} {title}
                 </h4>
-                <p className="text-gray-500 text-sm">Sin datos</p>
+                <p className="text-gray-500 text-sm">{t('componentes.stats.sinDatos')}</p>
             </div>
         );
     }

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { notifyAppealCreated } from '../../utils/telegram';
+import { useI18n } from '../../i18n';
 
 const REASON_MIN = 10;
 const REASON_MAX = 4000;
@@ -40,6 +41,8 @@ export function getEligibleAppellants(claim) {
  * la resolución de una reclamación. Hermano de ClaimForm.js.
  */
 export default function AppealForm({ championshipId, championship, claim, existingAppeals = [], appealWindowHours, onClose, onSubmitted }) {
+    const { t, locale } = useI18n();
+    const al = (clave, vars) => t(`formularios.alegacion.${clave}`, vars);
     const eligible = getEligibleAppellants(claim);
     const windowStatus = getAppealWindowStatus(claim, appealWindowHours);
 
@@ -61,7 +64,7 @@ export default function AppealForm({ championshipId, championship, claim, existi
         if (!url) return;
         // E3.13: misma defensa que ya existe para evidencia de reclamaciones/sanciones.
         if (!url.startsWith('http')) {
-            setErrors(['La URL de evidencia debe empezar con http:// o https://']);
+            setErrors([al('errUrl')]);
             return;
         }
         if (evidence.includes(url)) return;
@@ -75,11 +78,11 @@ export default function AppealForm({ championshipId, championship, claim, existi
     const handleSubmit = async (e) => {
         e.preventDefault();
         const errs = [];
-        if (!appellantName) errs.push('Selecciona quién alega');
-        if (alreadyAppealed) errs.push(`Ya existe una alegación de ${appellantName} sobre esta reclamación (estado: ${alreadyAppealed.status})`);
-        if (!reason.trim() || reason.trim().length < REASON_MIN) errs.push(`El motivo debe tener al menos ${REASON_MIN} caracteres`);
-        if (reason.length > REASON_MAX) errs.push(`El motivo no puede superar los ${REASON_MAX} caracteres`);
-        if (!windowStatus.claimable) errs.push('El plazo para alegar sobre esta reclamación ya venció o no puede calcularse');
+        if (!appellantName) errs.push(al('errQuien'));
+        if (alreadyAppealed) errs.push(al('errYaExiste', { nombre: appellantName, estado: t(`campeonato.reclamacion.estadoAlegacion.${alreadyAppealed.status}`) }));
+        if (!reason.trim() || reason.trim().length < REASON_MIN) errs.push(al('errMin', { n: REASON_MIN }));
+        if (reason.length > REASON_MAX) errs.push(al('errMax', { n: REASON_MAX }));
+        if (!windowStatus.claimable) errs.push(al('errPlazo'));
         if (errs.length > 0) { setErrors(errs); return; }
 
         setSaving(true);
@@ -104,7 +107,7 @@ export default function AppealForm({ championshipId, championship, claim, existi
             setSubmitted(true);
             if (onSubmitted) onSubmitted();
         } catch (error) {
-            setErrors(['❌ Error al enviar: ' + error.message]);
+            setErrors([`❌ ${t('formularios.reclamacion.errEnviar')}: ${error.message}`]);
         } finally {
             setSaving(false);
         }
@@ -115,13 +118,12 @@ export default function AppealForm({ championshipId, championship, claim, existi
             <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
                 <div className="bg-slate-800 rounded-2xl border border-white/20 w-full max-w-md p-8 text-center">
                     <div className="text-5xl mb-4">✅</div>
-                    <h3 className="text-xl font-bold text-white mb-2">Alegación Enviada</h3>
+                    <h3 className="text-xl font-bold text-white mb-2">{al('enviada')}</h3>
                     <p className="text-gray-400 text-sm mb-6">
-                        Tu alegación fue registrada. La sanción original sigue aplicándose mientras se revisa.
-                        Consulta esta misma sección para ver la resolución cuando esté disponible.
+                        {al('enviadaTexto')}
                     </p>
                     <button onClick={onClose} className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all">
-                        Cerrar
+                        {t('campeonato.cerrar')}
                     </button>
                 </div>
             </div>
@@ -133,24 +135,24 @@ export default function AppealForm({ championshipId, championship, claim, existi
             <div className="bg-slate-800 rounded-2xl border border-white/20 w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 <div className="p-6 border-b border-white/10">
                     <div className="flex justify-between items-center">
-                        <h3 className="text-xl font-bold text-white">⚖️ Alegar contra la resolución</h3>
+                        <h3 className="text-xl font-bold text-white">⚖️ {al('titulo')}</h3>
                         <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">✕</button>
                     </div>
                     <p className="text-gray-400 text-sm mt-1">
                         {windowStatus.claimable
-                            ? `Quedan ${Math.floor(windowStatus.hoursRemaining)} h para alegar (plazo: ${appealWindowHours} h desde la resolución)`
+                            ? al('quedan', { h: Math.floor(windowStatus.hoursRemaining), plazo: appealWindowHours })
                             : windowStatus.deadline
-                                ? `El plazo venció el ${windowStatus.deadline.toLocaleString('es-ES')}`
-                                : 'El plazo para alegar no puede calcularse para esta reclamación'}
+                                ? al('vencio', { fecha: windowStatus.deadline.toLocaleString(locale) })
+                                : al('noCalculable')}
                     </p>
                 </div>
 
                 {!windowStatus.claimable || eligible.length === 0 ? (
                     <div className="p-6 text-center">
                         <div className="text-4xl mb-3">⏰</div>
-                        <p className="text-gray-300 font-medium">No es posible alegar sobre esta reclamación</p>
+                        <p className="text-gray-300 font-medium">{al('noPosible')}</p>
                         <button onClick={onClose} className="mt-4 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all">
-                            Cerrar
+                            {t('campeonato.cerrar')}
                         </button>
                     </div>
                 ) : (
@@ -162,7 +164,7 @@ export default function AppealForm({ championshipId, championship, claim, existi
                         )}
 
                         <div>
-                            <label className="text-gray-400 text-sm block mb-1">¿Quién alega? *</label>
+                            <label className="text-gray-400 text-sm block mb-1">{al('quien')} *</label>
                             <select
                                 value={appellantName}
                                 onChange={e => setAppellantName(e.target.value)}
@@ -174,25 +176,25 @@ export default function AppealForm({ championshipId, championship, claim, existi
                             </select>
                             {alreadyAppealed && (
                                 <p className="text-yellow-400 text-xs mt-1">
-                                    Ya existe una alegación de {appellantName} — estado: {alreadyAppealed.status}
+                                    {al('yaExiste', { nombre: appellantName, estado: t(`campeonato.reclamacion.estadoAlegacion.${alreadyAppealed.status}`) })}
                                 </p>
                             )}
                         </div>
 
                         <div>
-                            <label className="text-gray-400 text-sm block mb-1">Motivo de la alegación *</label>
+                            <label className="text-gray-400 text-sm block mb-1">{al('motivo')} *</label>
                             <textarea
                                 value={reason}
                                 onChange={e => { setReason(e.target.value); setErrors([]); }}
                                 className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm h-28 resize-none"
-                                placeholder="Explica por qué consideras que la resolución debe revisarse..."
+                                placeholder={al('phMotivo')}
                                 required
                             />
-                            <p className="text-gray-600 text-xs mt-1">{reason.length}/{REASON_MAX} caracteres (mínimo {REASON_MIN})</p>
+                            <p className="text-gray-600 text-xs mt-1">{al('caracteres', { a: reason.length, max: REASON_MAX, min: REASON_MIN })}</p>
                         </div>
 
                         <div>
-                            <label className="text-gray-400 text-sm block mb-1">Evidencia adicional (opcional)</label>
+                            <label className="text-gray-400 text-sm block mb-1">{al('evidencia')}</label>
                             {evidence.length > 0 && (
                                 <ul className="space-y-1 mb-2">
                                     {evidence.map(url => (
@@ -214,21 +216,21 @@ export default function AppealForm({ championshipId, championship, claim, existi
                                 />
                                 <button type="button" onClick={handleAddEvidence} disabled={!evidenceInput.trim()}
                                     className="px-3 py-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-40 text-white text-sm rounded-lg transition-all">
-                                    + Agregar
+                                    + {t('formularios.declaracion.agregar')}
                                 </button>
                             </div>
                         </div>
 
                         <div className="flex gap-3 justify-end pt-2">
                             <button type="button" onClick={onClose} className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all">
-                                Cancelar
+                                {t('formularios.inscripcion.cancelar')}
                             </button>
                             <button
                                 type="submit"
                                 disabled={saving || Boolean(alreadyAppealed)}
                                 className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-bold transition-all disabled:opacity-50"
                             >
-                                {saving ? '⏳ Enviando...' : '⚖️ Enviar Alegación'}
+                                {saving ? `⏳ ${t('formularios.inscripcion.enviando')}` : `⚖️ ${al('enviar')}`}
                             </button>
                         </div>
                     </form>

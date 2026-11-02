@@ -207,14 +207,22 @@ export function opcionesLimitadores(cars = []) {
 }
 
 /** Texto corto de los limitadores activos: «Tracción FF, FR · PR ≤ 500». */
-export function resumenLimitadores(lim) {
+const TEXTOS_LIMITADORES = {
+    es: { traccion: 'Tracción', fabricante: 'Fabricante', potencia: 'Potencia', cv: 'CV', peso: 'Peso' },
+    en: { traccion: 'Drivetrain', fabricante: 'Manufacturer', potencia: 'Power', cv: 'HP', peso: 'Weight' },
+    pt: { traccion: 'Tração', fabricante: 'Fabricante', potencia: 'Potência', cv: 'CV', peso: 'Peso' },
+};
+
+/** Resumen legible de los limitadores, en el idioma de la parte pública. */
+export function resumenLimitadores(lim, lang = 'es') {
     if (!hayLimitadores(lim)) return '';
+    const tx = TEXTOS_LIMITADORES[lang] || TEXTOS_LIMITADORES.es;
     return [
-        (lim.traccion || []).length && `Tracción ${lim.traccion.join(', ')}`,
-        (lim.fabricantes || []).length && `Fabricante: ${lim.fabricantes.join(', ')}`,
+        (lim.traccion || []).length && `${tx.traccion} ${lim.traccion.join(', ')}`,
+        (lim.fabricantes || []).length && `${tx.fabricante}: ${lim.fabricantes.join(', ')}`,
         lim.ppMax && `PR ≤ ${lim.ppMax}`,
-        lim.cvMax && `Potencia ≤ ${lim.cvMax} CV`,
-        lim.pesoMin && `Peso ≥ ${lim.pesoMin} kg`,
+        lim.cvMax && `${tx.potencia} ≤ ${lim.cvMax} ${tx.cv}`,
+        lim.pesoMin && `${tx.peso} ≥ ${lim.pesoMin} kg`,
     ].filter(Boolean).join(' · ');
 }
 
@@ -540,11 +548,17 @@ export function construirUsoDeAutos(tracks = [], config = {}, pilotos = [], reso
             : [];
 
         const distintos = usos.length;
-        const avisos = [];
+        // `incidencias` lleva los mismos avisos como datos, para que la parte
+        // pública los pinte en el idioma del piloto; `avisos` es el texto en
+        // español que usa el panel de administración.
+        const incidencias = [];
         usos.forEach(({ auto, veces }) => {
-            if (veces > maxUsos) avisos.push(`"${auto}" usado ${veces} veces (máx. ${maxUsos})`);
+            if (veces > maxUsos) incidencias.push({ tipo: 'usos', auto, veces, max: maxUsos });
         });
-        if (distintos > maxAutos) avisos.push(`${distintos} autos distintos (máx. ${maxAutos})`);
+        if (distintos > maxAutos) incidencias.push({ tipo: 'distintos', n: distintos, max: maxAutos });
+        const avisos = incidencias.map(i => (i.tipo === 'usos'
+            ? `"${i.auto}" usado ${i.veces} veces (máx. ${i.max})`
+            : `${i.n} autos distintos (máx. ${i.max})`));
 
         return {
             piloto,
@@ -554,6 +568,7 @@ export function construirUsoDeAutos(tracks = [], config = {}, pilotos = [], reso
             disponibles,
             usosRestantes: disponibles.reduce((a, x) => a + x.restantes, 0),
             avisos,
+            incidencias,
         };
     }).sort((a, b) => b.usos.length - a.usos.length || a.piloto.localeCompare(b.piloto));
 

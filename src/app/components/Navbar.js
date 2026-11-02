@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useOrganization } from '../context/OrganizationContext';
 import Image from 'next/image';
+import { useI18n } from '../i18n';
+import LanguageSelector from '../i18n/LanguageSelector';
 
 /**
  * Fondo de la cabecera: el degradado naranja/rojo por defecto o los colores
@@ -22,6 +24,7 @@ export default function Navbar() {
     const { currentUser, logout, isAdmin, isComisario, myOrgIds } = useAuth();
     const { org, isRootView } = useOrganization();
     const fondo = useHeaderBackground();
+    const { t } = useI18n();
     const barraRef = useRef(null);
 
     // En el móvil la cabecera no es fija (ocupaba ~150 px de pantalla). Su
@@ -68,12 +71,12 @@ export default function Navbar() {
     };
 
     const navItems = [
-        { label: '🏎️ Pilotos', href: '/pilots' },
-        { label: '🛡️ Equipos', href: '/equipos' },
-        { label: '🎙️ Zona Caster', href: '/zona-caster' },
-        { label: '📜 Reglamento', href: '/reglamento' },
-        { label: '🛒 Equipamiento', href: '/equipamiento' },
-        { label: '🎨 Creador de vinilos', href: '/tools', gradient: true }
+        { label: t('nav.pilotos'), href: '/pilots' },
+        { label: t('nav.equipos'), href: '/equipos' },
+        { label: t('nav.zonaCaster'), href: '/zona-caster' },
+        { label: t('nav.reglamento'), href: '/reglamento' },
+        { label: t('nav.equipamiento'), href: '/equipamiento' },
+        { label: t('nav.vinilos'), href: '/tools', gradient: true }
     ];
 
     return (
@@ -114,13 +117,14 @@ export default function Navbar() {
                                     {displayName}
                                     <span className="text-orange-500">🏆</span>
                                 </h1>
-                                <p className="text-gray-400 text-sm sm:text-base">Campeonatos y Eventos</p>
+                                <p className="text-gray-400 text-sm sm:text-base">{t('nav.subtitulo')}</p>
                             </div>
                         </div>
                     </div>
 
                     {/* User Info Desktop - Movido al header */}
                     <div className="hidden lg:flex items-center gap-3">
+                        <LanguageSelector />
                         {currentUser ? (
                             <>
                                 <div className="flex items-center gap-2 bg-white/10 rounded-lg px-4 py-2 backdrop-blur-sm">
@@ -137,7 +141,7 @@ export default function Navbar() {
                                     onClick={handleLogout}
                                     className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-2 rounded-lg font-semibold hover:from-red-700 hover:to-red-800 transition-all duration-200 text-sm"
                                 >
-                                    🚪 Salir
+                                    {t('nav.salir')}
                                 </button>
                             </>
                         ) : (
@@ -145,7 +149,7 @@ export default function Navbar() {
                                 onClick={() => window.location.href = '/login'}
                                 className="bg-white/20 text-white px-5 py-2 rounded-lg font-semibold hover:bg-white/30 transition-all duration-200 flex items-center gap-2 text-sm"
                             >
-                                🔐 Login
+                                {t('nav.login')}
                             </button>
                         )}
                     </div>
@@ -156,7 +160,7 @@ export default function Navbar() {
                     onClick={() => setMenuOpen(!menuOpen)}
                     className="lg:hidden w-full bg-white/5 border border-white/10 text-white px-4 py-3 rounded-lg font-semibold hover:bg-white/10 transition-all duration-200 flex items-center justify-between"
                 >
-                    <span>☰ Menú de Navegación</span>
+                    <span>{t('nav.menu')}</span>
                     <span className={`transform transition-transform duration-200 ${menuOpen ? 'rotate-180' : ''}`}>▼</span>
                 </button>
 
@@ -182,7 +186,7 @@ export default function Navbar() {
                             onClick={() => window.location.href = '/championshipsAdmin'}
                             className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 text-sm"
                         >
-                            {isAdmin() ? '⚙️ Admin' : '⚠️ Reclamaciones'}
+                            {isAdmin() ? t('nav.admin') : t('nav.reclamaciones')}
                         </button>
                     )}
 
@@ -194,7 +198,7 @@ export default function Navbar() {
                             onClick={() => window.location.href = `/l/${myOrgId}`}
                             className="bg-white/20 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-white/30 transition-all duration-200 text-sm"
                         >
-                            🏠 Mi organización
+                            {t('nav.miOrganizacion')}
                         </button>
                     )}
 
@@ -205,7 +209,7 @@ export default function Navbar() {
                             onClick={() => window.location.href = '/signup'}
                             className="bg-white text-orange-600 px-5 py-2.5 rounded-lg font-bold hover:bg-gray-100 transition-all duration-200 text-sm"
                         >
-                            🏆 Crea tu liga
+                            {t('nav.creaTuLiga')}
                         </button>
                     )}
                 </div>
@@ -232,7 +236,7 @@ export default function Navbar() {
                                 onClick={() => window.location.href = '/championshipsAdmin'}
                                 className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200"
                             >
-                                {isAdmin() ? '⚙️ Admin' : '⚠️ Reclamaciones'}
+                                {isAdmin() ? t('nav.admin') : t('nav.reclamaciones')}
                             </button>
                         )}
 
@@ -241,12 +245,16 @@ export default function Navbar() {
                                 onClick={() => window.location.href = `/l/${myOrgId}`}
                                 className="w-full bg-white/20 text-white px-5 py-3 rounded-lg font-semibold hover:bg-white/30 transition-all duration-200"
                             >
-                                🏠 Mi organización
+                                {t('nav.miOrganizacion')}
                             </button>
                         )}
 
                         {/* Separador */}
                         <div className="border-t border-white/20 my-3"></div>
+
+                        <div className="flex justify-center">
+                            <LanguageSelector />
+                        </div>
 
                         {/* Admin Controls Móvil */}
                         {currentUser ? (
@@ -266,7 +274,7 @@ export default function Navbar() {
                                     onClick={handleLogout}
                                     className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-3 rounded-lg font-semibold hover:from-red-700 hover:to-red-800 transition-all duration-200"
                                 >
-                                    🚪 Cerrar Sesión
+                                    {t('nav.cerrarSesion')}
                                 </button>
                             </>
                         ) : (
@@ -274,7 +282,7 @@ export default function Navbar() {
                                 onClick={() => window.location.href = '/login'}
                                 className="w-full bg-white/20 text-white px-5 py-3 rounded-lg font-semibold hover:bg-white/30 transition-all duration-200 flex items-center justify-center gap-2"
                             >
-                                🔐 Admin Login
+                                {t('nav.adminLogin')}
                             </button>
                         )}
                     </div>

@@ -30,9 +30,12 @@ const sinEmoji = (t) => String(t ?? '')
  * @param {string}   params.generadoEl - fecha/hora de generación, ya formateada
  * @param {Object}   [params.svgs]     - { [src]: '<svg…>' } contenido de las figuras
  * @param {Object}   [params.logos]    - { escudo?: '<svg…>', insignia?: 'data:image/png;base64,…' }
+ * @param {Object}   [params.textos]   - textos fijos del PDF en el idioma de la parte
+ *        pública (ver TEXTOS_PDF_ES); `aviso` se añade a la portada de una traducción
  * @returns {object} docDefinition
  */
-export function buildReglamentoGeneralDoc({ sections = [], orgName = '', version = '', fecha = '', generadoEl, svgs = {}, logos = {} }) {
+export function buildReglamentoGeneralDoc({ sections = [], orgName = '', version = '', fecha = '', generadoEl, svgs = {}, logos = {}, textos = TEXTOS_PDF_ES }) {
+    const tx = { ...TEXTOS_PDF_ES, ...textos };
     const indice = sections.map((s, i) => ({ text: `${i + 1}. ${sinEmoji(s.title)}`, style: 'indice' }));
 
     const cuerpo = [];
@@ -81,7 +84,7 @@ export function buildReglamentoGeneralDoc({ sections = [], orgName = '', version
                 const svg = svgs[fig.src];
                 if (!svg) return;
                 cuerpo.push({ svg, width: 440, alignment: 'center', margin: [0, 6, 0, 2] });
-                cuerpo.push({ text: `Figura · ${fig.alt}`, style: 'pie', margin: [0, 0, 0, 10] });
+                cuerpo.push({ text: `${tx.figura} · ${fig.alt}`, style: 'pie', margin: [0, 0, 0, 10] });
             });
         });
     });
@@ -89,17 +92,17 @@ export function buildReglamentoGeneralDoc({ sections = [], orgName = '', version
     return {
         pageSize: 'A4',
         pageMargins: [48, 56, 48, 56],
-        info: { title: `Reglamento General${orgName ? ` — ${orgName}` : ''}` },
+        info: { title: `${tx.titulo}${orgName ? ` — ${orgName}` : ''}` },
         header: (pagina) => (pagina === 1 ? null : {
             columns: [
-                { text: `Reglamento General${orgName ? ` · ${sinEmoji(orgName)}` : ''}${version ? ` · v${version}` : ''}`, style: 'cabeceraPagina', margin: [0, 6, 0, 0] },
+                { text: `${tx.titulo}${orgName ? ` · ${sinEmoji(orgName)}` : ''}${version ? ` · v${version}` : ''}`, style: 'cabeceraPagina', margin: [0, 6, 0, 0] },
                 logos.escudo ? { svg: logos.escudo, width: 26, alignment: 'right' } : { text: '' },
             ],
             margin: [48, 18, 48, 0],
         }),
         footer: (pagina, total) => ({
             columns: [
-                { text: `Generado el ${generadoEl}`, style: 'piePagina' },
+                { text: `${tx.generado} ${generadoEl}`, style: 'piePagina' },
                 { text: `${pagina} / ${total}`, style: 'piePagina', alignment: 'right' },
             ],
             margin: [48, 16, 48, 0],
@@ -115,12 +118,13 @@ export function buildReglamentoGeneralDoc({ sections = [], orgName = '', version
                 ],
                 margin: [0, 40, 0, 0],
             } : null,
-            { text: 'Reglamento General', style: 'portada', alignment: (logos.escudo || logos.insignia) ? 'center' : 'left', margin: (logos.escudo || logos.insignia) ? [0, 36, 0, 6] : undefined },
+            { text: tx.titulo, style: 'portada', alignment: (logos.escudo || logos.insignia) ? 'center' : 'left', margin: (logos.escudo || logos.insignia) ? [0, 36, 0, 6] : undefined },
             orgName ? { text: sinEmoji(orgName), style: 'portadaOrg', alignment: (logos.escudo || logos.insignia) ? 'center' : 'left' } : null,
-            { text: [version ? `Versión ${version}` : '', version && fecha ? ' · ' : '', fecha ? `Actualizado el ${fecha}` : ''].join(''), style: 'portadaMeta', alignment: (logos.escudo || logos.insignia) ? 'center' : 'left' },
-            { text: 'Índice', style: 'bloque', margin: [0, 24, 0, 6], pageBreak: (logos.escudo || logos.insignia) ? 'before' : undefined },
+            { text: [version ? `${tx.version} ${version}` : '', version && fecha ? ' · ' : '', fecha ? `${tx.actualizado} ${fecha}` : ''].join(''), style: 'portadaMeta', alignment: (logos.escudo || logos.insignia) ? 'center' : 'left' },
+            ...(tx.aviso ? [{ text: tx.aviso, style: 'nota', alignment: (logos.escudo || logos.insignia) ? 'center' : 'left', margin: [0, 8, 0, 0] }] : []),
+            { text: tx.indice, style: 'bloque', margin: [0, 24, 0, 6], pageBreak: (logos.escudo || logos.insignia) ? 'before' : undefined },
             ...indice,
-            { text: 'Los artículos se citan con su numeración (por ejemplo, 5.3.2). El reglamento de cada campeonato prevalece sobre este en lo que regule de forma distinta.', style: 'nota', margin: [0, 16, 0, 0] },
+            { text: tx.notaIndice, style: 'nota', margin: [0, 16, 0, 0] },
             ...cuerpo,
         ].filter(Boolean),
         defaultStyle: { font: 'Roboto', fontSize: 9.5, color: TEMA.texto, lineHeight: 1.25 },
@@ -144,9 +148,21 @@ export function buildReglamentoGeneralDoc({ sections = [], orgName = '', version
     };
 }
 
-/** Nombre de archivo: reglamento-general-<org>-v<version>.pdf */
-export function reglamentoGeneralFilename(orgName = '', version = '') {
+/** Nombre de archivo: reglamento-general-<org>-v<version>[-<idioma>].pdf */
+export function reglamentoGeneralFilename(orgName = '', version = '', lang = 'es') {
     const slug = String(orgName || 'organizacion').normalize('NFD').replace(/[̀-ͯ]/g, '')
         .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    return `reglamento-general-${slug}${version ? `-v${version}` : ''}.pdf`;
+    return `reglamento-general-${slug}${version ? `-v${version}` : ''}${lang && lang !== 'es' ? `-${lang}` : ''}.pdf`;
 }
+
+/** Textos fijos del PDF en español; las traducciones viven en i18n (reglamento.pdf). */
+export const TEXTOS_PDF_ES = {
+    titulo: 'Reglamento General',
+    figura: 'Figura',
+    generado: 'Generado el',
+    version: 'Versión',
+    actualizado: 'Actualizado el',
+    indice: 'Índice',
+    notaIndice: 'Los artículos se citan con su numeración (por ejemplo, 5.3.2). El reglamento de cada campeonato prevalece sobre este en lo que regule de forma distinta.',
+    aviso: '',
+};

@@ -1,5 +1,6 @@
 import { getPositionBg, getPositionDisplay } from '../../utils';
 import PilotTeamAvatar from '../common/PilotTeamAvatar';
+import { useI18n } from '../../i18n';
 
 /**
  * Tabla de clasificación reutilizable para campeonatos.
@@ -34,16 +35,17 @@ export default function StandingsTable({
     raceColumns = [],
     compact = false,
     className = '',
-    emptyMessage = 'Sin datos de clasificación',
+    emptyMessage,
     promotionZone = 0,
     relegationZone = 0,
     driverGt7Map = {}
 }) {
+    const { t } = useI18n();
     if (standings.length === 0) {
         return (
             <div className={`bg-white/5 border border-white/10 rounded-xl p-8 text-center ${className}`}>
                 <div className="text-4xl mb-3">📊</div>
-                <p className="text-gray-400">{emptyMessage}</p>
+                <p className="text-gray-400">{emptyMessage || t('componentes.tabla.sinDatos')}</p>
             </div>
         );
     }
@@ -105,14 +107,14 @@ export default function StandingsTable({
                                     nombre se cortaba en el móvil. */}
                                 <th className={`${hasRaces ? 'px-2 py-3' : headerPx} text-left ${hasRaces ? 'sticky left-0 z-10 bg-inherit' : ''}`}
                                     style={hasRaces ? { background: 'inherit', width: 52, minWidth: 52, maxWidth: 52 } : undefined}>
-                                    Pos
+                                    {t('campeonato.pos')}
                                 </th>
                                 <th className={`${headerPx} text-left ${hasRaces ? 'sticky z-10 min-w-[150px]' : ''}`}
                                     style={hasRaces ? { left: '52px', background: 'inherit' } : undefined}>
-                                    {isTeams ? 'Equipo' : 'Piloto'}
+                                    {isTeams ? t('componentes.tabla.equipo') : t('componentes.tabla.piloto')}
                                 </th>
                                 {showTeamColumn && !isTeams && (
-                                    <th className={`${headerPx} text-left hidden md:table-cell`}>Equipo</th>
+                                    <th className={`${headerPx} text-left hidden md:table-cell`}>{t('componentes.tabla.equipo')}</th>
                                 )}
                                 {showCategoryColumn && !isTeams && (
                                     <th className={`${headerPx} text-left ${compact ? 'hidden md:table-cell' : 'hidden lg:table-cell'}`}>Cat</th>
@@ -129,16 +131,16 @@ export default function StandingsTable({
                                 {/* Columnas de estadísticas */}
                                 {showStatsColumns && (
                                     <>
-                                        <th className={`${headerPx} text-center hidden sm:table-cell`} title="Victorias">
+                                        <th className={`${headerPx} text-center hidden sm:table-cell`} title={t('componentes.tabla.victorias')}>
                                             <span className="text-xs">🏆</span>
                                         </th>
-                                        <th className={`${headerPx} text-center hidden sm:table-cell`} title="Podiums">
+                                        <th className={`${headerPx} text-center hidden sm:table-cell`} title={t('componentes.tabla.podios')}>
                                             <span className="text-xs">🥇</span>
                                         </th>
-                                        <th className={`${headerPx} text-center hidden sm:table-cell`} title="Pole Positions">
+                                        <th className={`${headerPx} text-center hidden sm:table-cell`} title={t('componentes.tabla.poles')}>
                                             <span className="text-xs">🎯</span>
                                         </th>
-                                        <th className={`${headerPx} text-center hidden sm:table-cell`} title="Vueltas Rápidas">
+                                        <th className={`${headerPx} text-center hidden sm:table-cell`} title={t('componentes.tabla.vueltasRapidas')}>
                                             <span className="text-xs">⚡</span>
                                         </th>
                                     </>
@@ -225,10 +227,10 @@ export default function StandingsTable({
                                             const isPole = entry.racePole?.[raceIdx];
                                             const isInvalidated = entry.invalidatedRaces?.[raceIdx];
                                             const tooltipParts = [race.name];
-                                            if (isInvalidated) tooltipParts.push(`⚠️ Pts anulados (uso de auto)`);
+                                            if (isInvalidated) tooltipParts.push(`⚠️ ${t('componentes.tabla.ptsAnulados')}`);
                                             else if (pts !== null && pts !== undefined) tooltipParts.push(`${Number.isNaN(pos) ? 'DNF' : `P${pos || '?'}`} → ${pts} pts`);
-                                            else tooltipParts.push('No participó');
-                                            if (isFl) tooltipParts.push('⚡ Vuelta Rápida');
+                                            else tooltipParts.push(t('componentes.tabla.noParticipo'));
+                                            if (isFl) tooltipParts.push(`⚡ ${t('campeonato.vueltaRapida')}`);
                                             if (isPole) tooltipParts.push('🎯 Pole');
                                             return (
                                                 <td key={race.trackId || raceIdx}
@@ -240,7 +242,7 @@ export default function StandingsTable({
                                                             {pts !== null && pts !== undefined ? pts : '-'}
                                                         </span>
                                                         {isInvalidated && (
-                                                            <span className="text-red-400" style={{ fontSize: '11px' }} title="Puntos anulados por uso de auto">⚠️</span>
+                                                            <span className="text-red-400" style={{ fontSize: '11px' }} title={t('componentes.tabla.ptsAnulados')}>⚠️</span>
                                                         )}
                                                         {!isInvalidated && (isFl || isPole) && (
                                                             <div className="flex gap-0.5 mt-0.5">
@@ -283,7 +285,7 @@ export default function StandingsTable({
                                         <td className={`${cellPx} text-right font-bold ${pointsColor} ${compact ? 'text-sm' : 'text-base'} ${hasRaces ? 'sticky right-0 z-10 bg-slate-800/95' : ''}`}>
                                             <div className="flex items-center justify-end gap-1">
                                                 {entry.penaltyPoints > 0 && (
-                                                    <span className="text-red-400 text-xs font-normal" title={`-${entry.penaltyPoints} pts sanción`}>
+                                                    <span className="text-red-400 text-xs font-normal" title={t('componentes.tabla.ptsSancion', { n: entry.penaltyPoints })}>
                                                         (-{entry.penaltyPoints})
                                                     </span>
                                                 )}

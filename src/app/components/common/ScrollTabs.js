@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useI18n } from "../../i18n";
 
 /**
  * Barra de pestañas con scroll horizontal que se nota.
@@ -14,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * @param {string} [fadeFrom] - color del degradado (clase `from-*` de Tailwind)
  */
 export default function ScrollTabs({ children, activeKey, className = '', fadeFrom = 'from-slate-900' }) {
+    const { t } = useI18n();
     const ref = useRef(null);
     const [izq, setIzq] = useState(false);
     const [der, setDer] = useState(false);
@@ -59,8 +61,8 @@ export default function ScrollTabs({ children, activeKey, className = '', fadeFr
 
     // El aviso es para descubrir el gesto: se va solo a los pocos segundos
     useEffect(() => {
-        const t = setTimeout(() => setDesplazado(true), 6000);
-        return () => clearTimeout(t);
+        const temporizador = setTimeout(() => setDesplazado(true), 6000);
+        return () => clearTimeout(temporizador);
     }, []);
 
     const mover = (sentido) => {
@@ -78,7 +80,7 @@ export default function ScrollTabs({ children, activeKey, className = '', fadeFr
                 <button
                     type="button"
                     onClick={() => mover(-1)}
-                    aria-label="Ver pestañas anteriores"
+                    aria-label={t('formularios.pestanas.anteriores')}
                     className={`absolute left-0 top-0 bottom-0 w-10 flex items-center justify-start pl-1 bg-gradient-to-r ${fadeFrom} to-transparent text-white text-xl`}
                 >
                     ‹
@@ -88,7 +90,7 @@ export default function ScrollTabs({ children, activeKey, className = '', fadeFr
                 <button
                     type="button"
                     onClick={() => mover(1)}
-                    aria-label="Ver más pestañas"
+                    aria-label={t('formularios.pestanas.mas')}
                     className={`absolute right-0 top-0 bottom-0 w-14 flex items-center justify-end pr-1 bg-gradient-to-l ${fadeFrom} via-slate-900/80 to-transparent text-white`}
                 >
                     <span className="flex items-center justify-center w-7 h-7 rounded-full bg-orange-600 shadow-lg text-lg leading-none animate-pulse">›</span>
@@ -96,7 +98,7 @@ export default function ScrollTabs({ children, activeKey, className = '', fadeFr
             )}
             {der && !desplazado && (
                 <span className="pointer-events-none absolute right-14 -bottom-6 text-[11px] text-orange-300 bg-slate-900/90 px-2 py-0.5 rounded md:hidden">
-                    Desliza para ver más →
+                    {t('formularios.pestanas.desliza')}
                 </span>
             )}
         </div>

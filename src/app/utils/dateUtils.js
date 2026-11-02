@@ -46,8 +46,12 @@ export const getPreQualyTime = (championship) => {
 };
 
 /** "23:00h" o "de 18:00h a 23:00h" según haya rango o no. */
-export const formatTimeWindow = ({ desde, hasta }) =>
-    hasta ? `de ${desde}h a ${hasta}h` : `${desde}h`;
+export const formatTimeWindow = ({ desde, hasta }, lang = 'es') => {
+    if (!hasta) return `${desde}h`;
+    if (lang === 'en') return `${desde}–${hasta}h`;
+    if (lang === 'pt') return `das ${desde}h às ${hasta}h`;
+    return `de ${desde}h a ${hasta}h`;
+};
 
 /**
  * Offset de Europe/Madrid respecto a UTC, en minutos, para un instante dado.
@@ -179,14 +183,15 @@ export const formatDateShort = (dateStr) => {
  * Formato completo de fecha: "01/01/2025"
  * Usado en championships/page para calendario y detalles
  * @param {string} dateStr - Fecha en formato ISO
+ * @param {string} [locale] - Idioma de la parte pública (useI18n().locale)
  * @returns {string}
  */
-export const formatDateFull = (dateStr) => {
+export const formatDateFull = (dateStr, locale = 'es-ES') => {
     if (!dateStr) return '';
     try {
         const date = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00');
         if (isNaN(date.getTime())) return dateStr;
-        return date.toLocaleDateString('es-ES', {
+        return date.toLocaleDateString(locale, {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric'

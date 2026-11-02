@@ -1,5 +1,6 @@
 "use client";
 import { seccionesVisibles } from "../../utils/roomConfig";
+import { useI18n } from "../../i18n";
 
 /**
  * Configuración de sala de una carrera, con el mismo orden, nombres y
@@ -11,7 +12,8 @@ import { seccionesVisibles } from "../../utils/roomConfig";
  * ("Engine Swap", "Contravolante") que no coincidían con el juego.
  */
 export default function RoomConfigView({ track }) {
-    const secciones = seccionesVisibles(track);
+    const { lang } = useI18n();
+    const secciones = seccionesVisibles(track, lang);
     if (secciones.length === 0) return null;
 
     return (

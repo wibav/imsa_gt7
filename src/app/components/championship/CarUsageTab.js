@@ -5,6 +5,7 @@ import { resolverCoche } from '../../utils/carSpecs';
 import { FirebaseService } from '../../services/firebaseService';
 import CarSpecsTable from './CarSpecsTable';
 import PilotTeamAvatar from '../common/PilotTeamAvatar';
+import { useI18n } from '../../i18n';
 
 /**
  * Uso de autos del lado del piloto: qué auto llevó cada uno en cada carrera y
@@ -16,6 +17,7 @@ import PilotTeamAvatar from '../common/PilotTeamAvatar';
  * necesita saber ANTES de la siguiente carrera.
  */
 export default function CarUsageTab({ championship, tracks = [], divisions = [], gt7Map = {} }) {
+    const { t } = useI18n();
     const [busqueda, setBusqueda] = useState('');
     // Memorizado: `championship?.carUsageTracking || {}` crea un objeto nuevo
     // en cada render y haría recalcular el useMemo de abajo siempre.
@@ -32,7 +34,7 @@ export default function CarUsageTab({ championship, tracks = [], divisions = [],
     const roster = useMemo(() => {
         const nombres = new Set();
         divisions.forEach(div => (div.drivers || []).forEach(n => n && nombres.add(n)));
-        tracks.forEach(t => Object.keys(t.points || {}).forEach(n => n && nombres.add(n)));
+        tracks.forEach(tr => Object.keys(tr.points || {}).forEach(n => n && nombres.add(n)));
         return [...nombres];
     }, [divisions, tracks]);
 
@@ -78,9 +80,9 @@ export default function CarUsageTab({ championship, tracks = [], divisions = [],
     }, [catalogo, config, championship]);
 
     const filas = useMemo(() => {
-        const t = busqueda.trim().toLowerCase();
-        if (!t) return datos.filas;
-        return datos.filas.filter(f => f.piloto.toLowerCase().includes(t));
+        const texto = busqueda.trim().toLowerCase();
+        if (!texto) return datos.filas;
+        return datos.filas.filter(f => f.piloto.toLowerCase().includes(texto));
     }, [datos.filas, busqueda]);
 
     if (!config.enabled) return null;
@@ -90,16 +92,16 @@ export default function CarUsageTab({ championship, tracks = [], divisions = [],
     return (
         <div className="space-y-6">
             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
-                <h2 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">🚗 Uso de Autos</h2>
+                <h2 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">🚗 {t('campeonato.autos.titulo')}</h2>
                 <p className="text-gray-400 text-sm">
                     {datos.esFijo
-                        ? `Catálogo fijo de ${datos.catalogo.length} autos · máximo ${datos.maxUsos} uso${datos.maxUsos === 1 ? '' : 's'} por auto`
-                        : `Hasta ${datos.maxAutos} autos por piloto · máximo ${datos.maxUsos} usos de cada uno`}
-                    {datos.carreras.length > 0 && ` · ${datos.carreras.length} carreras registradas`}
+                        ? t('componentes.autos.resumenFijo', { n: datos.maxUsos, autos: datos.catalogo.length, usos: datos.maxUsos })
+                        : t('componentes.autos.resumenLibre', { autos: datos.maxAutos, usos: datos.maxUsos })}
+                    {datos.carreras.length > 0 && ` · ${t('componentes.autos.carrerasRegistradas', { n: datos.carreras.length })}`}
                 </p>
                 {conAvisos > 0 && (
                     <p className="text-red-300 text-sm mt-2">
-                        ⚠️ {conAvisos} piloto(s) superan algún límite
+                        ⚠️ {t('componentes.autos.superanLimite', { n: conAvisos })}
                     </p>
                 )}
             </div>
@@ -108,22 +110,22 @@ export default function CarUsageTab({ championship, tracks = [], divisions = [],
                 type="text"
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="🔍 Buscar mi nombre..."
+                placeholder={t('componentes.autos.buscar')}
                 className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
 
             {filas.length === 0 ? (
                 <div className="bg-white/5 border border-white/10 rounded-xl p-10 text-center">
                     {busqueda ? (
-                        <p className="text-gray-400">Ningún piloto coincide con la búsqueda.</p>
+                        <p className="text-gray-400">{t('componentes.autos.sinCoincidencias')}</p>
                     ) : (
                         <>
                             <div className="text-4xl mb-3">🚗</div>
-                            <p className="text-gray-300 font-semibold">Todavía no hay nada que mostrar</p>
+                            <p className="text-gray-300 font-semibold">{t('componentes.autos.nadaQueMostrar')}</p>
                             <p className="text-gray-500 text-sm mt-1 max-w-md mx-auto">
                                 {championship?.preQualy?.enabled
-                                    ? 'Aquí aparecerá el uso de autos de cada piloto en cuanto se corra la Pre-Qualy y se repartan las salas.'
-                                    : 'Aquí aparecerá el uso de autos de cada piloto en cuanto se dispute la primera carrera.'}
+                                    ? t('componentes.autos.apareceraPrequaly')
+                                    : t('componentes.autos.aparecera')}
                             </p>
                         </>
                     )}
@@ -140,8 +142,8 @@ export default function CarUsageTab({ championship, tracks = [], divisions = [],
                                         : 'bg-green-500/20 text-green-300'
                                         }`}>
                                         {fila.usosRestantes === 0
-                                            ? 'Sin usos disponibles'
-                                            : `${fila.usosRestantes} uso${fila.usosRestantes === 1 ? '' : 's'} disponible${fila.usosRestantes === 1 ? '' : 's'}`}
+                                            ? t('componentes.autos.sinUsos')
+                                            : t('componentes.autos.usosDisponibles', { n: fila.usosRestantes })}
                                     </span>
                                 )}
                             </div>
@@ -162,7 +164,7 @@ export default function CarUsageTab({ championship, tracks = [], divisions = [],
                                                         R{carrera.round} · {carrera.name}
                                                     </div>
                                                     <div className={`text-xs leading-tight ${auto ? 'text-white' : 'text-gray-600 italic'}`}>
-                                                        {auto || 'No corrió'}
+                                                        {auto || t('componentes.autos.noCorrio')}
                                                     </div>
                                                 </div>
                                             );
@@ -188,15 +190,17 @@ export default function CarUsageTab({ championship, tracks = [], divisions = [],
                                     <span key={auto}
                                         className="px-2 py-1 rounded border bg-green-500/10 border-green-500/30 text-green-300">
                                         {auto}
-                                        {datos.maxUsos > 1 ? ` · ${restantes} usos` : ' · sin usar'}
+                                        {datos.maxUsos > 1 ? ` · ${t('componentes.autos.usos', { n: restantes })}` : ` · ${t('componentes.autos.sinUsar')}`}
                                     </span>
                                 ))}
                             </div>
 
                             {fila.avisos.length > 0 && (
                                 <div className="mt-3 bg-red-500/10 border border-red-400/30 rounded-lg px-3 py-2">
-                                    {fila.avisos.map((a, i) => (
-                                        <p key={i} className="text-red-300 text-xs">⚠️ {a}</p>
+                                    {fila.incidencias.map((a, i) => (
+                                        <p key={i} className="text-red-300 text-xs">⚠️ {a.tipo === 'usos'
+                                            ? t('componentes.autos.avisoUsos', { auto: a.auto, veces: a.veces, max: a.max })
+                                            : t('componentes.autos.avisoDistintos', { n: a.n, max: a.max })}</p>
                                     ))}
                                 </div>
                             )}

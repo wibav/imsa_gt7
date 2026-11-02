@@ -5,6 +5,7 @@ import { FirebaseService } from '../../services/firebaseService';
 import { sanitizeRegulationsHtml } from '../../utils/regulationsSanitize';
 import { plainTextToRegulationsHtml, regulationsFilename, isRegulationsEmpty } from '../../utils/regulations';
 import { buildRegulationsDocDefinition } from '../../utils/regulationsPdf';
+import { useI18n } from '../../i18n';
 
 /**
  * Extrae el mapa de fuentes (VFS) del módulo `pdfmake/build/vfs_fonts` sea
@@ -73,6 +74,7 @@ export async function fetchAsDataUrl(url) {
  * @param {{ championship: object, compact?: boolean }} props
  */
 export default function RegulationsPdfButton({ championship, compact = false }) {
+    const { t } = useI18n();
     const [status, setStatus] = useState('idle'); // idle | loading | error
 
     if (isRegulationsEmpty(championship?.regulations, championship?.regulationsFormat)) {
@@ -147,10 +149,10 @@ export default function RegulationsPdfButton({ championship, compact = false }) 
                     ? 'px-3 py-1.5 text-xs font-medium bg-white/10 hover:bg-white/20 text-orange-300 rounded-lg transition-all disabled:opacity-50'
                     : 'px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white text-sm font-bold rounded-lg transition-all disabled:opacity-50'}
             >
-                {status === 'loading' ? 'Generando PDF…' : '📄 Descargar reglamento (PDF)'}
+                {status === 'loading' ? t('formularios.pdf.generando') : `📄 ${t('formularios.pdf.descargar')}`}
             </button>
             {status === 'error' && (
-                <span className="text-xs text-red-400">No se pudo generar el PDF. Intenta de nuevo.</span>
+                <span className="text-xs text-red-400">{t('formularios.pdf.error')}</span>
             )}
         </div>
     );

@@ -202,9 +202,13 @@ export function resumenBop(coche, config = 'medio') {
     };
 }
 
-/** "4WD · PR 603,09 · 302 CV · 1.205 kg", para el texto de un <option>. */
-export function textoBop(coche, config = 'medio') {
+/**
+ * "4WD · PR 603,09 · 302 CV · 1.205 kg", para el texto de un <option>. En
+ * inglés el juego dice PP y HP.
+ */
+export function textoBop(coche, config = 'medio', lang = 'es') {
     const r = resumenBop(coche, config);
     if (!r) return null;
-    return `${r.traccion} · PR ${r.pp} · ${r.cv} CV · ${r.kg} kg`;
+    const [pr, cv] = lang === 'en' ? ['PP', 'HP'] : lang === 'pt' ? ['PP', 'CV'] : ['PR', 'CV'];
+    return `${r.traccion} · ${pr} ${r.pp} · ${r.cv} ${cv} · ${r.kg} kg`;
 }

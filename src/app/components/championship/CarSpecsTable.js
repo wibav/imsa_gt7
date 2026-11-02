@@ -10,6 +10,7 @@ import {
     origenFicha,
     MINIMO_PARA_BUSCAR,
 } from '../../utils/carSpecs';
+import { useI18n } from '../../i18n';
 
 /**
  * Tabla comparativa de los coches de un campeonato con sus valores de BoP.
@@ -17,7 +18,8 @@ import {
  * Sirve para elegir: en la GR.4 Endurance cada piloto escoge dos coches de 34,
  * y hasta ahora solo veía sus nombres.
  */
-export default function CarSpecsTable({ coches = [], titulo = '📊 Ficha técnica con BoP' }) {
+export default function CarSpecsTable({ coches = [], titulo }) {
+    const { t, locale } = useI18n();
     const [config, setConfig] = useState('medio');
     const [orden, setOrden] = useState({ campo: 'nombre', desc: false });
     const [busqueda, setBusqueda] = useState('');
@@ -48,7 +50,7 @@ export default function CarSpecsTable({ coches = [], titulo = '📊 Ficha técni
         const esMejor = valor != null && valor === mejores[campo];
         return (
             <td className={`px-2 sm:px-3 py-2 text-right tabular-nums whitespace-nowrap ${esMejor ? 'text-green-300 font-bold' : 'text-gray-200'}`}>
-                {valor == null ? '—' : Number(valor).toLocaleString('es-ES', {
+                {valor == null ? '—' : Number(valor).toLocaleString(locale, {
                     minimumFractionDigits: decimales, maximumFractionDigits: decimales,
                 })}
             </td>
@@ -59,14 +61,14 @@ export default function CarSpecsTable({ coches = [], titulo = '📊 Ficha técni
         <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-white/10 overflow-hidden">
             <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h3 className="text-lg font-bold text-white">{titulo}</h3>
+                    <h3 className="text-lg font-bold text-white">{titulo || `📊 ${t('componentes.ficha.titulo')}`}</h3>
                     <p className="text-gray-400 text-xs mt-0.5">
-                        {filas.length} coches · valores con el BoP de la liga activado
+                        {t('componentes.ficha.subtitulo', { n: filas.length })}
                     </p>
                 </div>
                 {varia ? (
                     <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400 whitespace-nowrap">Tipo de circuito</span>
+                        <span className="text-xs text-gray-400 whitespace-nowrap">{t('componentes.ficha.tipoCircuito')}</span>
                         <div className="flex flex-wrap gap-1 bg-black/20 rounded-lg p-1">
                         {CONFIGS_BOP.map(c => (
                             <button
@@ -77,14 +79,14 @@ export default function CarSpecsTable({ coches = [], titulo = '📊 Ficha técni
                                     : 'text-gray-300 hover:bg-white/10'
                                     }`}
                             >
-                                {c.etiqueta}
+                                {t(`componentes.ficha.config.${c.id}`)}
                             </button>
                         ))}
                         </div>
                     </div>
                 ) : (
                     <span className="text-xs text-gray-400 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
-                        El BoP es el mismo en todos los circuitos
+                        {t('componentes.ficha.mismoBop')}
                     </span>
                 )}
             </div>
@@ -93,10 +95,7 @@ export default function CarSpecsTable({ coches = [], titulo = '📊 Ficha técni
                 hablar del coche, no del circuito. */}
             {varia && (
                 <p className="px-5 pb-4 -mt-1 text-xs text-gray-400 leading-relaxed">
-                    ℹ️ En GT7 el BoP de algunos autos cambia según el circuito: no es el mismo en uno
-                    rápido, de rectas largas, que en uno lento y técnico. Aquí afecta
-                    a <span className="text-white font-medium">{nVarian} de {filas.length}</span> autos.
-                    Elige el tipo de circuito de la carrera para ver los valores con los que se corre.
+                    ℹ️ {t('componentes.ficha.explicacion', { n: nVarian, total: filas.length })}
                 </p>
             )}
 
@@ -106,7 +105,7 @@ export default function CarSpecsTable({ coches = [], titulo = '📊 Ficha técni
                         type="search"
                         value={busqueda}
                         onChange={(e) => setBusqueda(e.target.value)}
-                        placeholder="🔍 Buscar un auto..."
+                        placeholder={t('componentes.ficha.buscar')}
                         className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
                 </div>
@@ -118,14 +117,14 @@ export default function CarSpecsTable({ coches = [], titulo = '📊 Ficha técni
                         <tr className="text-xs text-gray-400 border-y border-white/10 bg-white/5">
                             <th className="px-2 sm:px-3 py-2 text-left font-medium">
                                 <button onClick={() => ordenarPor('nombre')} className="hover:text-white transition-colors">
-                                    Auto{flecha('nombre')}
+                                    {t('componentes.ficha.auto')}{flecha('nombre')}
                                 </button>
                             </th>
-                            <th className="px-2 sm:px-3 py-2 text-center font-medium">Tracción</th>
+                            <th className="px-2 sm:px-3 py-2 text-center font-medium">{t('componentes.ficha.traccion')}</th>
                             {Object.entries(COLUMNAS_ORDENABLES).map(([campo, { etiqueta }]) => (
                                 <th key={campo} className="px-2 sm:px-3 py-2 text-right font-medium">
                                     <button onClick={() => ordenarPor(campo)} className="hover:text-white transition-colors">
-                                        {etiqueta}{flecha(campo)}
+                                        {t(`componentes.ficha.columna.${campo}`) || etiqueta}{flecha(campo)}
                                     </button>
                                 </th>
                             ))}
@@ -136,7 +135,7 @@ export default function CarSpecsTable({ coches = [], titulo = '📊 Ficha técni
                             <tr>
                                 <td colSpan={2 + Object.keys(COLUMNAS_ORDENABLES).length}
                                     className="px-3 py-6 text-center text-gray-400 text-sm">
-                                    Ningún auto coincide con &ldquo;{busqueda}&rdquo;
+                                    {t('componentes.ficha.sinCoincidencias', { busqueda })}
                                 </td>
                             </tr>
                         )}
@@ -155,17 +154,17 @@ export default function CarSpecsTable({ coches = [], titulo = '📊 Ficha técni
 
             {origen && (
                 <p className="px-5 py-3 text-xs text-gray-500 border-t border-white/10">
-                    En verde, el mejor de cada columna. Datos de{' '}
+                    {t('componentes.ficha.enVerde')}{' '}
                     <a href="https://gt-engine.com/gt7/" target="_blank" rel="noopener noreferrer"
                         className="text-orange-400 hover:underline">GT Engine</a>
-                    {' '}· versión {origen.version} del juego
+                    {' '}· {t('componentes.ficha.version', { v: origen.version })}
                     {(() => {
                         // Una configuración puede venir de otra fuente más reciente
                         // (p. ej. la tabla que publica Polyphony tras una
                         // actualización, antes de que GT Engine la recoja).
                         const propia = coches.find(c => c?.bop?.[varia ? config : 'medio']?.fuente)?.bop?.[varia ? config : 'medio'];
                         if (!propia) return null;
-                        return <span className="block mt-1 text-amber-300/80">Esta configuración: {propia.fuente}{propia.fecha ? ` (${new Date(`${propia.fecha}T12:00:00`).toLocaleDateString('es-ES')})` : ''}.</span>;
+                        return <span className="block mt-1 text-amber-300/80">{t('componentes.ficha.estaConfig')}: {propia.fuente}{propia.fecha ? ` (${new Date(`${propia.fecha}T12:00:00`).toLocaleDateString(locale)})` : ''}.</span>;
                     })()}
                 </p>
             )}

@@ -1,7 +1,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { useI18n } from '../i18n';
 
 export default function Footer() {
+    const { t } = useI18n();
     const year = new Date().getFullYear();
 
     return (
@@ -15,38 +17,38 @@ export default function Footer() {
                             <span className="text-white font-bold text-lg">GT7 Championships</span>
                         </div>
                         <p className="text-gray-400 max-w-prose">
-                            Resultados, clasificaciones y calendario del campeonato. Datos claros, en tiempo real y con una experiencia optimizada para escritorio y móvil.
+                            {t('nav.pie.descripcion')}
                         </p>
                     </div>
 
                     {/* Enlaces rápidos */}
                     <div>
-                        <h3 className="text-white font-semibold mb-3">Enlaces</h3>
+                        <h3 className="text-white font-semibold mb-3">{t('nav.pie.enlaces')}</h3>
                         <ul className="space-y-0.5">
                             <li>
-                                <Link href="/" className="inline-block py-1.5 hover:text-white transition-colors">Inicio</Link>
+                                <Link href="/" className="inline-block py-1.5 hover:text-white transition-colors">{t('nav.pie.inicio')}</Link>
                             </li>
                             <li>
-                                <Link href="/login" className="inline-block py-1.5 hover:text-white transition-colors">Acceso Admin</Link>
+                                <Link href="/login" className="inline-block py-1.5 hover:text-white transition-colors">{t('nav.pie.accesoAdmin')}</Link>
                             </li>
                             <li>
-                                <Link href="https://imsa.trenkit.com" target="_blank" rel="noopener noreferrer" className="inline-block py-1.5 hover:text-white transition-colors">Sitio oficial</Link>
+                                <Link href="https://imsa.trenkit.com" target="_blank" rel="noopener noreferrer" className="inline-block py-1.5 hover:text-white transition-colors">{t('nav.pie.sitioOficial')}</Link>
                             </li>
                             <li>
-                                <Link href="/terminos" className="inline-block py-1.5 hover:text-white transition-colors">Términos de Servicio</Link>
+                                <Link href="/terminos" className="inline-block py-1.5 hover:text-white transition-colors">{t('nav.pie.terminos')}</Link>
                             </li>
                             <li>
-                                <Link href="/privacidad" className="inline-block py-1.5 hover:text-white transition-colors">Política de Privacidad</Link>
+                                <Link href="/privacidad" className="inline-block py-1.5 hover:text-white transition-colors">{t('nav.pie.privacidad')}</Link>
                             </li>
                             <li>
-                                <Link href="/reembolsos" className="inline-block py-1.5 hover:text-white transition-colors">Política de Reembolso</Link>
+                                <Link href="/reembolsos" className="inline-block py-1.5 hover:text-white transition-colors">{t('nav.pie.reembolso')}</Link>
                             </li>
                         </ul>
                     </div>
 
                     {/* Contacto y redes */}
                     <div>
-                        <h3 className="text-white font-semibold mb-3">Contacto</h3>
+                        <h3 className="text-white font-semibold mb-3">{t('nav.pie.contacto')}</h3>
                         <ul className="space-y-0.5 mb-6">
                             <li>
                                 <a href="mailto:dasilvacristian11@gmail.com" className="py-1.5 hover:text-white transition-colors flex items-center gap-2 min-w-0 break-all">
@@ -56,7 +58,7 @@ export default function Footer() {
                             </li>
                         </ul>
 
-                        <h3 className="text-white font-semibold mb-3">Redes</h3>
+                        <h3 className="text-white font-semibold mb-3">{t('nav.pie.redes')}</h3>
                         <ul className="space-y-0.5">
                             <li>
                                 <Link href="https://www.linkedin.com/in/cristian-da-silva-zerpa/" target="_blank" rel="noopener noreferrer" className="py-1.5 hover:text-white transition-colors flex items-center gap-2">
@@ -87,9 +89,9 @@ export default function Footer() {
                 </div>
 
                 <div className="mt-10 flex flex-col md:flex-row items-center justify-between gap-4 border-t border-white/10 pt-6">
-                    <p className="text-sm text-gray-400">© {year} GT7 Championships. Todos los derechos reservados.</p>
+                    <p className="text-sm text-gray-400">© {year} GT7 Championships. {t('nav.pie.derechos')}</p>
                     <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                        Desarrollado por
+                        {t('nav.pie.desarrollado')}
                         <a href="https://trenkit.com" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300 font-semibold transition-colors">
                             Trenkit
                         </a>

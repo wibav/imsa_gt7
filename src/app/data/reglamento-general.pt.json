@@ -1,0 +1,736 @@
+{
+ "version": "2.1",
+ "fecha": "2026-10-23",
+ "idioma": "pt",
+ "sections": [
+  {
+   "id": "definiciones",
+   "icon": "📖",
+   "title": "Aplicação e Definições",
+   "content": [
+    {
+     "subtitle": "Aplicação",
+     "items": [
+      "Este regulamento geral aplica-se a todos os campeonatos e eventos do GT7 Championships.",
+      "O regulamento particular de cada campeonato ou evento prevalece sobre este em tudo o que regule de forma diferente (carros, sistema de pontos, limites de advertências, configuração da sala, etc.).",
+      "O que não estiver previsto é decidido pelos comissários, tendo como referência o Código de Conduta em Pista da FIA (Código Desportivo Internacional, Anexo L, capítulo IV) e as suas diretrizes de condução (Driving Standards Guidelines), adaptados ao Gran Turismo 7.",
+      "Os artigos são citados pela sua numeração (por exemplo, 5.3.2). Cada versão publicada indica a data de atualização; as decisões regem-se pela versão em vigor no dia da corrida."
+     ]
+    },
+    {
+     "subtitle": "Definições",
+     "type": "table",
+     "headers": [
+      "Termo",
+      "Significado"
+     ],
+     "rows": [
+      {
+       "cells": [
+        "Pista",
+        "Superfície asfaltada delimitada pelas linhas brancas. As linhas brancas fazem parte da pista; os corretores, bermas, relva e escapatórias, não."
+       ]
+      },
+      {
+       "cells": [
+        "Ponto de viragem",
+        "Ponto em que o piloto começa a rodar o volante para entrar na curva."
+       ]
+      },
+      {
+       "cells": [
+        "Vértice (ápice)",
+        "Ponto da curva em que o carro passa mais perto do limite interior."
+       ]
+      },
+      {
+       "cells": [
+        "Sobreposição (overlap)",
+        "Situação em que o carro que ataca tem direito a espaço numa curva, segundo o artigo 5.3."
+       ]
+      },
+      {
+       "cells": [
+        "Divebomb",
+        "Tentativa de ultrapassagem por dentro, tardia e sem controlo, em que o atacante não conseguiria fazer a curva sem se apoiar no rival ou sair de pista."
+       ]
+      },
+      {
+       "cells": [
+        "Vantagem duradoura",
+        "Posição ou tempo ganhos ao sair dos limites da pista ou com uma manobra ilegal, que se mantêm depois da manobra."
+       ]
+      },
+      {
+       "cells": [
+        "Incidente de corrida",
+        "Contacto em que nenhum piloto é total ou predominantemente responsável. Não é penalizado."
+       ]
+      },
+      {
+       "cells": [
+        "Responsabilidade predominante",
+        "Quando a maior parte da culpa de um incidente recai sobre um piloto, ainda que o outro tenha contribuído."
+       ]
+      },
+      {
+       "cells": [
+        "Pontos de advertência",
+        "Pontos que algumas penalizações somam e que se acumulam durante o campeonato (ver 7.2)."
+       ]
+      },
+      {
+       "cells": [
+        "Comissários",
+        "Pessoas designadas pela organização para analisar incidentes e decidir reclamações."
+       ]
+      },
+      {
+       "cells": [
+        "Host (anfitrião)",
+        "Piloto que cria e configura a sala de cada corrida (ver secção 3)."
+       ]
+      },
+      {
+       "cells": [
+        "DNF / OUT",
+        "DNF: não terminou a corrida. OUT: terminou sem completar o mínimo de voltas para pontuar (ver 10.6)."
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "conducta",
+   "icon": "🤝",
+   "title": "Conduta Geral e Desportivismo",
+   "content": [
+    {
+     "subtitle": "Princípios fundamentais",
+     "items": [
+      "Todos os pilotos devem manter um comportamento desportivo e respeitoso em todo o momento, tanto em pista como nos canais de comunicação (WhatsApp, chat da PlayStation, transmissão, etc.).",
+      "É terminantemente proibido insultar, ameaçar ou faltar ao respeito a qualquer piloto, organizador, comissário, caster ou membro da comunidade.",
+      "Espera-se fair play: se causares um incidente involuntário que prejudique outro piloto, espera e devolve-lhe a posição quando for seguro. É uma atenuante que reduz a penalização para metade (ver 6.5)."
+     ]
+    },
+    {
+     "subtitle": "Primeiro conduz, depois compete",
+     "items": [
+      "A tua primeira prioridade é manter o controlo do teu carro. Só quando o tiveres te deves preocupar em competir com os rivais.",
+      "Se consegues fazer uma curva a 110 km/h sozinho, não tentes fazê-la a 150 km/h por estares a competir com alguém.",
+      "Na dúvida, levanta o pé. Na maioria das situações, reduzir a velocidade é a melhor forma de evitar um acidente.",
+      "A maior diversão está em terminar a corrida. Arriscar desnecessariamente só te prejudica."
+     ]
+    },
+    {
+     "subtitle": "Comunicação oficial",
+     "items": [
+      "A comunicação oficial faz-se pelos canais designados pela organização (Comunidade de WhatsApp — Comissários).",
+      "Queixas, reclamações ou disputas NUNCA se resolvem em chats públicos, redes sociais nem durante a transmissão. Existe um procedimento formal (ver secção 8).",
+      "As decisões dos comissários são definitivas depois de publicadas, salvo se o campeonato tiver os recursos ativados (ver 8.4)."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sala",
+   "icon": "🎮",
+   "title": "Configuração da Sala",
+   "content": [
+    {
+     "subtitle": "O anfitrião (Host)",
+     "items": [
+      "O Host cria e configura a sala segundo os parâmetros publicados para cada corrida.",
+      "O Host de cada corrida é anunciado com antecedência na Comunidade de WhatsApp.",
+      "Deve abrir a sala com 15-20 minutos de antecedência para o aquecimento e a verificação das ligações.",
+      "O Host guarda a repetição, captura os resultados e envia o relatório da corrida à organização.",
+      "Deve também informar os comissários de qualquer ação ilegal, antidesportiva ou duvidosa que observe."
+     ]
+    },
+    {
+     "subtitle": "Abertura e preparação",
+     "items": [
+      "Os pilotos devem estar na sala pelo menos 5 minutos antes da hora de início. Quem não estiver quando a sala fechar pode ser penalizado.",
+      "São concedidos no máximo 5 minutos de cortesia por problemas de ligação. Passado esse tempo, a corrida começa sem o piloto.",
+      "Se a configuração da sala estiver errada (desgastes, pneus, meteorologia, etc.), é preciso avisar ANTES de começar a qualificação. Depois de iniciada a sessão, corre-se com a configuração ativa.",
+      "Se o erro de configuração for grave, a organização pode anular a corrida. Se for ligeiro, a corrida é válida."
+     ]
+    },
+    {
+     "subtitle": "Bugs e reinícios",
+     "items": [
+      "Se um piloto ficar bloqueado na partida, deve avisar imediatamente no chat. Só o Host pode reiniciar a corrida.",
+      "Os pilotos afetados voltam ao seu lugar na grelha com uma volta de recolocação.",
+      "O reinício só se faz nos primeiros setores ou voltas. Depois disso, a corrida continua."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "clasificacion",
+   "icon": "⏱️",
+   "title": "Qualificação (Qualy)",
+   "content": [
+    {
+     "subtitle": "Regras da qualificação",
+     "items": [
+      "A duração da qualificação é definida em cada corrida (normalmente 10-15 minutos).",
+      "Respeita o espaço dos outros: não bloqueies nem atrapalhes quem está em volta rápida.",
+      "Nas voltas de saída ou de arrefecimento, mantém uma trajetória previsível e afasta-te da trajetória ideal.",
+      "Fica em pista quando terminar o tempo de qualificação. Se saíres, o jogo pode colocar-te numa posição que não é a tua."
+     ]
+    },
+    {
+     "subtitle": "Penalizações na qualificação",
+     "type": "table",
+     "headers": [
+      "Infração",
+      "Penalização",
+      "Advertência"
+     ],
+     "rows": [
+      {
+       "cells": [
+        "Bloquear um piloto em volta rápida",
+        "-2 pontos",
+        "1"
+       ]
+      },
+      {
+       "cells": [
+        "Empurrar ou contacto intencional na qualificação",
+        "-5 pontos",
+        "2"
+       ]
+      },
+      {
+       "cells": [
+        "Penalizações automáticas do jogo (limites de pista)",
+        "Respeitam-se tal como são",
+        "—"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "carrera",
+   "icon": "🏁",
+   "title": "Regras de Corrida",
+   "content": [
+    {
+     "subtitle": "Partida",
+     "items": [
+      "O tipo de partida (grelha, lançada ou com verificação de falsa partida) é indicado na ficha de cada corrida.",
+      "Nas partidas lançadas, é preciso manter a posição até cruzar a linha de partida. Ultrapassar antes disso é penalizado.",
+      "Nas partidas da grelha, arranca-se quando o semáforo se apaga. O jogo penaliza automaticamente a partida antecipada."
+     ]
+    },
+    {
+     "subtitle": "Limites de pista",
+     "items": [
+      "Um carro está dentro dos limites se pelo menos duas rodas de eixos diferentes (uma dianteira e uma traseira) continuarem sobre a pista. A linha branca é pista; o corretor, não.",
+      "As penalizações por atalhos são as que o jogo impõe segundo a configuração da sala, e respeitam-se.",
+      "Ultrapassar com o carro fora dos limites, ou ganhar uma vantagem duradoura saindo deles, obriga a devolver a posição de imediato, o mais tardar antes do fim da volta. Não o fazer: -3 posições no resultado final.",
+      "Se for detetado um abuso sistemático dos limites que o jogo não penaliza, os comissários podem aplicar penalizações adicionais."
+     ],
+     "figuras": [
+      {
+       "src": "/reglamento/limites-pista.pt.svg",
+       "alt": "Limites de pista: duas rodas de eixos diferentes sobre a pista"
+      }
+     ]
+    },
+    {
+     "subtitle": "Ultrapassagens",
+     "items": [
+      "O piloto de trás é responsável por não bater no carro da frente.",
+      "Por DENTRO, há sobreposição quando, antes do ponto de viragem, o eixo dianteiro do atacante está pelo menos à altura do retrovisor do rival, e se mantém assim até ao vértice. A partir desse momento, o defensor tem de lhe deixar espaço.",
+      "Por FORA, o atacante só tem direito a espaço se no vértice o seu eixo dianteiro estiver à frente do eixo dianteiro do rival. É a manobra mais difícil: quem a tenta assume o risco.",
+      "Nos dois casos, o atacante tem de ir controlado, travar a tempo e conseguir fazer a curva dentro dos limites sem se apoiar no rival. Caso contrário, é um divebomb e não dá direito a espaço.",
+      "Sem sobreposição, o piloto da frente pode escolher qualquer trajetória sem que isso seja considerado bloqueio.",
+      "Com sobreposição, cada piloto tem direito à sua metade da pista (exterior ou interior) até à saída da curva. Nenhum pode empurrar o outro para fora dos limites.",
+      "A ultrapassagem termina quando o carro que ultrapassa passou completamente o outro, sem sobreposição. Até lá, a sobreposição continua válida.",
+      "Não aproveites a dobragem de outro piloto para ultrapassar um rival direto. Espera pela curva seguinte."
+     ],
+     "figuras": [
+      {
+       "src": "/reglamento/adelantamiento-interior.pt.svg",
+       "alt": "Ultrapassagem por dentro: quando há sobreposição"
+      },
+      {
+       "src": "/reglamento/adelantamiento-exterior.pt.svg",
+       "alt": "Ultrapassagem por fora: quando há direito a espaço"
+      }
+     ]
+    },
+    {
+     "subtitle": "Defesa de posição",
+     "items": [
+      "Para defender numa reta é permitida UMA só mudança de trajetória, que tem de ser mantida até à curva seguinte.",
+      "Quem volta para a trajetória ideal depois de defender por um lado deve deixar pelo menos a largura de um carro entre o seu carro e o limite da pista.",
+      "É proibido: ziguezaguear, mudar de trajetória durante a travagem, travar deliberadamente para prejudicar quem vem atrás, fechar um carro que já está lado a lado e empurrar o rival para fora de pista."
+     ],
+     "figuras": [
+      {
+       "src": "/reglamento/defensa-recta.pt.svg",
+       "alt": "Defesa de posição numa reta"
+      }
+     ]
+    },
+    {
+     "subtitle": "Bandeiras azuis (dobragens)",
+     "items": [
+      "O piloto que vai ser dobrado TEM de facilitar a passagem de forma segura, previsível e sem obstruir.",
+      "Para deixar passar, encosta-te a um limite da pista e mantém essa trajetória até te ultrapassarem. Podes levantar o pé.",
+      "Pode haver vários carros a tentar dobrar-te: olha para os dois lados e usa o radar de proximidade.",
+      "O piloto dobrado NÃO deve competir com quem o dobra nem aproveitar a passagem para ganhar posições a rivais diretos."
+     ]
+    },
+    {
+     "subtitle": "Boxes",
+     "items": [
+      "Respeita a entrada e a saída das boxes. O jogo penaliza automaticamente pisar a linha das boxes.",
+      "É proibido parar o carro fora das boxes durante a corrida; se precisares de parar, fá-lo nas boxes. Penalização: -5 pontos.",
+      "Se, ao cumprir uma penalização do jogo, atrapalhares outros pilotos, tens de a cumprir dando passagem fora da trajetória ideal. Não o fazer: -6 pontos."
+     ]
+    },
+    {
+     "subtitle": "Pneus obrigatórios",
+     "items": [
+      "Os compostos obrigatórios são definidos na configuração da sala e controlados pelo próprio jogo.",
+      "Os compostos de cada corrida são publicados na sua ficha: RH (duros), RM (médios), RS (macios)."
+     ]
+    },
+    {
+     "subtitle": "Reentradas em pista",
+     "items": [
+      "Depois de saíres de pista, volta sem provocar nenhum incidente, dando passagem a todos os que estão em pista.",
+      "Quem está em pista tem prioridade absoluta sobre quem está fora.",
+      "Depois de um acidente, verifica o estado do teu carro. Com danos graves, facilita que te ultrapassem para não pôr os outros em risco. Não o fazer: -3 pontos (exceto na última volta).",
+      "As penalizações por reentrada perigosa estão na tabela do artigo 6.3."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "incidentes",
+   "icon": "⚠️",
+   "title": "Incidentes e Contactos",
+   "content": [
+    {
+     "subtitle": "Classificação de danos",
+     "type": "table",
+     "headers": [
+      "Grau",
+      "Descrição"
+     ],
+     "rows": [
+      {
+       "cells": [
+        "Sem danos",
+        "Contacto que causa perda de posição ou saída de pista sem dano visível"
+       ]
+      },
+      {
+       "cells": [
+        "Danos LIGEIROS",
+        "1 peça aerodinâmica danificada, ou 1 aerodinâmica + 1 roda"
+       ]
+      },
+      {
+       "cells": [
+        "Danos MODERADOS",
+        "2 peças aerodinâmicas + 1-2 rodas, ou 1 aerodinâmica + 2 rodas"
+       ]
+      },
+      {
+       "cells": [
+        "Danos GRAVES",
+        "Qualquer dos anteriores + avaria do motor"
+       ]
+      }
+     ]
+    },
+    {
+     "subtitle": "Classificação de incidentes",
+     "items": [
+      "INCIDENTE DE CORRIDA (não penalizável): contacto próprio da competição em que nenhum piloto é total ou predominantemente responsável.",
+      "INCIDENTE LIGEIRO: contacto que causa perda de posição ou dano menor, sem intenção. Advertência ou penalização menor.",
+      "INCIDENTE GRAVE: contacto que provoca um abandono (DNF), uma perda importante de posições ou que demonstra negligência. Penalização de pontos.",
+      "INCIDENTE MUITO GRAVE: ação deliberada para tirar outro piloto da pista, torpedo intencional ou represália. Desclassificação da corrida e possível expulsão do campeonato.",
+      "É penalizado o piloto total ou predominantemente responsável. Se a responsabilidade for partilhada, os comissários podem declarar incidente de corrida ou penalizar ambos de forma proporcional."
+     ]
+    },
+    {
+     "subtitle": "Penalizações por contacto em corrida",
+     "type": "table",
+     "headers": [
+      "Tipo de contacto",
+      "Sem danos",
+      "D. ligeiros",
+      "D. moderados",
+      "D. graves",
+      "Advertência"
+     ],
+     "rows": [
+      {
+       "cells": [
+        "Toque por trás (incluindo travar tarde demais)",
+        "-2 pts",
+        "-3 pts",
+        "-4 pts",
+        "-6 pts",
+        "1"
+       ]
+      },
+      {
+       "cells": [
+        "Toque ao ultrapassar numa curva (incluindo divebomb)",
+        "-2 pts",
+        "-3 pts",
+        "-4 pts",
+        "-6 pts",
+        "2"
+       ]
+      },
+      {
+       "cells": [
+        "Reentrada perigosa em pista",
+        "-3 pts",
+        "-6 pts",
+        "-8 pts",
+        "-10 pts",
+        "2"
+       ]
+      },
+      {
+       "cells": [
+        "Ultrapassagem sem estar lado a lado, ou vantagem fora de pista sem a devolver",
+        "-3 posições no resultado",
+        "—",
+        "—",
+        "—",
+        "1"
+       ]
+      }
+     ]
+    },
+    {
+     "subtitle": "Extras por danos ao rival",
+     "items": [
+      "Cada peça aerodinâmica danificada do carro rival: +1 ponto na penalização.",
+      "Cada suspensão danificada do carro rival: +1 ponto.",
+      "Avaria do motor do carro rival: +2 pontos.",
+      "Danos a terceiros num acidente provocado: +1 ponto por carro com danos ligeiros, +2 por moderados e +3 por graves, mais +1 ponto por cada posição que esses terceiros percam."
+     ]
+    },
+    {
+     "subtitle": "Agravantes e atenuantes",
+     "items": [
+      "AGRAVANTE — incidente na primeira ou na última volta: penalização ×2.",
+      "AGRAVANTE — reincidência (a mesma infração no mesmo campeonato): penalização ×2.",
+      "AGRAVANTE — intencionalidade ou má-fé: penalização ×2.",
+      "ATENUANTE — devolver a posição depois do incidente: penalização reduzida para metade.",
+      "ATENUANTE — outras circunstâncias que reduzam a gravidade ou a culpa: penalização reduzida para metade.",
+      "Agravantes e atenuantes combinam-se, mas a penalização final nunca ultrapassa o triplo da penalização base. Os extras por danos somam-se depois."
+     ]
+    },
+    {
+     "subtitle": "Procedimento de avaliação",
+     "items": [
+      "Os comissários analisam os incidentes com a repetição do jogo, os vídeos apresentados e a transmissão em direto.",
+      "Podem atuar por iniciativa própria, sem necessidade de reclamação, se observarem uma infração ou receberem o relatório do Host.",
+      "Antes de decidir, o piloto acusado pode dar a sua versão e apresentar o seu próprio vídeo no prazo de 24 horas desde que lhe é comunicada a reclamação, pelo canal oficial dos comissários.",
+      "Um comissário não pode decidir incidentes em que tenha participado, nem os da sua própria equipa ou sala. Nesses casos decide outro comissário ou a direção do campeonato.",
+      "São tidos em conta: intencionalidade, espaço deixado, velocidade relativa, consequências para o outro piloto e historial de incidentes.",
+      "Os comissários decidem num prazo máximo de 48 horas desde o fim do prazo de reclamações."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sanciones",
+   "icon": "⚖️",
+   "title": "Sistema de Penalizações",
+   "content": [
+    {
+     "subtitle": "Tabela geral de penalizações",
+     "type": "table",
+     "headers": [
+      "Infração",
+      "Penalização",
+      "Advertência",
+      "Gravidade"
+     ],
+     "rows": [
+      {
+       "cells": [
+        "Advertência por incidente leve",
+        "Sem pontos",
+        "1",
+        "🟡 Leve"
+       ]
+      },
+      {
+       "cells": [
+        "Não comparecer na sala sem avisar",
+        "-3 pontos (individual) / -15 (equipas)",
+        "0",
+        "🟡 Leve"
+       ]
+      },
+      {
+       "cells": [
+        "Não dar passagem ao circular com danos graves",
+        "-3 pontos",
+        "1",
+        "🟡 Leve"
+       ]
+      },
+      {
+       "cells": [
+        "Parar o carro fora das boxes durante a corrida",
+        "-5 pontos",
+        "1",
+        "🟠 Moderada"
+       ]
+      },
+      {
+       "cells": [
+        "Uso abusivo de sinais de luzes para distrair",
+        "-3 pontos",
+        "1",
+        "🟠 Moderada"
+       ]
+      },
+      {
+       "cells": [
+        "Atrapalhar ao cumprir uma penalização do jogo",
+        "-6 pontos",
+        "2",
+        "🟠 Moderada"
+       ]
+      },
+      {
+       "cells": [
+        "Mais de uma mudança de trajetória na reta, ou fechar um carro lado a lado",
+        "-5 pontos",
+        "2",
+        "🔴 Grave"
+       ]
+      },
+      {
+       "cells": [
+        "Reclamação manifestamente infundada ou de má-fé",
+        "-5 pontos",
+        "0",
+        "🔴 Grave"
+       ]
+      },
+      {
+       "cells": [
+        "Reclamar fora do formulário oficial",
+        "-5 pontos",
+        "0",
+        "🔴 Grave"
+       ]
+      },
+      {
+       "cells": [
+        "Ficar sem combustível e tapar deliberadamente um rival",
+        "Desclassificação da corrida",
+        "3",
+        "🔴 Muito grave"
+       ]
+      },
+      {
+       "cells": [
+        "Colisão intencional / torpedo",
+        "Desclassificação da corrida + possível expulsão",
+        "4",
+        "🔴 Muito grave"
+       ]
+      },
+      {
+       "cells": [
+        "Circular em sentido contrário (treino, qualificação ou corrida)",
+        "Desclassificação da corrida",
+        "3",
+        "🔴 Muito grave"
+       ]
+      },
+      {
+       "cells": [
+        "Insultar a organização, os comissários ou outros pilotos",
+        "Expulsão",
+        "—",
+        "🔴 Muito grave"
+       ]
+      }
+     ]
+    },
+    {
+     "subtitle": "Pontos de advertência",
+     "items": [
+      "Algumas penalizações somam pontos de advertência além de retirar pontos. Acumulam-se durante todo o campeonato e não se reiniciam entre corridas.",
+      "Cada vez que um piloto atinge o limite do campeonato (por defeito, 8 pontos de advertência, e de novo aos 16, 24…), são-lhe retirados automaticamente 10 pontos da classificação. O limite e o desconto podem variar em cada campeonato.",
+      "Ao atingir o limite de desclassificação do campeonato (por defeito, 16 pontos de advertência), os comissários estudam a sua exclusão do campeonato.",
+      "A página de cada campeonato mostra os seus valores na secção Penalizações."
+     ]
+    },
+    {
+     "subtitle": "Notas importantes",
+     "items": [
+      "As penalizações em pontos são descontadas do total do campeonato. Um piloto pode ficar com pontos negativos.",
+      "O que o próprio Gran Turismo 7 já penaliza durante a corrida (atalhos, contactos, partida antecipada, linha das boxes, bandeiras, pneus obrigatórios…) não volta a ser penalizado. Os comissários só atuam sobre o que o jogo não controla.",
+      "Os valores deste regulamento são os padrão. Cada campeonato pode configurar os seus.",
+      "A organização pode excluir de edições futuras ou expulsar pilotos conflituosos ou com penalizações graves repetidas."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "reclamaciones",
+   "icon": "📋",
+   "title": "Reclamações",
+   "content": [
+    {
+     "subtitle": "Como apresentar uma reclamação",
+     "items": [
+      "As reclamações SÓ são aceites pelo formulário oficial do site. Não são aceites por WhatsApp, pelo chat da transmissão nem por outros meios. Reclamar fora do formulário: -5 pontos.",
+      "O prazo é de 48 horas desde o fim da corrida. Passado esse tempo, o formulário deixa de estar disponível para essa corrida.",
+      "O formulário está na página do campeonato, secção Penalizações, botão «📩 Reportar incidente» (só se o campeonato tiver as reclamações ativadas).",
+      "Indica: o teu nome, o piloto ou pilotos envolvidos, a corrida, a volta ou o minuto (se souberes), uma descrição detalhada e a ligação para o vídeo.",
+      "Podes reclamar de vários pilotos na mesma reclamação se o incidente os envolver a todos."
+     ]
+    },
+    {
+     "subtitle": "Provas",
+     "items": [
+      "A prova em vídeo é muito recomendável. Sem ela, os comissários só podem decidir com a repetição ou a transmissão; se não houver imagens suficientes, a reclamação pode ser indeferida.",
+      "Carrega o vídeo no YouTube como «Não listado», nunca como «Privado»: um vídeo privado não pode ser visto pelos comissários nem pela ferramenta de análise.",
+      "Mostra o HUD de danos no vídeo para que se possa avaliar o grau de dano.",
+      "Se não o conseguires carregar, envia-o em privado aos comissários; eles anexam-no à reclamação."
+     ]
+    },
+    {
+     "subtitle": "Decisão",
+     "items": [
+      "Os comissários analisam as provas, completam-nas com a repetição ou a transmissão e ouvem o piloto acusado (ver 6.6).",
+      "A decisão é publicada no site, com o veredicto e, se houver, a penalização aplicada.",
+      "Uma reclamação manifestamente infundada ou de má-fé custa -5 pontos a quem a apresenta. Uma reclamação de boa-fé que é indeferida não é penalizada."
+     ]
+    },
+    {
+     "subtitle": "Recurso",
+     "items": [
+      "Se o campeonato tiver os recursos ativados, o piloto penalizado (se a reclamação foi aceite) ou o reclamante (se foi rejeitada) pode recorrer da decisão dentro do prazo configurado (por defeito, 48 horas desde a decisão).",
+      "O recurso é decidido por uma instância superior: um diretor de liga ou organizador, nunca um comissário nem quem decidiu a reclamação.",
+      "Enquanto é decidido, a penalização continua a aplicar-se e aparece como «⚖️ Em recurso».",
+      "A decisão do recurso é definitiva: pode confirmar, revogar ou modificar a penalização, ou não admitir o recurso por questões de forma (fora de prazo, sem legitimidade ou duplicado). Não há segunda instância.",
+      "Se não se recorrer dentro do prazo, ou se o campeonato não tiver recursos, a decisão original é definitiva."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "desconexiones",
+   "icon": "📡",
+   "title": "Desconexões e Lag",
+   "content": [
+    {
+     "subtitle": "Desconexão de um piloto",
+     "items": [
+      "Cada piloto é responsável pela sua ligação. Recomenda-se ligação por cabo (ethernet) em vez de WiFi.",
+      "Um piloto que se desliga durante a corrida é DNF.",
+      "Espera-se no máximo 5 minutos para que volte a ligar-se antes da partida. A sala NÃO é reiniciada para recolocar a grelha.",
+      "Exceção: se o piloto demonstrar uma falha do serviço de internet, a organização pode estudar o caso."
+     ]
+    },
+    {
+     "subtitle": "Queda da sala ou do servidor",
+     "items": [
+      "Se a sala cair com MAIS de 75% da corrida completada, a corrida é dada por terminada com as posições da última passagem pela meta.",
+      "Se cair entre 50% e 75%, é atribuída METADE dos pontos de cada posição segundo a última passagem pela meta.",
+      "Se cair antes dos 50%, a corrida é anulada sem repetição. Se tiverem sido disputados entre 10 e 20 minutos, a organização pode retomá-la com o tempo restante.",
+      "Estas decisões cabem exclusivamente aos comissários, depois de receberem o relatório da corrida."
+     ]
+    },
+    {
+     "subtitle": "Lag",
+     "items": [
+      "Se um piloto tiver lag severo que afete os outros (teletransportes, ressaltos), a organização pode pedir-lhe que abandone a corrida.",
+      "Os incidentes causados por lag são estudados caso a caso. Por norma, não se penaliza o piloto com lag se não for intencional, nem o afetado.",
+      "Um piloto com lag extremo e repetido pode receber um DNF para proteger a competição."
+     ]
+    },
+    {
+     "subtitle": "Bugs do GT7",
+     "items": [
+      "Se o jogo recolocar mal um piloto, o caso é estudado individualmente.",
+      "Se o bug afetar as posições finais e for detetado a tempo, a organização pode reiniciar a corrida."
+     ]
+    }
+   ]
+  },
+  {
+   "id": "especificas",
+   "icon": "📐",
+   "title": "Regras de Campeonato",
+   "content": [
+    {
+     "subtitle": "Carros e Balance of Performance",
+     "items": [
+      "Salvo indicação em contrário, o BoP está SEMPRE ativado nas corridas competitivas.",
+      "As afinações do carro (setup) são proibidas salvo se a ficha da corrida as permitir.",
+      "Cada campeonato pode definir os carros permitidos e as suas regras de utilização (por exemplo, número de carros por piloto e utilizações máximas de cada um).",
+      "Usar um carro não permitido ou não cumprir as regras de utilização implica a desclassificação da corrida."
+     ]
+    },
+    {
+     "subtitle": "Design, logótipo e número",
+     "items": [
+      "Se o campeonato exigir um design ou logótipo, é obrigatório usá-lo. Não o fazer: -10 pontos.",
+      "O número de corrida deve estar visível segundo as indicações do campeonato. Não o usar: -2 pontos.",
+      "Os autocolantes obrigatórios devem estar nas posições indicadas (normalmente para-brisas e ambos os lados). Não os usar: -3 pontos por autocolante.",
+      "O design é livre salvo se o campeonato indicar restrições."
+     ]
+    },
+    {
+     "subtitle": "Formato Sprint + Corrida",
+     "items": [
+      "Alguns campeonatos incluem uma corrida Sprint (normalmente 5 voltas) além da corrida principal.",
+      "Cada sessão (Sprint, qualificação e corrida) pode ter os seus próprios compostos obrigatórios e configuração.",
+      "Os pontos da Sprint somam-se aos da corrida principal."
+     ]
+    },
+    {
+     "subtitle": "Divisões, subidas e descidas",
+     "items": [
+      "Os campeonatos com várias divisões usam um sistema de subidas e descidas entre edições.",
+      "No fim de cada edição, os pilotos em lugar de subida sobem de divisão e os de descida descem.",
+      "Se houver lugares livres, os pilotos que acabaram de descer da divisão superior têm prioridade sobre os que acabaram de subir da inferior.",
+      "O número de subidas e descidas é definido por cada campeonato."
+     ]
+    },
+    {
+     "subtitle": "Pontuação e desempates",
+     "items": [
+      "Cada campeonato publica o seu sistema de pontos (corrida, qualificação e volta mais rápida) na secção Informação da sua página.",
+      "Em caso de empate em pontos na classificação geral, desempata-se por: 1) mais vitórias, 2) mais pódios, 3) melhor resultado numa corrida."
+     ]
+    },
+    {
+     "subtitle": "Requisitos para pontuar",
+     "items": [
+      "Para pontuar é preciso completar pelo menos 75% das voltas do vencedor.",
+      "Quem não chegar aos 75% aparece como OUT: conta como presença, mas não soma pontos."
+     ]
+    }
+   ]
+  }
+ ]
+}

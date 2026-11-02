@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import Navbar, { useHeaderBackground } from "./Navbar";
+import { useI18n } from "../i18n";
 
 /**
  * Cabecera estándar del área pública: la barra de navegación y el título de
@@ -26,14 +27,15 @@ import Navbar, { useHeaderBackground } from "./Navbar";
  */
 export default function PageHeader({ migas = [], titulo, icono, subtitulo, children, ancho = 'max-w-7xl' }) {
     const fondo = useHeaderBackground();
-    const todas = [{ label: '🏠 Inicio', href: '/' }, ...migas];
+    const { t } = useI18n();
+    const todas = [{ label: t('nav.inicio'), href: '/' }, ...migas];
 
     return (
         <>
             <Navbar />
             <header className={`${fondo.className} px-4 pb-8 pt-1 sm:pb-10`} style={fondo.style}>
                 <div className={`${ancho} mx-auto w-full`}>
-                    <nav aria-label="Migas de pan" className="flex flex-wrap items-center gap-2 text-sm text-white/70 mb-3">
+                    <nav aria-label={t('nav.migas')} className="flex flex-wrap items-center gap-2 text-sm text-white/70 mb-3">
                         {todas.map((m, i) => (
                             <span key={i} className="flex items-center gap-2">
                                 {i > 0 && <span aria-hidden="true">/</span>}

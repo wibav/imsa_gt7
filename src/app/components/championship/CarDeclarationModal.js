@@ -5,6 +5,7 @@ import { FirebaseService } from '../../services/firebaseService';
 import { getAllowedCars, getExcludedCars, resumenLimitadores } from '../../utils/carUsageCalculator';
 import { hoyEnEspana } from '../../utils/dateUtils';
 import { resumenBop, textoBop } from '../../utils/carSpecs';
+import { useI18n } from '../../i18n';
 
 /**
  * Modal público para que un piloto inscrito declare sus autos para el campeonato.
@@ -28,6 +29,8 @@ import { resumenBop, textoBop } from '../../utils/carSpecs';
  * @param {Function} props.onSuccess      - Callback tras guardar exitosamente
  */
 export default function CarDeclarationModal({ championship, registration, registrations = [], onClose, onSuccess, adminOverride = false }) {
+    const { t, lang, locale } = useI18n();
+    const d = (clave, vars) => t(`formularios.declaracion.${clave}`, vars);
     const cat = championship.carUsageTracking || {};
     const maxCars = cat.maxCarsPerDriver ?? 3;
     const deadline = cat.declarationDeadline ? new Date(cat.declarationDeadline + 'T23:59:59') : null;
@@ -85,8 +88,8 @@ export default function CarDeclarationModal({ championship, registration, regist
 
     const describirPendiente = () => {
         const partes = [];
-        if (autoSinAgregar) partes.push(`Elegiste «${newCar.trim()}» pero no pulsaste «+ Agregar», así que no está en tu lista.`);
-        if (hayCambiosSinGuardar) partes.push('Tienes cambios en tu lista de autos que todavía no guardaste.');
+        if (autoSinAgregar) partes.push(d('pendienteSinAgregar', { auto: newCar.trim() }));
+        if (hayCambiosSinGuardar) partes.push(d('pendienteCambios'));
         return partes.join(' ');
     };
 
@@ -94,11 +97,11 @@ export default function CarDeclarationModal({ championship, registration, regist
     const cerrar = (forzar = false) => {
         if (!forzar && hayAlgoPendiente) {
             setAviso({
-                titulo: '⚠️ Tu declaración no está guardada',
-                mensaje: `${describirPendiente()} Si sales ahora, se pierde.`,
+                titulo: `⚠️ ${d('noGuardada')}`,
+                mensaje: `${describirPendiente()} ${d('siSales')}`,
                 acciones: [
-                    { texto: 'Volver y guardar', estilo: 'primario', onClick: () => setAviso(null) },
-                    { texto: 'Salir sin guardar', estilo: 'peligro', onClick: () => { setAviso(null); cerrar(true); } },
+                    { texto: d('volverGuardar'), estilo: 'primario', onClick: () => setAviso(null) },
+                    { texto: d('salirSinGuardar'), estilo: 'peligro', onClick: () => { setAviso(null); cerrar(true); } },
                 ],
             });
             return;
@@ -135,11 +138,11 @@ export default function CarDeclarationModal({ championship, registration, regist
     const handleSelectDriver = (id) => {
         if (hayAlgoPendiente) {
             setAviso({
-                titulo: '⚠️ Cambios sin guardar',
-                mensaje: `${describirPendiente()} Si cambias de piloto, se pierden.`,
+                titulo: `⚠️ ${d('cambiosSinGuardar')}`,
+                mensaje: `${describirPendiente()} ${d('siCambiasPiloto')}`,
                 acciones: [
-                    { texto: 'Volver', estilo: 'primario', onClick: () => setAviso(null) },
-                    { texto: 'Cambiar sin guardar', estilo: 'peligro', onClick: () => { setAviso(null); cambiarPiloto(id); } },
+                    { texto: d('volver'), estilo: 'primario', onClick: () => setAviso(null) },
+                    { texto: d('cambiarSinGuardar'), estilo: 'peligro', onClick: () => { setAviso(null); cambiarPiloto(id); } },
                 ],
             });
             return;
@@ -149,11 +152,11 @@ export default function CarDeclarationModal({ championship, registration, regist
 
     const validarAuto = (carName, lista) => {
         const trimmed = carName?.trim();
-        if (!trimmed) return 'Elige un auto en el selector.';
-        if (lista.includes(trimmed)) return 'Ya declaraste ese auto.';
-        if (lista.length >= maxCars) return `Máximo ${maxCars} autos permitidos.`;
+        if (!trimmed) return d('errElige');
+        if (lista.includes(trimmed)) return d('errYaDeclarado');
+        if (lista.length >= maxCars) return d('errMaximo', { n: maxCars });
         if (allowedNames.length > 0 && !allowedNames.includes(trimmed)) {
-            return `"${trimmed}" no está entre los autos permitidos del campeonato.`;
+            return d('errNoPermitido', { auto: trimmed });
         }
         return null;
     };
@@ -190,7 +193,7 @@ export default function CarDeclarationModal({ championship, registration, regist
             setSaved(true);
             setGuardadoAlgunaVez(true);
         } catch (e) {
-            setError('❌ No se pudo guardar tu declaración. Revisa tu conexión y pulsa «Guardar declaración» otra vez. Si vuelve a fallar, avisa a la organización con captura de pantalla.');
+            setError(`❌ ${d('errGuardar')}`);
         } finally {
             setSaving(false);
         }
@@ -199,7 +202,7 @@ export default function CarDeclarationModal({ championship, registration, regist
     const handleSave = async () => {
         if (isReadOnly || saving) return;
         if (!activeReg) {
-            setError('Primero selecciona tu piloto en «¿Quién eres?».');
+            setError(d('errSinPiloto'));
             return;
         }
 
@@ -208,13 +211,13 @@ export default function CarDeclarationModal({ championship, registration, regist
             const conElegido = [...cars, newCar.trim()];
             const problema = validarAuto(newCar, cars);
             setAviso({
-                titulo: '⚠️ Hay un auto sin agregar',
-                mensaje: `Elegiste «${newCar.trim()}» pero no pulsaste «+ Agregar».`
-                    + (cars.length === 0 ? ' Ahora mismo tu lista está vacía.' : ''),
+                titulo: `⚠️ ${d('autoSinAgregar')}`,
+                mensaje: d('elegisteSinAgregar', { auto: newCar.trim() })
+                    + (cars.length === 0 ? ` ${d('listaVacia')}` : ''),
                 acciones: [
-                    ...(problema ? [] : [{ texto: 'Agregarlo y guardar', estilo: 'primario', onClick: () => { setAviso(null); intentarGuardar(conElegido); } }]),
-                    ...(cars.length > 0 ? [{ texto: 'Guardar sin ese auto', estilo: 'secundario', onClick: () => { setAviso(null); setNewCar(''); intentarGuardar(cars); } }] : []),
-                    { texto: 'Volver', estilo: 'secundario', onClick: () => setAviso(null) },
+                    ...(problema ? [] : [{ texto: d('agregarYGuardar'), estilo: 'primario', onClick: () => { setAviso(null); intentarGuardar(conElegido); } }]),
+                    ...(cars.length > 0 ? [{ texto: d('guardarSinEse'), estilo: 'secundario', onClick: () => { setAviso(null); setNewCar(''); intentarGuardar(cars); } }] : []),
+                    { texto: d('volver'), estilo: 'secundario', onClick: () => setAviso(null) },
                 ],
             });
             return;
@@ -225,7 +228,7 @@ export default function CarDeclarationModal({ championship, registration, regist
     // Comprobaciones sobre la lista final antes de escribir.
     const intentarGuardar = (lista) => {
         if (lista.length === 0) {
-            setError('No has agregado ningún auto. Elige uno en el selector y pulsa «+ Agregar»; después, «Guardar declaración».');
+            setError(d('errNinguno'));
             return;
         }
         if (mismosAutos(lista, savedCars) && savedCars.length > 0) {
@@ -235,11 +238,11 @@ export default function CarDeclarationModal({ championship, registration, regist
         }
         if (lista.length < maxCars) {
             setAviso({
-                titulo: `Solo declaraste ${lista.length} de ${maxCars} autos`,
-                mensaje: `Puedes guardar así y completar más tarde, dentro del plazo. Si al cerrar el plazo no has declarado ${maxCars}, se te asignarán al azar los que falten.`,
+                titulo: d('soloDeclaraste', { a: lista.length, total: maxCars }),
+                mensaje: d('puedesGuardarAsi', { n: maxCars }),
                 acciones: [
-                    { texto: 'Seguir eligiendo', estilo: 'secundario', onClick: () => setAviso(null) },
-                    { texto: `Guardar ${lista.length} auto${lista.length === 1 ? '' : 's'}`, estilo: 'primario', onClick: () => { setAviso(null); guardar(lista); } },
+                    { texto: d('seguirEligiendo'), estilo: 'secundario', onClick: () => setAviso(null) },
+                    { texto: d('guardarN', { n: lista.length }), estilo: 'primario', onClick: () => { setAviso(null); guardar(lista); } },
                 ],
             });
             return;
@@ -247,7 +250,7 @@ export default function CarDeclarationModal({ championship, registration, regist
         guardar(lista);
     };
 
-    const driverLabel = (r) => r.gt7Id || r.psnId || r.name || 'Piloto';
+    const driverLabel = (r) => r.gt7Id || r.psnId || r.name || t('componentes.tabla.piloto');
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -279,23 +282,23 @@ export default function CarDeclarationModal({ championship, registration, regist
                 {/* Header */}
                 <div className="flex items-center justify-between mb-5">
                     <div>
-                        <h3 className="text-xl font-bold text-white">🚗 Declaración de Autos</h3>
+                        <h3 className="text-xl font-bold text-white">🚗 {d('titulo')}</h3>
                         <p className="text-gray-400 text-sm mt-1">{championship.name}</p>
                     </div>
-                    <button onClick={() => cerrar()} className="text-gray-400 hover:text-white text-2xl" aria-label="Cerrar">✕</button>
+                    <button onClick={() => cerrar()} className="text-gray-400 hover:text-white text-2xl" aria-label={t('campeonato.cerrar')}>✕</button>
                 </div>
 
                 {/* Deadline banner */}
                 {adminOverride && plazoVencido && (
                     <div className="mb-5 px-4 py-3 rounded-lg text-sm bg-amber-900/30 border border-amber-500/40 text-amber-200">
-                        🔓 Excepción de administrador: el plazo venció el {deadline.toLocaleDateString('es-ES')}, pero puedes cambiar los autos de este piloto.
+                        🔓 {d('excepcionAdmin', { fecha: deadline.toLocaleDateString(locale) })}
                     </div>
                 )}
                 {deadline && !(adminOverride && plazoVencido) && (
                     <div className={`mb-5 px-4 py-3 rounded-lg text-sm ${isReadOnly ? 'bg-red-900/40 border border-red-500/40 text-red-300' : 'bg-blue-900/30 border border-blue-500/30 text-blue-200'}`}>
                         {isReadOnly
-                            ? `⛔ Plazo vencido el ${deadline.toLocaleDateString('es-ES')}. Tu declaración quedó guardada.`
-                            : `📅 Fecha límite: ${deadline.toLocaleDateString('es-ES')} — puedes editar hasta esa fecha.`}
+                            ? `⛔ ${d('plazoVencido', { fecha: deadline.toLocaleDateString(locale) })}`
+                            : `📅 ${d('fechaLimite', { fecha: deadline.toLocaleDateString(locale) })}`}
                     </div>
                 )}
 
@@ -303,14 +306,14 @@ export default function CarDeclarationModal({ championship, registration, regist
                 {!registration && (
                     <div className="mb-5">
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                            ¿Quién eres? <span className="text-red-400">*</span>
+                            {d('quienEres')} <span className="text-red-400">*</span>
                         </label>
                         <select
                             value={selectedId}
                             onChange={e => handleSelectDriver(e.target.value)}
                             className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                         >
-                            <option value="" className="bg-slate-800">Selecciona tu piloto...</option>
+                            <option value="" className="bg-slate-800">{d('seleccionaPiloto')}</option>
                             {registrations.map(r => (
                                 <option key={r.id} value={r.id} className="bg-slate-800">
                                     {driverLabel(r)}{r.teamName ? ` — ${r.teamName}` : ''}
@@ -319,7 +322,7 @@ export default function CarDeclarationModal({ championship, registration, regist
                             ))}
                         </select>
                         <p className="text-gray-500 text-xs mt-1">
-                            Los inscritos con ✅ ya declararon sus autos.
+                            {d('conCheck')}
                         </p>
                     </div>
                 )}
@@ -328,11 +331,11 @@ export default function CarDeclarationModal({ championship, registration, regist
                 <div className="mb-5 grid grid-cols-2 gap-3">
                     <div className="bg-white/5 rounded-lg p-3 text-center">
                         <p className="text-2xl font-bold text-orange-400">{maxCars}</p>
-                        <p className="text-xs text-gray-400 mt-1">Autos distintos máx.</p>
+                        <p className="text-xs text-gray-400 mt-1">{d('maxDistintos')}</p>
                     </div>
                     <div className="bg-white/5 rounded-lg p-3 text-center">
                         <p className="text-2xl font-bold text-orange-400">{cat.maxUsesPerCar ?? 2}</p>
-                        <p className="text-xs text-gray-400 mt-1">Usos por auto máx.</p>
+                        <p className="text-xs text-gray-400 mt-1">{d('maxUsos')}</p>
                     </div>
                 </div>
 
@@ -341,10 +344,10 @@ export default function CarDeclarationModal({ championship, registration, regist
                         {/* Autos declarados */}
                         <div className="mb-5">
                             <p className="text-sm font-medium text-gray-300 mb-3">
-                                Autos de <span className="text-white font-semibold">{driverLabel(activeReg)}</span> ({cars.length}/{maxCars}):
+                                {d('autosDe')} <span className="text-white font-semibold">{driverLabel(activeReg)}</span> ({cars.length}/{maxCars}):
                             </p>
                             {cars.length === 0 ? (
-                                <p className="text-gray-500 text-sm">Aún no hay autos declarados.</p>
+                                <p className="text-gray-500 text-sm">{d('sinAutos')}</p>
                             ) : (
                                 <div className="space-y-2">
                                     {cars.map((car, idx) => (
@@ -353,7 +356,7 @@ export default function CarDeclarationModal({ championship, registration, regist
                                                 🏎️ {car}
                                                 {/* Excluido después de declararlo: no se borra, se avisa */}
                                                 {excludedNames.has(car) && (
-                                                    <span className="block text-xs text-red-300 mt-0.5">⚠️ Este auto ya no está permitido en el campeonato. Habla con la organización para cambiarlo.</span>
+                                                    <span className="block text-xs text-red-300 mt-0.5">⚠️ {d('yaNoPermitido')}</span>
                                                 )}
                                             </span>
                                             {!isReadOnly && (
@@ -371,7 +374,7 @@ export default function CarDeclarationModal({ championship, registration, regist
                         {/* Agregar auto — solo si no venció el plazo y no se llegó al máximo */}
                         {!isReadOnly && cars.length < maxCars && (
                             <div className="mb-5">
-                                <p className="text-sm font-medium text-gray-300 mb-2">Agregar auto:</p>
+                                <p className="text-sm font-medium text-gray-300 mb-2">{d('agregarAuto')}:</p>
                                 {allowedCars.length > 0 ? (
                                     <>
                                         <div className="flex gap-2">
@@ -380,14 +383,14 @@ export default function CarDeclarationModal({ championship, registration, regist
                                                 onChange={e => { setNewCar(e.target.value); setError(''); }}
                                                 className="flex-1 min-w-0 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                                             >
-                                                <option value="" className="bg-slate-800">Selecciona un auto...</option>
+                                                <option value="" className="bg-slate-800">{d('seleccionaAuto')}</option>
                                                 {allowedCars.filter(c => !cars.includes(c.name)).map(c => {
                                                     // Con BoP si lo hay: antes salía el PR de serie (el Alfa
                                                     // 155, 665) y con BoP ese coche corre con 603.
-                                                    const bop = textoBop(c);
+                                                    const bop = textoBop(c, 'medio', lang);
                                                     return (
                                                         <option key={c.name} value={c.name} className="bg-slate-800">
-                                                            {c.name}{bop ? ` — ${bop}` : c.pp ? ` — PR ${c.pp} (de serie)` : ''}
+                                                            {c.name}{bop ? ` — ${bop}` : c.pp ? ` — ${d('prSerie', { pp: c.pp })}` : ''}
                                                         </option>
                                                     );
                                                 })}
@@ -395,7 +398,7 @@ export default function CarDeclarationModal({ championship, registration, regist
                                             <button type="button"
                                                 onClick={() => handleAddCar(newCar)}
                                                 className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm rounded-lg transition-colors whitespace-nowrap">
-                                                + Agregar
+                                                + {d('agregar')}
                                             </button>
                                         </div>
                                         {(() => {
@@ -405,7 +408,7 @@ export default function CarDeclarationModal({ championship, registration, regist
                                             return (
                                                 <div className="mt-2 bg-white/5 border border-white/10 rounded-lg p-3">
                                                     <div className="grid grid-cols-4 gap-2 text-center">
-                                                        {[['Tracción', r.traccion], ['PR', r.pp], ['CV', r.cv], ['kg', r.kg]].map(([k, v]) => (
+                                                        {[[t('componentes.ficha.traccion'), r.traccion], [t('componentes.ficha.columna.pp'), r.pp], [t('componentes.ficha.columna.cv'), r.cv], ['kg', r.kg]].map(([k, v]) => (
                                                             <div key={k}>
                                                                 <div className="text-gray-400 text-[11px]">{k}</div>
                                                                 <div className="text-white text-sm font-semibold tabular-nums">{v}</div>
@@ -413,18 +416,18 @@ export default function CarDeclarationModal({ championship, registration, regist
                                                         ))}
                                                     </div>
                                                     <p className="text-gray-500 text-[11px] mt-2 text-center">
-                                                        Con BoP, en circuito medio
-                                                        {r.varia && ' · cambia según el circuito: compáralo en la pestaña 🚗 Autos'}
+                                                        {d('conBop')}
+                                                        {r.varia && ` · ${d('cambiaCircuito')}`}
                                                     </p>
                                                 </div>
                                             );
                                         })()}
                                         <p className="text-gray-500 text-xs mt-1">
-                                            {allowedCars.length} autos permitidos
+                                            {d('autosPermitidos', { n: allowedCars.length })}
                                             {(championship.categories || []).length > 0 && !(cat.carCatalog || []).length
-                                                ? ` (categoría ${(championship.categories).join(', ')})`
+                                                ? ` (${d('categoria', { cat: (championship.categories).join(', ') })})`
                                                 : ''}
-                                            {resumenLimitadores(cat.limitadores) && <span className="block text-orange-300/80">🔧 {resumenLimitadores(cat.limitadores)}</span>}
+                                            {resumenLimitadores(cat.limitadores) && <span className="block text-orange-300/80">🔧 {resumenLimitadores(cat.limitadores, lang)}</span>}
                                         </p>
                                     </>
                                 ) : (
@@ -434,13 +437,13 @@ export default function CarDeclarationModal({ championship, registration, regist
                                             value={newCar}
                                             onChange={e => { setNewCar(e.target.value); setError(''); }}
                                             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCar(newCar); } }}
-                                            placeholder="Ej: Mazda RX-Vision GT3"
+                                            placeholder={d('phAuto')}
                                             className="flex-1 min-w-0 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
                                         />
                                         <button type="button"
                                             onClick={() => handleAddCar(newCar)}
                                             className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm rounded-lg transition-colors whitespace-nowrap">
-                                            + Agregar
+                                            + {d('agregar')}
                                         </button>
                                     </div>
                                 )}
@@ -449,7 +452,7 @@ export default function CarDeclarationModal({ championship, registration, regist
                     </>
                 ) : (
                     <p className="mb-5 text-gray-400 text-sm">
-                        Selecciona tu piloto para ver y editar tu declaración.
+                        {d('seleccionaParaVer')}
                     </p>
                 )}
 
@@ -463,9 +466,9 @@ export default function CarDeclarationModal({ championship, registration, regist
                 {/* Éxito: solo tras releer lo guardado */}
                 {saved && !error && !hayAlgoPendiente && (
                     <div className="mb-4 px-4 py-3 bg-green-900/40 border border-green-500/40 rounded-lg text-green-200 text-sm">
-                        <p className="font-semibold">✅ Declaración guardada y comprobada.</p>
-                        <p className="mt-1">Autos de {activeReg ? driverLabel(activeReg) : 'tu piloto'}: {savedCars.join(' · ')}</p>
-                        <p className="mt-1 text-green-300/80 text-xs">Ya puedes cerrar esta ventana.</p>
+                        <p className="font-semibold">✅ {d('guardada')}</p>
+                        <p className="mt-1">{d('autosDe')} {activeReg ? driverLabel(activeReg) : d('tuPiloto')}: {savedCars.join(' · ')}</p>
+                        <p className="mt-1 text-green-300/80 text-xs">{d('puedesCerrar')}</p>
                     </div>
                 )}
 
@@ -480,12 +483,12 @@ export default function CarDeclarationModal({ championship, registration, regist
                 <div className="flex gap-3 pt-2">
                     <button onClick={() => cerrar()}
                         className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm">
-                        {isReadOnly || (saved && !hayAlgoPendiente) ? 'Cerrar' : 'Cancelar'}
+                        {isReadOnly || (saved && !hayAlgoPendiente) ? t('campeonato.cerrar') : t('formularios.inscripcion.cancelar')}
                     </button>
                     {!isReadOnly && (
                         <button onClick={handleSave} disabled={saving}
                             className="flex-1 px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold rounded-lg transition-all disabled:opacity-50 text-sm">
-                            {saving ? '⏳ Guardando...' : '💾 Guardar declaración'}
+                            {saving ? `⏳ ${d('guardando')}` : `💾 ${d('guardar')}`}
                         </button>
                     )}
                 </div>

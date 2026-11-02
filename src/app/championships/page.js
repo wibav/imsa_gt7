@@ -67,6 +67,7 @@ import TrackLogo from '../components/common/TrackLogo';
 import ScrollTabs from '../components/common/ScrollTabs';
 import { EfectoSancion } from '../components/championship/SancionDetalle';
 import { aplicarSancionesDeCarrera } from '../utils/raceSanctions';
+import { useI18n, textoSancion } from '../i18n';
 
 /**
  * Pole, top-3 de clasificación y vuelta rápida de una carrera (o de una
@@ -100,31 +101,33 @@ function extrasDeCarrera(resultado, canon) {
 
 /** Línea «Clasificación: 1º … · ⚡ Vuelta rápida: …» bajo el título de cada división. */
 function ExtrasCarrera({ extras }) {
+    const { t } = useI18n();
     if (!extras.hayAlgo) return null;
     const { top3, qualyPts, flDriver, flPts } = extras;
-    const puestos = [['first', '1º'], ['second', '2º'], ['third', '3º']]
+    const puestos = [['first', 1], ['second', 2], ['third', 3]]
         .filter(([clave]) => top3[clave])
-        .map(([clave, etiqueta]) => `${etiqueta} ${top3[clave]}${qualyPts[top3[clave]] ? ` (+${qualyPts[top3[clave]]})` : ''}`);
+        .map(([clave, pos]) => `${t('campeonato.ordinal', { pos })} ${top3[clave]}${qualyPts[top3[clave]] ? ` (+${qualyPts[top3[clave]]})` : ''}`);
     return (
         <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
-            {puestos.length > 0 && <span>⏱️ Clasificación: <span className="text-gray-200">{puestos.join(' · ')}</span></span>}
-            {flDriver && <span>⚡ Vuelta rápida: <span className="text-gray-200">{flDriver}{flPts ? ` (+${flPts})` : ''}</span></span>}
+            {puestos.length > 0 && <span>⏱️ {t('campeonato.clasificacionQualy')}: <span className="text-gray-200">{puestos.join(' · ')}</span></span>}
+            {flDriver && <span>⚡ {t('campeonato.vueltaRapida')}: <span className="text-gray-200">{flDriver}{flPts ? ` (+${flPts})` : ''}</span></span>}
         </div>
     );
 }
 
 /** Distintivos de pole/top-3 de qualy y vuelta rápida junto al nombre. */
 function ExtrasPiloto({ extra }) {
+    const { t } = useI18n();
     if (!extra) return null;
     return (
         <>
             {extra.qualyPos && (
-                <span className="ml-1 text-[11px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 whitespace-nowrap" title={`${extra.qualyPos}º en clasificación`}>
+                <span className="ml-1 text-[11px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 whitespace-nowrap" title={t('campeonato.puestoQualy', { pos: extra.qualyPos })}>
                     ⏱️ Q{extra.qualyPos}{extra.qualyPts ? ` +${extra.qualyPts}` : ''}
                 </span>
             )}
             {extra.fl && (
-                <span className="ml-1 text-[11px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 whitespace-nowrap" title="Vuelta rápida">
+                <span className="ml-1 text-[11px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 whitespace-nowrap" title={t('campeonato.vueltaRapida')}>
                     ⚡{extra.flPts ? ` +${extra.flPts}` : ''}
                 </span>
             )}
@@ -137,6 +140,7 @@ export default function ChampionshipDetailPage() {
     const router = useRouter();
     const championshipId = searchParams.get('id');
     const { currentUser, isAdmin } = useAuth();
+    const { t, lang, locale } = useI18n();
 
     const [championship, setChampionship] = useState(null);
     const [teams, setTeams] = useState([]);
@@ -226,7 +230,7 @@ export default function ChampionshipDetailPage() {
     };
 
     if (loading) {
-        return <LoadingSkeleton variant="page" message="Cargando Campeonato..." />;
+        return <LoadingSkeleton variant="page" message={t('campeonato.cargando')} />;
     }
 
     if (!championship) {
@@ -234,12 +238,12 @@ export default function ChampionshipDetailPage() {
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
                 <div className="text-center">
                     <div className="text-6xl mb-4">❌</div>
-                    <div className="text-white text-xl font-bold mb-4">Campeonato no encontrado</div>
+                    <div className="text-white text-xl font-bold mb-4">{t('campeonato.noEncontrado')}</div>
                     <button
                         onClick={() => router.push('/')}
                         className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-6 py-3 rounded-lg font-bold transition-all"
                     >
-                        Volver al Inicio
+                        {t('campeonato.volverInicio')}
                     </button>
                 </div>
             </div>
@@ -382,10 +386,10 @@ export default function ChampionshipDetailPage() {
                                 onClick={() => router.push('/')}
                                 className="hover:text-white transition-colors"
                             >
-                                🏠 Inicio
+                                {t('nav.inicio')}
                             </button>
                             <span>/</span>
-                            <span className="text-white">Campeonatos</span>
+                            <span className="text-white">{t('campeonato.campeonatos')}</span>
                             <span>/</span>
                             <span className="text-orange-400">{championship.name}</span>
                         </div>
@@ -404,19 +408,19 @@ export default function ChampionshipDetailPage() {
                                 <div className="flex items-center gap-4 flex-wrap">
                                     {championship.season && (
                                         <span className="text-orange-400 font-semibold">
-                                            📅 Temporada {championship.season}
+                                            📅 {t('campeonato.temporada', { temporada: championship.season })}
                                         </span>
                                     )}
                                     <span className="text-gray-300">
-                                        {championship.settings?.isTeamChampionship ? '👥 Por Equipos' : '👤 Individual'}
+                                        {championship.settings?.isTeamChampionship ? t('campeonato.porEquipos') : t('campeonato.individual')}
                                     </span>
                                     <span className="text-gray-300">
-                                        🏁 {progress.completed}/{progress.total} carreras
+                                        🏁 {t('campeonato.progresoCarreras', { hechas: progress.completed, total: progress.total })}
                                     </span>
                                     {isLive && (
                                         <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-600 text-white text-sm font-bold rounded-full animate-pulse">
                                             <span className="w-2 h-2 bg-white rounded-full"></span>
-                                            EN VIVO
+                                            {t('campeonato.enVivo')}
                                         </span>
                                     )}
                                 </div>
@@ -442,22 +446,22 @@ export default function ChampionshipDetailPage() {
 
                                 {/* Un botón por transmisión, con el caster: con varias salas
                                     hay varios canales y todos merecen el mismo sitio. */}
-                                {transmisiones.map(t => (
+                                {transmisiones.map(tm => (
                                     <a
-                                        key={t.url}
-                                        href={t.url}
+                                        key={tm.url}
+                                        href={tm.url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        title={t.salas.length ? `Narra ${t.salas.map(x => x.name).join(', ')}` : undefined}
+                                        title={tm.salas.length ? t('campeonato.narra', { salas: tm.salas.map(x => x.name).join(', ') }) : undefined}
                                         className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all ${isLive
                                             ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
                                             : 'bg-white/10 hover:bg-white/20 border border-white/30 text-white'
                                             }`}
                                     >
-                                        {t.plataforma?.icon || '📺'}
+                                        {tm.plataforma?.icon || '📺'}
                                         {transmisiones.length > 1
-                                            ? <span>{isLive ? 'En vivo · ' : ''}{t.caster}</span>
-                                            : <span>{isLive ? 'Ver en Vivo' : 'Ver Stream'}</span>}
+                                            ? <span>{isLive ? `${t('campeonato.enVivoCorto')} · ` : ''}{tm.caster}</span>
+                                            : <span>{isLive ? t('campeonato.verEnVivo') : t('campeonato.verStream')}</span>}
                                     </a>
                                 ))}
                             </div>
@@ -471,14 +475,14 @@ export default function ChampionshipDetailPage() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
                     <ScrollTabs activeKey={activeTab}>
                         {[
-                            { id: 'info', label: 'ℹ️ Información', icon: 'ℹ️' },
-                            { id: 'standings', label: '📊 Clasificación', icon: '📊' },
-                            { id: 'calendar', label: '📅 Calendario', icon: '📅' },
-                            { id: 'stats', label: '📈 Estadísticas', icon: '📈' },
-                            ...(championship?.preQualy?.enabled ? [{ id: 'prequaly', label: '🎯 Pre-Qualy', icon: '🎯' }] : []),
-                            ...(championship?.divisionsConfig?.enabled ? [{ id: 'salas', label: '🏟️ Salas', icon: '🏟️' }] : []),
-                            ...(championship?.carUsageTracking?.enabled ? [{ id: 'cars', label: '🚗 Autos', icon: '🚗' }] : []),
-                            ...(championship.penaltiesConfig?.enabled ? [{ id: 'penalties', label: '⚠️ Sanciones', icon: '⚠️' }] : [])
+                            { id: 'info', label: t('campeonato.pestanas.info'), icon: 'ℹ️' },
+                            { id: 'standings', label: t('campeonato.pestanas.clasificacion'), icon: '📊' },
+                            { id: 'calendar', label: t('campeonato.pestanas.calendario'), icon: '📅' },
+                            { id: 'stats', label: t('campeonato.pestanas.estadisticas'), icon: '📈' },
+                            ...(championship?.preQualy?.enabled ? [{ id: 'prequaly', label: t('campeonato.pestanas.prequaly'), icon: '🎯' }] : []),
+                            ...(championship?.divisionsConfig?.enabled ? [{ id: 'salas', label: t('campeonato.pestanas.salas'), icon: '🏟️' }] : []),
+                            ...(championship?.carUsageTracking?.enabled ? [{ id: 'cars', label: t('campeonato.pestanas.autos'), icon: '🚗' }] : []),
+                            ...(championship.penaltiesConfig?.enabled ? [{ id: 'penalties', label: t('campeonato.pestanas.sanciones'), icon: '⚠️' }] : [])
                         ].map(tab => (
                             <button
                                 key={tab.id}
@@ -516,7 +520,7 @@ export default function ChampionshipDetailPage() {
                             <div className="space-y-6">
                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                                     <h2 className="text-3xl font-bold text-white flex items-center gap-3">
-                                        📊 Clasificación Actual
+                                        📊 {t('campeonato.clasificacionActual')}
                                     </h2>
                                     <div className="flex flex-wrap gap-2">
                                         <ExportableStandings
@@ -545,7 +549,7 @@ export default function ChampionshipDetailPage() {
                                                 : 'bg-white/10 text-gray-300 hover:bg-white/20'
                                                 }`}
                                         >
-                                            🏁 Todas las Salas
+                                            🏁 {t('campeonato.todasSalas')}
                                         </button>
                                         {divisions.map(div => (
                                             <button
@@ -587,9 +591,9 @@ export default function ChampionshipDetailPage() {
                                                     <div className="flex-1">
                                                         <div className="text-white font-bold text-lg leading-tight">{div.name}</div>
                                                         <div className="text-xs flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5" style={{ color: `${div.color || '#f97316'}cc` }}>
-                                                            <span>{(div.drivers || []).length} piloto{(div.drivers || []).length !== 1 ? 's' : ''}</span>
-                                                            {div.hour && <span>🕐 {div.hour}h <span className="opacity-70">(España){horaSalaLocal(div.hour) && ` · ${horaSalaLocal(div.hour)}h tu hora`}</span></span>}
-                                                            {div.hostName && <span>🎮 Host: {div.hostName}</span>}
+                                                            <span>{t('campeonato.pilotos', { n: (div.drivers || []).length })}</span>
+                                                            {div.hour && <span>🕐 {div.hour}h <span className="opacity-70">({t('campeonato.espana')}){horaSalaLocal(div.hour) && ` · ${t('campeonato.tuHora', { hora: horaSalaLocal(div.hour) })}`}</span></span>}
+                                                            {div.hostName && <span>🎮 {t('campeonato.host', { host: div.hostName })}</span>}
                                                             {div.casterName && <span>📺 {div.casterName}</span>}
                                                         </div>
                                                     </div>
@@ -597,21 +601,21 @@ export default function ChampionshipDetailPage() {
                                                         onClick={() => setSelectedDivision(div.id)}
                                                         className="text-xs px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition-colors"
                                                     >
-                                                        Ver detalle →
+                                                        {t('campeonato.verDetalle')}
                                                     </button>
                                                 </div>
 
                                                 {/* Tabla de clasificación de la sala */}
                                                 {ds.length === 0 ? (
                                                     <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
-                                                        <p className="text-gray-400 text-sm">Sin datos de clasificación para esta sala</p>
+                                                        <p className="text-gray-400 text-sm">{t('campeonato.sinDatosSala')}</p>
                                                     </div>
                                                 ) : championship.settings?.isTeamChampionship ? (
                                                     <div className="space-y-4">
                                                         <StandingsTable
                                                             standings={ts}
                                                             type="teams"
-                                                            title={`${div.name} — Equipos`}
+                                                            title={`${div.name} — ${t('campeonato.equipos')}`}
                                                             accentColor="orange"
                                                             showRaceColumns={rc.length > 0}
                                                             showStatsColumns={rc.length > 0}
@@ -621,7 +625,7 @@ export default function ChampionshipDetailPage() {
                                                         <StandingsTable
                                                             standings={ds}
                                                             type="drivers"
-                                                            title={`${div.name} — Pilotos`}
+                                                            title={`${div.name} — ${t('campeonato.pilotosTitulo')}`}
                                                             accentColor="blue"
                                                             showTeamColumn={true}
                                                             showCategoryColumn={true}
@@ -663,7 +667,7 @@ export default function ChampionshipDetailPage() {
                                                 <StandingsTable
                                                     standings={advancedTeamStandings}
                                                     type="teams"
-                                                    title="Clasificación por Equipos"
+                                                    title={t('campeonato.clasifEquipos')}
                                                     accentColor="orange"
                                                     showRaceColumns={raceColumns.length > 0}
                                                     showStatsColumns={raceColumns.length > 0}
@@ -673,7 +677,7 @@ export default function ChampionshipDetailPage() {
                                                 <StandingsTable
                                                     standings={advancedDriverStandings}
                                                     type="drivers"
-                                                    title="Clasificación Individual de Pilotos"
+                                                    title={t('campeonato.clasifIndividual')}
                                                     accentColor="blue"
                                                     showTeamColumn={true}
                                                     showCategoryColumn={true}
@@ -715,7 +719,7 @@ export default function ChampionshipDetailPage() {
                                             return (
                                                 <div className="space-y-4">
                                                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                                                        🏁 Clasificación por Categoría
+                                                        🏁 {t('campeonato.clasifCategoria')}
                                                     </h3>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                         {catsToShow.map(cat => {
@@ -725,7 +729,7 @@ export default function ChampionshipDetailPage() {
                                                                 <div key={cat} className="bg-white/5 border border-white/10 rounded-xl p-4">
                                                                     <h4 className="text-white font-bold mb-3 flex items-center gap-2">
                                                                         <span className="px-2 py-0.5 bg-orange-600/30 text-orange-300 rounded text-sm">{cat}</span>
-                                                                        Campeones {cat}
+                                                                        {t('campeonato.campeonesCat', { cat })}
                                                                     </h4>
                                                                     <div className="space-y-2">
                                                                         {catDrivers.slice(0, 5).map((d, idx) => (
@@ -757,7 +761,7 @@ export default function ChampionshipDetailPage() {
                         {activeTab === 'calendar' && (
                             <div>
                                 <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
-                                    📅 Calendario de Carreras
+                                    📅 {t('campeonato.calendario')}
                                 </h2>
 
                                 {/* Selector de División para filtrar resultados */}
@@ -770,7 +774,7 @@ export default function ChampionshipDetailPage() {
                                                 : 'bg-white/10 text-gray-300 hover:bg-white/20'
                                                 }`}
                                         >
-                                            🏁 Todas las Salas
+                                            🏁 {t('campeonato.todasSalas')}
                                         </button>
                                         {divisions.map(div => (
                                             <button
@@ -797,14 +801,14 @@ export default function ChampionshipDetailPage() {
                                     {/* Pre-Qualy */}
                                     <PreQualyInfo
                                         championship={championship}
-                                        subtitulo="Sesión clasificatoria previa al campeonato"
+                                        subtitulo={t('campeonato.prequalySubtitulo')}
                                         conEtiquetaPrevia
                                     />
 
                                     {tracks.length === 0 ? (
                                         <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
                                             <div className="text-6xl mb-4">🏁</div>
-                                            <p className="text-gray-300 text-lg">No hay carreras programadas</p>
+                                            <p className="text-gray-300 text-lg">{t('campeonato.sinCarreras')}</p>
                                         </div>
                                     ) : (
                                         tracks.sort((a, b) => new Date(a.date) - new Date(b.date)).map((track, index) => (
@@ -820,8 +824,8 @@ export default function ChampionshipDetailPage() {
                                                             <h3 className="text-xl font-bold text-white break-words min-w-0">{track.name}</h3>
                                                         </div>
                                                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-gray-300">
-                                                            <span>📅 {formatDateFull(track.date)}</span>
-                                                            <span>🕐 {getRaceTime(championship, track)}h <span className="opacity-70">(España){localRaceTime(track.date, getRaceTime(championship, track)) && ` · ${localRaceTime(track.date, getRaceTime(championship, track))}h tu hora`}</span></span>
+                                                            <span>📅 {formatDateFull(track.date, locale)}</span>
+                                                            <span>🕐 {getRaceTime(championship, track)}h <span className="opacity-70">({t('campeonato.espana')}){localRaceTime(track.date, getRaceTime(championship, track)) && ` · ${t('campeonato.tuHora', { hora: localRaceTime(track.date, getRaceTime(championship, track)) })}`}</span></span>
                                                             {track.country && <span>📍 {track.country}</span>}
                                                             {track.category && (
                                                                 <span className="bg-blue-600/30 px-2 py-1 rounded text-sm">
@@ -834,13 +838,13 @@ export default function ChampionshipDetailPage() {
                                                         {/* El estado sale de los datos, no de track.status:
                                                             nadie actualiza ese campo al correr la carrera. */}
                                                         {estadoCarrera(track) === 'completada' && (
-                                                            <span className="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-bold">✓ Completada</span>
+                                                            <span className="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-bold">{t('campeonato.estado.completada')}</span>
                                                         )}
                                                         {estadoCarrera(track) === 'en-curso' && (
-                                                            <span className="bg-yellow-500 text-white text-xs px-3 py-1 rounded-full font-bold">⏱️ En Curso</span>
+                                                            <span className="bg-yellow-500 text-white text-xs px-3 py-1 rounded-full font-bold">{t('campeonato.estado.enCurso')}</span>
                                                         )}
                                                         {estadoCarrera(track) === 'pendiente' && (
-                                                            <span className="bg-red-500 text-white text-xs px-3 py-1 rounded-full font-bold">⚠️ Pendiente</span>
+                                                            <span className="bg-red-500 text-white text-xs px-3 py-1 rounded-full font-bold">{t('campeonato.estado.pendiente')}</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -848,11 +852,11 @@ export default function ChampionshipDetailPage() {
                                                 {/* Autos específicos (si aplica) */}
                                                 {track.specificCars && (
                                                     <div className="mt-3 inline-flex items-start gap-2 bg-orange-500/15 border border-orange-500/30 text-orange-100 px-3 py-2 rounded-lg text-sm">
-                                                        <span className="font-semibold">🚗 Autos obligatorios:</span>
+                                                        <span className="font-semibold">🚗 {t('campeonato.autosObligatorios')}:</span>
                                                         <span className="text-orange-50">
                                                             {(track.allowedCars && track.allowedCars.length > 0)
                                                                 ? track.allowedCars.join(', ')
-                                                                : 'Lista pendiente'}
+                                                                : t('campeonato.listaPendiente')}
                                                         </span>
                                                     </div>
                                                 )}
@@ -862,15 +866,15 @@ export default function ChampionshipDetailPage() {
                                                     configuración de sala». */}
                                                 {(() => {
                                                     const reglas = normalizarReglas(track.rules || {});
-                                                    const t = (id) => textoAjuste(track, id, reglas);
+                                                    const ajuste = (id) => textoAjuste(track, id, reglas, lang);
                                                     const chips = [
-                                                        t('__victoria'),
-                                                        reglas.weather && t('weather'),
-                                                        reglas.mechanicalDamage && `Daño mecánico: ${t('mechanicalDamage')}`,
-                                                        reglas.tireWear && `Desgaste ${t('tireWear')}`,
-                                                        reglas.fuelConsumption && `Consumo ${t('fuelConsumption')}`,
-                                                        reglas.requiredCompounds?.length > 0 && `Requeridos: ${t('requiredCompounds')}`,
-                                                        reglas.qualyDuration && `Clasificación ${t('qualyDuration')}`,
+                                                        ajuste('__victoria'),
+                                                        reglas.weather && ajuste('weather'),
+                                                        reglas.mechanicalDamage && t('campeonato.chips.danoMecanico', { v: ajuste('mechanicalDamage') }),
+                                                        reglas.tireWear && t('campeonato.chips.desgaste', { v: ajuste('tireWear') }),
+                                                        reglas.fuelConsumption && t('campeonato.chips.consumo', { v: ajuste('fuelConsumption') }),
+                                                        reglas.requiredCompounds?.length > 0 && t('campeonato.chips.requeridos', { v: ajuste('requiredCompounds') }),
+                                                        reglas.qualyDuration && t('campeonato.chips.clasificacion', { v: ajuste('qualyDuration') }),
                                                     ].filter(Boolean);
                                                     if (chips.length === 0) return null;
                                                     return (
@@ -906,14 +910,14 @@ export default function ChampionshipDetailPage() {
                                                             onClick={() => abrirCarrera(track, 'resultados')}
                                                             className="inline-flex items-center gap-2 px-4 py-2 bg-green-600/30 hover:bg-green-600/50 border border-green-400/40 text-green-200 rounded-lg text-sm font-semibold transition-all"
                                                         >
-                                                            📊 Ver resultados
+                                                            📊 {t('campeonato.verResultados')}
                                                         </button>
                                                     )}
                                                     <button
                                                         onClick={() => abrirCarrera(track, 'sala')}
                                                         className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-400/40 text-blue-200 rounded-lg text-sm font-semibold transition-all"
                                                     >
-                                                        🎮 Ver configuración de sala
+                                                        🎮 {t('campeonato.verSala')}
                                                     </button>
                                                 </div>
                                             </div>
@@ -927,18 +931,18 @@ export default function ChampionshipDetailPage() {
                         {activeTab === 'stats' && (
                             <div>
                                 <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
-                                    📈 Estadísticas del Campeonato
+                                    📈 {t('campeonato.estadisticas')}
                                 </h2>
                                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                                     <div className="bg-gradient-to-br from-orange-600 to-red-600 rounded-xl p-6 text-white">
                                         <div className="text-4xl mb-2">🏁</div>
                                         <div className="text-3xl font-bold">{tracks.length}</div>
-                                        <div className="text-sm opacity-90">Carreras Totales</div>
+                                        <div className="text-sm opacity-90">{t('campeonato.stats.carreras')}</div>
                                     </div>
                                     <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl p-6 text-white">
                                         <div className="text-4xl mb-2">✓</div>
                                         <div className="text-3xl font-bold">{progress.completed}</div>
-                                        <div className="text-sm opacity-90">Completadas</div>
+                                        <div className="text-sm opacity-90">{t('campeonato.stats.completadas')}</div>
                                     </div>
                                     <div className="bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl p-6 text-white">
                                         <div className="text-4xl mb-2">👥</div>
@@ -948,13 +952,13 @@ export default function ChampionshipDetailPage() {
                                                 : (championship.drivers?.length || 0)
                                             }
                                         </div>
-                                        <div className="text-sm opacity-90">Pilotos</div>
+                                        <div className="text-sm opacity-90">{t('campeonato.stats.pilotos')}</div>
                                     </div>
                                     {championship.settings?.isTeamChampionship && (
                                         <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl p-6 text-white">
                                             <div className="text-4xl mb-2">🏆</div>
                                             <div className="text-3xl font-bold">{teams.length}</div>
-                                            <div className="text-sm opacity-90">Equipos</div>
+                                            <div className="text-sm opacity-90">{t('campeonato.stats.equipos')}</div>
                                         </div>
                                     )}
                                 </div>
@@ -998,10 +1002,10 @@ export default function ChampionshipDetailPage() {
                                 <div className="space-y-6">
                                     <div className="flex items-center justify-between">
                                         <h2 className="text-3xl font-bold text-white flex items-center gap-3">
-                                            🏟️ Salas y Divisiones
+                                            🏟️ {t('campeonato.salas.titulo')}
                                         </h2>
                                         <div className="flex items-center gap-3 text-sm text-gray-400">
-                                            <span>👥 {totalAssigned} / {approvedRegistrations.length} inscritos asignados</span>
+                                            <span>👥 {t('campeonato.salas.asignados', { a: totalAssigned, total: approvedRegistrations.length })}</span>
                                         </div>
                                     </div>
 
@@ -1009,19 +1013,19 @@ export default function ChampionshipDetailPage() {
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                         <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
                                             <div className="text-2xl font-bold text-orange-400">{divisions.length}</div>
-                                            <div className="text-gray-400 text-xs mt-1">Salas activas</div>
+                                            <div className="text-gray-400 text-xs mt-1">{t('campeonato.salas.activas')}</div>
                                         </div>
                                         <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
                                             <div className="text-2xl font-bold text-blue-400">{maxPerSala}</div>
-                                            <div className="text-gray-400 text-xs mt-1">Máx. pilotos/sala</div>
+                                            <div className="text-gray-400 text-xs mt-1">{t('campeonato.salas.maxPorSala')}</div>
                                         </div>
                                         <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
                                             <div className="text-2xl font-bold text-green-400">{totalAssigned}</div>
-                                            <div className="text-gray-400 text-xs mt-1">Pilotos asignados</div>
+                                            <div className="text-gray-400 text-xs mt-1">{t('campeonato.salas.pilotosAsignados')}</div>
                                         </div>
                                         <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
                                             <div className="text-2xl font-bold text-yellow-400">{unassigned.length}</div>
-                                            <div className="text-gray-400 text-xs mt-1">Sin asignar</div>
+                                            <div className="text-gray-400 text-xs mt-1">{t('campeonato.salas.sinAsignar')}</div>
                                         </div>
                                     </div>
 
@@ -1029,8 +1033,8 @@ export default function ChampionshipDetailPage() {
                                     {divisions.length === 0 ? (
                                         <div className="bg-white/5 border border-white/10 rounded-xl p-10 text-center">
                                             <div className="text-5xl mb-3">🏟️</div>
-                                            <p className="text-gray-300 font-semibold mb-1">Aún no se han configurado las salas</p>
-                                            <p className="text-gray-500 text-sm">Las salas se asignarán una vez finalice el proceso de Pre-Qualy</p>
+                                            <p className="text-gray-300 font-semibold mb-1">{t('campeonato.salas.sinConfigurar')}</p>
+                                            <p className="text-gray-500 text-sm">{t('campeonato.salas.trasPrequaly')}</p>
                                         </div>
                                     ) : (
                                         <div className="grid sm:grid-cols-2 gap-6">
@@ -1063,14 +1067,14 @@ export default function ChampionshipDetailPage() {
                                                                 <div>
                                                                     <div className="text-white font-bold text-lg leading-tight">{div.name}</div>
                                                                     <div className="text-xs mt-0.5 flex flex-wrap gap-x-3 gap-y-1" style={{ color: `${divColor}cc` }}>
-                                                                        <span>Sala {div.order}</span>
-                                                                        <span>🕐 {displayHour}h (España){horaSalaLocal(displayHour) && ` · ${horaSalaLocal(displayHour)}h tu hora`}</span>
+                                                                        <span>{t('campeonato.salas.sala', { n: div.order })}</span>
+                                                                        <span>🕐 {displayHour}h ({t('campeonato.espana')}){horaSalaLocal(displayHour) && ` · ${t('campeonato.tuHora', { hora: horaSalaLocal(displayHour) })}`}</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                             <div className="text-right">
                                                                 <div className="text-white font-bold text-xl">{spotsUsed}<span className="text-gray-400 text-sm font-normal">/{maxPerSala}</span></div>
-                                                                <div className="text-xs text-gray-400">{spotsLeft > 0 ? `${spotsLeft} libre${spotsLeft > 1 ? 's' : ''}` : 'Completa'}</div>
+                                                                <div className="text-xs text-gray-400">{spotsLeft > 0 ? t('campeonato.salas.libres', { n: spotsLeft }) : t('campeonato.salas.completa')}</div>
                                                             </div>
                                                         </div>
 
@@ -1088,7 +1092,7 @@ export default function ChampionshipDetailPage() {
                                                         <div className="px-5 py-3 border-b flex flex-wrap gap-3 text-sm" style={{ borderColor: `${divColor}20` }}>
                                                             <div className="flex items-center gap-1.5 text-gray-300">
                                                                 <span className="text-base">🕐</span>
-                                                                <span>{displayHour}h <span className="text-gray-500">(España){horaSalaLocal(displayHour) && ` · ${horaSalaLocal(displayHour)}h tu hora`}</span></span>
+                                                                <span>{displayHour}h <span className="text-gray-500">({t('campeonato.espana')}){horaSalaLocal(displayHour) && ` · ${t('campeonato.tuHora', { hora: horaSalaLocal(displayHour) })}`}</span></span>
                                                             </div>
                                                             {div.casterName && (
                                                                 <div className="flex items-center gap-1.5 text-gray-300">
@@ -1110,7 +1114,7 @@ export default function ChampionshipDetailPage() {
                                                                     className="flex items-center gap-1.5 text-blue-300 hover:text-blue-100 transition-colors"
                                                                 >
                                                                     <span>📺</span>
-                                                                    <span className="underline">Ver Stream</span>
+                                                                    <span className="underline">{t('campeonato.verStream')}</span>
                                                                 </a>
                                                             )}
                                                         </div>
@@ -1118,7 +1122,7 @@ export default function ChampionshipDetailPage() {
                                                         {/* Lista de pilotos */}
                                                         <div className="px-5 py-4">
                                                             {pilots.length === 0 ? (
-                                                                <p className="text-gray-500 text-sm text-center py-2">Sin pilotos asignados aún</p>
+                                                                <p className="text-gray-500 text-sm text-center py-2">{t('campeonato.salas.sinPilotos')}</p>
                                                             ) : (
                                                                 <ul className="space-y-1.5">
                                                                     {pilots.map((driver, idx) => (
@@ -1146,7 +1150,7 @@ export default function ChampionshipDetailPage() {
                                     {unassigned.length > 0 && (
                                         <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-xl p-5">
                                             <h3 className="text-yellow-200 font-bold mb-3 flex items-center gap-2">
-                                                ⏳ Pilotos pendientes de asignación
+                                                ⏳ {t('campeonato.salas.pendientes')}
                                                 <span className="bg-yellow-500/20 text-yellow-200 text-xs px-2 py-0.5 rounded-full">{unassigned.length}</span>
                                             </h3>
                                             <div className="overflow-x-auto">
@@ -1156,7 +1160,7 @@ export default function ChampionshipDetailPage() {
                                                             <th className="pb-2 pr-4">#</th>
                                                             <th className="pb-2 pr-4">GT7 ID</th>
                                                             <th className="pb-2 pr-4">PSN ID</th>
-                                                            <th className="pb-2">Estado</th>
+                                                            <th className="pb-2">{t('campeonato.estadoCol')}</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-white/5">
@@ -1166,7 +1170,7 @@ export default function ChampionshipDetailPage() {
                                                                 <td className="py-2 pr-4 text-white font-medium"><span className="flex items-center gap-2"><PilotTeamAvatar name={r.gt7Id || r.name} aliases={[r.psnId, r.name].filter(Boolean)} size="xs" />{r.gt7Id || r.name || '—'}</span></td>
                                                                 <td className="py-2 pr-4 text-gray-300">{r.psnId || '—'}</td>
                                                                 <td className="py-2">
-                                                                    <span className="text-yellow-400 text-xs bg-yellow-500/10 px-2 py-0.5 rounded-full">⏳ Sin sala</span>
+                                                                    <span className="text-yellow-400 text-xs bg-yellow-500/10 px-2 py-0.5 rounded-full">⏳ {t('campeonato.salas.sinSala')}</span>
                                                                 </td>
                                                             </tr>
                                                         ))}
@@ -1179,18 +1183,18 @@ export default function ChampionshipDetailPage() {
                                     {/* Info de ascenso/descenso */}
                                     {(championship.divisionsConfig.promotionCount > 0 || championship.divisionsConfig.relegationCount > 0) && (
                                         <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                                            <h3 className="text-white font-bold mb-3">🔄 Sistema de Ascenso / Descenso</h3>
+                                            <h3 className="text-white font-bold mb-3">🔄 {t('campeonato.salas.ascensoDescenso')}</h3>
                                             <div className="flex flex-wrap gap-4 text-sm">
                                                 {championship.divisionsConfig.promotionCount > 0 && (
                                                     <div className="flex items-center gap-2">
                                                         <span className="w-3 h-3 rounded-full bg-green-500 inline-block"></span>
-                                                        <span className="text-gray-300">Ascienden los <strong className="text-green-400">{championship.divisionsConfig.promotionCount}</strong> primeros{divisionesOrdenadas.length > 1 && <> de cada división salvo <strong className="text-white">{divisionesOrdenadas[0].name}</strong></>}</span>
+                                                        <span className="text-gray-300">{t('campeonato.salas.ascienden', { n: championship.divisionsConfig.promotionCount })}{divisionesOrdenadas.length > 1 && <> {t('campeonato.salas.salvo', { sala: divisionesOrdenadas[0].name })}</>}</span>
                                                     </div>
                                                 )}
                                                 {championship.divisionsConfig.relegationCount > 0 && (
                                                     <div className="flex items-center gap-2">
                                                         <span className="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
-                                                        <span className="text-gray-300">Descienden los últimos <strong className="text-red-400">{championship.divisionsConfig.relegationCount}</strong>{divisionesOrdenadas.length > 1 && <> de cada división salvo <strong className="text-white">{divisionesOrdenadas[divisionesOrdenadas.length - 1].name}</strong></>}</span>
+                                                        <span className="text-gray-300">{t('campeonato.salas.descienden', { n: championship.divisionsConfig.relegationCount })}{divisionesOrdenadas.length > 1 && <> {t('campeonato.salas.salvo', { sala: divisionesOrdenadas[divisionesOrdenadas.length - 1].name })}</>}</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -1221,7 +1225,7 @@ export default function ChampionshipDetailPage() {
                                     {/* Info de la sesión */}
                                     <PreQualyInfo
                                         championship={championship}
-                                        subtitulo="Los resultados determinan la asignación a salas"
+                                        subtitulo={t('campeonato.prequaly.subtitulo')}
                                         resultados={{ clasificados: classified.length, total: results.length }}
                                     />
 
@@ -1229,24 +1233,24 @@ export default function ChampionshipDetailPage() {
                                     {results.length === 0 ? (
                                         <div className="bg-white/5 border border-white/10 rounded-xl p-10 text-center">
                                             <div className="text-4xl mb-3">⏳</div>
-                                            <p className="text-gray-300 font-semibold">Resultados pendientes</p>
-                                            <p className="text-gray-500 text-sm mt-1">Los resultados se publicarán una vez finalice la sesión</p>
+                                            <p className="text-gray-300 font-semibold">{t('campeonato.prequaly.pendientes')}</p>
+                                            <p className="text-gray-500 text-sm mt-1">{t('campeonato.prequaly.sePublicaran')}</p>
                                         </div>
                                     ) : (
                                         <div className="space-y-4">
                                             {/* Tabla clasificados */}
                                             <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
                                                 <div className="px-5 py-3 border-b border-white/10 flex items-center gap-2">
-                                                    <span className="text-green-400 font-bold">✅ Clasificados</span>
+                                                    <span className="text-green-400 font-bold">✅ {t('campeonato.prequaly.clasificados')}</span>
                                                     <span className="bg-green-500/20 text-green-300 text-xs px-2 py-0.5 rounded-full">{classified.length}</span>
                                                 </div>
                                                 <table className="w-full text-sm">
                                                     <thead>
                                                         <tr className="text-left text-xs text-gray-400 border-b border-white/10 bg-white/5">
-                                                            <th className="px-5 py-2 w-10">Pos</th>
+                                                            <th className="px-5 py-2 w-10">{t('campeonato.pos')}</th>
                                                             <th className="px-5 py-2">GT7 ID</th>
                                                             <th className="px-5 py-2">PSN ID</th>
-                                                            <th className="px-5 py-2 text-right">Tiempo</th>
+                                                            <th className="px-5 py-2 text-right">{t('campeonato.tiempo')}</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-white/5">
@@ -1265,7 +1269,7 @@ export default function ChampionshipDetailPage() {
                                                                     <td className="px-5 py-3 text-white font-medium"><span className="flex items-center gap-2"><PilotTeamAvatar name={gt7Id} aliases={[r.driverName]} size="xs" />{gt7Id}</span></td>
                                                                     <td className="px-5 py-3 text-gray-300">{psnId}</td>
                                                                     <td className="px-5 py-3 text-right font-mono text-yellow-300">
-                                                                        {r.fromPreviousEdition && <span className="mr-2 font-sans text-[11px] text-emerald-300" title="Tiempo conservado de la edición anterior">🔁 ed. anterior</span>}
+                                                                        {r.fromPreviousEdition && <span className="mr-2 font-sans text-[11px] text-emerald-300" title={t('campeonato.prequaly.edAnteriorTitulo')}>🔁 {t('campeonato.prequaly.edAnterior')}</span>}
                                                                         {r.time || '—'}
                                                                     </td>
                                                                 </tr>
@@ -1279,7 +1283,7 @@ export default function ChampionshipDetailPage() {
                                             {notClassified.length > 0 && (
                                                 <div className="bg-white/5 border border-red-400/20 rounded-xl overflow-hidden">
                                                     <div className="px-5 py-3 border-b border-white/10 flex items-center gap-2">
-                                                        <span className="text-red-400 font-bold">❌ No clasificados</span>
+                                                        <span className="text-red-400 font-bold">❌ {t('campeonato.prequaly.noClasificados')}</span>
                                                         <span className="bg-red-500/20 text-red-300 text-xs px-2 py-0.5 rounded-full">{notClassified.length}</span>
                                                     </div>
                                                     <div className="divide-y divide-white/5">
@@ -1317,19 +1321,19 @@ export default function ChampionshipDetailPage() {
                         {activeTab === 'penalties' && championship.penaltiesConfig?.enabled && (
                             <div>
                                 <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
-                                    ⚠️ Sanciones del Campeonato
+                                    ⚠️ {t('campeonato.sanciones.titulo')}
                                 </h2>
 
                                 {/* Botón enviar reclamación — siempre al inicio del tab */}
                                 {championship.penaltiesConfig?.allowClaims && (
                                     <div className="mb-6 bg-gradient-to-br from-orange-600/20 to-red-600/20 border border-orange-400/30 rounded-xl p-6 text-center">
-                                        <h3 className="text-white font-bold text-lg mb-2">📩 ¿Viste una infracción?</h3>
-                                        <p className="text-gray-300 text-sm mb-4">Reporta el incidente para que los directores de carrera lo revisen</p>
+                                        <h3 className="text-white font-bold text-lg mb-2">📩 {t('campeonato.sanciones.vistesInfraccion')}</h3>
+                                        <p className="text-gray-300 text-sm mb-4">{t('campeonato.sanciones.reporta')}</p>
                                         <button
                                             onClick={() => setShowClaimForm(true)}
                                             className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-6 py-3 rounded-lg font-bold transition-all"
                                         >
-                                            📩 Realizar reclamación
+                                            📩 {t('campeonato.sanciones.realizarReclamacion')}
                                         </button>
                                     </div>
                                 )}
@@ -1337,7 +1341,7 @@ export default function ChampionshipDetailPage() {
                                 {penalties.filter(p => isPenaltyCounting(p)).length === 0 ? (
                                     <div className="bg-white/5 border border-white/10 rounded-xl p-8 text-center">
                                         <div className="text-4xl mb-3">✅</div>
-                                        <p className="text-gray-400">Sin sanciones registradas</p>
+                                        <p className="text-gray-400">{t('campeonato.sanciones.sinSanciones')}</p>
                                     </div>
                                 ) : (
                                     <div className="space-y-3">
@@ -1351,19 +1355,19 @@ export default function ChampionshipDetailPage() {
                                                             <div className="flex items-center gap-2 flex-wrap mb-1">
                                                                 <span className="text-white font-bold">{penalty.driverName}</span>
                                                                 <span className={`text-xs px-2 py-0.5 rounded ${severityConfig.bg} ${severityConfig.color}`}>
-                                                                    {severityConfig.label}
+                                                                    {t(`sanciones.gravedad.${penalty.severity in SEVERITY_CONFIG ? penalty.severity : 'minor'}`)}
                                                                 </span>
                                                                 {penalty.status === 'appealed' && (
                                                                     <span className="text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">
-                                                                        ⚖️ En disputa
+                                                                        ⚖️ {t('campeonato.sanciones.enDisputa')}
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            <div className="text-white text-sm">{penalty.name}</div>
+                                                            <div className="text-white text-sm">{textoSancion(penalty, lang)}</div>
                                                             {penalty.description && <div className="text-gray-400 text-xs mt-1">{penalty.description}</div>}
                                                             <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                                                                 {penalty.trackName && <span>🏁 R{penalty.round} - {penalty.trackName}</span>}
-                                                                <span>📅 {new Date(penalty.appliedAt).toLocaleDateString('es-ES')}</span>
+                                                                <span>📅 {new Date(penalty.appliedAt).toLocaleDateString(locale)}</span>
                                                             </div>
                                                         </div>
                                                         <div className="text-right flex-shrink-0">
@@ -1391,7 +1395,7 @@ export default function ChampionshipDetailPage() {
                                     return (
                                         <div className="mt-8">
                                             <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                                                📩 Reclamaciones Resueltas
+                                                📩 {t('campeonato.sanciones.resueltas')}
                                             </h3>
                                             <div className="space-y-3">
                                                 {resolved
@@ -1418,11 +1422,7 @@ export default function ChampionshipDetailPage() {
                                                                     <div className="flex-1">
                                                                         <div className="flex items-center gap-2 flex-wrap mb-1">
                                                                             <span className={`text-xs px-2 py-0.5 rounded font-semibold ${isRejectedLike(claim.status) ? 'bg-red-500/20 text-red-300' : 'bg-green-500/20 text-green-300'}`}>
-                                                                                {claim.status === 'accepted' && '✅ Aceptada'}
-                                                                                {claim.status === 'rejected' && '❌ Rechazada'}
-                                                                                {claim.status === 'appealed' && '⚖️ En disputa (alegada)'}
-                                                                                {claim.status === 'upheld' && '⚖️ Resolución confirmada'}
-                                                                                {claim.status === 'overturned' && '⚖️ Resolución revocada'}
+                                                                                {t(`campeonato.reclamacion.estado.${claim.status}`)}
                                                                             </span>
                                                                             <span className="text-white font-bold text-sm">
                                                                                 {claim.reporterName} → {(claim.accusedNames?.length > 0 ? claim.accusedNames : [claim.accusedName]).join(', ')}
@@ -1431,19 +1431,19 @@ export default function ChampionshipDetailPage() {
                                                                         {claim.trackName && (
                                                                             <div className="text-gray-400 text-xs mb-1">
                                                                                 🏁 R{claim.round} - {claim.trackName}
-                                                                                {claim.lap && ` • Vuelta ${claim.lap}`}
+                                                                                {claim.lap && ` • ${t('campeonato.vuelta', { n: claim.lap })}`}
                                                                             </div>
                                                                         )}
                                                                         <p className="text-gray-300 text-sm">{claim.description}</p>
                                                                         {claim.resolution && (
                                                                             <div className={`mt-2 p-2 rounded text-xs ${isRejectedLike(claim.status) ? 'bg-red-500/10 text-red-200' : 'bg-green-500/10 text-green-200'}`}>
-                                                                                💬 <strong>Resolución:</strong> {claim.resolution}
+                                                                                💬 <strong>{t('campeonato.reclamacion.resolucion')}:</strong> {claim.resolution}
                                                                             </div>
                                                                         )}
                                                                         <div className="text-gray-500 text-xs mt-2">
-                                                                            📅 {new Date(claim.resolvedAt || claim.createdAt).toLocaleString('es-ES')}
+                                                                            📅 {new Date(claim.resolvedAt || claim.createdAt).toLocaleString(locale)}
                                                                             {allowAppeals && windowStatus.claimable && (
-                                                                                <span className="ml-2 text-orange-300">· Quedan {Math.floor(windowStatus.hoursRemaining)} h para alegar</span>
+                                                                                <span className="ml-2 text-orange-300">· {t('campeonato.reclamacion.quedanHoras', { h: Math.floor(windowStatus.hoursRemaining) })}</span>
                                                                             )}
                                                                         </div>
 
@@ -1453,7 +1453,7 @@ export default function ChampionshipDetailPage() {
                                                                                 {claimAppeals.map(appeal => (
                                                                                     <div key={appeal.id} className="text-xs">
                                                                                         <div className="text-purple-300 font-semibold">
-                                                                                            ⚖️ Alegación de {appeal.appellantName} — {appeal.status}
+                                                                                            ⚖️ {t('campeonato.reclamacion.alegacionDe', { nombre: appeal.appellantName })} — {t(`campeonato.reclamacion.estadoAlegacion.${appeal.status}`)}
                                                                                         </div>
                                                                                         <div className="text-gray-400">{appeal.reason}</div>
                                                                                         {appeal.resolution && (
@@ -1469,7 +1469,7 @@ export default function ChampionshipDetailPage() {
                                                                                 onClick={() => setAppealFormClaim(claim)}
                                                                                 className="mt-3 text-xs px-3 py-1.5 bg-orange-600/80 hover:bg-orange-600 text-white rounded-lg font-semibold transition-all"
                                                                             >
-                                                                                ⚖️ Alegar
+                                                                                ⚖️ {t('campeonato.reclamacion.alegar')}
                                                                             </button>
                                                                         )}
                                                                     </div>
@@ -1488,44 +1488,44 @@ export default function ChampionshipDetailPage() {
                         {activeTab === 'info' && (
                             <div>
                                 <h2 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
-                                    ℹ️ Información del Campeonato
+                                    ℹ️ {t('campeonato.info.titulo')}
                                 </h2>
                                 <div className="space-y-6">
                                     <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
-                                        <h3 className="text-xl font-bold text-white mb-4">📋 Detalles Generales</h3>
+                                        <h3 className="text-xl font-bold text-white mb-4">📋 {t('campeonato.info.detalles')}</h3>
                                         <div className="grid md:grid-cols-2 gap-4">
                                             <div>
-                                                <div className="text-gray-400 text-sm mb-1">Nombre Completo</div>
+                                                <div className="text-gray-400 text-sm mb-1">{t('campeonato.info.nombreCompleto')}</div>
                                                 <div className="text-white font-semibold">{championship.name}</div>
                                             </div>
                                             <div>
-                                                <div className="text-gray-400 text-sm mb-1">Nombre Corto</div>
+                                                <div className="text-gray-400 text-sm mb-1">{t('campeonato.info.nombreCorto')}</div>
                                                 <div className="text-white font-semibold">{championship.shortName}</div>
                                             </div>
                                             <div>
-                                                <div className="text-gray-400 text-sm mb-1">Temporada</div>
+                                                <div className="text-gray-400 text-sm mb-1">{t('campeonato.info.temporada')}</div>
                                                 <div className="text-white font-semibold">{championship.season}</div>
                                             </div>
                                             <div>
-                                                <div className="text-gray-400 text-sm mb-1">Estado</div>
-                                                <div className="text-white font-semibold">{STATUS_LABELS[championship.status] || championship.status}</div>
+                                                <div className="text-gray-400 text-sm mb-1">{t('campeonato.estadoCol')}</div>
+                                                <div className="text-white font-semibold">{STATUS_LABELS[championship.status] ? t(`campeonato.estadoCampeonato.${championship.status}`) : championship.status}</div>
                                             </div>
                                             {championship.startDate && (
                                                 <div>
-                                                    <div className="text-gray-400 text-sm mb-1">Fecha de Inicio</div>
-                                                    <div className="text-white font-semibold">{formatDateFull(championship.startDate)}</div>
+                                                    <div className="text-gray-400 text-sm mb-1">{t('campeonato.info.inicio')}</div>
+                                                    <div className="text-white font-semibold">{formatDateFull(championship.startDate, locale)}</div>
                                                 </div>
                                             )}
                                             {championship.endDate && (
                                                 <div>
-                                                    <div className="text-gray-400 text-sm mb-1">Fecha de Finalización</div>
-                                                    <div className="text-white font-semibold">{formatDateFull(championship.endDate)}</div>
+                                                    <div className="text-gray-400 text-sm mb-1">{t('campeonato.info.fin')}</div>
+                                                    <div className="text-white font-semibold">{formatDateFull(championship.endDate, locale)}</div>
                                                 </div>
                                             )}
                                         </div>
                                         {championship.description && (
                                             <div className="mt-4 pt-4 border-t border-white/10">
-                                                <div className="text-gray-400 text-sm mb-2">Descripción</div>
+                                                <div className="text-gray-400 text-sm mb-2">{t('campeonato.info.descripcion')}</div>
                                                 <div className="text-white">{championship.description}</div>
                                             </div>
                                         )}
@@ -1533,7 +1533,7 @@ export default function ChampionshipDetailPage() {
 
                                     {championship.categories && championship.categories.length > 0 && (
                                         <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
-                                            <h3 className="text-xl font-bold text-white mb-4">🏎️ Categorías</h3>
+                                            <h3 className="text-xl font-bold text-white mb-4">🏎️ {t('campeonato.info.categorias')}</h3>
                                             <div className="flex flex-wrap gap-2">
                                                 {championship.categories.map((cat, idx) => (
                                                     <span
@@ -1548,29 +1548,29 @@ export default function ChampionshipDetailPage() {
                                     )}
 
                                     <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
-                                        <h3 className="text-xl font-bold text-white mb-4">⚙️ Configuración</h3>
+                                        <h3 className="text-xl font-bold text-white mb-4">⚙️ {t('campeonato.info.configuracion')}</h3>
                                         <div className="space-y-3">
                                             <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                <span className="text-gray-300">Tipo de Campeonato</span>
+                                                <span className="text-gray-300">{t('campeonato.info.tipo')}</span>
                                                 <span className="text-white font-semibold">
-                                                    {championship.settings?.isTeamChampionship ? '👥 Por Equipos' : '👤 Individual'}
+                                                    {championship.settings?.isTeamChampionship ? t('campeonato.porEquipos') : t('campeonato.individual')}
                                                 </span>
                                             </div>
                                             {championship.settings?.isTeamChampionship && championship.settings?.maxTeams && (
                                                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                    <span className="text-gray-300">Máximo de Equipos</span>
+                                                    <span className="text-gray-300">{t('campeonato.info.maxEquipos')}</span>
                                                     <span className="text-white font-semibold">{championship.settings.maxTeams}</span>
                                                 </div>
                                             )}
                                             {championship.settings?.isTeamChampionship && championship.settings?.maxDriversPerTeam && (
                                                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                    <span className="text-gray-300">Pilotos por Equipo</span>
+                                                    <span className="text-gray-300">{t('campeonato.info.pilotosEquipo')}</span>
                                                     <span className="text-white font-semibold">{championship.settings.maxDriversPerTeam}</span>
                                                 </div>
                                             )}
                                             {championship.divisionsConfig?.enabled && championship.divisionsConfig?.maxDriversPerDivision && (
                                                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                    <span className="text-gray-300">Máx. pilotos por división</span>
+                                                    <span className="text-gray-300">{t('campeonato.info.maxDivision')}</span>
                                                     <span className="text-white font-semibold">{championship.divisionsConfig.maxDriversPerDivision}</span>
                                                 </div>
                                             )}
@@ -1579,29 +1579,29 @@ export default function ChampionshipDetailPage() {
 
                                     {championship.penaltiesConfig?.enabled && (
                                         <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
-                                            <h3 className="text-xl font-bold text-white mb-4">⚠️ Sistema de Sanciones</h3>
+                                            <h3 className="text-xl font-bold text-white mb-4">⚠️ {t('campeonato.info.sistemaSanciones')}</h3>
                                             <div className="space-y-3">
                                                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                    <span className="text-gray-300">Reclamaciones públicas</span>
+                                                    <span className="text-gray-300">{t('campeonato.info.reclamacionesPublicas')}</span>
                                                     <span className="text-white font-semibold">
-                                                        {championship.penaltiesConfig.allowClaims ? '✅ Activas' : '❌ Desactivadas'}
+                                                        {championship.penaltiesConfig.allowClaims ? t('campeonato.info.activas') : t('campeonato.info.desactivadas')}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                    <span className="text-gray-300">Umbral de amonestaciones</span>
+                                                    <span className="text-gray-300">{t('campeonato.info.umbralAmonestaciones')}</span>
                                                     <span className="text-white font-semibold">{championship.penaltiesConfig.warningThreshold ?? 8}</span>
                                                 </div>
                                                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                    <span className="text-gray-300">Auto-deducción de puntos</span>
+                                                    <span className="text-gray-300">{t('campeonato.info.autoDeduccion')}</span>
                                                     <span className="text-white font-semibold">-{championship.penaltiesConfig.autoPointsPenalty ?? 10} pts</span>
                                                 </div>
                                                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                    <span className="text-gray-300">Umbral de descalificación</span>
+                                                    <span className="text-gray-300">{t('campeonato.info.umbralDsq')}</span>
                                                     <span className="text-white font-semibold">{championship.penaltiesConfig.autoDisqualifyThreshold ?? 16}</span>
                                                 </div>
                                                 {Array.isArray(championship.penaltiesConfig.presets) && (
                                                     <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                        <span className="text-gray-300">Presets activos</span>
+                                                        <span className="text-gray-300">{t('campeonato.info.presets')}</span>
                                                         <span className="text-white font-semibold">
                                                             {championship.penaltiesConfig.presets.filter(p => p.active).length}
                                                         </span>
@@ -1613,12 +1613,12 @@ export default function ChampionshipDetailPage() {
 
                                     {championship.settings?.pointsSystem && typeof championship.settings.pointsSystem === 'object' && (
                                         <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
-                                            <h3 className="text-xl font-bold text-white mb-4">🎯 Sistema de Puntos</h3>
+                                            <h3 className="text-xl font-bold text-white mb-4">🎯 {t('campeonato.info.sistemaPuntos')}</h3>
 
                                             {/* Puntos de Carrera */}
                                             {championship.settings.pointsSystem.race && (
                                                 <div className="mb-6">
-                                                    <h4 className="text-lg font-semibold text-white mb-3">🏁 Carrera</h4>
+                                                    <h4 className="text-lg font-semibold text-white mb-3">🏁 {t('campeonato.info.carrera')}</h4>
                                                     <div className="grid grid-cols-4 sm:grid-cols-8 md:grid-cols-10 gap-2">
                                                         {Object.entries(championship.settings.pointsSystem.race)
                                                             .sort(([a], [b]) => Number(a) - Number(b))
@@ -1656,10 +1656,10 @@ export default function ChampionshipDetailPage() {
                                             {/* Vuelta Rápida */}
                                             {championship.settings.pointsSystem.fastestLap?.enabled && (
                                                 <div className="pt-4 border-t border-white/10">
-                                                    <h4 className="text-lg font-semibold text-white mb-3">⚡ Vuelta Rápida</h4>
+                                                    <h4 className="text-lg font-semibold text-white mb-3">⚡ {t('campeonato.vueltaRapidaTitulo')}</h4>
                                                     <div className="bg-purple-600/20 border border-purple-400/30 rounded-lg p-4 max-w-xs">
                                                         <div className="flex items-center justify-between">
-                                                            <span className="text-purple-200">Bonificación</span>
+                                                            <span className="text-purple-200">{t('campeonato.info.bonificacion')}</span>
                                                             <span className="text-white font-bold text-lg">+{championship.settings.pointsSystem.fastestLap.points} pts</span>
                                                         </div>
                                                     </div>
@@ -1672,7 +1672,7 @@ export default function ChampionshipDetailPage() {
                                     {!isRegulationsEmpty(championship.regulations, championship.regulationsFormat) && (
                                         <div id="reglamento" className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
                                             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                                                <h3 className="text-xl font-bold text-white">📜 Reglamentación</h3>
+                                                <h3 className="text-xl font-bold text-white">📜 {t('campeonato.info.reglamentacion')}</h3>
                                                 <RegulationsPdfButton championship={championship} compact />
                                             </div>
                                             <div className="bg-white/5 rounded-lg p-4">
@@ -1705,13 +1705,13 @@ export default function ChampionshipDetailPage() {
                                         return (
                                             <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-white/10">
                                                 <div className="flex items-start justify-between mb-4">
-                                                    <h3 className="text-xl font-bold text-white">🚗 Uso de Autos</h3>
+                                                    <h3 className="text-xl font-bold text-white">🚗 {t('campeonato.autos.titulo')}</h3>
                                                     {!isFixed && eligible.length > 0 && (
                                                         <button
                                                             onClick={() => setShowCarDeclaration(true)}
                                                             className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${deadlinePassed ? 'bg-gray-600 hover:bg-gray-700 text-gray-200' : hasDeclared ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-orange-600 hover:bg-orange-700 text-white'}`}
                                                         >
-                                                            {deadlinePassed ? '🔒 Ver declaraciones' : hasDeclared ? '✏️ Editar declaración' : '📋 Declarar mis autos'}
+                                                            {deadlinePassed ? t('campeonato.autos.verDeclaraciones') : hasDeclared ? t('campeonato.autos.editarDeclaracion') : t('campeonato.autos.declarar')}
                                                         </button>
                                                     )}
                                                 </div>
@@ -1719,15 +1719,15 @@ export default function ChampionshipDetailPage() {
                                                 {isFixed ? (
                                                     <div className="space-y-3">
                                                         <div className="flex items-center gap-2 p-3 bg-blue-900/20 border border-blue-500/20 rounded-lg">
-                                                            <span className="text-blue-300 text-sm">🔒 Catálogo fijo — todos los pilotos usan los autos definidos por el organizador</span>
+                                                            <span className="text-blue-300 text-sm">🔒 {t('campeonato.autos.catalogoFijo')}</span>
                                                         </div>
                                                         <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                            <span className="text-gray-300">Máximo usos por auto</span>
-                                                            <span className="text-white font-semibold">{cat.maxUsesPerCar} carreras</span>
+                                                            <span className="text-gray-300">{t('campeonato.autos.maxUsos')}</span>
+                                                            <span className="text-white font-semibold">{t('campeonato.carreras', { n: cat.maxUsesPerCar })}</span>
                                                         </div>
                                                         {(cat.carCatalog || []).length > 0 && (
                                                             <div className="p-3 bg-white/5 rounded-lg">
-                                                                <p className="text-gray-300 text-sm font-medium mb-2">Autos del catálogo:</p>
+                                                                <p className="text-gray-300 text-sm font-medium mb-2">{t('campeonato.autos.delCatalogo')}:</p>
                                                                 <div className="flex flex-wrap gap-1.5">
                                                                     {cat.carCatalog.map((car, i) => (
                                                                         <span key={i} className="px-2 py-0.5 bg-white/10 border border-white/20 text-white text-xs rounded-full">🏎️ {car}</span>
@@ -1736,36 +1736,36 @@ export default function ChampionshipDetailPage() {
                                                             </div>
                                                         )}
                                                         <p className="text-gray-400 text-xs">
-                                                            Usar un auto fuera del catálogo anula los puntos de esa carrera.
+                                                            {t('campeonato.autos.fueraCatalogo')}
                                                         </p>
                                                     </div>
                                                 ) : (
                                                     <div className="space-y-3">
                                                         <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                            <span className="text-gray-300">Autos distintos por piloto</span>
+                                                            <span className="text-gray-300">{t('campeonato.autos.distintos')}</span>
                                                             <span className="text-white font-semibold">{cat.maxCarsPerDriver ?? 3}</span>
                                                         </div>
                                                         <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                            <span className="text-gray-300">Máximo usos por auto</span>
-                                                            <span className="text-white font-semibold">{cat.maxUsesPerCar} carreras</span>
+                                                            <span className="text-gray-300">{t('campeonato.autos.maxUsos')}</span>
+                                                            <span className="text-white font-semibold">{t('campeonato.carreras', { n: cat.maxUsesPerCar })}</span>
                                                         </div>
                                                         {deadline && (
                                                             <div className={`flex items-center justify-between p-3 rounded-lg ${deadlinePassed ? 'bg-red-900/20 border border-red-500/20' : 'bg-blue-900/20 border border-blue-500/20'}`}>
-                                                                <span className="text-gray-300">Plazo de declaración</span>
+                                                                <span className="text-gray-300">{t('campeonato.autos.plazo')}</span>
                                                                 <span className={`font-semibold text-sm ${deadlinePassed ? 'text-red-300' : 'text-blue-300'}`}>
-                                                                    {deadlinePassed ? '⛔ Vencido — ' : '📅 '}{deadline.toLocaleDateString('es-ES')}
+                                                                    {deadlinePassed ? `⛔ ${t('campeonato.autos.vencido')} — ` : '📅 '}{deadline.toLocaleDateString(locale)}
                                                                 </span>
                                                             </div>
                                                         )}
                                                         {resumenLimitadores(cat.limitadores) && (
                                                             <div className="flex items-center justify-between gap-3 p-3 bg-orange-900/20 border border-orange-500/20 rounded-lg">
-                                                                <span className="text-gray-300">🔧 Limitadores</span>
-                                                                <span className="text-orange-200 text-sm font-semibold text-right">{resumenLimitadores(cat.limitadores)}</span>
+                                                                <span className="text-gray-300">🔧 {t('campeonato.autos.limitadores')}</span>
+                                                                <span className="text-orange-200 text-sm font-semibold text-right">{resumenLimitadores(cat.limitadores, lang)}</span>
                                                             </div>
                                                         )}
                                                         {(cat.excludedCars || []).length > 0 && (
                                                             <div className="p-3 bg-red-900/20 border border-red-500/20 rounded-lg">
-                                                                <p className="text-red-200 text-sm font-medium mb-2">🚫 Autos no permitidos:</p>
+                                                                <p className="text-red-200 text-sm font-medium mb-2">🚫 {t('campeonato.autos.noPermitidos')}:</p>
                                                                 <div className="flex flex-wrap gap-1.5">
                                                                     {cat.excludedCars.map(car => (
                                                                         <span key={car} className="px-2 py-0.5 bg-red-900/40 border border-red-500/30 text-red-100 text-xs rounded-full">{car}</span>
@@ -1775,7 +1775,7 @@ export default function ChampionshipDetailPage() {
                                                         )}
                                                         {eligible.length > 0 && (
                                                             <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                                                                <span className="text-gray-300">Pilotos que ya declararon</span>
+                                                                <span className="text-gray-300">{t('campeonato.autos.yaDeclararon')}</span>
                                                                 <span className={`font-semibold ${declaredCount === eligible.length ? 'text-green-400' : 'text-orange-400'}`}>
                                                                     {declaredCount} / {eligible.length}
                                                                 </span>
@@ -1783,7 +1783,7 @@ export default function ChampionshipDetailPage() {
                                                         )}
                                                         {myReg && hasDeclared && (
                                                             <div className="p-3 bg-green-900/20 border border-green-500/20 rounded-lg">
-                                                                <p className="text-green-300 text-sm font-medium mb-1">✅ Tus autos declarados:</p>
+                                                                <p className="text-green-300 text-sm font-medium mb-1">✅ {t('campeonato.autos.tusAutos')}:</p>
                                                                 <div className="flex flex-wrap gap-1">
                                                                     {myReg.declaredCars.map((car, i) => (
                                                                         <span key={i} className="px-2 py-0.5 bg-green-800/40 text-green-200 text-xs rounded-full">🏎️ {car}</span>
@@ -1799,7 +1799,7 @@ export default function ChampionshipDetailPage() {
                                                         {declaredCount > 0 && (
                                                             <details className="bg-white/5 rounded-lg">
                                                                 <summary className="p-3 cursor-pointer text-gray-300 hover:text-white text-sm select-none">
-                                                                    🏎️ Ver autos declarados por los pilotos ({declaredCount})
+                                                                    🏎️ {t('campeonato.autos.verDeclarados', { n: declaredCount })}
                                                                 </summary>
                                                                 <div className="px-3 pb-3 space-y-2 max-h-72 overflow-y-auto">
                                                                     {eligible
@@ -1822,7 +1822,7 @@ export default function ChampionshipDetailPage() {
                                                             </details>
                                                         )}
                                                         <p className="text-gray-400 text-xs">
-                                                            Cada piloto puede usar el mismo auto un máximo de {cat.maxUsesPerCar} veces durante el campeonato.
+                                                            {t('campeonato.autos.maxUsosTexto', { n: cat.maxUsesPerCar })}
                                                         </p>
                                                     </div>
                                                 )}
@@ -1844,9 +1844,9 @@ export default function ChampionshipDetailPage() {
                                                 return (
                                                     <div>
                                                         <div className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2 flex items-center justify-between">
-                                                            <span>📋 Clasificación Pre-Qualy ({eligible.length} habilitados)</span>
+                                                            <span>📋 {t('campeonato.prequaly.lista', { n: eligible.length })}</span>
                                                             {championship?.divisionsConfig?.enabled && (
-                                                                <span className="text-purple-300 normal-case font-normal">Resultado determina asignación de salas</span>
+                                                                <span className="text-purple-300 normal-case font-normal">{t('campeonato.prequaly.determinaSalas')}</span>
                                                             )}
                                                         </div>
                                                         <div className="space-y-2">
@@ -1870,7 +1870,7 @@ export default function ChampionshipDetailPage() {
                                                                             </span>
                                                                         ) : championship?.divisionsConfig?.enabled ? (
                                                                             <span className="text-xs px-2 py-0.5 rounded-full bg-gray-600/30 text-gray-400 border border-gray-600/30 flex-shrink-0">
-                                                                                Por asignar
+                                                                                {t('campeonato.prequaly.porAsignar')}
                                                                             </span>
                                                                         ) : null}
                                                                     </div>
@@ -1893,52 +1893,52 @@ export default function ChampionshipDetailPage() {
                             {/* Próximo evento: Pre-Qualy si está pendiente, si no la carrera */}
                             {nextEvent && (() => {
                                 const esPq = nextEvent.tipo === 'prequaly';
-                                const t = nextEvent.track;
+                                const pista = nextEvent.track;
                                 // La Pre-Qualy tiene hora propia y puede ser una franja
                                 const ventana = esPq ? getPreQualyTime(championship) : null;
-                                const hora = esPq ? ventana.desde : getRaceTime(championship, t);
+                                const hora = esPq ? ventana.desde : getRaceTime(championship, pista);
                                 // En una franja se convierten inicio y fin, no solo el inicio
                                 const ventanaLocal = esPq ? localTimeWindow(nextEvent.date, ventana) : null;
                                 const local = esPq
-                                    ? (ventanaLocal && formatTimeWindow(ventanaLocal).replace(/h$/, ''))
+                                    ? (ventanaLocal && formatTimeWindow(ventanaLocal, lang).replace(/h$/, ''))
                                     : localRaceTime(nextEvent.date, hora);
                                 return (
                                     <div className={`rounded-xl p-6 shadow-xl bg-gradient-to-br ${esPq ? 'from-purple-600 to-indigo-700' : 'from-orange-600 to-red-600'}`}>
                                         <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-                                            {esPq ? '🎯 Pre-Qualy' : '🏁 Próxima Carrera'}
+                                            {esPq ? '🎯 Pre-Qualy' : `🏁 ${t('campeonato.proxima.carrera')}`}
                                         </h3>
                                         <div className="space-y-3">
                                             <div>
                                                 <div className="text-white/80 text-sm mb-1">
-                                                    {esPq ? 'Clasificatoria previa' : `Ronda ${t.round}`}
+                                                    {esPq ? t('campeonato.proxima.clasificatoriaPrevia') : t('campeonato.ronda', { n: pista.round })}
                                                 </div>
                                                 <div className="flex items-center gap-3">
-                                                    {!esPq && <TrackLogo name={t.name} size="md" />}
+                                                    {!esPq && <TrackLogo name={pista.name} size="md" />}
                                                     <div className="text-white font-bold text-xl">{nextEvent.name}</div>
                                                 </div>
                                             </div>
                                             <div className="text-white/90 text-sm">
-                                                📅 {formatDateFull(nextEvent.date)}
+                                                📅 {formatDateFull(nextEvent.date, locale)}
                                             </div>
                                             <div className="text-white/90 text-sm">
-                                                🕐 {esPq ? formatTimeWindow(ventana) : `${hora}h`} <span className="opacity-70">(España)</span>
-                                                {local && <span className="opacity-70"> · {local}h tu hora</span>}
+                                                🕐 {esPq ? formatTimeWindow(ventana, lang) : `${hora}h`} <span className="opacity-70">({t('campeonato.espana')})</span>
+                                                {local && <span className="opacity-70"> · {t('campeonato.tuHora', { hora: local })}</span>}
                                             </div>
-                                            {!esPq && t.country && (
+                                            {!esPq && pista.country && (
                                                 <div className="text-white/90 text-sm">
-                                                    📍 {t.country}
+                                                    📍 {pista.country}
                                                 </div>
                                             )}
                                             {esPq && (
                                                 <p className="text-white/80 text-xs">
-                                                    Se disputa antes de la Ronda 1 y define el reparto de salas.
+                                                    {t('campeonato.proxima.prequalyTexto')}
                                                 </p>
                                             )}
-                                            {!esPq && t.layoutImage && (
+                                            {!esPq && pista.layoutImage && (
                                                 <div className="relative w-full h-32 bg-black/30 rounded-lg overflow-hidden mt-4">
                                                     <Image
-                                                        src={t.layoutImage}
-                                                        alt={t.name}
+                                                        src={pista.layoutImage}
+                                                        alt={pista.name}
                                                         fill
                                                         className="object-contain p-2"
                                                     />
@@ -1957,19 +1957,19 @@ export default function ChampionshipDetailPage() {
                                 const cerrado = Boolean(championship.edition.continuityClosedFor) || (plazo && hoyEnEspana() > plazo);
                                 return (
                                     <div className="bg-gradient-to-br from-emerald-900/50 to-teal-900/40 border border-emerald-400/40 rounded-lg p-4">
-                                        <h3 className="text-white font-bold mb-1">🔁 ¿Continúas?</h3>
+                                        <h3 className="text-white font-bold mb-1">🔁 {t('campeonato.continuidad.titulo')}</h3>
                                         <p className="text-gray-200 text-sm mb-3">
                                             {cerrado
-                                                ? 'El plazo para confirmar la continuidad ya terminó.'
-                                                : <>Si corriste {championship.edition.previousName || 'la edición anterior'}, confirma que sigues para reservar tu plaza{plazo ? <> antes del <strong>{new Date(`${plazo}T12:00:00`).toLocaleDateString('es-ES')}</strong></> : ''}.</>}
+                                                ? t('campeonato.continuidad.cerrado')
+                                                : <>{t('campeonato.continuidad.texto', { edicion: championship.edition.previousName || t('campeonato.continuidad.edicionAnterior') })}{plazo ? <> {t('campeonato.antesDel')} <strong>{new Date(`${plazo}T12:00:00`).toLocaleDateString(locale)}</strong></> : ''}.</>}
                                         </p>
                                         <button
                                             onClick={() => setShowContinuity(true)}
                                             className={`w-full px-3 py-2 text-sm rounded-lg font-semibold transition-colors ${cerrado ? 'bg-gray-600 hover:bg-gray-700 text-gray-200' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
                                         >
-                                            {cerrado ? '🔒 Ver confirmaciones' : '✅ Confirmar mi continuidad'}
+                                            {cerrado ? t('campeonato.continuidad.verConfirmaciones') : t('campeonato.continuidad.confirmar')}
                                         </button>
-                                        <p className="text-gray-400 text-xs mt-2 text-center">{confirmados} de {veteranos.length} ya confirmaron</p>
+                                        <p className="text-gray-400 text-xs mt-2 text-center">{t('campeonato.continuidad.yaConfirmaron', { a: confirmados, total: veteranos.length })}</p>
                                     </div>
                                 );
                             })()}
@@ -1993,11 +1993,11 @@ export default function ChampionshipDetailPage() {
                                     const vencido = Boolean(limite) && hoyEnEspana() > cat.declarationDeadline;
                                     return (
                                         <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-4">
-                                            <h3 className="text-white font-bold mb-2">🚗 Tus autos</h3>
+                                            <h3 className="text-white font-bold mb-2">🚗 {t('campeonato.autos.tusAutosTitulo')}</h3>
                                             <p className="text-gray-300 text-sm mb-3">
                                                 {vencido
-                                                    ? 'El plazo para declarar ya terminó.'
-                                                    : `Declara los ${cat.maxCarsPerDriver ?? 3} autos con los que vas a competir${limite ? ` antes del ${limite.toLocaleDateString('es-ES')}` : ''}.`}
+                                                    ? t('campeonato.autos.plazoTerminado')
+                                                    : `${t('campeonato.autos.declaraLos', { n: cat.maxCarsPerDriver ?? 3 })}${limite ? ` ${t('campeonato.antesDel')} ${limite.toLocaleDateString(locale)}` : ''}.`}
                                             </p>
                                             <button
                                                 onClick={() => setShowCarDeclaration(true)}
@@ -2005,10 +2005,10 @@ export default function ChampionshipDetailPage() {
                                                     ? 'bg-white/10 hover:bg-white/20 text-white'
                                                     : 'bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white'}`}
                                             >
-                                                {vencido ? '🔒 Ver declaraciones' : '📋 Declarar mis autos'}
+                                                {vencido ? t('campeonato.autos.verDeclaraciones') : t('campeonato.autos.declarar')}
                                             </button>
                                             <p className="text-gray-400 text-xs mt-2 text-center">
-                                                {declarados} de {elegibles.length} pilotos ya declararon
+                                                {t('campeonato.autos.pilotosYaDeclararon', { a: declarados, total: elegibles.length })}
                                             </p>
                                         </div>
                                     );
@@ -2016,13 +2016,13 @@ export default function ChampionshipDetailPage() {
 
                             {/* Progreso rápido */}
                             <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-4">
-                                <h3 className="text-white font-bold mb-3">📊 Progreso</h3>
+                                <h3 className="text-white font-bold mb-3">📊 {t('campeonato.progreso')}</h3>
                                 <div className="text-center">
                                     <div className="text-4xl font-bold text-orange-400 mb-2">
                                         {progress.percentage}%
                                     </div>
                                     <div className="text-gray-300 text-sm">
-                                        {progress.completed} de {progress.total} carreras
+                                        {t('campeonato.progresoDe', { a: progress.completed, total: progress.total })}
                                     </div>
                                     <div className="w-full bg-gray-700 rounded-full h-2 mt-3">
                                         <div
@@ -2037,37 +2037,37 @@ export default function ChampionshipDetailPage() {
                             {championship.registration?.enabled && registro.abierta && (
                                 <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-400/30 rounded-xl p-6">
                                     <h3 className="text-white font-bold text-lg mb-2 flex items-center gap-2">
-                                        📝 Inscríbete
+                                        📝 {t('campeonato.inscripcion.titulo')}
                                     </h3>
                                     <p className="text-gray-300 text-sm mb-4">
-                                        ¡Las inscripciones están abiertas! Únete al campeonato.
+                                        {t('campeonato.inscripcion.abiertas')}
                                     </p>
                                     {championship.registration?.maxParticipants > 0 && (
                                         <div className="text-sm text-gray-300 mb-3">
-                                            👥 {(championship.registrations || []).filter(r => r.status === 'approved').length}/{championship.registration.maxParticipants} cupos ocupados
+                                            👥 {t('campeonato.inscripcion.cupos', { a: (championship.registrations || []).filter(r => r.status === 'approved').length, total: championship.registration.maxParticipants })}
                                         </div>
                                     )}
                                     {championship.registration?.deadline && (
                                         <div className="text-sm text-orange-300 mb-3">
-                                            📅 Hasta el {new Date(championship.registration.deadline).toLocaleDateString('es-ES')}
+                                            📅 {t('campeonato.inscripcion.hasta', { fecha: new Date(championship.registration.deadline).toLocaleDateString(locale) })}
                                         </div>
                                     )}
                                     <div className="text-sm text-gray-300 mb-2">
-                                        🧾 Aprobación: {championship.registration?.requiresApproval ? 'Manual' : 'Automática'}
+                                        🧾 {t('campeonato.inscripcion.aprobacion')}: {championship.registration?.requiresApproval ? t('campeonato.inscripcion.manual') : t('campeonato.inscripcion.automatica')}
                                     </div>
                                     <div className="text-sm text-gray-300 mb-2">
-                                        ✅ Aceptar reglamento: {championship.registration?.acceptRules ? 'Sí' : 'No'}
+                                        ✅ {t('campeonato.inscripcion.aceptarReglamento')}: {championship.registration?.acceptRules ? t('campeonato.si') : t('campeonato.no')}
                                     </div>
                                     {championship.registration?.fields?.length > 0 && (
                                         <div className="text-sm text-gray-300 mb-3">
-                                            📌 Campos: {championship.registration.fields.join(', ')}
+                                            📌 {t('campeonato.inscripcion.campos')}: {championship.registration.fields.join(', ')}
                                         </div>
                                     )}
                                     <button
                                         onClick={() => setShowRegistration(true)}
                                         className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-4 py-3 rounded-lg font-bold transition-all text-center"
                                     >
-                                        🏁 Inscribirme
+                                        🏁 {t('campeonato.inscripcion.inscribirme')}
                                     </button>
                                 </div>
                             )}
@@ -2078,21 +2078,21 @@ export default function ChampionshipDetailPage() {
                                 <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                                     <div className="flex items-center gap-2 text-gray-300 font-semibold">
                                         <span>🔒</span>
-                                        <span>{registro.etiqueta}</span>
+                                        <span>{t(`campeonato.inscripcion.cerrada.${registro.motivo}`)}</span>
                                     </div>
                                     {registro.motivo === 'plazo' && championship.registration?.deadline && (
                                         <p className="text-sm text-gray-400 mt-2">
-                                            El plazo terminó el {new Date(championship.registration.deadline + 'T00:00:00').toLocaleDateString('es-ES')}.
+                                            {t('campeonato.inscripcion.plazoTermino', { fecha: new Date(championship.registration.deadline + 'T00:00:00').toLocaleDateString(locale) })}
                                         </p>
                                     )}
                                     {registro.motivo === 'completo' && (
                                         <p className="text-sm text-gray-400 mt-2">
-                                            Se han cubierto las {registro.cupos} plazas disponibles.
+                                            {t('campeonato.inscripcion.plazasCubiertas', { n: registro.cupos })}
                                         </p>
                                     )}
                                     {registro.motivo === 'finalizado' && (
                                         <p className="text-sm text-gray-400 mt-2">
-                                            Todas las carreras se han disputado.
+                                            {t('campeonato.inscripcion.todasDisputadas')}
                                         </p>
                                     )}
                                 </div>
@@ -2102,41 +2102,41 @@ export default function ChampionshipDetailPage() {
                             {hasStreaming && (
                                 <div className="bg-white/10 backdrop-blur-sm border border-white/30 rounded-lg p-4">
                                     <h3 className="text-white font-bold mb-3">
-                                        📺 {transmisiones.length > 1 ? `Transmisiones (${transmisiones.length})` : 'Transmisión'}
+                                        📺 {transmisiones.length > 1 ? t('campeonato.transmisiones', { n: transmisiones.length }) : t('campeonato.transmision')}
                                     </h3>
                                     <div className="space-y-3">
-                                        {transmisiones.map(t => (
-                                            <div key={t.url} className="bg-black/20 border border-white/10 rounded-lg p-3">
+                                        {transmisiones.map(tm => (
+                                            <div key={tm.url} className="bg-black/20 border border-white/10 rounded-lg p-3">
                                                 <div className="flex items-center justify-between gap-2">
                                                     <div className="min-w-0">
                                                         <div className="text-gray-400 text-xs">🎙️ Caster</div>
-                                                        <div className="text-white font-bold truncate">{t.caster}</div>
+                                                        <div className="text-white font-bold truncate">{tm.caster}</div>
                                                     </div>
                                                     <a
-                                                        href={t.url}
+                                                        href={tm.url}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="flex-shrink-0 px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/30 text-white rounded-lg text-xs font-semibold transition-all"
                                                     >
-                                                        {t.plataforma?.icon || '📺'} Ver en {t.plataforma?.label || 'Stream'}
+                                                        {tm.plataforma?.icon || '📺'} {t('campeonato.verEn', { plataforma: tm.plataforma?.label || 'Stream' })}
                                                     </a>
                                                 </div>
-                                                {t.salas.length > 0 && (
+                                                {tm.salas.length > 0 && (
                                                     <div className="flex flex-wrap gap-1.5 mt-2">
-                                                        {t.salas.map(sala => (
+                                                        {tm.salas.map(sala => (
                                                             <span
                                                                 key={sala.name}
                                                                 className="text-xs px-2 py-0.5 rounded-full border"
                                                                 style={{ color: sala.color, borderColor: `${sala.color}66`, backgroundColor: `${sala.color}1a` }}
                                                             >
-                                                                {sala.name}{sala.hour ? ` · ${sala.hour}h` : ''}{horaSalaLocal(sala.hour) ? ` (${horaSalaLocal(sala.hour)}h tu hora)` : ''}
+                                                                {sala.name}{sala.hour ? ` · ${sala.hour}h` : ''}{horaSalaLocal(sala.hour) ? ` (${t('campeonato.tuHora', { hora: horaSalaLocal(sala.hour) })})` : ''}
                                                             </span>
                                                         ))}
                                                     </div>
                                                 )}
-                                                {t.hosts.length > 0 && (
+                                                {tm.hosts.length > 0 && (
                                                     <div className="text-gray-400 text-xs mt-2">
-                                                        🏠 Host: <span className="text-gray-200">{t.hosts.join(', ')}</span>
+                                                        🏠 Host: <span className="text-gray-200">{tm.hosts.join(', ')}</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -2150,7 +2150,7 @@ export default function ChampionshipDetailPage() {
                                 onClick={() => router.push('/')}
                                 className="w-full bg-white/10 hover:bg-white/20 border border-white/30 text-white px-4 py-3 rounded-lg font-semibold transition-all"
                             >
-                                ← Volver al Inicio
+                                ← {t('campeonato.volverInicio')}
                             </button>
                         </div>
                     </div>
@@ -2245,14 +2245,14 @@ export default function ChampionshipDetailPage() {
                                     <h2 className="text-2xl font-bold text-white">{selectedTrack.name}</h2>
                                 </div>
                                 <div className="flex items-center gap-3 text-gray-400 text-sm flex-wrap">
-                                    {selectedTrack.date && <span>📅 {formatDateFull(selectedTrack.date)}</span>}
-                                    <span>🕐 {getRaceTime(championship, selectedTrack)}h (España){localRaceTime(selectedTrack.date, getRaceTime(championship, selectedTrack)) && ` · ${localRaceTime(selectedTrack.date, getRaceTime(championship, selectedTrack))}h tu hora`}</span>
+                                    {selectedTrack.date && <span>📅 {formatDateFull(selectedTrack.date, locale)}</span>}
+                                    <span>🕐 {getRaceTime(championship, selectedTrack)}h ({t('campeonato.espana')}){localRaceTime(selectedTrack.date, getRaceTime(championship, selectedTrack)) && ` · ${t('campeonato.tuHora', { hora: localRaceTime(selectedTrack.date, getRaceTime(championship, selectedTrack)) })}`}</span>
                                     {selectedTrack.country && <span>📍 {selectedTrack.country}</span>}
                                     {/* Estado calculado de los datos, como en el calendario:
                                         track.status casi nunca se actualiza. */}
-                                    {estadoCarrera(selectedTrack) === 'completada' && <span className="bg-green-500/20 text-green-300 text-xs px-2 py-0.5 rounded-full">✓ Completada</span>}
-                                    {estadoCarrera(selectedTrack) === 'en-curso' && <span className="bg-yellow-500/20 text-yellow-300 text-xs px-2 py-0.5 rounded-full">⏱️ En curso</span>}
-                                    {estadoCarrera(selectedTrack) === 'pendiente' && <span className="bg-red-500/20 text-red-300 text-xs px-2 py-0.5 rounded-full">⚠️ Pendiente</span>}
+                                    {estadoCarrera(selectedTrack) === 'completada' && <span className="bg-green-500/20 text-green-300 text-xs px-2 py-0.5 rounded-full">{t('campeonato.estado.completada')}</span>}
+                                    {estadoCarrera(selectedTrack) === 'en-curso' && <span className="bg-yellow-500/20 text-yellow-300 text-xs px-2 py-0.5 rounded-full">{t('campeonato.estado.enCurso')}</span>}
+                                    {estadoCarrera(selectedTrack) === 'pendiente' && <span className="bg-red-500/20 text-red-300 text-xs px-2 py-0.5 rounded-full">{t('campeonato.estado.pendiente')}</span>}
                                 </div>
                             </div>
                             <button
@@ -2275,25 +2275,25 @@ export default function ChampionshipDetailPage() {
                             {/* Autos específicos */}
                             {selectedTrack.specificCars && (
                                 <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4">
-                                    <h3 className="text-orange-200 font-bold mb-2">🚗 Autos Obligatorios</h3>
+                                    <h3 className="text-orange-200 font-bold mb-2">🚗 {t('campeonato.autosObligatorios')}</h3>
                                     <p className="text-orange-100 text-sm">
                                         {(selectedTrack.allowedCars && selectedTrack.allowedCars.length > 0)
                                             ? selectedTrack.allowedCars.join(', ')
-                                            : 'Lista pendiente'}
+                                            : t('campeonato.listaPendiente')}
                                     </p>
                                 </div>
                             )}
 
                             {/* Configuración de sala, en el orden y con los nombres del juego */}
                             <div>
-                                <h3 className="text-white font-bold mb-3">🎮 Configuración de sala</h3>
+                                <h3 className="text-white font-bold mb-3">🎮 {t('campeonato.configuracionSala')}</h3>
                                 <RoomConfigView track={selectedTrack} />
                             </div>
 
                             {/* Notas */}
                             {selectedTrack.rules?.notes && (
                                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
-                                    <h3 className="text-blue-200 font-bold mb-2">📝 Notas</h3>
+                                    <h3 className="text-blue-200 font-bold mb-2">📝 {t('campeonato.notas')}</h3>
                                     <p className="text-blue-100 text-sm whitespace-pre-line">{selectedTrack.rules.notes}</p>
                                 </div>
                             )}
@@ -2310,7 +2310,7 @@ export default function ChampionshipDetailPage() {
                                 if (!hasDivResults && !hasNonDivResults && !hasFallbackPoints) return null;
                                 return (
                                     <div className="bg-white/5 rounded-xl p-4">
-                                        <h3 className="text-white font-bold mb-3">📊 Resultados</h3>
+                                        <h3 className="text-white font-bold mb-3">📊 {t('campeonato.resultados')}</h3>
                                         {hasDivResults ? (
                                             <div className="space-y-4">
                                                 {divisions
@@ -2422,7 +2422,7 @@ export default function ChampionshipDetailPage() {
                                 onClick={() => setSelectedTrack(null)}
                                 className="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-3 rounded-lg font-semibold transition-all"
                             >
-                                Cerrar
+                                {t('campeonato.cerrar')}
                             </button>
                         </div>
                     </div>
@@ -2435,15 +2435,16 @@ export default function ChampionshipDetailPage() {
 
 /** «⚖️ Resultado corregido por sanciones»: quién bajó puestos o fue descalificado. */
 function NotaSancionesCarrera({ cambios }) {
+    const { t } = useI18n();
     if (!cambios || cambios.length === 0) return null;
     return (
         <div className="mb-2 px-3 py-2 rounded-lg bg-red-900/20 border border-red-500/30 text-xs text-red-100 space-y-0.5">
-            <p className="font-semibold">⚖️ Resultado corregido por sanciones</p>
+            <p className="font-semibold">⚖️ {t('campeonato.corregidoSanciones')}</p>
             {cambios.map((c, i) => (
                 <p key={i}>
                     {c.piloto}: {c.tipo === 'disqualification'
-                        ? <>descalificado{c.de ? ` (llegó ${c.de}º)` : ''}</>
-                        : <>-{c.puestos} posiciones (de {c.de}º a {c.a}º)</>}
+                        ? <>{t('campeonato.descalificado')}{c.de ? ` (${t('campeonato.llego', { pos: c.de })})` : ''}</>
+                        : <>{t('campeonato.pierdePosiciones', { n: c.puestos, de: c.de, a: c.a })}</>}
                     <span className="text-red-300/70"> · {c.sancion}</span>
                 </p>
             ))}
