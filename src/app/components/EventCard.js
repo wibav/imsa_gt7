@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import Image from "next/image";
 import { EVENT_STATUSES, EVENT_CATEGORIES, raceDateTime, localRaceTime } from "../utils";
 import { resumenSalaEvento } from "../utils/roomConfig";
+import { useI18n } from "../i18n";
 
 /**
  * EventCard - Card pública para eventos únicos
@@ -13,11 +14,12 @@ import { resumenSalaEvento } from "../utils/roomConfig";
  * @param {Function} onRegister - Callback para inscribirse
  */
 export default function EventCard({ event, orgName = null, onViewDetails, onRegister }) {
+    const { t, lang, locale } = useI18n();
     // Formatear fecha
     const formatDate = (dateStr) => {
         if (!dateStr) return '';
         const date = new Date(dateStr + 'T00:00:00');
-        return date.toLocaleDateString('es-ES', {
+        return date.toLocaleDateString(locale, {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
@@ -90,7 +92,7 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                 {/* Status badge */}
                 <div className="absolute top-4 left-4">
                     <span className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-full ${statusConfig.color} text-white shadow-lg`}>
-                        {statusConfig.icon} {statusConfig.label}
+                        {statusConfig.icon} {t(`eventos.estado.${EVENT_STATUSES[eventStatus] ? eventStatus : 'upcoming'}`)}
                     </span>
                 </div>
 
@@ -99,7 +101,7 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                     <div className="absolute top-4 right-4">
                         <span className="inline-flex items-center gap-1.5 bg-red-600 text-white text-xs px-3 py-1 rounded-full font-bold animate-pulse shadow-lg">
                             <span className="w-2 h-2 bg-white rounded-full animate-ping" />
-                            EN VIVO
+                            {t('campeonato.enVivo')}
                         </span>
                     </div>
                 )}
@@ -117,7 +119,7 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                 {isSpecial && eventStatus !== 'live' && (
                     <div className="absolute bottom-4 right-4">
                         <span className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs px-3 py-1 rounded-full font-bold animate-pulse shadow-lg">
-                            ⭐ Evento Especial
+                            ⭐ {t('eventos.tarjeta.especial')}
                         </span>
                     </div>
                 )}
@@ -140,20 +142,20 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                     )}
                     {cat && (
                         <span className="inline-flex items-center gap-1 text-xs bg-white/10 text-gray-300 px-2.5 py-1 rounded-full font-medium">
-                            {cat.icon} {cat.label}
+                            {cat.icon} {t(`eventos.categoria.${cat.value}`)}
                         </span>
                     )}
                     {event.format && event.format !== 'race' && (
                         <span className="text-xs bg-purple-500/20 text-purple-300 px-2.5 py-1 rounded-full font-medium">
-                            {event.format === 'sprint+race' ? '🏎️ Sprint + Carrera' :
-                                event.format === 'endurance' ? '⏱️ Resistencia' :
+                            {event.format === 'sprint+race' ? `🏎️ ${t('componentes.briefing.sprintCarrera')}` :
+                                event.format === 'endurance' ? `⏱️ ${t('componentes.briefing.resistencia')}` :
                                     event.format === 'time-attack' ? '⚡ Time Attack' :
                                         event.format === 'drift' ? '🌪️ Drift' : event.format}
                         </span>
                     )}
                     {event.registration?.enabled && (
                         <span className="text-xs bg-green-500/20 text-green-300 px-2.5 py-1 rounded-full font-medium">
-                            📝 Inscripción abierta
+                            📝 {t('portada.tarjeta.inscripcionAbierta')}
                         </span>
                     )}
                 </div>
@@ -171,8 +173,8 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                                     siempre española, y conviene decirlo porque hay
                                     pilotos fuera de España. */}
                                 <span className="text-sm">
-                                    🕐 {event.hour}h <span className="text-gray-400">(España)</span>
-                                    {horaLocal && <span className="text-gray-400"> · {horaLocal}h tu hora</span>}
+                                    🕐 {event.hour}h <span className="text-gray-400">({t('campeonato.espana')})</span>
+                                    {horaLocal && <span className="text-gray-400"> · {t('campeonato.tuHora', { hora: horaLocal })}</span>}
                                 </span>
                             </>
                         )}
@@ -191,9 +193,9 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                         <div className="flex items-center gap-2 text-gray-300">
                             <span className="text-orange-400">👥</span>
                             <span className="text-sm">
-                                {participantCount} / {maxP} participantes
+                                {t('eventos.tarjeta.participantes', { a: participantCount, total: maxP })}
                             </span>
-                            {isFull && <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-medium">LLENO</span>}
+                            {isFull && <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-medium">{t('portada.tarjeta.lleno')}</span>}
                         </div>
                     )}
 
@@ -207,7 +209,7 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                     {event.streaming?.hostName && (
                         <div className="flex items-center gap-2 text-gray-300">
                             <span className="text-orange-400">🎮</span>
-                            <span className="text-sm">Host: {event.streaming.hostName}</span>
+                            <span className="text-sm">{t('campeonato.host', { host: event.streaming.hostName })}</span>
                         </div>
                     )}
                 </div>
@@ -222,7 +224,7 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                 {/* Premios */}
                 {event.prizes && (
                     <div className="mb-4 bg-yellow-600/10 border border-yellow-500/30 rounded-lg p-3">
-                        <div className="text-yellow-300 font-semibold text-sm mb-1">🏆 Premios</div>
+                        <div className="text-yellow-300 font-semibold text-sm mb-1">🏆 {t('eventos.tarjeta.premios')}</div>
                         <p className="text-yellow-200/80 text-xs line-clamp-2">{event.prizes}</p>
                     </div>
                 )}
@@ -231,25 +233,25 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                 {event.specificCars && event.allowedCars && event.allowedCars.length > 0 && (
                     <div className="mb-4 bg-blue-600/20 border border-blue-400/50 rounded-lg p-3">
                         <div className="text-blue-300 font-semibold text-sm mb-2">
-                            🏎️ Coches Permitidos ({event.allowedCars.length})
+                            🏎️ {t('componentes.briefing.cochesPermitidos')} ({event.allowedCars.length})
                         </div>
                         <div className="flex flex-wrap gap-1">
                             {event.allowedCars.slice(0, 3).map((car, idx) => (
                                 <span key={idx} className="text-blue-200 text-xs bg-blue-900/30 px-2 py-1 rounded">{car}</span>
                             ))}
                             {event.allowedCars.length > 3 && (
-                                <span className="text-blue-200 text-xs bg-blue-900/30 px-2 py-1 rounded">+{event.allowedCars.length - 3} más</span>
+                                <span className="text-blue-200 text-xs bg-blue-900/30 px-2 py-1 rounded">{t('eventos.tarjeta.mas', { n: event.allowedCars.length - 3 })}</span>
                             )}
                         </div>
                     </div>
                 )}
 
                 {/* Resumen de la sala, con los nombres del juego */}
-                {resumenSalaEvento(event).length > 0 && (
+                {resumenSalaEvento(event, lang).length > 0 && (
                     <div className="mb-4 bg-white/5 border border-white/10 rounded-lg p-3">
-                        <div className="text-gray-400 font-semibold text-xs mb-2">🎮 SALA</div>
+                        <div className="text-gray-400 font-semibold text-xs mb-2">🎮 {t('eventos.tarjeta.sala')}</div>
                         <div className="grid grid-cols-2 gap-2 text-xs text-gray-300">
-                            {resumenSalaEvento(event).map(item => (
+                            {resumenSalaEvento(event, lang).map(item => (
                                 <div key={item.id} className="min-w-0 break-words">{item.icono} {item.texto}</div>
                             ))}
                         </div>
@@ -259,17 +261,17 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                 {/* Results (completed events) */}
                 {eventStatus === 'completed' && event.results?.length > 0 && (
                     <div className="mb-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
-                        <div className="text-yellow-400 font-semibold text-xs mb-2">🏆 RESULTADOS</div>
+                        <div className="text-yellow-400 font-semibold text-xs mb-2">🏆 {t('eventos.tarjeta.resultados')}</div>
                         <div className="space-y-1">
                             {event.results.slice(0, 3).map((r, i) => (
                                 <div key={i} className="text-gray-300 text-sm flex items-center gap-2">
                                     <span>{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
-                                    <span className="font-semibold">{r.driverName || 'Sin nombre'}</span>
+                                    <span className="font-semibold">{r.driverName || t('eventos.tarjeta.sinNombre')}</span>
                                     {r.psnId && <span className="text-gray-500 text-xs">({r.psnId})</span>}
                                 </div>
                             ))}
                             {event.results.length > 3 && (
-                                <div className="text-gray-500 text-xs mt-1">+{event.results.length - 3} más</div>
+                                <div className="text-gray-500 text-xs mt-1">{t('eventos.tarjeta.mas', { n: event.results.length - 3 })}</div>
                             )}
                         </div>
                     </div>
@@ -281,14 +283,14 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                         onClick={() => onViewDetails && onViewDetails(event)}
                         className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2.5 rounded-lg font-semibold text-sm hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md hover:shadow-lg"
                     >
-                        📄 Ver Detalles
+                        📄 {t('eventos.tarjeta.verDetalles')}
                     </button>
                     {eventActive && !isFull && (
                         <button
                             onClick={() => onRegister && onRegister(event)}
                             className="bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-2.5 rounded-lg font-semibold text-sm hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-md hover:shadow-lg"
                         >
-                            ✍️ Inscribirse
+                            ✍️ {t('portada.tarjeta.inscribirse')}
                         </button>
                     )}
                     {hasStreaming && eventStatus === 'live' && (
@@ -298,7 +300,7 @@ export default function EventCard({ event, orgName = null, onViewDetails, onRegi
                             rel="noopener noreferrer"
                             className="bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-2.5 rounded-lg font-semibold text-sm hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-md hover:shadow-lg text-center flex items-center justify-center gap-1"
                         >
-                            📺 Ver en Vivo
+                            📺 {t('campeonato.verEnVivo')}
                         </a>
                     )}
                 </div>

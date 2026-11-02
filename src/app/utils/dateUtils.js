@@ -170,10 +170,10 @@ export const preQualyEnd = (championship) => {
  * @param {string} dateStr - Fecha en formato ISO (YYYY-MM-DD)
  * @returns {string}
  */
-export const formatDateShort = (dateStr) => {
+export const formatDateShort = (dateStr, locale = 'es-ES') => {
     if (!dateStr) return '';
     const date = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T00:00:00');
-    return date.toLocaleDateString('es-ES', {
+    return date.toLocaleDateString(locale, {
         day: '2-digit',
         month: 'short'
     });

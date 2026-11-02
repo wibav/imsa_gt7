@@ -4,6 +4,7 @@ import { FirebaseService } from "../services/firebaseService";
 import { barajar, estiloRed, redesDe } from "../utils/casterLinks";
 import PageHeader from "../components/PageHeader";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
+import { useI18n } from "../i18n";
 
 /**
  * Zona Caster: los casters de la comunidad con su banner y sus redes.
@@ -14,6 +15,7 @@ import LoadingSkeleton from "../components/common/LoadingSkeleton";
  * Se gestionan en /castersAdmin.
  */
 export default function ZonaCasterPage() {
+    const { t } = useI18n();
     const [loading, setLoading] = useState(true);
     const [casters, setCasters] = useState([]);
 
@@ -28,18 +30,18 @@ export default function ZonaCasterPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
             <PageHeader
-                migas={[{ label: 'Zona Caster' }]}
+                migas={[{ label: t('caster.titulo') }]}
                 icono="🎙️"
-                titulo="Zona Caster"
-                subtitulo="Los casters que retransmiten nuestras carreras. Síguelos en sus canales."
+                titulo={t('caster.titulo')}
+                subtitulo={t('caster.subtitulo')}
             />
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
                 {loading ? (
-                    <LoadingSkeleton variant="card" message="Cargando casters..." />
+                    <LoadingSkeleton variant="card" message={t('caster.cargando')} />
                 ) : casters.length === 0 ? (
                     <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
                         <div className="text-6xl mb-4">🎙️</div>
-                        <p className="text-gray-300 text-lg">Todavía no hay casters publicados</p>
+                        <p className="text-gray-300 text-lg">{t('caster.sinCasters')}</p>
                     </div>
                 ) : (
                     <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import PageHeader from '../components/PageHeader';
 import { sanitizeSvg } from '../utils/svgSanitize';
+import { useI18n } from '../i18n';
 
 const SVG_SIZE_LIMIT_BYTES = 15 * 1024;
 // Debe coincidir con MAX_UPLOAD_BYTES en functions/main.py. Se comprueba
@@ -14,25 +15,45 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 // anterior a la traducción). Se traducen aquí para no enseñárselos tal cual al
 // piloto; lo que no reconocemos se sustituye por un mensaje genérico.
 const BACKEND_ERROR_MESSAGES = [
-    [/not a valid image|no es una imagen/i, 'El archivo no es una imagen válida. Prueba a exportarlo de nuevo como PNG.'],
-    [/file is empty|archivo está vacío/i, 'El archivo está vacío.'],
-    [/supera el límite|too large|413/i, `El archivo supera el límite de ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB.`],
-    [/method not allowed/i, 'No se pudo contactar con el conversor. Inténtalo de nuevo.'],
-    [/vectorization failed|unhandled exception|traceback/i, 'No se pudo vectorizar la imagen. Prueba con un PNG más simple o con menos colores.'],
+    [/not a valid image|no es una imagen/i, 'noImagen'],
+    [/file is empty|archivo está vacío/i, 'vacio'],
+    [/supera el límite|too large|413/i, 'limite'],
+    [/method not allowed/i, 'contactar'],
+    [/vectorization failed|unhandled exception|traceback/i, 'vectorizar'],
     // Lo devuelve Cloud Run, no la Function: la instancia se quedó sin memoria
     // o tardó demasiado, y el cuerpo es un texto plano en inglés.
-    [/service unavailable|gateway time-?out|bad gateway|internal server error/i, 'El conversor no pudo con esta imagen. Inténtalo de nuevo; si se repite, prueba con un PNG más pequeño o con menos colores.'],
+    [/service unavailable|gateway time-?out|bad gateway|internal server error/i, 'conversor'],
 ];
 
-function traducirError(mensaje) {
+function traducirError(mensaje, t) {
     const texto = String(mensaje || '').trim();
-    if (!texto) return 'No se pudo convertir la imagen.';
+    if (!texto) return t('vinilos.err.generico');
     const match = BACKEND_ERROR_MESSAGES.find(([re]) => re.test(texto));
-    if (match) return match[1];
+    if (match) return t(`vinilos.err.${match[1]}`, { max: MAX_UPLOAD_BYTES / (1024 * 1024) });
     // Un mensaje largo o con pinta de volcado técnico no se enseña tal cual.
     return texto.length > 160 || /\n|  at |File "/.test(texto)
-        ? 'No se pudo convertir la imagen. Inténtalo de nuevo.'
+        ? t('vinilos.err.reintentar')
         : texto;
+}
+
+// Avisos de la Function (functions/main.py, _build_svg_payload), que llegan en
+// español: frase a frase, con el número que llevan.
+const AVISOS_BACKEND = [
+    [/^Trazado con segmentos rectos para compactar el SVG\.$/, 'rectos'],
+    [/^Path precision reducida a (\d+)\.$/, 'pathPrecision'],
+    [/^Filter speckle aumentado a (\d+)\.$/, 'speckle'],
+    [/^Color precision reducida a (\d+)\.$/, 'colorPrecision'],
+    [/^Colores reducidos a (\d+) para limpiar la textura\.$/, 'colores'],
+    [/^Imagen reducida a (\d+)px para compactar el SVG\.$/, 'imagen'],
+    [/^El SVG supera el objetivo de 15 KB \(([\d.]+) KB\)\.$/, 'objetivo'],
+];
+
+function traducirAviso(aviso, t, lang) {
+    if (!aviso || lang === 'es') return aviso;
+    return aviso.split(/(?<=\.)\s+/).map(frase => {
+        const m = AVISOS_BACKEND.map(([re, clave]) => [frase.match(re), clave]).find(([r]) => r);
+        return m ? t(`vinilos.aviso.${m[1]}`, { v: m[0][1] }) : frase;
+    }).join(' ');
 }
 
 const DEFAULT_TRACE_OPTIONS = {
@@ -145,6 +166,7 @@ function StatCard({ label, value, helper, tone = 'text-orange-300' }) {
 }
 
 export default function ToolsPage() {
+    const { t, lang } = useI18n();
     const [selectedFile, setSelectedFile] = useState(null);
     const [previewUrl, setPreviewUrl] = useState('');
     const [svgOutput, setSvgOutput] = useState('');
@@ -203,13 +225,13 @@ export default function ToolsPage() {
 
         const isPng = file.type === 'image/png' || file.name.toLowerCase().endsWith('.png');
         if (!isPng) {
-            setError('Solo se admiten archivos PNG.');
+            setError(t('vinilos.errSoloPng'));
             setWarning('');
             return;
         }
 
         if (file.size > MAX_UPLOAD_BYTES) {
-            setError(`El archivo pesa ${formatBytes(file.size)} y el máximo es ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB. Redúcelo antes de subirlo.`);
+            setError(t('vinilos.errPeso', { peso: formatBytes(file.size), max: MAX_UPLOAD_BYTES / (1024 * 1024) }));
             setWarning('');
             return;
         }
@@ -221,7 +243,7 @@ export default function ToolsPage() {
         setConversionInfo(null);
         setFileSize(0);
         setIsProcessing(true);
-        setProcessingStep('Preparando la imagen...');
+        setProcessingStep(t('vinilos.paso.preparando'));
 
         const nextPreviewUrl = URL.createObjectURL(file);
         setPreviewUrl(nextPreviewUrl);
@@ -236,7 +258,7 @@ export default function ToolsPage() {
         const startedAt = performance.now();
 
         try {
-            setProcessingStep('Vectorizando la imagen...');
+            setProcessingStep(t('vinilos.paso.vectorizando'));
 
             const response = await fetch(resolveConverterUrl(), {
                 method: 'POST',
@@ -255,14 +277,14 @@ export default function ToolsPage() {
             }
 
             if (!response.ok) {
-                throw new Error(payload?.message || payload?.error || bodyText || 'No se pudo convertir la imagen.');
+                throw new Error(payload?.message || payload?.error || bodyText || t('vinilos.err.generico'));
             }
 
             const rawSvg = typeof payload?.svg === 'string' ? payload.svg : bodyText;
             const svgText = stripSvgMarkup(rawSvg);
 
             if (!svgText) {
-                throw new Error('La Function devolvió un SVG vacío.');
+                throw new Error(t('vinilos.err.vacio'));
             }
 
             const svgBytes = new Blob([svgText], { type: 'image/svg+xml' }).size;
@@ -284,14 +306,14 @@ export default function ToolsPage() {
 
             const backendWarning = typeof payload?.warning === 'string' ? payload.warning : '';
             setWarning(
-                backendWarning || (underLimit ? '' : `El SVG generado pesa ${formatBytes(svgBytes)} y supera el límite de 15 KB de GT7.`)
+                traducirAviso(backendWarning, t, lang) || (underLimit ? '' : t('vinilos.supera', { peso: formatBytes(svgBytes) }))
             );
 
             if (autoDownload) {
                 downloadSvg(svgText, file.name);
             }
         } catch (err) {
-            setError(traducirError(err instanceof Error ? err.message : err));
+            setError(traducirError(err instanceof Error ? err.message : err, t));
             setWarning('');
         } finally {
             setIsProcessing(false);
@@ -335,10 +357,10 @@ export default function ToolsPage() {
             <div className="absolute right-0 top-[28rem] h-80 w-80 rounded-full bg-cyan-500/10 blur-3xl" />
 
             <PageHeader
-                migas={[{ label: 'Creador de vinilos' }]}
+                migas={[{ label: t('vinilos.titulo') }]}
                 icono="🎨"
-                titulo="Creador de vinilos"
-                subtitulo="Convierte tu logo en PNG a un SVG listo para el editor de vinilos de GT7."
+                titulo={t('vinilos.titulo')}
+                subtitulo={t('vinilos.subtitulo')}
             />
 
             <main className="relative mx-auto flex max-w-7xl flex-col gap-8 px-4 py-8 lg:px-8 lg:py-12">
@@ -347,20 +369,20 @@ export default function ToolsPage() {
                         <div className="border-b border-white/10 p-6 sm:p-8 lg:border-b-0 lg:border-r lg:p-10">
                             {/* h2: el título de la página ya lo pone PageHeader */}
                             <h2 className="max-w-3xl text-4xl font-black tracking-tight text-white sm:text-5xl">
-                                <span className="block">PNG a SVG</span>
+                                <span className="block">{t('vinilos.hero1')}</span>
                                 <span className="bg-gradient-to-r from-orange-400 via-rose-400 to-amber-300 bg-clip-text text-transparent">
-                                    sin salir de la página
+                                    {t('vinilos.hero2')}
                                 </span>
                             </h2>
 
                             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-                                Sube un PNG y obtendrás un SVG limpio y optimizado listo para usar en GT7, en segundos.
+                                {t('vinilos.heroTexto')}
                             </p>
 
                             <div className="mt-6 flex flex-wrap gap-2 text-xs">
-                                <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1 text-slate-300">15 KB objetivo</span>
-                                <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1 text-slate-300">Descarga automática</span>
-                                <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1 text-slate-300">Optimizado para GT7</span>
+                                <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1 text-slate-300">{t('vinilos.chip15')}</span>
+                                <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1 text-slate-300">{t('vinilos.chipDescarga')}</span>
+                                <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1 text-slate-300">{t('vinilos.chipGt7')}</span>
                             </div>
 
                             <div
@@ -387,10 +409,10 @@ export default function ToolsPage() {
                                     </div>
 
                                     <div className="flex-1">
-                                        <p className="text-[0.65rem] uppercase tracking-[0.35em] text-orange-200/80">Carga directa</p>
-                                        <h2 className="mt-2 text-2xl font-bold text-white">Suelta un PNG o elige un archivo</h2>
+                                        <p className="text-[0.65rem] uppercase tracking-[0.35em] text-orange-200/80">{t('vinilos.cargaDirecta')}</p>
+                                        <h2 className="mt-2 text-2xl font-bold text-white">{t('vinilos.suelta')}</h2>
                                         <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-300">
-                                            El archivo se procesa automáticamente y el SVG se descarga en cuanto está listo.
+                                            {t('vinilos.sueltaTexto')}
                                         </p>
 
                                         <div className="mt-4 flex flex-wrap gap-3">
@@ -400,14 +422,14 @@ export default function ToolsPage() {
                                                 disabled={isProcessing}
                                                 className="rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 transition hover:from-orange-400 hover:to-red-400 disabled:cursor-not-allowed disabled:opacity-50"
                                             >
-                                                Elegir PNG
+                                                {t('vinilos.elegir')}
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={resetTool}
                                                 className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/10"
                                             >
-                                                Limpiar
+                                                {t('vinilos.limpiar')}
                                             </button>
                                         </div>
 
@@ -463,11 +485,11 @@ export default function ToolsPage() {
                                     className="flex w-full items-center justify-between gap-4 text-left"
                                 >
                                     <div>
-                                        <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Ajustes finos</p>
-                                        <h3 className="mt-2 text-lg font-semibold text-white">VTracer compacto para GT7</h3>
+                                        <p className="text-xs uppercase tracking-[0.35em] text-slate-400">{t('vinilos.ajustes')}</p>
+                                        <h3 className="mt-2 text-lg font-semibold text-white">{t('vinilos.vtracer')}</h3>
                                     </div>
                                     <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-slate-200">
-                                        {advancedMode ? 'Ocultar' : 'Mostrar'}
+                                        {advancedMode ? t('vinilos.ocultar') : t('vinilos.mostrar')}
                                     </span>
                                 </button>
 
@@ -481,13 +503,13 @@ export default function ToolsPage() {
                                 ) : (
                                     <div className="mt-5 grid gap-4 md:grid-cols-2">
                                         <RangeField
-                                            label="Colores (cuantización)"
+                                            label={t('vinilos.campo.colores')}
                                             value={traceOptions.quantizeColors}
                                             min={0}
                                             max={12}
                                             step={1}
                                             suffix={traceOptions.quantizeColors === 0 ? ' (auto)' : ' colores'}
-                                            helper="0 = automático. Para logos con textura/foto de fondo, fija 4-8 colores planos: conserva resolución (no baja a 128px) y mejora la nitidez en GT7."
+                                            helper={t('vinilos.ayuda.colores')}
                                             onChange={updateTraceOption('quantizeColors')}
                                         />
                                         <RangeField
@@ -496,7 +518,7 @@ export default function ToolsPage() {
                                             min={1}
                                             max={4}
                                             step={1}
-                                            helper="Más bajo = SVG más pequeño. 2 suele ser el mejor equilibrio."
+                                            helper={t('vinilos.ayuda.pathPrecision')}
                                             onChange={updateTraceOption('pathPrecision')}
                                         />
                                         <RangeField
@@ -505,7 +527,7 @@ export default function ToolsPage() {
                                             min={0}
                                             max={16}
                                             step={1}
-                                            helper="Elimina ruido microscópico antes de vectorizar."
+                                            helper={t('vinilos.ayuda.filterSpeckle')}
                                             onChange={updateTraceOption('filterSpeckle')}
                                         />
                                         <RangeField
@@ -514,7 +536,7 @@ export default function ToolsPage() {
                                             min={4}
                                             max={8}
                                             step={1}
-                                            helper="Menos bits = SVG más compacto, más bits = más fidelidad."
+                                            helper={t('vinilos.ayuda.colorPrecision')}
                                             onChange={updateTraceOption('colorPrecision')}
                                         />
                                         <RangeField
@@ -523,7 +545,7 @@ export default function ToolsPage() {
                                             min={0}
                                             max={32}
                                             step={1}
-                                            helper="Ajusta cuánto se separan las capas de color."
+                                            helper={t('vinilos.ayuda.layerDifference')}
                                             onChange={updateTraceOption('layerDifference')}
                                         />
                                         <RangeField
@@ -532,7 +554,7 @@ export default function ToolsPage() {
                                             min={20}
                                             max={120}
                                             step={1}
-                                            helper="Ángulos más altos suavizan esquinas muy marcadas."
+                                            helper={t('vinilos.ayuda.cornerThreshold')}
                                             onChange={updateTraceOption('cornerThreshold')}
                                         />
                                         <RangeField
@@ -541,7 +563,7 @@ export default function ToolsPage() {
                                             min={2}
                                             max={8}
                                             step={0.5}
-                                            helper="Rango compacto para logos: 3.5 a 5.5 suele funcionar bien."
+                                            helper={t('vinilos.ayuda.lengthThreshold')}
                                             onChange={updateTraceOption('lengthThreshold')}
                                         />
                                         <RangeField
@@ -550,7 +572,7 @@ export default function ToolsPage() {
                                             min={4}
                                             max={14}
                                             step={1}
-                                            helper="Más iteraciones mejora curvas pero puede agrandar el archivo."
+                                            helper={t('vinilos.ayuda.maxIterations')}
                                             onChange={updateTraceOption('maxIterations')}
                                         />
                                         <RangeField
@@ -559,7 +581,7 @@ export default function ToolsPage() {
                                             min={20}
                                             max={90}
                                             step={1}
-                                            helper="Más alto = curvas más suaves y menos detalle fino."
+                                            helper={t('vinilos.ayuda.spliceThreshold')}
                                             onChange={updateTraceOption('spliceThreshold')}
                                         />
                                     </div>
@@ -572,22 +594,22 @@ export default function ToolsPage() {
                                         disabled={isProcessing}
                                         className="mt-5 w-full rounded-xl border border-orange-400/30 bg-orange-500/15 px-5 py-3 text-sm font-semibold text-orange-100 transition hover:bg-orange-500/25 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
-                                        🔁 Reconvertir con estos ajustes
+                                        {t('vinilos.reconvertir')}
                                     </button>
                                 )}
                             </div>
 
                             {conversionInfo && !isProcessing && (
                                 <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                    <StatCard label="Tamaño original" value={conversionInfo.originalSize} helper="PNG subido al servidor." />
+                                    <StatCard label={t('vinilos.stat.original')} value={conversionInfo.originalSize} helper={t('vinilos.stat.originalAyuda')} />
                                     <StatCard
                                         label="SVG final"
                                         value={conversionInfo.svgSize}
-                                        helper={conversionInfo.underLimit ? 'Dentro del límite de GT7.' : 'Requiere revisar ajustes.'}
+                                        helper={conversionInfo.underLimit ? t('vinilos.stat.dentro') : t('vinilos.stat.revisar')}
                                         tone={conversionInfo.underLimit ? 'text-emerald-300' : 'text-amber-300'}
                                     />
-                                    <StatCard label="Paths" value={conversionInfo.pathCount} helper="Cantidad de rutas trazadas." />
-                                    <StatCard label="Tiempo" value={`${conversionInfo.elapsedMs} ms`} helper="Tiempo total de conversión." />
+                                    <StatCard label="Paths" value={conversionInfo.pathCount} helper={t('vinilos.stat.pathsAyuda')} />
+                                    <StatCard label={t('vinilos.stat.tiempo')} value={`${conversionInfo.elapsedMs} ms`} helper={t('vinilos.stat.tiempoAyuda')} />
                                 </div>
                             )}
                         </div>
@@ -596,8 +618,8 @@ export default function ToolsPage() {
                             <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/50 p-5 shadow-inner shadow-black/20">
                                 <div className="flex items-center justify-between gap-4">
                                     <div>
-                                        <p className="text-[0.65rem] uppercase tracking-[0.35em] text-slate-400">Vista previa</p>
-                                        <h3 className="mt-1 text-xl font-semibold text-white">PNG original</h3>
+                                        <p className="text-[0.65rem] uppercase tracking-[0.35em] text-slate-400">{t('vinilos.vistaPrevia')}</p>
+                                        <h3 className="mt-1 text-xl font-semibold text-white">{t('vinilos.pngOriginal')}</h3>
                                     </div>
                                     {selectedFile && (
                                         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
@@ -616,15 +638,15 @@ export default function ToolsPage() {
                                         // eslint-disable-next-line @next/next/no-img-element
                                         <img
                                             src={previewUrl}
-                                            alt={selectedFile ? `Vista previa de ${selectedFile.name}` : 'Vista previa PNG'}
+                                            alt={selectedFile ? t('vinilos.vistaPreviaDe', { nombre: selectedFile.name }) : t('vinilos.vistaPreviaPng')}
                                             className="h-full w-full object-contain p-4"
                                         />
                                     ) : (
                                         <div className="flex min-h-[20rem] flex-col items-center justify-center px-6 text-center">
                                             <div className="text-4xl">🖼️</div>
-                                            <p className="mt-4 text-sm font-medium text-slate-200">Tu PNG aparecerá aquí</p>
+                                            <p className="mt-4 text-sm font-medium text-slate-200">{t('vinilos.apareceraPng')}</p>
                                             <p className="mt-2 max-w-xs text-xs leading-6 text-slate-400">
-                                                La vista previa ayuda a comprobar que la transparencia y el encuadre estén correctos antes de descargar el SVG.
+                                                {t('vinilos.vistaPreviaTexto')}
                                             </p>
                                         </div>
                                     )}
@@ -634,8 +656,8 @@ export default function ToolsPage() {
                             <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/50 p-5 shadow-inner shadow-black/20">
                                 <div className="flex items-center justify-between gap-4">
                                     <div>
-                                        <p className="text-[0.65rem] uppercase tracking-[0.35em] text-slate-400">Salida</p>
-                                        <h3 className="mt-1 text-xl font-semibold text-white">SVG generado</h3>
+                                        <p className="text-[0.65rem] uppercase tracking-[0.35em] text-slate-400">{t('vinilos.salida')}</p>
+                                        <h3 className="mt-1 text-xl font-semibold text-white">{t('vinilos.svgGenerado')}</h3>
                                     </div>
 
                                     {svgOutput && (
@@ -664,9 +686,9 @@ export default function ToolsPage() {
                                     ) : (
                                         <div className="flex min-h-[20rem] flex-col items-center justify-center px-6 text-center">
                                             <div className="text-4xl">✨</div>
-                                            <p className="mt-4 text-sm font-medium text-slate-200">SVG listo para GT7</p>
+                                            <p className="mt-4 text-sm font-medium text-slate-200">{t('vinilos.svgListo')}</p>
                                             <p className="mt-2 max-w-xs text-xs leading-6 text-slate-400">
-                                                Cuando Firebase termine, aquí verás el SVG compacto y la descarga comenzará automáticamente.
+                                                {t('vinilos.svgListoTexto')}
                                             </p>
                                         </div>
                                     )}
@@ -679,14 +701,14 @@ export default function ToolsPage() {
                                         disabled={!svgOutput || isProcessing}
                                         className="rounded-xl bg-gradient-to-r from-orange-500 to-red-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 transition hover:from-orange-400 hover:to-red-400 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
-                                        Descargar otra vez
+                                        {t('vinilos.descargarOtra')}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={resetTool}
                                         className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/10"
                                     >
-                                        Nueva conversión
+                                        {t('vinilos.nueva')}
                                     </button>
                                 </div>
                             </div>

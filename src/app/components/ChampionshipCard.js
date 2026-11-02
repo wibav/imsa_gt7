@@ -11,6 +11,7 @@ import {
 } from "../utils/dateUtils";
 import { STATUS_COLORS, STATUS_LABELS } from "../utils/constants";
 import StatusBadge from "./common/StatusBadge";
+import { useI18n } from "../i18n";
 
 // Re-exportar calculateProgress para compatibilidad con código existente
 export { calculateProgress } from "../utils/championshipUtils";
@@ -48,6 +49,7 @@ function horarioDe(nextEvent, championship) {
  */
 export default function ChampionshipCard({ championship, tracks = [], orgName = null, onClick, onRegister }) {
     const router = useRouter();
+    const { t, locale } = useI18n();
     const progress = calculateProgress(tracks, championship);
     // Próximo EVENTO, no próxima carrera: si la Pre-Qualy está pendiente y cae
     // antes, es lo que el piloto necesita ver primero.
@@ -101,7 +103,7 @@ export default function ChampionshipCard({ championship, tracks = [], orgName = 
                     </h3>
                     {championship.season && (
                         <p className="text-orange-400 text-sm font-semibold">
-                            📅 Temporada {championship.season}
+                            📅 {t('campeonato.temporada', { temporada: championship.season })}
                         </p>
                     )}
                 </div>
@@ -110,7 +112,7 @@ export default function ChampionshipCard({ championship, tracks = [], orgName = 
                 <div className="mb-4">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-gray-300 text-sm font-medium">
-                            Progreso del Campeonato
+                            {t('portada.tarjeta.progreso')}
                         </span>
                         <span className="text-white font-bold text-lg">
                             {progress.percentage}%
@@ -123,7 +125,7 @@ export default function ChampionshipCard({ championship, tracks = [], orgName = 
                         />
                     </div>
                     <p className="text-gray-400 text-sm mt-1">
-                        {progress.completed} de {progress.total} carreras completadas
+                        {t('portada.tarjeta.completadas', { a: progress.completed, total: progress.total })}
                     </p>
                 </div>
 
@@ -131,7 +133,7 @@ export default function ChampionshipCard({ championship, tracks = [], orgName = 
                 {championship.categories && championship.categories.length > 0 && (
                     <div className="mb-4">
                         <div className="text-gray-400 font-semibold text-xs mb-2">
-                            🏎️ CATEGORÍAS
+                            🏎️ {t('portada.tarjeta.categorias')}
                         </div>
                         <div className="flex flex-wrap gap-2">
                             {championship.categories.map(cat => (
@@ -149,21 +151,21 @@ export default function ChampionshipCard({ championship, tracks = [], orgName = 
                 {/* Información adicional */}
                 <div className="grid grid-cols-3 gap-3 mb-4">
                     <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-                        <div className="text-gray-400 text-xs mb-1">Tipo</div>
+                        <div className="text-gray-400 text-xs mb-1">{t('portada.tarjeta.tipo')}</div>
                         <div className="text-white font-semibold text-sm">
                             {championship.settings?.isTeamChampionship
-                                ? (championship.settings?.isMultiCategory ? '🏁 Multicategoría' : '👥 Por Equipos')
-                                : '👤 Individual'}
+                                ? (championship.settings?.isMultiCategory ? `🏁 ${t('portada.tarjeta.multicategoria')}` : t('campeonato.porEquipos'))
+                                : t('campeonato.individual')}
                         </div>
                     </div>
                     <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-                        <div className="text-gray-400 text-xs mb-1">Carreras</div>
+                        <div className="text-gray-400 text-xs mb-1">{t('portada.tarjeta.carreras')}</div>
                         <div className="text-white font-semibold text-sm">
-                            🏁 {progress.total} circuitos
+                            🏁 {t('portada.tarjeta.circuitos', { n: progress.total })}
                         </div>
                     </div>
                     <div className="bg-white/5 rounded-lg p-3 border border-white/10">
-                        <div className="text-gray-400 text-xs mb-1">Inscritos</div>
+                        <div className="text-gray-400 text-xs mb-1">{t('portada.tarjeta.inscritos')}</div>
                         <div className="text-white font-semibold text-sm">
                             👥 {(championship.registrations || []).length}
                         </div>
@@ -176,22 +178,22 @@ export default function ChampionshipCard({ championship, tracks = [], orgName = 
                         <div className="flex items-center justify-between">
                             <div className="flex-1 min-w-0">
                                 <div className="text-orange-300 text-xs font-semibold mb-1">
-                                    {nextEvent.tipo === 'prequaly' ? '⏱️ Pre-Qualy' : '🏁 Próxima Carrera'}
+                                    {nextEvent.tipo === 'prequaly' ? '⏱️ Pre-Qualy' : `🏁 ${t('campeonato.proxima.carrera')}`}
                                 </div>
                                 <div className="text-white font-bold text-sm truncate">{nextEvent.name}</div>
                             </div>
                             <div className="text-right ml-2">
                                 <div className="text-orange-200 text-sm font-semibold">
-                                    {formatDateShort(nextEvent.date)}
+                                    {formatDateShort(nextEvent.date, locale)}
                                 </div>
                                 {horario && (
                                     <>
                                         <div className="text-orange-100 text-xs whitespace-nowrap">
-                                            {horario.espana} <span className="text-orange-200/60">(España)</span>
+                                            {horario.espana} <span className="text-orange-200/60">({t('campeonato.espana')})</span>
                                         </div>
                                         {horario.local && (
                                             <div className="text-orange-200/70 text-xs whitespace-nowrap">
-                                                {horario.local} tu hora
+                                                {t('componentes.prequaly.tuHora', { hora: horario.local })}
                                             </div>
                                         )}
                                     </>
@@ -218,13 +220,13 @@ export default function ChampionshipCard({ championship, tracks = [], orgName = 
                         <div className="flex items-center gap-2 text-sm">
                             <span className={registro.abierta ? 'text-green-400' : 'text-red-400'}>📝</span>
                             <span className={`font-semibold ${registro.abierta ? 'text-green-300' : 'text-red-300'}`}>
-                                {registro.etiqueta}
+                                {registro.abierta ? t('portada.tarjeta.inscripcionAbierta') : t(`campeonato.inscripcion.cerrada.${registro.motivo}`)}
                             </span>
                         </div>
                         {registro.cupos > 0 && (
                             <div className="flex items-center gap-2 text-sm">
                                 <span className="text-gray-300">👥 {registro.inscritos}/{registro.cupos}</span>
-                                {registro.motivo === 'completo' && <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-medium">LLENO</span>}
+                                {registro.motivo === 'completo' && <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-medium">{t('portada.tarjeta.lleno')}</span>}
                             </div>
                         )}
                     </div>
@@ -235,7 +237,7 @@ export default function ChampionshipCard({ championship, tracks = [], orgName = 
                     <button
                         className="w-full bg-gradient-to-r from-orange-600 to-red-600 text-white px-4 py-3 rounded-lg font-bold hover:from-orange-700 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl"
                     >
-                        🏆 Ver Campeonato
+                        🏆 {t('portada.tarjeta.ver')}
                     </button>
                     {canRegister && (
                         <button
@@ -249,7 +251,7 @@ export default function ChampionshipCard({ championship, tracks = [], orgName = 
                             }}
                             className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 rounded-lg font-bold hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl"
                         >
-                            ✍️ Inscribirse
+                            ✍️ {t('portada.tarjeta.inscribirse')}
                         </button>
                     )}
                 </div>

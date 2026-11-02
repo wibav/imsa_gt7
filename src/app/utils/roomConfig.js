@@ -481,14 +481,17 @@ export function textoAjuste(track = {}, id, reglasNormalizadas = null, lang = 'e
  * como texto libre ("2h"). Devuelve un objeto con la forma de un circuito para
  * RoomConfigView / RoomConfigEditor.
  */
-export function salaDeEvento(evento = {}) {
+export function salaDeEvento(evento = {}, lang = 'es') {
     const { weatherSlots, timeOfDay, timeMultiplier } = evento.weather || {};
     const reglas = { ...evento.rules };
     if (reglas.weatherSlots === undefined && weatherSlots) reglas.weatherSlots = weatherSlots;
     if (reglas.timeOfDay === undefined && timeOfDay) reglas.timeOfDay = timeOfDay;
     if (reglas.timeMultiplier === undefined && timeMultiplier) reglas.timeMultiplier = Number(timeMultiplier);
     const { laps, duration } = evento.rules || {};
-    const victoria = laps ? `${laps} vuelta${Number(laps) === 1 ? '' : 's'}` : duration ? `Límite de tiempo (${/^\d+$/.test(String(duration).trim()) ? `${String(duration).trim()} min` : duration})` : '';
+    const frases = frasesSala(lang);
+    const durTexto = duration && /^\d+$/.test(String(duration).trim()) ? String(duration).trim() : null;
+    const victoria = laps ? frases.vueltas(laps)
+        : duration ? (durTexto ? frases.limiteTiempo(durTexto) : `${traducirSala('Límite de tiempo', lang)} (${duration})`) : '';
     return { rules: reglas, victoria };
 }
 
@@ -496,18 +499,19 @@ export function salaDeEvento(evento = {}) {
  * Resumen corto de la sala de un evento para tarjetas y listados:
  * [{ id, icono, texto }] con los nombres del juego.
  */
-export function resumenSalaEvento(evento = {}) {
-    const sala = salaDeEvento(evento);
+export function resumenSalaEvento(evento = {}, lang = 'es') {
+    const sala = salaDeEvento(evento, lang);
     const reglas = normalizarReglas(sala.rules);
-    const texto = (id) => textoAjuste(sala, id, reglas);
+    const texto = (id) => textoAjuste(sala, id, reglas, lang);
+    const f = frasesSala(lang);
     const items = [
         ['__victoria', '⏱️', texto('__victoria')],
-        ['timeOfDay', '🌤️', reglas.timeOfDay ? `${reglas.timeOfDay}${reglas.timeMultiplier > 1 ? ` · ${reglas.timeMultiplier}x` : ''}` : null],
-        ['mechanicalDamage', '💥', texto('mechanicalDamage') && `Daño ${texto('mechanicalDamage').toLowerCase()}`],
-        ['tireWear', '🛞', texto('tireWear') && `Desgaste ${texto('tireWear')}`],
-        ['fuelConsumption', '⛽', texto('fuelConsumption') && `Consumo ${texto('fuelConsumption')}`],
-        ['requiredCompounds', '🔴', reglas.requiredCompounds?.length ? `Requeridos: ${texto('requiredCompounds')}` : null],
-        ['mandatoryPitStops', '🏁', reglas.mandatoryPitStops > 0 ? `${reglas.mandatoryPitStops} parada(s) mín.` : null],
+        ['timeOfDay', '🌤️', reglas.timeOfDay ? `${traducirSala(reglas.timeOfDay, lang)}${reglas.timeMultiplier > 1 ? ` · ${reglas.timeMultiplier}x` : ''}` : null],
+        ['mechanicalDamage', '💥', texto('mechanicalDamage') && f.dano(texto('mechanicalDamage'))],
+        ['tireWear', '🛞', texto('tireWear') && f.desgaste(texto('tireWear'))],
+        ['fuelConsumption', '⛽', texto('fuelConsumption') && f.consumo(texto('fuelConsumption'))],
+        ['requiredCompounds', '🔴', reglas.requiredCompounds?.length ? f.requeridos(texto('requiredCompounds')) : null],
+        ['mandatoryPitStops', '🏁', reglas.mandatoryPitStops > 0 ? f.paradas(reglas.mandatoryPitStops) : null],
     ];
     return items.filter(([, , t]) => t).map(([id, icono, t]) => ({ id, icono, texto: t }));
 }

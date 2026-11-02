@@ -1,4 +1,5 @@
 import { STATUS_COLORS, STATUS_LABELS } from '../../utils/constants';
+import { useI18n } from '../../i18n';
 
 /**
  * Badge de estado reutilizable para campeonatos, eventos, circuitos, etc.
@@ -11,6 +12,7 @@ import { STATUS_COLORS, STATUS_LABELS } from '../../utils/constants';
  * @param {string} [props.icon] - Emoji/icono opcional antes del texto
  */
 export default function StatusBadge({ status, size = 'md', className = '', pulse = false, icon }) {
+    const { t } = useI18n();
     const EXTENDED_COLORS = {
         ...STATUS_COLORS,
         upcoming: 'bg-yellow-500',
@@ -38,7 +40,7 @@ export default function StatusBadge({ status, size = 'md', className = '', pulse
     };
 
     const colorClass = EXTENDED_COLORS[status] || 'bg-gray-500';
-    const label = EXTENDED_LABELS[status] || status;
+    const label = EXTENDED_LABELS[status] ? t(`comun.estado.${status}`) : status;
     const sizeClass = sizes[size] || sizes.md;
 
     return (

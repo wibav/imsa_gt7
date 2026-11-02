@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { PilotTeamTagExport } from "./common/PilotTeamAvatar";
+import { useI18n } from "../i18n";
 
 /**
  * Componente exportable de resultados de evento como imagen PNG.
@@ -11,6 +12,7 @@ import { PilotTeamTagExport } from "./common/PilotTeamAvatar";
  * @param {Object} props.event - Datos completos del evento
  */
 export default function ExportableEventResults({ event }) {
+    const { t, locale } = useI18n();
     const exportRef = useRef(null);
     const [exporting, setExporting] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
@@ -39,7 +41,7 @@ export default function ExportableEventResults({ event }) {
             link.click();
         } catch (error) {
             console.error('Error exportando resultados:', error);
-            alert('Error al exportar la imagen. Intente de nuevo.');
+            alert(t('componentes.exportar.error'));
         } finally {
             setExporting(false);
         }
@@ -59,7 +61,7 @@ export default function ExportableEventResults({ event }) {
             await navigator.clipboard.write([
                 new ClipboardItem({ 'image/png': blob })
             ]);
-            alert('✅ Imagen copiada al portapapeles');
+            alert(`✅ ${t('componentes.exportar.copiada')}`);
         } catch (error) {
             console.error('Error copiando al clipboard:', error);
             handleExport();
@@ -71,7 +73,7 @@ export default function ExportableEventResults({ event }) {
     const formatDate = (dateStr) => {
         if (!dateStr) return '';
         const date = new Date(dateStr + 'T00:00:00');
-        return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+        return date.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
     };
 
     const positionDisplay = (idx) => {
@@ -82,8 +84,8 @@ export default function ExportableEventResults({ event }) {
     };
 
     const EVENT_TYPE_LABELS = {
-        eliminatoria: '🔥 Eliminatoria',
-        doble_eliminatoria: '⚔️ Doble Eliminatoria'
+        eliminatoria: `🔥 ${t('eventos.tipo.eliminatoria')}`,
+        doble_eliminatoria: `⚔️ ${t('eventos.tipo.doble_eliminatoria')}`
     };
 
     return (
@@ -94,7 +96,7 @@ export default function ExportableEventResults({ event }) {
                     onClick={() => setShowPreview(true)}
                     className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-all"
                 >
-                    📸 Exportar Resultados
+                    📸 {t('eventos.exportar')}
                 </button>
             </div>
 
@@ -104,7 +106,7 @@ export default function ExportableEventResults({ event }) {
                     <div className="bg-slate-800 rounded-2xl border border-white/10 max-w-2xl w-full my-8">
                         {/* Header */}
                         <div className="flex items-center justify-between p-4 border-b border-white/10">
-                            <h3 className="text-white font-bold text-lg">📸 Exportar Resultados</h3>
+                            <h3 className="text-white font-bold text-lg">📸 {t('eventos.exportar')}</h3>
                             <button onClick={() => setShowPreview(false)} className="text-gray-400 hover:text-white transition-colors text-xl">✕</button>
                         </div>
 
@@ -115,14 +117,14 @@ export default function ExportableEventResults({ event }) {
                                 disabled={exporting}
                                 className="flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white px-4 py-3 rounded-lg font-bold transition-all"
                             >
-                                {exporting ? '⏳ Generando...' : '💾 Descargar PNG'}
+                                {exporting ? `⏳ ${t('componentes.briefing.generando')}` : `💾 ${t('componentes.briefing.descargar')}`}
                             </button>
                             <button
                                 onClick={handleCopyToClipboard}
                                 disabled={exporting}
                                 className="flex-1 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white px-4 py-3 rounded-lg font-bold transition-all"
                             >
-                                {exporting ? '⏳ Copiando...' : '📋 Copiar al Clipboard'}
+                                {exporting ? `⏳ ${t('componentes.exportar.copiando')}` : `📋 ${t('componentes.exportar.copiar')}`}
                             </button>
                         </div>
 
@@ -143,7 +145,7 @@ export default function ExportableEventResults({ event }) {
                                         textAlign: 'center'
                                     }}>
                                         <div style={{ fontSize: '22px', fontWeight: 'bold', color: 'white', marginBottom: '4px' }}>
-                                            {event.title || 'Evento'}
+                                            {event.title || t('eventos.evento')}
                                         </div>
                                         {event.track && (
                                             <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.85)', marginBottom: '2px' }}>
@@ -160,13 +162,13 @@ export default function ExportableEventResults({ event }) {
                                     {!isMultiRound && hasStandardResults && (
                                         <div>
                                             <div style={{ fontSize: '14px', fontWeight: 'bold', color: 'white', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                🏆 Resultados Finales
+                                                🏆 {t('eventos.resultadosFinales')}
                                             </div>
                                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                                 <thead>
                                                     <tr style={{ background: 'linear-gradient(135deg, #ea580c, #dc2626)' }}>
-                                                        <th style={{ padding: '6px 10px', textAlign: 'left', fontSize: '11px', color: 'white', fontWeight: 'bold', width: '40px' }}>Pos</th>
-                                                        <th style={{ padding: '6px 10px', textAlign: 'left', fontSize: '11px', color: 'white', fontWeight: 'bold' }}>Piloto</th>
+                                                        <th style={{ padding: '6px 10px', textAlign: 'left', fontSize: '11px', color: 'white', fontWeight: 'bold', width: '40px' }}>{t('campeonato.pos')}</th>
+                                                        <th style={{ padding: '6px 10px', textAlign: 'left', fontSize: '11px', color: 'white', fontWeight: 'bold' }}>{t('componentes.tabla.piloto')}</th>
                                                         <th style={{ padding: '6px 10px', textAlign: 'center', fontSize: '11px', color: 'white', fontWeight: 'bold', width: '60px' }}>Extras</th>
                                                     </tr>
                                                 </thead>
@@ -222,8 +224,8 @@ export default function ExportableEventResults({ event }) {
                                                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                                             <thead>
                                                                 <tr style={{ background: rIdx === 0 ? 'linear-gradient(135deg, #2563eb, #4f46e5)' : 'linear-gradient(135deg, #ea580c, #dc2626)' }}>
-                                                                    <th style={{ padding: '4px 8px', textAlign: 'left', fontSize: '10px', color: 'white', fontWeight: 'bold', width: '35px' }}>Pos</th>
-                                                                    <th style={{ padding: '4px 8px', textAlign: 'left', fontSize: '10px', color: 'white', fontWeight: 'bold' }}>Piloto</th>
+                                                                    <th style={{ padding: '4px 8px', textAlign: 'left', fontSize: '10px', color: 'white', fontWeight: 'bold', width: '35px' }}>{t('campeonato.pos')}</th>
+                                                                    <th style={{ padding: '4px 8px', textAlign: 'left', fontSize: '10px', color: 'white', fontWeight: 'bold' }}>{t('componentes.tabla.piloto')}</th>
                                                                     <th style={{ padding: '4px 8px', textAlign: 'center', fontSize: '10px', color: 'white', fontWeight: 'bold', width: '50px' }}>Extras</th>
                                                                 </tr>
                                                             </thead>

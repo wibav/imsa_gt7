@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import SimilarPilotHint from "./common/SimilarPilotHint";
+import { useI18n } from "../i18n";
 
 export default function RegistrationModal({ event, isOpen, onClose, onSubmit, isLoading, registrationMessage }) {
+    const { t } = useI18n();
     const [formData, setFormData] = useState({
         gt7Id: "",
         psnId: "",
@@ -30,7 +32,7 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
         const newErrors = {};
 
         if (!formData.gt7Id.trim()) {
-            newErrors.gt7Id = "El GT7 ID es obligatorio";
+            newErrors.gt7Id = t('formularios.inscripcion.errGt7');
         }
 
         setErrors(newErrors);
@@ -78,7 +80,7 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
                         </div>
                         <h2 className={`text-xl font-bold mb-3 ${isSuccess ? "text-green-400" : isWaitlist ? "text-yellow-400" : "text-red-400"
                             }`}>
-                            {isSuccess ? "¡Inscripción completada!" : isWaitlist ? "En lista de reservas" : "Error en la inscripción"}
+                            {isSuccess ? t('eventos.modal.completada') : isWaitlist ? t('eventos.modal.enReservas') : t('eventos.modal.error')}
                         </h2>
                         <p className="text-gray-300 text-sm leading-relaxed mb-6">
                             {registrationMessage.replace(/^[✅⏳❌]\s*/, "")}
@@ -87,7 +89,7 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
                             onClick={onClose}
                             className="bg-white/10 border border-white/20 text-white px-6 py-2 rounded-lg font-semibold hover:bg-white/20 transition-all"
                         >
-                            Cerrar
+                            {t('campeonato.cerrar')}
                         </button>
                     </div>
                 )}
@@ -96,7 +98,7 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
                 {!registrationMessage && (
                     <>
                         <h2 className="text-2xl font-bold text-white mb-2">
-                            ✍️ Inscribirse al Evento
+                            ✍️ {t('eventos.modal.titulo')}
                         </h2>
                         <p className="text-gray-400 text-sm mb-6">
                             {event?.title}
@@ -114,7 +116,7 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
                                     name="gt7Id"
                                     value={formData.gt7Id}
                                     onChange={handleChange}
-                                    placeholder="Tu GT7 ID"
+                                    placeholder={t('eventos.modal.phGt7')}
                                     className={`w-full bg-white/10 border rounded-lg p-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 transition-colors ${errors.gt7Id
                                         ? "border-red-500 focus:ring-red-500"
                                         : "border-white/30 focus:ring-orange-500"
@@ -133,7 +135,7 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
                             {/* PSN ID */}
                             <div>
                                 <label htmlFor="psnId" className="block text-gray-300 font-semibold mb-2 text-sm">
-                                    PSN ID <span className="text-gray-500 font-normal">(opcional)</span>
+                                    PSN ID <span className="text-gray-500 font-normal">({t('eventos.modal.opcional')})</span>
                                 </label>
                                 <input
                                     type="text"
@@ -141,7 +143,7 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
                                     name="psnId"
                                     value={formData.psnId}
                                     onChange={handleChange}
-                                    placeholder="Tu PSN ID"
+                                    placeholder={t('eventos.modal.phPsn')}
                                     className="w-full bg-white/10 border border-white/30 rounded-lg p-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-colors"
                                     disabled={isLoading}
                                 />
@@ -150,7 +152,7 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
                             {/* Información del cupo ocupado si aplica */}
                             {event?.maxParticipants > 0 && (
                                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 text-sm text-blue-300">
-                                    Cupos disponibles: {event.maxParticipants - (event.participants?.length || 0)} / {event.maxParticipants}
+                                    {t('eventos.modal.cupos')}: {event.maxParticipants - (event.participants?.length || 0)} / {event.maxParticipants}
                                 </div>
                             )}
 
@@ -164,7 +166,7 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
                                     disabled={isLoading}
                                     className="flex-1 bg-white/10 border border-white/20 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Cancelar
+                                    {t('formularios.inscripcion.cancelar')}
                                 </button>
                                 <button
                                     type="submit"
@@ -174,10 +176,10 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
                                     {isLoading ? (
                                         <>
                                             <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                            Inscribiendo...
+                                            {t('eventos.modal.inscribiendo')}
                                         </>
                                     ) : (
-                                        "✍️ Inscribirse"
+                                        `✍️ ${t('portada.tarjeta.inscribirse')}`
                                     )}
                                 </button>
                             </div>

@@ -12,6 +12,7 @@ import TeamAvatar from "../components/common/TeamAvatar";
 import ShareButton from "../components/ShareButton";
 import TeamRequestForm from "../components/common/TeamRequestForm";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
+import { useI18n } from "../i18n";
 
 /**
  * Equipos de la comunidad.
@@ -23,6 +24,7 @@ import LoadingSkeleton from "../components/common/LoadingSkeleton";
  * miembros actuales. Ver docs/PLAN_EQUIPOS.md.
  */
 function EquiposContent() {
+    const { t } = useI18n();
     const searchParams = useSearchParams();
     const router = useRouter();
     const equipoId = searchParams.get('id');
@@ -57,7 +59,7 @@ function EquiposContent() {
         [equipos, statsPilotos]
     );
 
-    if (loading) return <LoadingSkeleton variant="page" message="Cargando equipos..." />;
+    if (loading) return <LoadingSkeleton variant="page" message={t('equipos.cargando')} />;
 
     const seleccionado = equipoId ? conStats.find(e => e.equipo.id === equipoId) : null;
 
@@ -67,26 +69,26 @@ function EquiposContent() {
             : <NoEncontrado router={router} />;
     }
 
-    const t = busqueda.trim().toLowerCase();
+    const texto = busqueda.trim().toLowerCase();
     const visibles = conStats
-        .filter(e => !t || e.equipo.name.toLowerCase().includes(t) || e.equipo.tag.toLowerCase().includes(t)
-            || miembrosActuales(e.equipo).some(m => m.pilot.toLowerCase().includes(t)))
+        .filter(e => !texto || e.equipo.name.toLowerCase().includes(texto) || e.equipo.tag.toLowerCase().includes(texto)
+            || miembrosActuales(e.equipo).some(m => m.pilot.toLowerCase().includes(texto)))
         .sort(comparadorEquipos(orden));
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
             <PageHeader
-                migas={[{ label: 'Equipos' }]}
+                migas={[{ label: t('equipos.titulo') }]}
                 icono="🛡️"
-                titulo="Equipos"
-                subtitulo="Los equipos de la comunidad y lo que han conseguido sus pilotos en campeonatos y eventos."
+                titulo={t('equipos.titulo')}
+                subtitulo={t('equipos.subtitulo')}
             />
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
 
                 {conStats.length === 0 ? (
                     <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
                         <div className="text-6xl mb-4">🛡️</div>
-                        <p className="text-gray-300 text-lg">Todavía no hay equipos publicados</p>
+                        <p className="text-gray-300 text-lg">{t('equipos.sinEquipos')}</p>
                     </div>
                 ) : (
                     <>
@@ -94,11 +96,11 @@ function EquiposContent() {
                             type="search"
                             value={busqueda}
                             onChange={e => setBusqueda(e.target.value)}
-                            placeholder="🔍 Buscar equipo, siglas o piloto..."
+                            placeholder={t('equipos.buscar')}
                             className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
                         />
                         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-                            <span className="text-gray-400">Ordenar por:</span>
+                            <span className="text-gray-400">{t('equipos.ordenar')}:</span>
                             {Object.entries(CRITERIOS).map(([clave, c]) => (
                                 <button
                                     key={clave}
@@ -109,15 +111,15 @@ function EquiposContent() {
                                         ? 'bg-orange-600 border-orange-500 text-white'
                                         : 'bg-white/5 border-white/20 text-gray-300 hover:bg-white/10'}`}
                                 >
-                                    {c.etiqueta}
+                                    {c.icono} {t(`equipos.criterio.${clave}`)}
                                 </button>
                             ))}
                         </div>
                         {visibles.length === 0 ? (
-                            <p className="mt-6 text-gray-400">Ningún equipo coincide con la búsqueda.</p>
+                            <p className="mt-6 text-gray-400">{t('equipos.sinCoincidencias')}</p>
                         ) : (
                             <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                {visibles.map((e, i) => <TarjetaEquipo key={e.equipo.id} datos={e} posicion={t ? null : i + 1} orden={orden} />)}
+                                {visibles.map((e, i) => <TarjetaEquipo key={e.equipo.id} datos={e} posicion={texto ? null : i + 1} orden={orden} />)}
                             </div>
                         )}
                     </>
@@ -134,10 +136,10 @@ function EquiposContent() {
  * como un medallero: victorias, luego podios, luego puntos.
  */
 const CRITERIOS = {
-    victorias: { etiqueta: '🥇 Victorias', claves: ['victorias', 'podios', 'puntos'] },
-    podios: { etiqueta: '🏅 Podios', claves: ['podios', 'victorias', 'puntos'] },
-    puntos: { etiqueta: '⭐ Puntos', claves: ['puntos', 'victorias', 'podios'] },
-    titulos: { etiqueta: '🏆 Títulos', claves: ['titulos', 'victorias', 'podios', 'puntos'] },
+    victorias: { icono: '🥇', claves: ['victorias', 'podios', 'puntos'] },
+    podios: { icono: '🏅', claves: ['podios', 'victorias', 'puntos'] },
+    puntos: { icono: '⭐', claves: ['puntos', 'victorias', 'podios'] },
+    titulos: { icono: '🏆', claves: ['titulos', 'victorias', 'podios', 'puntos'] },
 };
 
 function comparadorEquipos(orden) {
@@ -164,6 +166,7 @@ function BannerEquipo({ equipo, className }) {
 }
 
 function TarjetaEquipo({ datos, posicion, orden }) {
+    const { t } = useI18n();
     const { equipo, total, plantilla } = datos;
     return (
         // Enlace y no <button>: un botón centra su contenido en vertical, y
@@ -183,7 +186,7 @@ function TarjetaEquipo({ datos, posicion, orden }) {
                     <TeamAvatar team={equipo} size="lg" className="-mt-8 ring-4 ring-slate-900 shadow-lg" />
                     <div className="min-w-0 pt-2 flex-1">
                         <div className="text-white font-bold leading-tight truncate">{equipo.name}</div>
-                        <div className="text-gray-400 text-xs">{equipo.tag} · {total.pilotos} piloto{total.pilotos === 1 ? '' : 's'}</div>
+                        <div className="text-gray-400 text-xs">{equipo.tag} · {t('campeonato.pilotos', { n: total.pilotos })}</div>
                     </div>
                     {posicion && (
                         <span className={`pt-2 text-lg font-bold tabular-nums ${posicion <= 3 ? 'text-orange-400' : 'text-gray-500'}`}>#{posicion}</span>
@@ -191,11 +194,11 @@ function TarjetaEquipo({ datos, posicion, orden }) {
                 </div>
                 <div className="grid grid-cols-4 gap-2 mt-4 text-center">
                     {orden === 'titulos'
-                        ? <Dato valor={total.titulos} label="títulos" activo />
-                        : <Dato valor={total.campeonatos} label="campeonatos" />}
-                    <Dato valor={total.victorias} label="victorias" activo={orden === 'victorias'} />
-                    <Dato valor={total.podios} label="podios" activo={orden === 'podios'} />
-                    <Dato valor={total.puntos} label="puntos" activo={orden === 'puntos'} />
+                        ? <Dato valor={total.titulos} label={t('equipos.dato.titulos')} activo />
+                        : <Dato valor={total.campeonatos} label={t('equipos.dato.campeonatos')} />}
+                    <Dato valor={total.victorias} label={t('equipos.dato.victorias')} activo={orden === 'victorias'} />
+                    <Dato valor={total.podios} label={t('equipos.dato.podios')} activo={orden === 'podios'} />
+                    <Dato valor={total.puntos} label={t('equipos.dato.puntos')} activo={orden === 'puntos'} />
                 </div>
                 {plantilla.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-4">
@@ -220,17 +223,18 @@ function Dato({ valor, label, activo = false }) {
 }
 
 function FichaEquipo({ datos, router }) {
+    const { t, locale } = useI18n();
     const { equipo, total, plantilla, exMiembros, campeonatos, eventos } = datos;
-    const fmtMes = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }) : '—');
+    const fmtMes = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString(locale, { month: 'short', year: 'numeric' }) : '—');
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
             <Navbar />
             <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
                 <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
-                    <button onClick={() => router.push('/')} className="hover:text-white transition-colors">🏠 Inicio</button>
+                    <button onClick={() => router.push('/')} className="hover:text-white transition-colors">{t('nav.inicio')}</button>
                     <span>/</span>
-                    <button onClick={() => router.push('/equipos')} className="hover:text-white transition-colors">Equipos</button>
+                    <button onClick={() => router.push('/equipos')} className="hover:text-white transition-colors">{t('equipos.titulo')}</button>
                     <span>/</span>
                     <span className="text-white">{equipo.name}</span>
                 </div>
@@ -242,8 +246,8 @@ function FichaEquipo({ datos, router }) {
                         <div className="flex-1 min-w-0 sm:pt-3">
                             <h1 className="text-3xl sm:text-4xl font-bold text-white">{equipo.name}</h1>
                             <p className="text-gray-400 text-sm mt-1">
-                                Siglas {equipo.tag} · {total.pilotos} piloto{total.pilotos === 1 ? '' : 's'}
-                                {exMiembros.length > 0 && ` · ${exMiembros.length} ex-miembro${exMiembros.length === 1 ? '' : 's'}`}
+                                {t('equipos.siglas', { tag: equipo.tag })} · {t('campeonato.pilotos', { n: total.pilotos })}
+                                {exMiembros.length > 0 && ` · ${t('equipos.exMiembros', { n: exMiembros.length })}`}
                             </p>
                             {equipo.description && <p className="text-gray-300 text-sm mt-2 max-w-2xl">{equipo.description}</p>}
                         </div>
@@ -254,12 +258,12 @@ function FichaEquipo({ datos, router }) {
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-6">
                     {[
-                        ['Campeonatos', total.campeonatos],
-                        ['Títulos', total.titulos],
-                        ['Victorias', total.victorias],
-                        ['Podios', total.podios],
-                        ['Eventos', total.eventos],
-                        ['Puntos', total.puntos.toLocaleString('es-ES')],
+                        [t('equipos.ficha.campeonatos'), total.campeonatos],
+                        [t('equipos.ficha.titulos'), total.titulos],
+                        [t('equipos.ficha.victorias'), total.victorias],
+                        [t('equipos.ficha.podios'), total.podios],
+                        [t('equipos.ficha.eventos'), total.eventos],
+                        [t('equipos.ficha.puntos'), total.puntos.toLocaleString(locale)],
                     ].map(([label, valor]) => (
                         <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-4">
                             <div className="text-white text-2xl font-bold tabular-nums">{valor}</div>
@@ -267,23 +271,23 @@ function FichaEquipo({ datos, router }) {
                         </div>
                     ))}
                 </div>
-                <p className="text-gray-500 text-xs mt-2">Suma del historial completo de los pilotos actuales del equipo.</p>
+                <p className="text-gray-500 text-xs mt-2">{t('equipos.suma')}</p>
 
                 {/* min-w-0 en cada columna: sin él, la tabla (que tiene su propio scroll)
                     y los títulos largos de los eventos ensanchaban la rejilla y toda
                     la página se salía de la pantalla en el móvil. */}
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-8">
                     <section className="lg:col-span-3 min-w-0">
-                        <h2 className="text-white font-bold text-lg mb-3">Plantilla</h2>
+                        <h2 className="text-white font-bold text-lg mb-3">{t('equipos.plantilla')}</h2>
                         <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl border border-white/10 overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="text-xs text-gray-400 border-b border-white/10 bg-white/5">
-                                        <th className="px-4 py-2 text-left font-medium">Piloto</th>
-                                        <th className="px-3 py-2 text-right font-medium">Carreras</th>
-                                        <th className="px-3 py-2 text-right font-medium">Victorias</th>
-                                        <th className="px-3 py-2 text-right font-medium">Podios</th>
-                                        <th className="px-4 py-2 text-right font-medium">Puntos</th>
+                                        <th className="px-4 py-2 text-left font-medium">{t('componentes.tabla.piloto')}</th>
+                                        <th className="px-3 py-2 text-right font-medium">{t('pilotos.stats.carreras')}</th>
+                                        <th className="px-3 py-2 text-right font-medium">{t('equipos.ficha.victorias')}</th>
+                                        <th className="px-3 py-2 text-right font-medium">{t('equipos.ficha.podios')}</th>
+                                        <th className="px-4 py-2 text-right font-medium">{t('equipos.ficha.puntos')}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5 tabular-nums">
@@ -296,7 +300,7 @@ function FichaEquipo({ datos, router }) {
                                                 {m.pilot}
                                                 {!m.stats && (
                                                     <span className="ml-2 text-[11px] font-normal text-gray-400 bg-white/5 border border-white/10 rounded-full px-2 py-0.5 whitespace-nowrap">
-                                                        sin carreras todavía
+                                                        {t('equipos.sinCarreras')}
                                                     </span>
                                                 )}
                                             </td>
@@ -309,9 +313,9 @@ function FichaEquipo({ datos, router }) {
                                     {exMiembros.map(m => (
                                         <tr key={`ex-${m.pilot}`} className="text-gray-500">
                                             <td className="px-4 py-2">
-                                                {m.pilot} <span className="text-[11px] bg-white/5 border border-white/10 rounded-full px-2 py-0.5 ml-1">ex-miembro · no suma</span>
+                                                {m.pilot} <span className="text-[11px] bg-white/5 border border-white/10 rounded-full px-2 py-0.5 ml-1">{t('equipos.exNoSuma')}</span>
                                             </td>
-                                            <td className="px-3 py-2 whitespace-nowrap text-right" colSpan={4}>hasta {fmtMes(m.to)}</td>
+                                            <td className="px-3 py-2 whitespace-nowrap text-right" colSpan={4}>{t('equipos.hasta', { fecha: fmtMes(m.to) })}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -320,18 +324,18 @@ function FichaEquipo({ datos, router }) {
                     </section>
 
                     <section className="lg:col-span-2 min-w-0">
-                        <h2 className="text-white font-bold text-lg mb-3">Trayectoria</h2>
+                        <h2 className="text-white font-bold text-lg mb-3">{t('equipos.trayectoria')}</h2>
                         <div className="bg-white/5 border border-white/10 rounded-xl divide-y divide-white/5">
                             {campeonatos.length === 0 && eventos.length === 0 && (
-                                <p className="p-4 text-gray-400 text-sm">Sus pilotos aún no han corrido.</p>
+                                <p className="p-4 text-gray-400 text-sm">{t('equipos.aunNo')}</p>
                             )}
                             {campeonatos.map(c => (
                                 <button key={c.id} onClick={() => router.push(`/championships?id=${c.id}`)}
                                     className="w-full text-left p-3 hover:bg-white/5">
                                     <div className="text-white text-sm font-semibold break-words">🏆 {c.name}</div>
                                     <div className="text-gray-400 text-xs mt-0.5">
-                                        {c.pilotos.length} piloto{c.pilotos.length === 1 ? '' : 's'}
-                                        {c.mejor && <> · mejor: {c.mejor.pilot}, <span className={c.mejor.posicion === 1 ? 'text-yellow-400 font-bold' : 'text-gray-200'}>P{c.mejor.posicion}</span></>}
+                                        {t('campeonato.pilotos', { n: c.pilotos.length })}
+                                        {c.mejor && <> · {t('equipos.mejor')}: {c.mejor.pilot}, <span className={c.mejor.posicion === 1 ? 'text-yellow-400 font-bold' : 'text-gray-200'}>P{c.mejor.posicion}</span></>}
                                     </div>
                                 </button>
                             ))}
@@ -340,8 +344,8 @@ function FichaEquipo({ datos, router }) {
                                     className="w-full text-left p-3 hover:bg-white/5">
                                     <div className="text-white text-sm font-semibold break-words">🎪 {ev.title}</div>
                                     <div className="text-gray-400 text-xs mt-0.5">
-                                        {ev.date && `${fmtMes(ev.date)} · `}{ev.pilotos.length} piloto{ev.pilotos.length === 1 ? '' : 's'}
-                                        {ev.mejor && <> · mejor: {ev.mejor.pilot}, <span className={ev.mejor.posicion === 1 ? 'text-yellow-400 font-bold' : 'text-gray-200'}>P{ev.mejor.posicion}</span></>}
+                                        {ev.date && `${fmtMes(ev.date)} · `}{t('campeonato.pilotos', { n: ev.pilotos.length })}
+                                        {ev.mejor && <> · {t('equipos.mejor')}: {ev.mejor.pilot}, <span className={ev.mejor.posicion === 1 ? 'text-yellow-400 font-bold' : 'text-gray-200'}>P{ev.mejor.posicion}</span></>}
                                     </div>
                                 </button>
                             ))}
@@ -354,14 +358,15 @@ function FichaEquipo({ datos, router }) {
 }
 
 function NoEncontrado({ router }) {
+    const { t } = useI18n();
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
             <div className="text-center">
                 <div className="text-6xl mb-4">🛡️</div>
-                <div className="text-white text-xl font-bold mb-4">Equipo no encontrado</div>
+                <div className="text-white text-xl font-bold mb-4">{t('equipos.noEncontrado')}</div>
                 <button onClick={() => router.push('/equipos')}
                     className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-6 py-3 rounded-lg font-bold transition-all">
-                    Ver todos los equipos
+                    {t('equipos.verTodos')}
                 </button>
             </div>
         </div>
@@ -369,8 +374,9 @@ function NoEncontrado({ router }) {
 }
 
 export default function EquiposPage() {
+    const { t } = useI18n();
     return (
-        <Suspense fallback={<LoadingSkeleton variant="page" message="Cargando equipos..." />}>
+        <Suspense fallback={<LoadingSkeleton variant="page" message={t('equipos.cargando')} />}>
             <EquiposContent />
         </Suspense>
     );

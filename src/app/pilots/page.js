@@ -8,6 +8,7 @@ import { cargarEstadisticasPilotos } from "../utils/globalPilotStats";
 import LoadingSkeleton from "../components/common/LoadingSkeleton";
 import PilotTeamAvatar, { PilotTeamName } from "../components/common/PilotTeamAvatar";
 import PageHeader from "../components/PageHeader";
+import { useI18n } from "../i18n";
 
 /**
  * Página pública de Perfiles Globales de Piloto.
@@ -18,6 +19,7 @@ export default function PilotsPage() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const selectedPilot = searchParams.get('name');
+    const { t, locale } = useI18n();
 
     const [loading, setLoading] = useState(true);
     const [globalStats, setGlobalStats] = useState([]); // Array de stats globales por piloto
@@ -41,7 +43,7 @@ export default function PilotsPage() {
     };
 
     if (loading) {
-        return <LoadingSkeleton variant="page" message="Cargando perfiles de pilotos..." />;
+        return <LoadingSkeleton variant="page" message={t('pilotos.cargando')} />;
     }
 
     // ═══════════════════════════════════════
@@ -57,12 +59,12 @@ export default function PilotsPage() {
                 <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
                     <div className="text-center">
                         <div className="text-6xl mb-4">❌</div>
-                        <div className="text-white text-xl font-bold mb-4">Piloto no encontrado</div>
+                        <div className="text-white text-xl font-bold mb-4">{t('pilotos.noEncontrado')}</div>
                         <button
                             onClick={() => router.push('/pilots')}
                             className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-6 py-3 rounded-lg font-bold transition-all"
                         >
-                            Ver todos los pilotos
+                            {t('pilotos.verTodos')}
                         </button>
                     </div>
                 </div>
@@ -73,7 +75,7 @@ export default function PilotsPage() {
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
                 <PageHeader
                     ancho="max-w-6xl"
-                    migas={[{ label: 'Pilotos', href: '/pilots' }, { label: pilot.name }]}
+                    migas={[{ label: t('pilotos.titulo'), href: '/pilots' }, { label: pilot.name }]}
                     titulo={<><PilotTeamAvatar name={pilot.name} aliases={pilot.aliases} size="md" />{pilot.name}</>}
                 >
                     <div className="flex items-center gap-4 flex-wrap">
@@ -86,7 +88,7 @@ export default function PilotsPage() {
                         )}
                         {pilot.championsCount > 0 && (
                             <span className="bg-yellow-500 text-black text-xs px-2 py-1 rounded-full font-bold">
-                                🏆 {pilot.championsCount}x Campeón
+                                🏆 {t('pilotos.campeon', { n: pilot.championsCount })}
                             </span>
                         )}
                     </div>
@@ -96,14 +98,14 @@ export default function PilotsPage() {
                     {/* Stats Cards */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-8">
                         {[
-                            { icon: '🏁', value: pilot.totalRaces, label: 'Carreras' },
-                            { icon: '🏆', value: pilot.totalWins, label: 'Victorias' },
-                            { icon: '🥇', value: pilot.totalPodiums, label: 'Podiums' },
+                            { icon: '🏁', value: pilot.totalRaces, label: t('pilotos.stats.carreras') },
+                            { icon: '🏆', value: pilot.totalWins, label: t('componentes.tabla.victorias') },
+                            { icon: '🥇', value: pilot.totalPodiums, label: t('componentes.tabla.podios') },
                             { icon: '⏱️', value: pilot.totalPoles, label: 'Poles' },
-                            { icon: '⚡', value: pilot.totalFastestLaps, label: 'V. Rápidas' },
+                            { icon: '⚡', value: pilot.totalFastestLaps, label: t('pilotos.stats.vRapidas') },
                             { icon: '💀', value: pilot.totalDNFs, label: 'DNFs' },
-                            { icon: '📊', value: pilot.totalPoints, label: 'Pts Totales' },
-                            { icon: '📈', value: pilot.avgPointsPerRace, label: 'Pts/Carrera' }
+                            { icon: '📊', value: pilot.totalPoints, label: t('pilotos.stats.ptsTotales') },
+                            { icon: '📈', value: pilot.avgPointsPerRace, label: t('pilotos.stats.ptsCarrera') }
                         ].map((stat, idx) => (
                             <div key={idx} className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
                                 <div className="text-2xl mb-1">{stat.icon}</div>
@@ -115,12 +117,11 @@ export default function PilotsPage() {
 
                     {/* Historial de Campeonatos */}
                     <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                        📋 Historial de Campeonatos ({pilot.championships.length})
+                        📋 {t('pilotos.historial')} ({pilot.championships.length})
                     </h2>
                     {pilot.championships.length === 0 && (
                         <p className="text-gray-400 text-sm mb-4 bg-white/5 border border-white/10 rounded-xl p-4">
-                            Este piloto aún no ha corrido ningún campeonato: las estadísticas de
-                            arriba solo cuentan carreras de campeonato, por eso están a cero.
+                            {t('pilotos.sinCampeonatos')}
                         </p>
                     )}
                     <div className="space-y-4">
@@ -141,14 +142,14 @@ export default function PilotsPage() {
                                                     champ.status === 'active' ? 'bg-blue-500/20 text-blue-400' :
                                                         'bg-gray-500/20 text-gray-400'
                                                 }`}>
-                                                {champ.status === 'completed' ? '✓ Finalizado' :
-                                                    champ.status === 'active' ? '● Activo' : champ.status}
+                                                {champ.status === 'completed' ? `✓ ${t('campeonato.estadoCampeonato.completed')}` :
+                                                    champ.status === 'active' ? `● ${t('campeonato.estadoCampeonato.active')}` : champ.status}
                                             </span>
                                         </div>
                                         <div className="flex items-center gap-4 text-sm text-gray-400 flex-wrap">
-                                            {champ.team && <span>🏢 Equipo del campeonato: {champ.team}</span>}
+                                            {champ.team && <span>🏢 {t('pilotos.equipoCampeonato')}: {champ.team}</span>}
                                             {champ.category && <span>🏷️ {champ.category}</span>}
-                                            <span>🏁 {champ.races} carreras</span>
+                                            <span>🏁 {t('campeonato.carreras', { n: champ.races })}</span>
                                             {champ.penaltyPoints > 0 && (
                                                 <span className="text-red-400">⚠️ -{champ.penaltyPoints} pts</span>
                                             )}
@@ -159,15 +160,15 @@ export default function PilotsPage() {
                                             {getPositionDisplay(champ.finalPosition)}
                                         </div>
                                         <div className="text-orange-400 font-bold text-lg">{champ.points} pts</div>
-                                        <div className="text-gray-500 text-xs">de {champ.totalDrivers} pilotos</div>
+                                        <div className="text-gray-500 text-xs">{t('pilotos.dePilotos', { n: champ.totalDrivers })}</div>
                                     </div>
                                 </div>
                                 {/* Mini stats */}
                                 <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/5 text-xs text-gray-400">
-                                    {champ.wins > 0 && <span className="text-yellow-400">🏆 {champ.wins} victorias</span>}
-                                    {champ.podiums > 0 && <span className="text-gray-300">🥇 {champ.podiums} podiums</span>}
-                                    {champ.poles > 0 && <span className="text-purple-400">⏱️ {champ.poles} poles</span>}
-                                    {champ.fastestLaps > 0 && <span className="text-cyan-400">⚡ {champ.fastestLaps} v. rápidas</span>}
+                                    {champ.wins > 0 && <span className="text-yellow-400">🏆 {t('pilotos.victorias', { n: champ.wins })}</span>}
+                                    {champ.podiums > 0 && <span className="text-gray-300">🥇 {t('pilotos.podios', { n: champ.podiums })}</span>}
+                                    {champ.poles > 0 && <span className="text-purple-400">⏱️ {t('pilotos.poles', { n: champ.poles })}</span>}
+                                    {champ.fastestLaps > 0 && <span className="text-cyan-400">⚡ {t('pilotos.vRapidas', { n: champ.fastestLaps })}</span>}
                                     {champ.dnfs > 0 && <span className="text-red-400">💀 {champ.dnfs} DNFs</span>}
                                 </div>
                             </div>
@@ -183,13 +184,13 @@ export default function PilotsPage() {
                         return (
                             <>
                                 <h2 className="text-2xl font-bold text-white mt-8 mb-4 flex items-center gap-2">
-                                    🎪 Eventos disputados ({resumen.total})
+                                    🎪 {t('pilotos.eventosDisputados')} ({resumen.total})
                                 </h2>
                                 {resumen.conResultado > 0 && (
                                     <p className="text-gray-400 text-sm -mt-2 mb-4">
-                                        {resumen.victorias > 0 && <span className="text-yellow-400 mr-3">🏆 {resumen.victorias} victorias</span>}
-                                        {resumen.podios > 0 && <span className="text-gray-300 mr-3">🥇 {resumen.podios} podios</span>}
-                                        <span>Resultados publicados en {resumen.conResultado} de {resumen.total}</span>
+                                        {resumen.victorias > 0 && <span className="text-yellow-400 mr-3">🏆 {t('pilotos.victorias', { n: resumen.victorias })}</span>}
+                                        {resumen.podios > 0 && <span className="text-gray-300 mr-3">🥇 {t('pilotos.podios', { n: resumen.podios })}</span>}
+                                        <span>{t('pilotos.resultadosPublicados', { a: resumen.conResultado, total: resumen.total })}</span>
                                     </p>
                                 )}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -203,14 +204,14 @@ export default function PilotsPage() {
                                                 <div className="flex-1 min-w-0">
                                                     <h3 className="text-base font-bold text-white mb-1">{evento.title}</h3>
                                                     <div className="flex items-center gap-3 text-sm text-gray-400 flex-wrap">
-                                                        {evento.date && <span>📅 {formatDateFull(evento.date)}</span>}
+                                                        {evento.date && <span>📅 {formatDateFull(evento.date, locale)}</span>}
                                                         {evento.track && <span className="truncate">🏁 {evento.track}</span>}
                                                     </div>
                                                     <div className="flex items-center gap-3 text-xs text-gray-500 mt-2 flex-wrap">
                                                         {evento.category && <span>🏷️ {evento.category}</span>}
-                                                        {evento.participantes > 0 && <span>👥 {evento.participantes} inscritos</span>}
+                                                        {evento.participantes > 0 && <span>👥 {t('pilotos.inscritos', { n: evento.participantes })}</span>}
                                                         {evento.pole && <span className="text-purple-400">⏱️ Pole</span>}
-                                                        {evento.fastestLap && <span className="text-cyan-400">⚡ V. rápida</span>}
+                                                        {evento.fastestLap && <span className="text-cyan-400">⚡ {t('campeonato.vueltaRapida')}</span>}
                                                     </div>
                                                 </div>
                                                 <div className="text-right flex-shrink-0">
@@ -221,12 +222,12 @@ export default function PilotsPage() {
                                                             <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-lg font-bold ${getPositionBg(evento.position)}`}>
                                                                 {getPositionDisplay(evento.position)}
                                                             </div>
-                                                            <div className="text-gray-500 text-xs mt-1">de {evento.totalResultados}</div>
+                                                            <div className="text-gray-500 text-xs mt-1">{t('pilotos.de', { n: evento.totalResultados })}</div>
                                                         </>
                                                     ) : (
                                                         // Muchos eventos nunca llegan a publicar resultados:
                                                         // se dice, en vez de dejar el hueco vacío.
-                                                        <span className="text-gray-500 text-xs">Sin resultados</span>
+                                                        <span className="text-gray-500 text-xs">{t('pilotos.sinResultados')}</span>
                                                     )}
                                                 </div>
                                             </div>
@@ -243,13 +244,13 @@ export default function PilotsPage() {
                             onClick={() => router.push('/pilots')}
                             className="bg-white/10 hover:bg-white/20 border border-white/30 text-white px-6 py-3 rounded-lg font-semibold transition-all"
                         >
-                            ← Todos los Pilotos
+                            ← {t('pilotos.todos')}
                         </button>
                         <button
                             onClick={() => router.push('/')}
                             className="bg-white/10 hover:bg-white/20 border border-white/30 text-white px-6 py-3 rounded-lg font-semibold transition-all"
                         >
-                            🏠 Inicio
+                            {t('nav.inicio')}
                         </button>
                     </div>
                 </div>
@@ -263,15 +264,15 @@ export default function PilotsPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
             <PageHeader
-                migas={[{ label: 'Pilotos' }]}
+                migas={[{ label: t('pilotos.titulo') }]}
                 icono="🏎️"
-                titulo="Pilotos"
-                subtitulo="Estadísticas globales acumuladas de campeonatos y eventos"
+                titulo={t('pilotos.titulo')}
+                subtitulo={t('pilotos.subtitulo')}
             >
                 <div className="flex flex-wrap items-center gap-4 text-sm text-white/70">
-                    <span>👥 {globalStats.length} pilotos</span>
-                    <span>📊 {championshipDetails.length} campeonatos analizados</span>
-                    <span>🎪 {globalStats.filter(p => p.events.length > 0).length} con eventos</span>
+                    <span>👥 {t('campeonato.pilotos', { n: globalStats.length })}</span>
+                    <span>📊 {t('pilotos.analizados', { n: championshipDetails.length })}</span>
+                    <span>🎪 {t('pilotos.conEventos', { n: globalStats.filter(p => p.events.length > 0).length })}</span>
                 </div>
             </PageHeader>
 
@@ -279,7 +280,7 @@ export default function PilotsPage() {
                 {globalStats.length === 0 ? (
                     <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
                         <div className="text-6xl mb-4">🏎️</div>
-                        <p className="text-gray-300 text-lg">No hay pilotos registrados aún</p>
+                        <p className="text-gray-300 text-lg">{t('pilotos.sinPilotos')}</p>
                     </div>
                 ) : (
                     <>
@@ -306,7 +307,7 @@ export default function PilotsPage() {
                                         </div>
                                         {p.championsCount > 0 && (
                                             <div className="mt-2 text-xs bg-black/20 rounded-full px-3 py-1 inline-block">
-                                                🏆 {p.championsCount}x Campeón
+                                                🏆 {t('pilotos.campeon', { n: p.championsCount })}
                                             </div>
                                         )}
                                     </div>
@@ -321,18 +322,18 @@ export default function PilotsPage() {
                                     <thead className="bg-gradient-to-r from-orange-600 to-red-600 text-white">
                                         <tr>
                                             <th className="px-4 py-3 text-left text-sm font-bold">#</th>
-                                            <th className="px-4 py-3 text-left text-sm font-bold">Piloto</th>
-                                            <th className="px-4 py-3 text-center text-sm font-bold">Camps</th>
-                                            <th className="px-4 py-3 text-center text-sm font-bold">🎪 Ev</th>
+                                            <th className="px-4 py-3 text-left text-sm font-bold">{t('componentes.tabla.piloto')}</th>
+                                            <th className="px-4 py-3 text-center text-sm font-bold">{t('pilotos.col.camps')}</th>
+                                            <th className="px-4 py-3 text-center text-sm font-bold">🎪 {t('pilotos.col.ev')}</th>
                                             <th className="px-4 py-3 text-center text-sm font-bold">🏆</th>
                                             <th className="px-4 py-3 text-center text-sm font-bold">🏁</th>
-                                            <th className="px-4 py-3 text-center text-sm font-bold">🏆 Vic</th>
-                                            <th className="px-4 py-3 text-center text-sm font-bold">🥇 Pod</th>
+                                            <th className="px-4 py-3 text-center text-sm font-bold">🏆 {t('componentes.stats.vic')}</th>
+                                            <th className="px-4 py-3 text-center text-sm font-bold">🥇 {t('componentes.stats.pod')}</th>
                                             <th className="px-4 py-3 text-center text-sm font-bold">⏱️ Pole</th>
-                                            <th className="px-4 py-3 text-center text-sm font-bold">⚡ VR</th>
+                                            <th className="px-4 py-3 text-center text-sm font-bold">⚡ {t('componentes.stats.vr')}</th>
                                             <th className="px-4 py-3 text-center text-sm font-bold">💀 DNF</th>
-                                            <th className="px-4 py-3 text-center text-sm font-bold">📈 Avg</th>
-                                            <th className="px-4 py-3 text-right text-sm font-bold">Puntos</th>
+                                            <th className="px-4 py-3 text-center text-sm font-bold">📈 {t('pilotos.col.avg')}</th>
+                                            <th className="px-4 py-3 text-right text-sm font-bold">{t('eventos.puntos')}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -382,7 +383,7 @@ export default function PilotsPage() {
                         onClick={() => router.push('/')}
                         className="bg-white/10 hover:bg-white/20 border border-white/30 text-white px-6 py-3 rounded-lg font-semibold transition-all"
                     >
-                        ← Volver al Inicio
+                        ← {t('campeonato.volverInicio')}
                     </button>
                 </div>
             </div>

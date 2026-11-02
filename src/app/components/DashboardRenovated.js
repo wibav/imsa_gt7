@@ -11,6 +11,7 @@ import RegistrationModal from './RegistrationModal';
 import { BannerAd } from './ads';
 import LoadingSkeleton from './common/LoadingSkeleton';
 import { notifyEventRegistration } from '../utils/telegram';
+import { useI18n } from '../i18n';
 
 // Ordena priorizando los items de GT7 ESP primero (Array.sort es estable en
 // motores modernos, así que el orden relativo dentro de cada grupo se
@@ -25,6 +26,7 @@ function prioritizeDefaultOrg(items) {
 }
 
 export default function DashboardRenovated() {
+    const { t } = useI18n();
     const [events, setEvents] = useState([]);
     const [championshipTracks, setChampionshipTracks] = useState({});
     const [loading, setLoading] = useState(true);
@@ -168,9 +170,9 @@ export default function DashboardRenovated() {
             const result = await FirebaseService.addEventParticipant(selectedEvent.id, participantData);
 
             if (result.waitlisted) {
-                setRegistrationMessage(`⏳ Cupo lleno. Quedaste en lista de reservas en la posición #${result.position}. Te avisaremos si se libera un lugar.`);
+                setRegistrationMessage(`⏳ ${t('portada.listaReservas', { pos: result.position })}`);
             } else {
-                setRegistrationMessage("✅ ¡Inscripción exitosa! Bienvenido al evento.");
+                setRegistrationMessage(`✅ ${t('portada.inscripcionOk')}`);
             }
 
             // Notificar al admin vía Telegram (best-effort). orgNamesById ya
@@ -189,7 +191,7 @@ export default function DashboardRenovated() {
             // Recargar eventos para actualizar la lista de participantes
             await fetchData();
         } catch (error) {
-            const errorMessage = error.message || "Error al inscribirse. Intenta de nuevo.";
+            const errorMessage = error.message || t('portada.errInscripcion');
             setRegistrationMessage(`❌ ${errorMessage}`);
         } finally {
             setIsRegistering(false);
@@ -204,7 +206,7 @@ export default function DashboardRenovated() {
     };
 
     if (loading || championshipsLoading) {
-        return <LoadingSkeleton variant="page" message="Cargando Dashboard..." />;
+        return <LoadingSkeleton variant="page" message={t('portada.cargando')} />;
     }
 
     const upcomingEvents = getUpcomingEvents();
@@ -221,7 +223,7 @@ export default function DashboardRenovated() {
                     {/* WhatsApp */}
                     <div className="flex items-center justify-between gap-3 sm:pr-4">
                         <p className="text-green-300 text-xs sm:text-sm font-medium hidden lg:block min-w-0">
-                            ¡Únete a la comunidad! Recibe avisos de eventos y novedades.
+                            {t('portada.comunidad')}
                         </p>
                         <a
                             href="https://chat.whatsapp.com/LSKsgLvzwCg06me2uXMizo?mode=gi_t"
@@ -232,14 +234,14 @@ export default function DashboardRenovated() {
                             <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current flex-shrink-0" aria-hidden="true">
                                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                             </svg>
-                            <span className="sm:inline">Unirse a WhatsApp</span>
+                            <span className="sm:inline">{t('portada.whatsapp')}</span>
                         </a>
                     </div>
 
                     {/* Enviar propina (StreamElements) */}
                     <div className="flex items-center justify-between gap-3 sm:px-4">
                         <p className="text-purple-300 text-xs sm:text-sm font-medium hidden lg:block min-w-0">
-                            ¿Nos viste en directo? Envía una propina al streamer.
+                            {t('portada.propinaTexto')}
                         </p>
                         <a
                             href="https://streamelements.com/deshbourne/tip"
@@ -248,14 +250,14 @@ export default function DashboardRenovated() {
                             className="w-full lg:w-auto flex items-center justify-center gap-1.5 bg-purple-500 hover:bg-purple-400 text-white text-xs sm:text-sm font-bold px-3 sm:px-4 py-2 rounded-full transition-colors whitespace-nowrap"
                         >
                             <span aria-hidden="true">💸</span>
-                            <span className="sm:inline">Enviar Propina</span>
+                            <span className="sm:inline">{t('portada.propina')}</span>
                         </a>
                     </div>
 
                     {/* Apoyar el proyecto */}
                     <div className="flex items-center justify-between gap-3 sm:pl-4">
                         <p className="text-yellow-300 text-xs sm:text-sm font-medium hidden lg:block min-w-0">
-                            ¿Te gustan los campeonatos? Ayúdanos a mantener la competición en marcha.
+                            {t('portada.donarTexto')}
                         </p>
                         <a
                             href="https://buymeacoffee.com/wolcutorb"
@@ -266,7 +268,7 @@ export default function DashboardRenovated() {
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 flex-shrink-0" aria-hidden="true">
                                 <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.218l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
                             </svg>
-                            <span className="sm:inline">Donar al proyecto</span>
+                            <span className="sm:inline">{t('portada.donar')}</span>
                         </a>
                     </div>
                 </div>
@@ -288,7 +290,7 @@ export default function DashboardRenovated() {
                                 <div className="flex items-center justify-between mb-6">
                                     <h2 className="text-3xl sm:text-4xl font-bold text-white flex items-center gap-3">
                                         <span className="text-4xl">🎉</span>
-                                        Próximos Eventos
+                                        {t('portada.proximosEventos')}
                                     </h2>
                                 </div>
 
@@ -315,7 +317,7 @@ export default function DashboardRenovated() {
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-3xl sm:text-4xl font-bold text-white flex items-center gap-3">
                                 <span className="text-4xl">🏆</span>
-                                Campeonatos
+                                {t('campeonato.campeonatos')}
                             </h2>
                         </div>
 
@@ -323,17 +325,17 @@ export default function DashboardRenovated() {
                             <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center">
                                 <div className="text-6xl mb-4">🏁</div>
                                 <p className="text-gray-300 text-lg">
-                                    No hay campeonatos activos en este momento.
+                                    {t('portada.sinCampeonatos')}
                                 </p>
                                 <p className="text-gray-400 text-sm mt-2">
-                                    Los campeonatos en curso aparecerán aquí.
+                                    {t('portada.apareceran')}
                                 </p>
                                 {isAdmin() && (
                                     <button
                                         onClick={() => window.location.href = '/championshipsAdmin'}
                                         className="mt-6 bg-gradient-to-r from-orange-600 to-red-600 text-white px-6 py-3 rounded-lg font-bold hover:from-orange-700 hover:to-red-700 transition-all duration-200"
                                     >
-                                        + Crear Primer Campeonato
+                                        + {t('portada.crearPrimero')}
                                     </button>
                                 )}
                             </div>
@@ -362,7 +364,7 @@ export default function DashboardRenovated() {
                                 <div className="flex items-center justify-between mb-6">
                                     <h2 className="text-3xl sm:text-4xl font-bold text-white flex items-center gap-3">
                                         <span className="text-4xl">📚</span>
-                                        Eventos Pasados
+                                        {t('portada.eventosPasados')}
                                     </h2>
                                 </div>
 
@@ -388,12 +390,12 @@ export default function DashboardRenovated() {
                                 <div className="text-4xl">ℹ️</div>
                                 <div>
                                     <h3 className="text-white font-bold text-lg mb-2">
-                                        ¿Cómo funciona?
+                                        {t('portada.comoFunciona')}
                                     </h3>
                                     <ul className="text-gray-300 text-sm space-y-1">
-                                        <li>• <strong>Eventos Únicos:</strong> Carreras especiales independientes de los campeonatos</li>
-                                        <li>• <strong>Campeonatos:</strong> Temporadas completas con múltiples carreras y clasificación</li>
-                                        <li>• Haz clic en cualquier card para ver más detalles</li>
+                                        <li>• <strong>{t('portada.eventosUnicos')}:</strong> {t('portada.eventosUnicosTexto')}</li>
+                                        <li>• <strong>{t('campeonato.campeonatos')}:</strong> {t('portada.campeonatosTexto')}</li>
+                                        <li>• {t('portada.clicCard')}</li>
                                     </ul>
                                 </div>
                             </div>
