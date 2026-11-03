@@ -70,22 +70,38 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
     // Recopilar todos los drivers
     let allDrivers = getAllDrivers(championship, teams);
 
+    // La pertenencia a una división se compara sin distinguir mayúsculas: el
+    // nombre de la sala puede venir de una fusión de identidades con otras
+    // mayúsculas que la inscripción («LTR_uRzAis» frente a «LTR_Urzais»), y
+    // el piloto desaparecía de la clasificación de su sala aunque tenía puntos.
+    const claveNombre = (n) => String(n || '').trim().toLowerCase();
+    // Nombre con el que están guardados los puntos y las inscripciones, por clave
+    const nombreGuardado = {};
+    sortedTracks.forEach(t => Object.keys(t.points || {}).forEach(n => {
+        if (n && !nombreGuardado[claveNombre(n)]) nombreGuardado[claveNombre(n)] = n;
+    }));
+    (championship.registrations || []).forEach(reg => {
+        if (reg.gt7Id && !nombreGuardado[claveNombre(reg.gt7Id)]) nombreGuardado[claveNombre(reg.gt7Id)] = reg.gt7Id;
+    });
+
     // Fase 6: Filtrar/agregar pilotos por división si se especifica
     if (options.divisionDrivers && options.divisionDrivers.length > 0) {
         // Normalizar los nombres de la división al gt7Id canónico (resuelve psnId → gt7Id)
         const resolvedDivNames = options.divisionDrivers.map(d => {
             const rawName = typeof d === 'string' ? d : d.name;
-            return registrationAliases[rawName] || rawName;
+            const resuelto = registrationAliases[rawName] || rawName;
+            return nombreGuardado[claveNombre(resuelto)] || resuelto;
         });
-        const divSet = new Set(resolvedDivNames);
+        const divSet = new Set(resolvedDivNames.map(claveNombre));
         // Filtrar solo los que pertenecen a la división
-        allDrivers = allDrivers.filter(d => divSet.has(d.name));
+        allDrivers = allDrivers.filter(d => divSet.has(claveNombre(d.name)));
         // Agregar los pilotos de la división que no estén ya en allDrivers
         // (caso: pilotos en divisiones pero no en championship.drivers ni teams)
-        const knownNames = new Set(allDrivers.map(d => d.name));
+        const knownNames = new Set(allDrivers.map(d => claveNombre(d.name)));
         resolvedDivNames.forEach(name => {
-            if (name && !knownNames.has(name)) {
+            if (name && !knownNames.has(claveNombre(name))) {
                 allDrivers.push({ name, team: '', teamColor: '', category: '' });
+                knownNames.add(claveNombre(name));
             }
         });
     }
@@ -150,7 +166,7 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
     const divisionSet = options.divisionDrivers && options.divisionDrivers.length > 0
         ? new Set(options.divisionDrivers.map(d => {
             const rawName = typeof d === 'string' ? d : d.name;
-            return registrationAliases[rawName] || rawName;
+            return claveNombre(registrationAliases[rawName] || rawName);
         }))
         : null;
 
@@ -159,7 +175,7 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             if (!name) return;
             if (aliasToCanonical[name]) return; // alias conocido → no crear entrada duplicada
             // En modo divisiones: ignorar pilotos que no pertenecen a esta división
-            if (divisionSet && !divisionSet.has(name)) return;
+            if (divisionSet && !divisionSet.has(claveNombre(name))) return;
             if (!driverStats[name]) {
                 driverStats[name] = {
                     name,
