@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Footer from './Footer';
+import AvisoCookies from './AvisoCookies';
 import { useOrganization } from '../context/OrganizationContext';
 import { useI18n } from '../i18n';
 
@@ -37,6 +38,7 @@ export default function ClientLayout({ children }) {
             {children}
             {/* Solo mostrar Footer en páginas de cliente */}
             {!isAdminPage && <Footer />}
+            <AvisoCookies />
         </>
     );
 }

@@ -8,6 +8,7 @@ import ClientLayout from "./components/ClientLayout";
 import { LanguageProvider } from "./i18n";
 import Analytics from "../components/Analytics";
 import AnalyticsDebugger from "../components/AnalyticsDebugger";
+import { AdSenseConsentido } from "./components/ads/AdSense";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -61,13 +62,8 @@ export default function RootLayout({ children }) {
         <meta name="theme-color" content="#1e3a5f" />
       </head>
       <body className={`${inter.className} overflow-x-hidden`}>
-        {/* Google AdSense - cargado después de que la página es interactiva */}
-        <Script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3229768467294527"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
+        {/* Google AdSense - solo si el visitante acepta las cookies de publicidad */}
+        <AdSenseConsentido />
         {/* Service Worker - PWA */}
         <Script
           id="sw-register"
@@ -84,7 +80,7 @@ export default function RootLayout({ children }) {
           }}
         />
         <Analytics />
-        <AnalyticsDebugger />
+        {process.env.NODE_ENV === 'development' && <AnalyticsDebugger />}
         <LanguageProvider>
           <OrganizationProvider>
             <AuthProvider>

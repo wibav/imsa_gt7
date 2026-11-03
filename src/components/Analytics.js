@@ -4,14 +4,18 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { getAnalytics, isSupported, logEvent } from 'firebase/analytics';
 import { app } from '../app/api/firebase/firebaseConfig';
+import { useConsentimiento } from '../app/utils/consentimiento';
 
 let analyticsInstance = null;
 
 export default function Analytics() {
     const pathname = usePathname();
+    const permitida = !!useConsentimiento()?.analitica;
 
-    // Inicializar Firebase Analytics una sola vez
+    // Inicializar Firebase Analytics una sola vez, y solo si el visitante
+    // aceptó las cookies de analítica
     useEffect(() => {
+        if (!permitida || analyticsInstance) return;
         const initializeAnalytics = async () => {
             try {
                 const supported = await isSupported();
@@ -23,11 +27,11 @@ export default function Analytics() {
             }
         };
         initializeAnalytics();
-    }, []);
+    }, [permitida]);
 
     // Trackear page_view en cada cambio de ruta (navegación SPA)
     useEffect(() => {
-        if (typeof window === 'undefined') return;
+        if (typeof window === 'undefined' || !permitida) return;
 
         const url = window.location.href;
         const title = document.title;
@@ -51,7 +55,7 @@ export default function Analytics() {
                 });
             } catch (e) { /* silenciar */ }
         }
-    }, [pathname]);
+    }, [pathname, permitida]);
 
     return null;
 }

@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useI18n } from '../i18n';
+import { abrirPreferenciasCookies } from '../utils/consentimiento';
 
 export default function Footer() {
     const { t } = useI18n();
@@ -42,6 +43,9 @@ export default function Footer() {
                             </li>
                             <li>
                                 <Link href="/reembolsos" className="inline-block py-1.5 hover:text-white transition-colors">{t('nav.pie.reembolso')}</Link>
+                            </li>
+                            <li>
+                                <button type="button" onClick={abrirPreferenciasCookies} className="inline-block py-1.5 hover:text-white transition-colors text-left">{t('cookies.configurarPie')}</button>
                             </li>
                         </ul>
                     </div>

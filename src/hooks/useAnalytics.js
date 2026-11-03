@@ -3,12 +3,16 @@
 import { useEffect, useState } from 'react';
 import { getAnalytics, logEvent, isSupported } from 'firebase/analytics';
 import { app } from '../app/api/firebase/firebaseConfig';
+import { useConsentimiento } from '../app/utils/consentimiento';
 
 export function useAnalytics() {
     const [analytics, setAnalytics] = useState(null);
     const [isInitialized, setIsInitialized] = useState(false);
+    const permitida = !!useConsentimiento()?.analitica;
 
+    // Solo con consentimiento de cookies de analítica
     useEffect(() => {
+        if (!permitida) return;
         const initializeAnalytics = async () => {
             try {
                 const supported = await isSupported();
@@ -26,7 +30,7 @@ export function useAnalytics() {
         };
 
         initializeAnalytics();
-    }, []);
+    }, [permitida]);
 
     const trackEvent = (eventName, parameters = {}) => {
         if (analytics && isInitialized) {

@@ -53,7 +53,7 @@ const initializeAnalytics = async () => {
     return analytics;
 };
 
-// Auto-initialize analytics
-initializeAnalytics();
+// Analytics no se inicializa aquí: espera al consentimiento de cookies
+// (src/components/Analytics.js, utils/consentimiento.js).
 
 export { app, db, auth, analytics, initializeAnalytics };

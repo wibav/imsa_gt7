@@ -1,13 +1,14 @@
 import PageHeader from "../components/PageHeader";
+import { BotonPreferenciasCookies } from "../components/AvisoCookies";
 
 export const metadata = {
     title: "Política de Privacidad | GT7 Championships",
     description: "Cómo tratamos tus datos personales en GT7 Championships (Trenkit).",
 };
 
-function Section({ title, children }) {
+function Section({ id, title, children }) {
     return (
-        <section className="mb-10">
+        <section id={id} className="mb-10 scroll-mt-24">
             <h2 className="text-xl font-bold text-orange-400 mb-3">{title}</h2>
             <div className="space-y-3 text-gray-300 leading-relaxed">{children}</div>
         </section>
@@ -22,7 +23,7 @@ export default function PrivacidadPage() {
                 migas={[{ label: 'Política de Privacidad' }]}
                 icono="🔒"
                 titulo="Política de Privacidad"
-                subtitulo="Última actualización: agosto de 2026"
+                subtitulo="Última actualización: noviembre de 2026"
             />
             <div className="max-w-3xl mx-auto px-4 py-12">
 
@@ -41,8 +42,8 @@ export default function PrivacidadPage() {
                         <li>Datos de cuenta: email y contraseña (gestionados por Firebase Authentication).</li>
                         <li>Datos de participación: nombre, PSN ID, GT7 ID, y resultados/sanciones asociados a los campeonatos en los que te inscribes.</li>
                         <li>Datos de facturación: al comprar un plan o lote de créditos, el pago lo procesa Paddle (ver sección 4) — no almacenamos datos de tarjetas.</li>
-                        <li>Datos de uso: interacción con la plataforma, recogidos mediante Google Analytics.</li>
-                        <li>Cookies publicitarias: usamos Google AdSense, que puede leer/escribir cookies para mostrar anuncios.</li>
+                        <li>Datos de uso: interacción con la plataforma, recogidos mediante Google Analytics, solo si lo aceptas (ver sección 8).</li>
+                        <li>Cookies publicitarias: Google AdSense puede leer y escribir cookies para mostrar anuncios, solo si lo aceptas (ver sección 8).</li>
                     </ul>
                 </Section>
 
@@ -94,7 +95,39 @@ export default function PrivacidadPage() {
                     </p>
                 </Section>
 
-                <Section title="8. Cambios en esta política">
+                <Section id="cookies" title="8. Cookies">
+                    <p>
+                        Al entrar por primera vez te mostramos un aviso para que decidas qué cookies aceptas.
+                        Rechazar es tan fácil como aceptar, y la web funciona igual en ambos casos. Hasta que
+                        eliges, solo se usan las necesarias.
+                    </p>
+                    <ul className="list-disc list-inside space-y-1">
+                        <li>
+                            <strong>Necesarias</strong> (siempre activas): el idioma elegido, el campeonato
+                            seleccionado, la sesión del panel de administración (Firebase Authentication) y tu
+                            elección sobre cookies. Se guardan en tu navegador y no sirven para seguirte.
+                        </li>
+                        <li>
+                            <strong>Analítica</strong> (opcional): Google Analytics a través de Firebase
+                            (cookies <code>_ga</code>, <code>_ga_*</code>), para saber de forma agregada qué
+                            páginas se visitan. Duración: hasta 2 años.
+                        </li>
+                        <li>
+                            <strong>Publicidad</strong> (opcional): Google AdSense (cookies como{" "}
+                            <code>__gads</code>, <code>__gpi</code>, <code>IDE</code>), para mostrar anuncios que
+                            Google puede personalizar. Duración: hasta 13 meses.
+                        </li>
+                    </ul>
+                    <p>
+                        Tu elección se guarda durante esta versión del aviso; si cambian las categorías, te
+                        volveremos a preguntar. Puedes cambiarla cuando quieras desde el enlace «Configurar
+                        cookies» del pie de página o aquí mismo. Si retiras un permiso, borramos las cookies
+                        correspondientes y recargamos la página.
+                    </p>
+                    <p><BotonPreferenciasCookies /></p>
+                </Section>
+
+                <Section title="9. Cambios en esta política">
                     <p>
                         Podemos actualizar esta política para reflejar cambios en el servicio o en la normativa
                         aplicable. Publicaremos la fecha de la última actualización en esta misma página.

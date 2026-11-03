@@ -10,6 +10,7 @@ import portada from './portada.js';
 import eventos from './eventos.js';
 import { pilotos, equipos, caster } from './pilotos.js';
 import vinilos from './vinilos.js';
+import cookies from './cookies.js';
 
 const TEXTOS = {
     nav,
@@ -25,6 +26,7 @@ const TEXTOS = {
     equipos,
     caster,
     vinilos,
+    cookies,
 };
 
 export default TEXTOS;

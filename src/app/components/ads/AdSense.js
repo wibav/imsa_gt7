@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import Script from 'next/script';
+import { useConsentimiento } from '../../utils/consentimiento';
 
 export function AdSense({
   adSlot,
@@ -66,4 +67,10 @@ export function AdSenseScript() {
       strategy="afterInteractive"
     />
   );
+}
+
+/** Script de AdSense, solo si el visitante aceptó las cookies de publicidad. */
+export function AdSenseConsentido() {
+  const consentimiento = useConsentimiento();
+  return consentimiento?.publicidad ? <AdSenseScript /> : null;
 }
