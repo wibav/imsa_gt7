@@ -3,6 +3,7 @@
  * Centraliza lógica duplicada de progreso, próxima carrera y clasificaciones
  */
 import { preQualyEnd } from './dateUtils.js';
+import { mapaSinMayusculas, claveNombre } from './nombresPiloto.js';
 
 /**
  * Calcula el progreso del campeonato basado en tracks completadas
@@ -106,18 +107,24 @@ export const buildGt7IdMap = (championships, identities = []) => {
  * @param {Array} identities
  */
 export const applyPilotIdentities = (map = {}, identities = []) => {
-    if (!identities || identities.length === 0) return map;
+    if (!identities || identities.length === 0) return mapaSinMayusculas({ ...map });
 
     const resultado = { ...map };
     const canonicoDe = {};
+    // Para buscar sin mayúsculas: cada alias y cada nombre canónico → canónico.
+    // Así «LTR_Urzais» llega a la identidad «LTR_uRzAis» aunque no esté
+    // escrito tal cual entre sus alias.
+    const canonicoPorClave = {};
 
     identities.filter(Boolean).forEach(ident => {
         const canonical = String(ident.canonical || '').trim();
         if (!canonical) return;
+        canonicoPorClave[claveNombre(canonical)] = canonical;
         (ident.aliases || []).forEach(alias => {
             const limpio = String(alias || '').trim();
             if (!limpio || limpio === canonical) return;
             canonicoDe[limpio] = canonical;
+            canonicoPorClave[claveNombre(limpio)] = canonical;
         });
     });
 
@@ -125,13 +132,15 @@ export const applyPilotIdentities = (map = {}, identities = []) => {
         resultado[alias] = canonical;
     });
 
-    // Segundo paso: encadenar los alias que apuntaban a un nombre ya fusionado.
+    // Segundo paso: encadenar los alias que apuntaban a un nombre ya fusionado
+    // (también si el nombre de destino tiene otras mayúsculas).
     Object.keys(resultado).forEach(alias => {
         const destino = resultado[alias];
-        if (canonicoDe[destino]) resultado[alias] = canonicoDe[destino];
+        const fusionado = canonicoDe[destino] || canonicoPorClave[claveNombre(destino)];
+        if (fusionado && fusionado !== destino) resultado[alias] = fusionado;
     });
 
-    return resultado;
+    return mapaSinMayusculas(resultado, canonicoPorClave);
 };
 
 /** Nombre a mostrar de un piloto: su GT7 ID si se conoce. */

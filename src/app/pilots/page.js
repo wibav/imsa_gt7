@@ -9,6 +9,7 @@ import LoadingSkeleton from "../components/common/LoadingSkeleton";
 import PilotTeamAvatar, { PilotTeamName } from "../components/common/PilotTeamAvatar";
 import PageHeader from "../components/PageHeader";
 import { useI18n } from "../i18n";
+import { claveNombre } from "../utils/nombresPiloto";
 
 /**
  * Página pública de Perfiles Globales de Piloto.
@@ -50,8 +51,10 @@ export default function PilotsPage() {
     // VISTA DETALLE DE UN PILOTO
     // ═══════════════════════════════════════
     if (selectedPilot) {
+        // Sin distinguir mayúsculas: los enlaces antiguos pueden traer otra grafía
+        const buscado = claveNombre(selectedPilot);
         const pilot = globalStats.find(p =>
-            p.name === selectedPilot || (p.aliases || []).includes(selectedPilot)
+            claveNombre(p.name) === buscado || (p.aliases || []).some(a => claveNombre(a) === buscado)
         );
 
         if (!pilot) {

@@ -2,6 +2,7 @@ import { FirebaseService } from "../services/firebaseService";
 import { calculateAdvancedStandings } from "./standingsCalculator";
 import { buildGt7IdMap, applyPilotIdentities } from "./championshipUtils";
 import { buildPilotEventHistory } from "./pilotEvents";
+import { claveNombre } from "./nombresPiloto";
 import {
     aplicarIdentidadesACampeonato,
     aplicarIdentidadesAEquipos,
@@ -73,8 +74,10 @@ export async function cargarEstadisticasPilotos({ allOrgs = false } = {}) {
 
         driverStandings.forEach(driver => {
             const nombre = gt7Map[driver.name] || driver.name;
-            if (!pilotMap[nombre]) {
-                pilotMap[nombre] = {
+            // Agrupado sin mayúsculas: «LTR_Urzais» y «LTR_uRzAis» son la misma ficha
+            const clave = claveNombre(nombre);
+            if (!pilotMap[clave]) {
+                pilotMap[clave] = {
                     name: nombre,
                     aliases: new Set(),
                     totalPoints: 0,
@@ -91,10 +94,11 @@ export async function cargarEstadisticasPilotos({ allOrgs = false } = {}) {
                 };
             }
 
-            const pilot = pilotMap[nombre];
+            const pilot = pilotMap[clave];
             // Se guardan los alias para que los enlaces antiguos
             // (?name=psnId) sigan resolviendo al piloto correcto.
-            if (driver.name !== nombre) pilot.aliases.add(driver.name);
+            if (driver.name !== pilot.name) pilot.aliases.add(driver.name);
+            if (nombre !== pilot.name) pilot.aliases.add(nombre);
             pilot.totalPoints += driver.totalPoints;
             pilot.totalWins += driver.wins;
             pilot.totalPodiums += driver.podiums;
@@ -142,11 +146,18 @@ export async function cargarEstadisticasPilotos({ allOrgs = false } = {}) {
     // Un piloto que solo ha corrido eventos no aparece en ninguna
     // clasificación, así que no tenía ficha y su historial no se podía
     // consultar. Se le crea una entrada vacía para que exista perfil.
+    // Eventos por piloto sin distinguir mayúsculas
+    const eventosPorClave = {};
+    Object.entries(eventosPorPiloto).forEach(([n, evs]) => {
+        (eventosPorClave[claveNombre(n)] ||= []).push(...evs);
+    });
+
     Object.keys(eventosPorPiloto).forEach(nombre => {
-        const yaConocido = pilotMap[nombre]
-            || Object.values(pilotMap).some(p => p.aliases.has(nombre));
+        const clave = claveNombre(nombre);
+        const yaConocido = pilotMap[clave]
+            || Object.values(pilotMap).some(p => [...p.aliases].some(a => claveNombre(a) === clave));
         if (yaConocido) return;
-        pilotMap[nombre] = {
+        pilotMap[clave] = {
             name: nombre,
             aliases: new Set(),
             totalPoints: 0,
@@ -177,8 +188,8 @@ export async function cargarEstadisticasPilotos({ allOrgs = false } = {}) {
         // aparezca: puede haber participaciones repartidas) y se
         // deduplica por evento.
         events: Object.values(
-            [p.name, ...p.aliases]
-                .flatMap(alias => eventosPorPiloto[alias] || [])
+            [...new Set([p.name, ...p.aliases].map(claveNombre))]
+                .flatMap(clave => eventosPorClave[clave] || [])
                 .reduce((acc, evento) => ({ ...acc, [evento.id]: evento }), {})
         ).sort((a, b) => (b.date || '').localeCompare(a.date || ''))
     })).sort((a, b) => b.totalPoints - a.totalPoints || b.events.length - a.events.length);

@@ -4,6 +4,7 @@ import { FirebaseService } from '../../services/firebaseService';
 import { notifyClaimCreated } from '../../utils/telegram';
 import { getRaceTime, raceDateTime } from '../../utils/dateUtils';
 import { useI18n } from '../../i18n';
+import { mapaSinMayusculas, claveNombre } from '../../utils/nombresPiloto';
 
 // D3.2: la pantalla anunciaba 48h mientras el código realmente aplicaba
 // 72h (dos plazos distintos en la misma pantalla). Se unifica en una sola
@@ -407,7 +408,7 @@ function buildAliasToGt7Id(championship) {
             registerAliases(reg.name, reg.psnId, reg.gt7Id);
         }
     });
-    return aliasToCanonical;
+    return mapaSinMayusculas(aliasToCanonical);
 }
 
 // D3.5: championship.drivers[] NO es el roster completo. En campeonatos con
@@ -431,7 +432,7 @@ function getAllDrivers(championship, teams, tracks = [], divisions = []) {
     const addDriver = (name, team = '') => {
         const canonical = resolve(name);
         if (!canonical) return;
-        if (!drivers.find(x => x.name === canonical)) {
+        if (!drivers.find(x => claveNombre(x.name) === claveNombre(canonical))) {
             drivers.push({ name: canonical, team });
         }
     };

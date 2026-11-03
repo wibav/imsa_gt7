@@ -8,9 +8,11 @@
  * El equipo de un piloto es el que el Administrador de Plataforma confirma.
  * Ver el plan en docs/PLAN_EQUIPOS.md.
  *
- * Sin dependencias a propósito: lo usan la web, el script de auditoría y los
+ * Sin dependencias de React ni Firebase a propósito: lo usan la web, el script de auditoría y los
  * tests en node.
  */
+
+import { mapaSinMayusculas } from './nombresPiloto.js';
 
 /**
  * Siglas al principio del nombre.
@@ -27,6 +29,7 @@ const CON_ESPACIO = /^([A-Z0-9]{2,6})\s+(.+)$/;
 /**
  * @returns {{tag: string, resto: string} | null} tag en mayúsculas
  */
+
 export function extraerSiglas(nombre) {
     const limpio = String(nombre || '').trim();
     const m = limpio.match(CON_SEPARADOR) || limpio.match(CON_ESPACIO);
@@ -56,10 +59,13 @@ export function mapaEquipoPorPiloto(equipos = [], resolver = {}) {
         miembrosActuales(eq).forEach(m => { mapa[m.pilot] = eq; });
     });
     // Un piloto que aparece con un alias antiguo también lleva su equipo.
+    // Sin distinguir mayúsculas: el miembro puede estar como «LTR_uRzAis» y
+    // el resultado como «LTR_Urzais».
+    const miembros = mapaSinMayusculas({ ...mapa });
     Object.entries(resolver).forEach(([alias, nombre]) => {
-        if (mapa[nombre] && !mapa[alias]) mapa[alias] = mapa[nombre];
+        if (miembros[nombre] && !mapa[alias]) mapa[alias] = miembros[nombre];
     });
-    return mapa;
+    return mapaSinMayusculas(mapa);
 }
 
 /**

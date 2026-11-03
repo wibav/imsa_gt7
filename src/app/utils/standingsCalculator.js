@@ -14,6 +14,7 @@
 
 import { isPenaltyCounting } from '../models/Penalty.js';
 import { aplicarSancionesDeCarrera } from './raceSanctions.js';
+import { mapaSinMayusculas, claveNombre } from './nombresPiloto.js';
 
 /**
  * Calcula la clasificación avanzada con estadísticas y desempate.
@@ -60,12 +61,14 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
     // Mapa de aliases de registro: psnId → gt7Id (canónico).
     // Necesario porque las divisiones almacenan el psnId del piloto, pero championship.drivers
     // y las sanciones usan el gt7Id. Se construye ANTES del filtro de división.
-    const registrationAliases = {};
+    const aliasesInscripcion = {};
     (championship.registrations || []).forEach(reg => {
         if (reg.gt7Id && reg.psnId && reg.psnId !== reg.gt7Id) {
-            registrationAliases[reg.psnId] = reg.gt7Id;
+            aliasesInscripcion[reg.psnId] = reg.gt7Id;
         }
     });
+    // La sala puede guardar el PSN con otras mayúsculas que la inscripción
+    const registrationAliases = mapaSinMayusculas(aliasesInscripcion);
 
     // Recopilar todos los drivers
     let allDrivers = getAllDrivers(championship, teams);
@@ -74,7 +77,6 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
     // nombre de la sala puede venir de una fusión de identidades con otras
     // mayúsculas que la inscripción («LTR_uRzAis» frente a «LTR_Urzais»), y
     // el piloto desaparecía de la clasificación de su sala aunque tenía puntos.
-    const claveNombre = (n) => String(n || '').trim().toLowerCase();
     // Nombre con el que están guardados los puntos y las inscripciones, por clave
     const nombreGuardado = {};
     sortedTracks.forEach(t => Object.keys(t.points || {}).forEach(n => {
@@ -157,6 +159,27 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
         });
     });
 
+    // Variantes de mayúsculas. Un mismo piloto aparece a veces con otras
+    // mayúsculas según dónde se guardó su nombre (inscripción, sala, capturas,
+    // fusiones de identidad: «LTR_Urzais» / «LTR_uRzAis»). Se registran como
+    // alias del piloto ya conocido, y así todas las búsquedas por alias de abajo
+    // (posiciones, puntos, pole, vuelta rápida, carreras anuladas) lo encuentran.
+    const statsPorClave = {};
+    Object.keys(driverStats).forEach(k => { statsPorClave[claveNombre(k)] = k; });
+    const registrarVarianteMayusculas = (nombre) => {
+        if (!nombre || driverStats[nombre] || aliasToCanonical[nombre]) return false;
+        const clave = claveNombre(nombre);
+        // Piloto conocido con otras mayúsculas, o alias conocido con otras
+        // mayúsculas (el PSN «pichis94528» frente a «Pichis94528»).
+        const aliasIgual = Object.keys(aliasToCanonical).find(a => claveNombre(a) === clave);
+        const conocido = statsPorClave[clave] || (aliasIgual && aliasToCanonical[aliasIgual]);
+        if (!conocido || !driverStats[conocido]) return false;
+        aliasToCanonical[nombre] = conocido;
+        if (!canonicalToAliases[conocido]) canonicalToAliases[conocido] = [];
+        if (!canonicalToAliases[conocido].includes(nombre)) canonicalToAliases[conocido].push(nombre);
+        return true;
+    };
+
     // Incluir en driverStats todos los pilotos que aparecen en track.points
     // (cubre pilotos con resultados pero no registrados en championship.drivers / teams)
     // Se omiten las claves que son alias de un driver ya registrado.
@@ -176,6 +199,8 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             if (aliasToCanonical[name]) return; // alias conocido → no crear entrada duplicada
             // En modo divisiones: ignorar pilotos que no pertenecen a esta división
             if (divisionSet && !divisionSet.has(claveNombre(name))) return;
+            // Mismo piloto con otras mayúsculas: se trata como alias, no como otro piloto
+            if (registrarVarianteMayusculas(name)) return;
             if (!driverStats[name]) {
                 driverStats[name] = {
                     name,
@@ -201,8 +226,22 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
                     warningPoints: 0,
                     penalties: []
                 };
+                statsPorClave[claveNombre(name)] = name;
             }
         });
+    });
+
+    // El resto de nombres de cada carrera (posiciones, qualy, vuelta rápida,
+    // sprint) también pueden traer otras mayúsculas.
+    sortedTracks.forEach(track => {
+        const r = track.results || {};
+        const bloques = r.divisions && Object.keys(r.divisions).length > 0 ? Object.values(r.divisions) : [r];
+        bloques.forEach(b => {
+            [b.racePositions, b.racePoints, b.sprintPositions, b.sprintPoints].forEach(m => Object.keys(m || {}).forEach(registrarVarianteMayusculas));
+            Object.values(b.qualifying?.top3 || {}).forEach(registrarVarianteMayusculas);
+            registrarVarianteMayusculas(b.fastestLap?.driver);
+        });
+        Object.keys(track.sprintPoints || {}).forEach(registrarVarianteMayusculas);
     });
 
     const isMultiCategory = !!championship.settings?.isMultiCategory;
