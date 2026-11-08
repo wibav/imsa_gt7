@@ -1,15 +1,32 @@
 {
-  "functions": {
-    "source": "functions",
-    "runtime": "python312",
-    "ignore": [
-      "venv",
-      "venv_broken_*",
-      "**/__pycache__",
-      "**/*.pyc",
-      "**/*.bak"
-    ]
-  },
+  "functions": [
+    {
+      "source": "functions",
+      "runtime": "python312",
+      "ignore": [
+        "venv",
+        "venv_broken_*",
+        "**/__pycache__",
+        "**/*.pyc",
+        "**/*.bak"
+      ],
+      "codebase": "default"
+    },
+    {
+      "source": "functions-node",
+      "codebase": "node",
+      "runtime": "nodejs22",
+      "ignore": [
+        "node_modules",
+        "src",
+        ".gitignore"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" install",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ],
   "hosting": {
     "public": "out",
     "ignore": [

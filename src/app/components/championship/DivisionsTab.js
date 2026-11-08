@@ -7,6 +7,7 @@ import { hoyEnEspana, localRaceTime } from '../../utils/dateUtils';
 import { repartirPorPreQualy, cuposTotales } from '../../utils/divisionAssignment';
 import { calculateAdvancedStandings } from '../../utils/standingsCalculator';
 import { repartirNuevaEdicion } from '../../utils/newEdition';
+import { configRotacion, proximaRotacion, MODOS_ROTACION, PLAZO_RECLAMACIONES_HORAS } from '../../utils/divisionRotation';
 
 /** Convierte "M:SS.mmm" o "SS.mmm" a milisegundos para comparación correcta de tiempos */
 function parseTimeToMs(str) {
@@ -634,6 +635,9 @@ export default function DivisionsTab({
                 </div>
             )}
 
+            {/* ── Rotaciones durante el campeonato ── */}
+            {divisions.length >= 2 && <RotacionesPanel championship={championship} tracks={tracks} divisions={divisions} />}
+
             {/* ── Ascensos/Descensos (solo campeonatos completados) ── */}
             {divisions.length >= 2 && championship?.status === 'completed' && (
                 <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-xl p-6">
@@ -967,6 +971,81 @@ function DivisionCard({
                     </table>
                 )}
             </div>
+        </div>
+    );
+}
+
+/**
+ * Estado de la rotación de divisiones durante el campeonato: cuándo toca la
+ * siguiente y qué movimientos se aplicaron ya. Los aplica sola la Cloud
+ * Function rotar_divisiones; aquí solo se informa.
+ */
+function RotacionesPanel({ championship, tracks, divisions }) {
+    const [abierta, setAbierta] = useState(null);
+    const config = configRotacion(championship);
+    if (config.mode === 'final') return null;
+
+    const historial = [...(championship?.divisionRotations || [])].sort((a, b) => a.corte - b.corte);
+    const proxima = championship?.status === 'completed' ? null : proximaRotacion(championship, tracks);
+    const nombreDiv = (id) => divisions.find(d => d.id === id)?.name || '—';
+    const fecha = (d) => d.toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+    return (
+        <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
+            <div>
+                <h3 className="text-white font-bold text-lg">🔄 Ascensos y descensos durante el campeonato</h3>
+                <p className="text-gray-400 text-sm mt-1">
+                    {config.mode === 'cada'
+                        ? `Cada ${config.cadaCarreras} ${config.cadaCarreras === 1 ? 'carrera' : 'carreras'}`
+                        : MODOS_ROTACION[config.mode]}
+                    {' '}· suben {championship?.divisionsConfig?.promotionCount ?? 5}, bajan {championship?.divisionsConfig?.relegationCount ?? 5}.
+                    {' '}Se aplican solos {PLAZO_RECLAMACIONES_HORAS} h después de la carrera que cierra el tramo, si no quedan reclamaciones abiertas.
+                </p>
+            </div>
+
+            {proxima ? (
+                <div className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm text-orange-100">
+                    ⏭️ Próxima rotación tras la carrera {proxima.corte}
+                    {proxima.tras?.name && <> ({proxima.tras.name})</>}
+                    {proxima.vence && <>: a partir del {fecha(proxima.vence)} (hora española)</>}
+                </div>
+            ) : (
+                <p className="text-sm text-gray-400">No quedan rotaciones pendientes en esta temporada.</p>
+            )}
+
+            {historial.length > 0 && (
+                <ul className="space-y-2">
+                    {historial.map(r => {
+                        const suben = (r.moves || []).filter(m => m.type === 'promotion');
+                        const bajan = (r.moves || []).filter(m => m.type === 'relegation');
+                        return (
+                            <li key={r.corte} className="rounded-lg border border-white/10 bg-white/5">
+                                <button type="button" onClick={() => setAbierta(abierta === r.corte ? null : r.corte)}
+                                    aria-expanded={abierta === r.corte}
+                                    className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left text-sm">
+                                    <span className="text-white">
+                                        ✅ Tras la carrera {r.corte}{r.trackName && <> ({r.trackName})</>}
+                                        <span className="text-gray-400"> · {fecha(new Date(r.appliedAt))}</span>
+                                    </span>
+                                    <span className="text-gray-300 whitespace-nowrap">⬆ {suben.length} · ⬇ {bajan.length} {abierta === r.corte ? '▲' : '▼'}</span>
+                                </button>
+                                {abierta === r.corte && (
+                                    <div className="grid sm:grid-cols-2 gap-3 px-4 pb-3 text-xs">
+                                        {[['⬆️ Ascensos', suben, 'text-green-300'], ['⬇️ Descensos', bajan, 'text-red-300']].map(([titulo, lista, color]) => (
+                                            <div key={titulo}>
+                                                <p className={`font-semibold mb-1 ${color}`}>{titulo}</p>
+                                                {lista.length === 0 ? <p className="text-gray-500">Ninguno</p> : lista.map(m => (
+                                                    <p key={m.driver} className="text-gray-300">{m.driver}: {nombreDiv(m.fromId)} → {nombreDiv(m.toId)}</p>
+                                                ))}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
         </div>
     );
 }

@@ -366,7 +366,9 @@ export const DEFAULT_DIVISIONS_CONFIG = {
     enabled: false,
     promotionCount: 5,
     relegationCount: 5,
-    maxDriversPerDivision: 15
+    maxDriversPerDivision: 15,
+    // Cuándo se aplican ascensos y descensos (ver utils/divisionRotation.js)
+    rotation: { mode: 'final', cadaCarreras: 2 }
 };
 
 /**

@@ -1,0 +1,19 @@
+{
+  "name": "gt7-functions-node",
+  "private": true,
+  "description": "Cloud Functions en Node que reutilizan la lógica de src/app/utils (empaquetada con esbuild)",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "esbuild src/index.mjs --bundle --platform=node --target=node22 --format=cjs --outfile=lib/index.js --external:firebase-functions --external:firebase-admin"
+  },
+  "dependencies": {
+    "firebase-admin": "14.5.0",
+    "firebase-functions": "7.4.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

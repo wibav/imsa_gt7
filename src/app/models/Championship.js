@@ -65,6 +65,10 @@ export class Championship {
             : null;
         this.preQualy = data.preQualy || null;
         this.divisionsConfig = data.divisionsConfig || null;
+        // Rotaciones de división ya aplicadas durante el campeonato. Las
+        // escribe solo la Cloud Function rotar_divisiones: no va en
+        // toFirestore() para que editar el campeonato nunca las pise.
+        this.divisionRotations = data.divisionRotations || [];
 
         // Asignación de comisarios (ADR-009): uids de los comisarios de la
         // org autorizados a resolver reclamaciones/sanciones de ESTE

@@ -38,6 +38,7 @@ import {
     aplicarIdentidadesAPistas,
     aplicarIdentidadesADivisiones,
 } from "../utils/pilotIdentityApply";
+import { configRotacion, proximaRotacion, PLAZO_RECLAMACIONES_HORAS } from "../utils/divisionRotation";
 import CarUsageTab from "../components/championship/CarUsageTab";
 import PreQualyInfo from "../components/championship/PreQualyInfo";
 import StandingsTable from "../components/championship/StandingsTable";
@@ -1198,6 +1199,24 @@ export default function ChampionshipDetailPage() {
                                                     </div>
                                                 )}
                                             </div>
+                                            {(() => {
+                                                const rotacion = configRotacion(championship);
+                                                const proxima = championship.status !== 'completed' && rotacion.mode !== 'final'
+                                                    ? proximaRotacion(championship, tracks) : null;
+                                                const h = PLAZO_RECLAMACIONES_HORAS;
+                                                const cuando = rotacion.mode === 'cada'
+                                                    ? t('campeonato.salas.cuandoCada', { n: rotacion.cadaCarreras, h })
+                                                    : rotacion.mode === 'mitad'
+                                                        ? t('campeonato.salas.cuandoMitad', { n: Math.floor(tracks.length / 2), h })
+                                                        : t('campeonato.salas.cuandoFinal');
+                                                return (
+                                                    <p className="text-gray-400 text-xs mt-3">
+                                                        {cuando}
+                                                        {proxima && <> {t('campeonato.salas.proxima', { n: proxima.corte, pista: proxima.tras?.name || '' })}</>}
+                                                        {rotacion.mode !== 'final' && <> {t('campeonato.salas.conservaPuntos')}</>}
+                                                    </p>
+                                                );
+                                            })()}
                                         </div>
                                     )}
                                 </div>
