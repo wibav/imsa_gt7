@@ -100,6 +100,12 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
         setForm(prev => ({ ...prev, evidence: prev.evidence.filter(u => u !== url) }));
     };
 
+    // Un enlace escrito pero sin pulsar «Agregar» también se envía
+    const evidenciaFinal = () => {
+        const pendiente = evidenceInput.trim();
+        return pendiente && !form.evidence.includes(pendiente) ? [...form.evidence, pendiente] : form.evidence;
+    };
+
     const validate = () => {
         const errs = [];
         if (!form.reporterName) errs.push(r('errNombre'));
@@ -122,6 +128,7 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
         try {
             await FirebaseService.createClaim(championshipId, {
                 ...form,
+                evidence: evidenciaFinal(),
                 createdAt: new Date().toISOString()
             });
             const org = championship?.orgId
@@ -248,7 +255,7 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
                             <div className="flex gap-2">
                                 <select
                                     value={accusedInput}
-                                    onChange={e => setAccusedInput(e.target.value)}
+                                    onChange={e => handleAddAccused(e.target.value)}
                                     className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white text-sm"
                                 >
                                     <option value="" className="bg-slate-800">{r('seleccionarPiloto')}</option>
@@ -258,12 +265,6 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
                                             <option key={d.name} value={d.name} className="bg-slate-800">{d.name}</option>
                                         ))}
                                 </select>
-                                <button type="button"
-                                    onClick={() => handleAddAccused(accusedInput)}
-                                    disabled={!accusedInput}
-                                    className="px-3 py-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-40 text-white text-sm rounded-lg transition-all">
-                                    + {t('formularios.declaracion.agregar')}
-                                </button>
                             </div>
                             <p className="text-gray-600 text-xs mt-1">{r('masDeUno')}</p>
                         </div>

@@ -83,7 +83,11 @@ export default function AppealForm({ championshipId, championship, claim, existi
         if (!reason.trim() || reason.trim().length < REASON_MIN) errs.push(al('errMin', { n: REASON_MIN }));
         if (reason.length > REASON_MAX) errs.push(al('errMax', { n: REASON_MAX }));
         if (!windowStatus.claimable) errs.push(al('errPlazo'));
+        // Un enlace escrito pero sin pulsar «Agregar» también se envía
+        const pendiente = evidenceInput.trim();
+        if (pendiente && !pendiente.startsWith('http')) errs.push(al('errUrl'));
         if (errs.length > 0) { setErrors(errs); return; }
+        const evidenciaFinal = pendiente && !evidence.includes(pendiente) ? [...evidence, pendiente] : evidence;
 
         setSaving(true);
         try {
@@ -93,7 +97,7 @@ export default function AppealForm({ championshipId, championship, claim, existi
                 appellantName,
                 appellantRole: claim.status === 'accepted' ? 'accused' : 'reporter',
                 reason: reason.trim(),
-                evidence,
+                evidence: evidenciaFinal,
             });
             const org = championship?.orgId
                 ? await FirebaseService.getOrganization(championship.orgId).catch(() => null)
