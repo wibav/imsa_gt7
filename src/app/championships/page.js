@@ -1209,12 +1209,55 @@ export default function ChampionshipDetailPage() {
                                                     : rotacion.mode === 'mitad'
                                                         ? t('campeonato.salas.cuandoMitad', { n: Math.floor(tracks.length / 2), h })
                                                         : t('campeonato.salas.cuandoFinal');
+                                                // Fecha en la zona horaria de quien mira, con la zona indicada
+                                                const fecha = (d) => d.toLocaleString(locale, { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+                                                const nombreSala = (id) => divisionesOrdenadas.find(d => d.id === id)?.name || '—';
+                                                const historial = [...(championship.divisionRotations || [])].sort((a, b) => a.corte - b.corte);
                                                 return (
-                                                    <p className="text-gray-400 text-xs mt-3">
-                                                        {cuando}
-                                                        {proxima && <> {t('campeonato.salas.proxima', { n: proxima.corte, pista: proxima.tras?.name || '' })}</>}
-                                                        {rotacion.mode !== 'final' && <> {t('campeonato.salas.conservaPuntos')}</>}
-                                                    </p>
+                                                    <>
+                                                        <p className="text-gray-400 text-xs mt-3">
+                                                            {cuando}
+                                                            {proxima && <> {t('campeonato.salas.proxima', { n: proxima.corte, pista: proxima.tras?.name || '' })}</>}
+                                                            {proxima?.vence && <> {t('campeonato.salas.proximaFecha', { fecha: fecha(proxima.vence) })}</>}
+                                                            {rotacion.mode !== 'final' && <> {t('campeonato.salas.conservaPuntos')}</>}
+                                                        </p>
+                                                        {historial.length > 0 && (
+                                                            <div className="mt-4">
+                                                                <h4 className="text-white font-semibold text-sm mb-2">{t('campeonato.salas.historial')}</h4>
+                                                                <div className="space-y-2">
+                                                                    {historial.map(r => {
+                                                                        const suben = (r.moves || []).filter(m => m.type === 'promotion');
+                                                                        const bajan = (r.moves || []).filter(m => m.type === 'relegation');
+                                                                        return (
+                                                                            <details key={r.corte} open={r === historial[historial.length - 1]} className="rounded-lg border border-white/10 bg-white/5">
+                                                                                <summary className="cursor-pointer flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                                                                                    <span className="text-white">
+                                                                                        ✅ {t('campeonato.salas.trasCarrera', { n: r.corte, pista: r.trackName || '' })}
+                                                                                        {r.appliedAt && <span className="text-gray-400"> · {fecha(new Date(r.appliedAt))}</span>}
+                                                                                    </span>
+                                                                                    <span className="text-gray-300 whitespace-nowrap">⬆ {suben.length} · ⬇ {bajan.length}</span>
+                                                                                </summary>
+                                                                                <div className="grid sm:grid-cols-2 gap-4 px-4 pb-3 text-sm">
+                                                                                    {[[t('campeonato.salas.subieron'), suben, 'text-green-300'], [t('campeonato.salas.bajaron'), bajan, 'text-red-300']].map(([titulo, lista, color]) => (
+                                                                                        <div key={titulo}>
+                                                                                            <p className={`font-semibold mb-1 ${color}`}>{titulo}</p>
+                                                                                            {lista.length === 0 ? <p className="text-gray-500">{t('campeonato.salas.ninguno')}</p> : lista.map(m => (
+                                                                                                <p key={m.driver} className="text-gray-300 flex items-center gap-2 py-0.5">
+                                                                                                    <PilotTeamAvatar name={m.driver} size="xs" />
+                                                                                                    <span className="text-white">{m.driver}</span>
+                                                                                                    <span className="text-gray-400">{nombreSala(m.fromId)} → {nombreSala(m.toId)}</span>
+                                                                                                </p>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </details>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </>
                                                 );
                                             })()}
                                         </div>
