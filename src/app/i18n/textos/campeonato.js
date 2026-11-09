@@ -105,6 +105,8 @@ const campeonato = {
             sinSanciones: 'Sin sanciones registradas',
             enDisputa: 'En disputa',
             resueltas: 'Reclamaciones Resueltas',
+            enEstudio: 'Reclamaciones en estudio',
+            enEstudioTexto: 'Cada piloto acusado tiene {h} h desde que se publica la reclamación para presentar su descargo. Después, los comisarios resuelven.',
         },
         reclamacion: {
             estado: {
@@ -119,6 +121,11 @@ const campeonato = {
             quedanHoras: 'Quedan {h} h para alegar',
             alegacionDe: 'Alegación de {nombre}',
             alegar: 'Alegar',
+            descargoDe: 'Descargo de {nombre}',
+            presentarDescargo: 'Presentar descargo',
+            plazoDescargo: 'Plazo de descargo hasta el {fecha}',
+            plazoCerrado: 'Plazo de descargo cerrado · pendiente de resolución',
+            sinDescargo: 'Sin descargo de {nombres}',
         },
         vuelta: 'Vuelta {n}',
         info: {
@@ -140,7 +147,7 @@ const campeonato = {
             reclamacionesPublicas: 'Reclamaciones públicas',
             activas: '✅ Activas',
             desactivadas: '❌ Desactivadas',
-            umbralAmonestaciones: 'Umbral de amonestaciones',
+            umbralAmonestaciones: 'Umbral de puntos de licencia',
             autoDeduccion: 'Auto-deducción de puntos',
             umbralDsq: 'Umbral de descalificación',
             presets: 'Presets activos',
@@ -335,6 +342,8 @@ const campeonato = {
             sinSanciones: 'No penalties recorded',
             enDisputa: 'Under appeal',
             resueltas: 'Resolved protests',
+            enEstudio: 'Protests under review',
+            enEstudioTexto: 'Each accused driver has {h} h from when the protest is published to submit their defence. The stewards decide afterwards.',
         },
         reclamacion: {
             estado: {
@@ -349,6 +358,11 @@ const campeonato = {
             quedanHoras: '{h} h left to appeal',
             alegacionDe: 'Appeal by {nombre}',
             alegar: 'Appeal',
+            descargoDe: 'Defence from {nombre}',
+            presentarDescargo: 'Submit defence',
+            plazoDescargo: 'Defence deadline: {fecha}',
+            plazoCerrado: 'Defence deadline closed · awaiting decision',
+            sinDescargo: 'No defence from {nombres}',
         },
         vuelta: 'Lap {n}',
         info: {
@@ -370,7 +384,7 @@ const campeonato = {
             reclamacionesPublicas: 'Public protests',
             activas: '✅ Enabled',
             desactivadas: '❌ Disabled',
-            umbralAmonestaciones: 'Warning points threshold',
+            umbralAmonestaciones: 'Licence points threshold',
             autoDeduccion: 'Automatic points deduction',
             umbralDsq: 'Disqualification threshold',
             presets: 'Active penalty types',
@@ -565,6 +579,8 @@ const campeonato = {
             sinSanciones: 'Sem penalizações registadas',
             enDisputa: 'Em recurso',
             resueltas: 'Reclamações resolvidas',
+            enEstudio: 'Reclamações em análise',
+            enEstudioTexto: 'Cada piloto acusado tem {h} h desde a publicação da reclamação para apresentar a sua defesa. Depois, os comissários decidem.',
         },
         reclamacion: {
             estado: {
@@ -579,6 +595,11 @@ const campeonato = {
             quedanHoras: 'Faltam {h} h para recorrer',
             alegacionDe: 'Recurso de {nombre}',
             alegar: 'Recorrer',
+            descargoDe: 'Defesa de {nombre}',
+            presentarDescargo: 'Apresentar defesa',
+            plazoDescargo: 'Prazo de defesa até {fecha}',
+            plazoCerrado: 'Prazo de defesa encerrado · a aguardar decisão',
+            sinDescargo: 'Sem defesa de {nombres}',
         },
         vuelta: 'Volta {n}',
         info: {
@@ -600,7 +621,7 @@ const campeonato = {
             reclamacionesPublicas: 'Reclamações públicas',
             activas: '✅ Ativas',
             desactivadas: '❌ Desativadas',
-            umbralAmonestaciones: 'Limite de advertências',
+            umbralAmonestaciones: 'Limite de pontos de licença',
             autoDeduccion: 'Dedução automática de pontos',
             umbralDsq: 'Limite de desclassificação',
             presets: 'Tipos de penalização ativos',

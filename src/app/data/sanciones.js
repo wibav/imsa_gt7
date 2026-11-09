@@ -1,6 +1,6 @@
 // Generado por scripts/reglamento/reglamento-general-v2.py — no editar a mano
 const catalogoSanciones = {
- "version": "2.1",
+ "version": "2.2",
  "nivelesDanos": [
   "Sin daños",
   "Daños leves",
@@ -107,7 +107,7 @@ const catalogoSanciones = {
   {
    "id": "amonestacion",
    "name": "Amonestación por incidente leve",
-   "description": "Incidente leve sin consecuencias suficientes para restar puntos (6.2).",
+   "description": "Aviso por un incidente leve: no resta puntos del campeonato, solo suma puntos de licencia (6.2, 7.2).",
    "icon": "🟡",
    "type": "warning",
    "severity": "minor",
@@ -172,12 +172,25 @@ const catalogoSanciones = {
   {
    "id": "estorbar_penalizacion",
    "name": "Estorbar al cumplir una penalización del juego",
-   "description": "Cumplir una penalización del juego en la trazada, estorbando a otros pilotos (5.6.3).",
+   "description": "Cumplir una penalización del juego en la trazada pudiendo apartarse, y estorbar a otros pilotos (5.6.3).",
    "icon": "⏳",
    "type": "points",
    "severity": "moderate",
    "points": 6,
    "warningPoints": 2,
+   "positionsLost": 0,
+   "timeSeconds": 0,
+   "article": "7.1"
+  },
+  {
+   "id": "bandera_azul",
+   "name": "No facilitar un doblaje o estorbar al piloto que dobla",
+   "description": "Ignorar la bandera azul, competir con quien dobla o cerrarle el paso (5.5).",
+   "icon": "🔵",
+   "type": "points",
+   "severity": "moderate",
+   "points": 3,
+   "warningPoints": 1,
    "positionsLost": 0,
    "timeSeconds": 0,
    "article": "7.1"

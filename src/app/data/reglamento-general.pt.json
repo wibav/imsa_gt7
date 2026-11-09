@@ -1,6 +1,6 @@
 {
- "version": "2.1",
- "fecha": "2026-10-23",
+ "version": "2.2",
+ "fecha": "2026-11-08",
  "idioma": "pt",
  "sections": [
   {
@@ -12,7 +12,7 @@
      "subtitle": "Aplicação",
      "items": [
       "Este regulamento geral aplica-se a todos os campeonatos e eventos do GT7 Championships.",
-      "O regulamento particular de cada campeonato ou evento prevalece sobre este em tudo o que regule de forma diferente (carros, sistema de pontos, limites de advertências, configuração da sala, etc.).",
+      "O regulamento particular de cada campeonato ou evento prevalece sobre este em tudo o que regule de forma diferente (carros, sistema de pontos, limites de pontos de licença, configuração da sala, etc.).",
       "O que não estiver previsto é decidido pelos comissários, tendo como referência o Código de Conduta em Pista da FIA (Código Desportivo Internacional, Anexo L, capítulo IV) e as suas diretrizes de condução (Driving Standards Guidelines), adaptados ao Gran Turismo 7.",
       "Os artigos são citados pela sua numeração (por exemplo, 5.3.2). Cada versão publicada indica a data de atualização; as decisões regem-se pela versão em vigor no dia da corrida."
      ]
@@ -75,8 +75,14 @@
       },
       {
        "cells": [
-        "Pontos de advertência",
-        "Pontos que algumas penalizações somam e que se acumulam durante o campeonato (ver 7.2)."
+        "Advertência",
+        "Aviso por uma conduta ligeira. Não retira pontos do campeonato; apenas soma pontos de licença (ver 7.2)."
+       ]
+      },
+      {
+       "cells": [
+        "Pontos de licença",
+        "Registo da conduta do piloto durante o campeonato. Somam-nos algumas infrações e as advertências. Não são uma segunda penalização: só têm efeito ao acumular-se (ver 7.2)."
        ]
       },
       {
@@ -187,7 +193,7 @@
      "headers": [
       "Infração",
       "Penalização",
-      "Advertência"
+      "Pontos de licença"
      ],
      "rows": [
       {
@@ -233,7 +239,7 @@
      "items": [
       "Um carro está dentro dos limites se pelo menos duas rodas de eixos diferentes (uma dianteira e uma traseira) continuarem sobre a pista. A linha branca é pista; o corretor, não.",
       "As penalizações por atalhos são as que o jogo impõe segundo a configuração da sala, e respeitam-se.",
-      "Ultrapassar com o carro fora dos limites, ou ganhar uma vantagem duradoura saindo deles, obriga a devolver a posição de imediato, o mais tardar antes do fim da volta. Não o fazer: -3 posições no resultado final.",
+      "Ultrapassar com o carro fora dos limites, ou ganhar uma vantagem duradoura saindo deles, obriga a devolver a posição na primeira oportunidade segura, e o mais tardar antes do fim da volta. Deve ser devolvida sem travar bruscamente nem mudar de trajetória de forma imprevisível. Não a devolver é penalizado segundo a tabela do artigo 6.3.",
       "Se for detetado um abuso sistemático dos limites que o jogo não penaliza, os comissários podem aplicar penalizações adicionais."
      ],
      "figuras": [
@@ -251,9 +257,9 @@
       "Por FORA, o atacante só tem direito a espaço se no vértice o seu eixo dianteiro estiver à frente do eixo dianteiro do rival. É a manobra mais difícil: quem a tenta assume o risco.",
       "Nos dois casos, o atacante tem de ir controlado, travar a tempo e conseguir fazer a curva dentro dos limites sem se apoiar no rival. Caso contrário, é um divebomb e não dá direito a espaço.",
       "Sem sobreposição, o piloto da frente pode escolher qualquer trajetória sem que isso seja considerado bloqueio.",
-      "Com sobreposição, cada piloto tem direito à sua metade da pista (exterior ou interior) até à saída da curva. Nenhum pode empurrar o outro para fora dos limites.",
+      "Com sobreposição, cada piloto tem direito ao seu lado da pista até à saída da curva: é preciso deixar ao rival pelo menos a largura de um carro entre o teu carro e o limite do lado dele. Nenhum pode empurrar o outro para fora dos limites.",
       "A ultrapassagem termina quando o carro que ultrapassa passou completamente o outro, sem sobreposição. Até lá, a sobreposição continua válida.",
-      "Não aproveites a dobragem de outro piloto para ultrapassar um rival direto. Espera pela curva seguinte."
+      "Podes aproveitar uma dobragem para ultrapassar um rival, desde que a manobra seja segura e não atrapalhes nem o piloto que dobra nem o dobrado."
      ],
      "figuras": [
       {
@@ -286,7 +292,8 @@
       "O piloto que vai ser dobrado TEM de facilitar a passagem de forma segura, previsível e sem obstruir.",
       "Para deixar passar, encosta-te a um limite da pista e mantém essa trajetória até te ultrapassarem. Podes levantar o pé.",
       "Pode haver vários carros a tentar dobrar-te: olha para os dois lados e usa o radar de proximidade.",
-      "O piloto dobrado NÃO deve competir com quem o dobra nem aproveitar a passagem para ganhar posições a rivais diretos."
+      "Quando a dobragem é iminente ou já começou, o piloto dobrado NÃO deve competir com quem o dobra. Os pilotos dobrados podem continuar a lutar entre si, desde que não atrapalhem quem dobra, que tem prioridade.",
+      "Não facilitar a dobragem, ou atrapalhar o piloto que dobra, é penalizado segundo a tabela do artigo 7.1."
      ]
     },
     {
@@ -294,7 +301,7 @@
      "items": [
       "Respeita a entrada e a saída das boxes. O jogo penaliza automaticamente pisar a linha das boxes.",
       "É proibido parar o carro fora das boxes durante a corrida; se precisares de parar, fá-lo nas boxes. Penalização: -5 pontos.",
-      "Se, ao cumprir uma penalização do jogo, atrapalhares outros pilotos, tens de a cumprir dando passagem fora da trajetória ideal. Não o fazer: -6 pontos."
+      "Ao cumprir uma penalização do jogo, sai da trajetória ideal e dá passagem. Penaliza-se a obstrução evitável (-6 pontos): ficar na trajetória podendo afastar-se. Não se penaliza o prejuízo involuntário que a própria penalização cause a outro piloto."
      ]
     },
     {
@@ -373,7 +380,7 @@
       "D. ligeiros",
       "D. moderados",
       "D. graves",
-      "Advertência"
+      "Pontos de licença"
      ],
      "rows": [
       {
@@ -435,7 +442,8 @@
       "AGRAVANTE — intencionalidade ou má-fé: penalização ×2.",
       "ATENUANTE — devolver a posição depois do incidente: penalização reduzida para metade.",
       "ATENUANTE — outras circunstâncias que reduzam a gravidade ou a culpa: penalização reduzida para metade.",
-      "Agravantes e atenuantes combinam-se, mas a penalização final nunca ultrapassa o triplo da penalização base. Os extras por danos somam-se depois."
+      "Agravantes e atenuantes combinam-se, mas a penalização final nunca ultrapassa o triplo da penalização base. Os extras por danos somam-se depois.",
+      "Uma mesma ação é penalizada uma só vez. Se encaixar em várias infrações, aplica-se a penalização da mais grave, com os seus agravantes e atenuantes."
      ]
     },
     {
@@ -443,7 +451,7 @@
      "items": [
       "Os comissários analisam os incidentes com a repetição do jogo, os vídeos apresentados e a transmissão em direto.",
       "Podem atuar por iniciativa própria, sem necessidade de reclamação, se observarem uma infração ou receberem o relatório do Host.",
-      "Antes de decidir, o piloto acusado pode dar a sua versão e apresentar o seu próprio vídeo no prazo de 24 horas desde que lhe é comunicada a reclamação, pelo canal oficial dos comissários.",
+      "Antes de decidir, cada piloto acusado pode dar a sua versão e apresentar o seu próprio vídeo no prazo de 24 horas desde a publicação da reclamação, com o botão «🛡️ Apresentar defesa» da secção Penalizações. Não se impõe nenhuma penalização sem o ouvir ou antes de terminar esse prazo.",
       "Um comissário não pode decidir incidentes em que tenha participado, nem os da sua própria equipa ou sala. Nesses casos decide outro comissário ou a direção do campeonato.",
       "São tidos em conta: intencionalidade, espaço deixado, velocidade relativa, consequências para o outro piloto e historial de incidentes.",
       "Os comissários decidem num prazo máximo de 48 horas desde o fim do prazo de reclamações."
@@ -462,7 +470,7 @@
      "headers": [
       "Infração",
       "Penalização",
-      "Advertência",
+      "Pontos de licença",
       "Gravidade"
      ],
      "rows": [
@@ -511,6 +519,14 @@
         "Atrapalhar ao cumprir uma penalização do jogo",
         "-6 pontos",
         "2",
+        "🟠 Moderada"
+       ]
+      },
+      {
+       "cells": [
+        "Não facilitar uma dobragem ou atrapalhar o piloto que dobra",
+        "-3 pontos",
+        "1",
         "🟠 Moderada"
        ]
       },
@@ -573,11 +589,11 @@
      ]
     },
     {
-     "subtitle": "Pontos de advertência",
+     "subtitle": "Pontos de licença",
      "items": [
-      "Algumas penalizações somam pontos de advertência além de retirar pontos. Acumulam-se durante todo o campeonato e não se reiniciam entre corridas.",
-      "Cada vez que um piloto atinge o limite do campeonato (por defeito, 8 pontos de advertência, e de novo aos 16, 24…), são-lhe retirados automaticamente 10 pontos da classificação. O limite e o desconto podem variar em cada campeonato.",
-      "Ao atingir o limite de desclassificação do campeonato (por defeito, 16 pontos de advertência), os comissários estudam a sua exclusão do campeonato.",
+      "Os pontos de licença registam a conduta do piloto. Algumas infrações somam-nos junto com a sua penalização, e as advertências somam-nos sem retirar pontos do campeonato. Não são uma segunda penalização pelo mesmo facto: só têm efeito ao acumular-se. Acumulam-se durante todo o campeonato e não se reiniciam entre corridas.",
+      "Cada vez que um piloto atinge o limite do campeonato (por defeito, 8 pontos de licença, e de novo aos 16, 24…), são-lhe retirados automaticamente 10 pontos da classificação. O limite e o desconto podem variar em cada campeonato.",
+      "Ao atingir o limite de desclassificação do campeonato (por defeito, 16 pontos de licença), os comissários estudam a sua exclusão do campeonato.",
       "A página de cada campeonato mostra os seus valores na secção Penalizações."
      ]
     },
@@ -585,7 +601,7 @@
      "subtitle": "Notas importantes",
      "items": [
       "As penalizações em pontos são descontadas do total do campeonato. Um piloto pode ficar com pontos negativos.",
-      "O que o próprio Gran Turismo 7 já penaliza durante a corrida (atalhos, contactos, partida antecipada, linha das boxes, bandeiras, pneus obrigatórios…) não volta a ser penalizado. Os comissários só atuam sobre o que o jogo não controla.",
+      "O que o próprio Gran Turismo 7 já penaliza durante a corrida (atalhos, contactos, partida antecipada, linha das boxes, pneus obrigatórios…) não volta a ser penalizado. Os comissários só atuam sobre o que o jogo não controla, como o respeito pelas bandeiras azuis (5.5).",
       "Os valores deste regulamento são os padrão. Cada campeonato pode configurar os seus.",
       "A organização pode excluir de edições futuras ou expulsar pilotos conflituosos ou com penalizações graves repetidas."
      ]
@@ -619,7 +635,7 @@
     {
      "subtitle": "Decisão",
      "items": [
-      "Os comissários analisam as provas, completam-nas com a repetição ou a transmissão e ouvem o piloto acusado (ver 6.6).",
+      "Cada reclamação é publicada na secção Penalizações assim que é apresentada, com a sua descrição e os seus vídeos. A partir desse momento, o piloto acusado tem 24 horas para apresentar a sua defesa (ver 6.6.3). Depois, os comissários analisam as provas e completam-nas com a repetição ou a transmissão.",
       "A decisão é publicada no site, com o veredicto e, se houver, a penalização aplicada.",
       "Uma reclamação manifestamente infundada ou de má-fé custa -5 pontos a quem a apresenta. Uma reclamação de boa-fé que é indeferida não é penalizada."
      ]
@@ -710,8 +726,9 @@
     {
      "subtitle": "Divisões, subidas e descidas",
      "items": [
-      "Os campeonatos com várias divisões usam um sistema de subidas e descidas entre edições.",
-      "No fim de cada edição, os pilotos em lugar de subida sobem de divisão e os de descida descem.",
+      "Os campeonatos com várias divisões usam um sistema de subidas e descidas. Cada campeonato define quando se aplicam: no fim da edição, a cada certo número de corridas ou a meio do campeonato.",
+      "Em cada mudança, os pilotos em lugar de subida sobem de divisão e os de descida descem, segundo a classificação da sua divisão até essa corrida.",
+      "As mudanças durante o campeonato aplicam-se sozinhas 48 horas após a corrida que fecha o bloco, se não houver reclamações abertas dessas corridas. Quem muda de divisão mantém os seus pontos.",
       "Se houver lugares livres, os pilotos que acabaram de descer da divisão superior têm prioridade sobre os que acabaram de subir da inferior.",
       "O número de subidas e descidas é definido por cada campeonato."
      ]

@@ -9,7 +9,9 @@ import {
 import { notifyPenaltyApplied, notifyClaimResolved, notifyAppealResolved } from '../../utils/telegram';
 import { useAuth } from '../../context/AuthContext';
 import ModalPortal from '../common/ModalPortal';
-import SancionDetalle, { puntosBase, resumenPreset, cambiaResultado, EfectoSancion } from './SancionDetalle';
+import SancionDetalle, { puntosBase, resumenPreset, cambiaResultado, EfectoSancion, FactoresSancion, aplicarFactores, admiteFactores, registroFactores, SIN_FACTORES } from './SancionDetalle';
+import { claveNombre } from '../../utils/nombresPiloto';
+import { plazoDescargo, descargosDe, acusadosSinDescargo } from '../../utils/descargo';
 
 /**
  * Tab de Sanciones para el admin de campeonatos.
@@ -25,6 +27,7 @@ export default function PenaltiesTab({
 }) {
     const [penalties, setPenalties] = useState([]);
     const [claims, setClaims] = useState([]);
+    const [defenses, setDefenses] = useState([]);
     const [appeals, setAppeals] = useState([]);
     const [loading, setLoading] = useState(true);
     // Comisarios aterrizan en 'claims'; admins en 'penalties'
@@ -81,14 +84,16 @@ export default function PenaltiesTab({
         if (!championshipId) return;
         if (!silencioso) setLoading(true);
         try {
-            const [penaltiesData, claimsData, appealsData] = await Promise.all([
+            const [penaltiesData, claimsData, appealsData, defensesData] = await Promise.all([
                 FirebaseService.getPenaltiesByChampionship(championshipId).catch(() => []),
                 FirebaseService.getClaimsByChampionship(championshipId).catch(() => []),
-                FirebaseService.getAppealsByChampionship(championshipId).catch(() => [])
+                FirebaseService.getAppealsByChampionship(championshipId).catch(() => []),
+                FirebaseService.getDefensesByChampionship(championshipId),
             ]);
             setPenalties(penaltiesData);
             setClaims(claimsData);
             setAppeals(appealsData);
+            setDefenses(defensesData);
         } catch (error) {
             console.error('Error loading penalties:', error);
         } finally {
@@ -212,7 +217,7 @@ export default function PenaltiesTab({
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-6 text-center">
                     <div className="text-4xl mb-2">⚠️</div>
                     <p className="text-yellow-300 font-medium">El sistema de sanciones está desactivado</p>
-                    <p className="text-gray-400 text-sm mt-1">Actívalo para gestionar sanciones, amonestaciones y reclamaciones</p>
+                    <p className="text-gray-400 text-sm mt-1">Actívalo para gestionar sanciones, puntos de licencia y reclamaciones</p>
                 </div>
             )}
 
@@ -259,7 +264,7 @@ export default function PenaltiesTab({
                             {/* Resumen de amonestaciones por piloto */}
                             {Object.keys(warningsSummary).length > 0 && (
                                 <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                                    <h4 className="text-sm font-semibold text-gray-300 mb-3">📊 Amonestaciones Acumuladas</h4>
+                                    <h4 className="text-sm font-semibold text-gray-300 mb-3">📊 Puntos de licencia acumulados</h4>
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                                         {Object.entries(warningsSummary)
                                             .sort(([, a], [, b]) => b.warnings - a.warnings)
@@ -392,10 +397,10 @@ export default function PenaltiesTab({
                         <div className="space-y-6">
                             {/* Umbrales */}
                             <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-                                <h3 className="text-lg font-bold text-white mb-4">🔧 Configuración de Amonestaciones</h3>
+                                <h3 className="text-lg font-bold text-white mb-4">🔧 Configuración de puntos de licencia</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <div>
-                                        <label className="text-gray-400 text-sm block mb-1">Umbral de amonestaciones</label>
+                                        <label className="text-gray-400 text-sm block mb-1">Umbral de puntos de licencia</label>
                                         <input
                                             type="number" min="1" max="50"
                                             value={config.warningThreshold}
@@ -422,7 +427,7 @@ export default function PenaltiesTab({
                                             onChange={e => setConfig(prev => ({ ...prev, autoDisqualifyThreshold: parseInt(e.target.value) || 16 }))}
                                             className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
                                         />
-                                        <p className="text-gray-500 text-xs mt-1">Puntos de amonestación para descalificación</p>
+                                        <p className="text-gray-500 text-xs mt-1">Puntos de licencia para descalificación</p>
                                     </div>
                                 </div>
                             </div>
@@ -611,6 +616,7 @@ export default function PenaltiesTab({
                             claims={claims}
                             appeals={appeals}
                             penalties={penalties}
+                            defenses={defenses}
                             championshipId={championshipId}
                             championship={championship}
                             org={org}
@@ -635,6 +641,7 @@ export default function PenaltiesTab({
                     allDrivers={allDrivers}
                     tracks={completedTracks}
                     presets={config.presets.filter(p => p.active)}
+                    penalties={penalties}
                     onClose={() => setShowApplyModal(false)}
                     onSaved={() => { loadData(); if (onUpdate) onUpdate(); }}
                 />
@@ -643,11 +650,65 @@ export default function PenaltiesTab({
     );
 }
 
+const fechaCorta = (d) => d.toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+/**
+ * Descargos del acusado (6.6.3) y estado del plazo, en la tarjeta de la
+ * reclamación y en el modal de resolverla.
+ */
+function DescargosAdmin({ claim, defenses }) {
+    const lista = descargosDe(claim, defenses);
+    const plazo = plazoDescargo(claim);
+    const faltan = acusadosSinDescargo(claim, defenses);
+    const enEstudio = claim.status === 'pending' || claim.status === 'reviewing';
+    return (
+        <div className="mt-2 space-y-2">
+            {enEstudio && plazo.vence && (
+                <p className={`text-xs ${plazo.abierto && faltan.length ? 'text-yellow-300' : 'text-gray-400'}`}>
+                    {plazo.abierto && faltan.length
+                        ? `⏳ Plazo de descargo abierto hasta el ${fechaCorta(plazo.vence)} (hora española). Falta: ${faltan.join(', ')}.`
+                        : faltan.length
+                            ? `🛡️ Plazo de descargo cerrado el ${fechaCorta(plazo.vence)}. Sin descargo de ${faltan.join(', ')}.`
+                            : '🛡️ Todos los acusados han presentado su descargo.'}
+                </p>
+            )}
+            {lista.map(d => (
+                <div key={d.id} className="p-2 rounded bg-sky-500/10 border border-sky-400/20 text-xs">
+                    <div className="text-sky-300 font-semibold">
+                        🛡️ Descargo de {d.accusedName}
+                        {d.createdAt && <span className="text-gray-500 font-normal"> · {fechaCorta(new Date(d.createdAt))}</span>}
+                    </div>
+                    <p className="text-gray-300 whitespace-pre-line mt-0.5">{d.text}</p>
+                    {(d.evidence || []).map((url, i) => (
+                        <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline mr-3">
+                            📎 Vídeo del acusado {d.evidence.length > 1 ? i + 1 : ''}
+                        </a>
+                    ))}
+                </div>
+            ))}
+        </div>
+    );
+}
+
+/** Puntos del preset tras agravantes y atenuantes (6.5), antes de los extras por daños. */
+function puntosConFactores(preset, nivel, factores) {
+    const base = puntosBase(preset, nivel);
+    return admiteFactores(preset) ? aplicarFactores(base, factores) : base;
+}
+
+/** Sanciones vigentes del piloto por la misma infracción (para la reincidencia, 6.5). */
+function sancionesPrevias(penalties, piloto, presetId) {
+    if (!piloto || !presetId) return 0;
+    const clave = claveNombre(piloto);
+    return (penalties || []).filter(p => isPenaltyCounting(p) && p.presetId === presetId && claveNombre(p.driverName) === clave).length;
+}
+
 // ═══════════════════════════════════════════════
 // MODAL: Aplicar Sanción
 // ═══════════════════════════════════════════════
-function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, tracks, presets, onClose, onSaved }) {
+function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, tracks, presets, penalties = [], onClose, onSaved }) {
     const [mode, setMode] = useState('preset'); // preset | custom
+    const [factores, setFactores] = useState(SIN_FACTORES);
     const [selectedPreset, setSelectedPreset] = useState(null);
     const [extraPoints, setExtraPoints] = useState(0);
     const [extraPointsReason, setExtraPointsReason] = useState('');
@@ -678,6 +739,7 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
         setExtraPoints(0);
         setExtraPointsReason('');
         setNivelDanos(null);
+        setFactores(SIN_FACTORES);
         setPosiciones(preset.positionsLost || 0);
         setForm(prev => ({
             ...prev,
@@ -713,8 +775,11 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
         if (!form.name) return alert('Nombre de sanción requerido');
         if (mode === 'preset' && Array.isArray(selectedPreset?.damagePoints) && nivelDanos == null) return alert('Indica el nivel de daños');
         if (mode === 'preset' && cambiaResultado(selectedPreset) && !form.trackId) return alert('Esta sanción cambia el resultado de una carrera: elige la carrera');
+        const conFactores = mode === 'preset' && admiteFactores(selectedPreset);
         const base = mode === 'preset' && selectedPreset ? puntosBase(selectedPreset, nivelDanos) : form.points;
-        const totalPoints = base + (extraPoints || 0);
+        // 6.5: agravantes y atenuantes sobre la base; los extras por daños (6.4) después
+        const totalPoints = (conFactores ? aplicarFactores(base, factores) : base) + (extraPoints || 0);
+        const posicionesFinal = conFactores && selectedPreset.type === 'position' ? aplicarFactores(posiciones, factores) : posiciones;
         const description = extraPointsReason
             ? `${form.description || form.name}. Puntos adicionales: ${extraPointsReason}`
             : form.description;
@@ -730,8 +795,11 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
                 presetId: selectedPreset?.id || null,
                 ...(mode === 'preset' && selectedPreset ? {
                     damageLevel: nivelDanos,
-                    positionsLost: selectedPreset.type === 'position' ? posiciones : 0,
+                    positionsLost: selectedPreset.type === 'position' ? posicionesFinal : 0,
                     article: selectedPreset.article || '',
+                    factores: conFactores
+                        ? registroFactores(selectedPreset.type === 'position' ? posiciones : base, factores)
+                        : null,
                 } : {}),
                 appliedAt: new Date().toISOString()
             });
@@ -853,7 +921,7 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
                                 />
                             </div>
                             <div>
-                                <label className="text-gray-400 text-sm block mb-1">Pts amonestación</label>
+                                <label className="text-gray-400 text-sm block mb-1">Pts licencia</label>
                                 <input type="number" min="0" max="10"
                                     value={form.warningPoints}
                                     onChange={e => setForm(prev => ({ ...prev, warningPoints: parseInt(e.target.value) || 0 }))}
@@ -869,12 +937,20 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
                             posiciones={posiciones} onPosiciones={setPosiciones} />
                     )}
 
+                    {mode === 'preset' && admiteFactores(selectedPreset) && (
+                        <FactoresSancion
+                            base={selectedPreset.type === 'position' ? posiciones : puntosBase(selectedPreset, nivelDanos)}
+                            unidad={selectedPreset.type === 'position' ? 'pos.' : 'pts'}
+                            factores={factores} onChange={setFactores}
+                            previas={sancionesPrevias(penalties, form.driverName, selectedPreset.id)} />
+                    )}
+
                     {/* Puntos adicionales sobre preset */}
                     {mode === 'preset' && selectedPreset && (
                         <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 space-y-3">
                             <div className="flex items-center justify-between">
-                                <h4 className="text-orange-300 font-semibold text-sm">➕ Puntos adicionales</h4>
-                                <span className="text-gray-400 text-xs">Base: <span className="text-red-400 font-bold">-{puntosBase(selectedPreset, nivelDanos)} pts</span></span>
+                                <h4 className="text-orange-300 font-semibold text-sm">➕ Extras por daños <span className="text-gray-500 font-normal">(art. 6.4)</span></h4>
+                                <span className="text-gray-400 text-xs">Sanción: <span className="text-red-400 font-bold">-{puntosConFactores(selectedPreset, nivelDanos, factores)} pts</span></span>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
@@ -901,8 +977,8 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
                             {extraPoints > 0 && (
                                 <div className="text-center">
                                     <span className="text-gray-400 text-xs">Total: </span>
-                                    <span className="text-red-400 font-bold">-{puntosBase(selectedPreset, nivelDanos) + extraPoints} pts</span>
-                                    <span className="text-gray-500 text-xs"> ({puntosBase(selectedPreset, nivelDanos)} base + {extraPoints} extra)</span>
+                                    <span className="text-red-400 font-bold">-{puntosConFactores(selectedPreset, nivelDanos, factores) + extraPoints} pts</span>
+                                    <span className="text-gray-500 text-xs"> ({puntosConFactores(selectedPreset, nivelDanos, factores)} + {extraPoints} extra)</span>
                                 </div>
                             )}
                         </div>
@@ -984,7 +1060,7 @@ function ApplyPenaltyModal({ championshipId, championship, org, allDrivers, trac
                                             {extraPoints > 0 && <span className="text-red-300 font-normal text-xs ml-1">({form.points}+{extraPoints})</span>}
                                         </span>
                                     )}
-                                    {form.warningPoints > 0 && <span className="text-yellow-400">+{form.warningPoints} amonestación</span>}
+                                    {form.warningPoints > 0 && <span className="text-yellow-400">+{form.warningPoints} pts licencia</span>}
                                     {extraPointsReason && <span className="text-gray-400 text-xs italic">&ldquo;{extraPointsReason}&rdquo;</span>}
                                 </div>
                             </div>
@@ -1030,7 +1106,7 @@ function formatClaimForShare(claim, championshipName) {
     );
 }
 
-function ClaimsSection({ claims, appeals = [], penalties = [], championshipId, championship, org, allDrivers, tracks, config, isAdminUser = false, onReload, onRefresh, onUpdate }) {
+function ClaimsSection({ claims, appeals = [], penalties = [], defenses = [], championshipId, championship, org, allDrivers, tracks, config, isAdminUser = false, onReload, onRefresh, onUpdate }) {
     const { currentUser, isAdmin } = useAuth();
     const [resolveModal, setResolveModal] = useState(null);
     const [rejectModal, setRejectModal] = useState(null);
@@ -1350,6 +1426,7 @@ function ClaimsSection({ claims, appeals = [], penalties = [], championshipId, c
                                                 ))}
                                             </div>
                                         )}
+                                        <DescargosAdmin claim={claim} defenses={defenses} />
                                         {claim.resolution && (
                                             <div className="mt-2 p-2 bg-white/5 rounded text-xs text-gray-300">
                                                 💬 <strong>Resolución:</strong> {claim.resolution}
@@ -1466,6 +1543,8 @@ function ClaimsSection({ claims, appeals = [], penalties = [], championshipId, c
             {resolveModal && (
                 <ResolveClaimModal
                     claim={resolveModal}
+                    penalties={penalties}
+                    defenses={defenses}
                     championshipId={championshipId}
                     org={org}
                     allDrivers={allDrivers}
@@ -1600,7 +1679,7 @@ function ResolveAppealModal({ appeal, allDrivers, presets, onClose, onResolve })
                                         className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs" />
                                 </div>
                                 <div>
-                                    <label className="text-gray-400 text-xs block mb-1">Pts amonestación</label>
+                                    <label className="text-gray-400 text-xs block mb-1">Pts licencia</label>
                                     <input type="number" min="0" max="10" value={newPenalty.warningPoints}
                                         onChange={e => setNewPenalty(prev => ({ ...prev, warningPoints: parseInt(e.target.value) || 0 }))}
                                         className="w-full bg-white/10 border border-white/20 rounded px-2 py-1 text-white text-xs" />
@@ -1640,7 +1719,10 @@ function ResolveAppealModal({ appeal, allDrivers, presets, onClose, onResolve })
 // ═══════════════════════════════════════════════
 // MODAL: Resolver Reclamación
 // ═══════════════════════════════════════════════
-function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, presets, onClose, onResolve, onEvidenceSaved }) {
+function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, presets, penalties = [], defenses = [], onClose, onResolve, onEvidenceSaved }) {
+    const [factores, setFactores] = useState(SIN_FACTORES);
+    // Acusados que aún pueden presentar descargo (6.6.3)
+    const plazoAbiertoSin = plazoDescargo(claim).abierto ? acusadosSinDescargo(claim, defenses) : [];
     // Gemini tiene coste por llamada, así que la sugerencia con IA solo está
     // disponible en el plan 'pro_ia' (Pro + IA) o para orgs exentas de
     // facturación — el backend también lo valida (402/429), esto solo evita
@@ -1718,12 +1800,16 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
         setExtraPoints(0);
         setExtraPointsReason('');
         setNivelDanos(null);
+        setFactores(SIN_FACTORES);
         setPosiciones(preset.positionsLost || 0);
     };
 
     const handleSubmit = async () => {
         if (!resolution) return alert('Escribe una resolución');
         if (applyPenalty && !selectedAccused) return alert('Selecciona el piloto a sancionar');
+        // 6.6.3: no se sanciona sin oír al acusado mientras su plazo de descargo siga abierto
+        if (applyPenalty && plazoAbiertoSin.some(n => claveNombre(n) === claveNombre(selectedAccused))
+            && !window.confirm(`${selectedAccused} aún está en plazo de presentar su descargo (art. 6.6.3). ¿Sancionar igualmente?`)) return;
         if (applyPenalty && !customMode && !selectedPreset) return alert('Selecciona una sanción');
         if (applyPenalty && customMode && !customForm.name) return alert('Escribe el nombre de la sanción');
         if (applyPenalty && !customMode && Array.isArray(selectedPreset?.damagePoints) && nivelDanos == null) return alert('Indica el nivel de daños');
@@ -1753,7 +1839,9 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                     evidence: evidencias.join('\n')
                 };
             } else if (selectedPreset) {
-                const totalPoints = puntosBase(selectedPreset, nivelDanos) + (extraPoints || 0);
+                // 6.5: agravantes y atenuantes sobre la base; los extras por daños (6.4) después
+                const conFactores = admiteFactores(selectedPreset);
+                const totalPoints = puntosConFactores(selectedPreset, nivelDanos, factores) + (extraPoints || 0);
                 const desc = extraPointsReason
                     ? `${resolution}. Pts adicionales: ${extraPointsReason}`
                     : resolution;
@@ -1772,8 +1860,12 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                     warningPoints: selectedPreset.warningPoints || 0,
                     timeSeconds: selectedPreset.timeSeconds || 0,
                     damageLevel: nivelDanos,
-                    positionsLost: selectedPreset.type === 'position' ? posiciones : 0,
+                    positionsLost: selectedPreset.type === 'position'
+                        ? (conFactores ? aplicarFactores(posiciones, factores) : posiciones) : 0,
                     article: selectedPreset.article || '',
+                    factores: conFactores
+                        ? registroFactores(selectedPreset.type === 'position' ? posiciones : puntosBase(selectedPreset, nivelDanos), factores)
+                        : null,
                     extraPoints: extraPoints || 0,
                     extraPointsReason: extraPointsReason || '',
                     lap: claim.lap,
@@ -1808,7 +1900,16 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                             <strong className="text-white">{accusedList.join(', ')}</strong>
                         </div>
                         <div className="text-gray-500 text-xs mt-1">{claim.description}</div>
+                        <DescargosAdmin claim={claim} defenses={defenses} />
                     </div>
+
+                    {plazoAbiertoSin.length > 0 && (
+                        <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-lg p-3 text-xs text-yellow-200" role="status">
+                            ⚠️ {plazoAbiertoSin.join(', ')} aún puede presentar su descargo hasta el {fechaCorta(plazoDescargo(claim).vence)} (art. 6.6.3).
+                            Para sancionar, el reglamento exige haberle oído antes: espera a su descargo o al fin del plazo.
+                            Rechazar la reclamación sí puede hacerse ya.
+                        </div>
+                    )}
 
                     {/* Selector de infractor a sancionar (si hay múltiples) */}
                     {accusedList.length > 1 && (
@@ -1951,7 +2052,8 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                                             aiSuggestion.context.reglamentoOrganizacion && 'reglamento de la organización',
                                             aiSuggestion.context.sanciones > 0 && `${aiSuggestion.context.sanciones} sanciones del catálogo`,
                                             ...Object.entries(aiSuggestion.context.historial || {}).map(([piloto, h]) =>
-                                                `historial de ${piloto} (${h.sanciones} sanción(es), ${h.amonestacion} pts de amonestación)`),
+                                                `historial de ${piloto} (${h.sanciones} sanción(es), ${h.amonestacion} pts de licencia)`),
+                                            aiSuggestion.context.descargos > 0 && `${aiSuggestion.context.descargos} descargo(s) del acusado`,
                                             aiSuggestion.context.salaCarrera && 'configuración de sala de la carrera',
                                             aiSuggestion.context.criterio && 'criterio de los comisarios',
                                             aiSuggestion.context.precedentes > 0 && `${aiSuggestion.context.precedentes} resoluciones anteriores`,
@@ -2026,12 +2128,20 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                                 <SancionDetalle preset={selectedPreset} nivel={nivelDanos} onNivel={setNivelDanos} posiciones={posiciones} onPosiciones={setPosiciones} />
                             )}
 
+                            {!customMode && admiteFactores(selectedPreset) && (
+                                <FactoresSancion
+                                    base={selectedPreset.type === 'position' ? posiciones : puntosBase(selectedPreset, nivelDanos)}
+                                    unidad={selectedPreset.type === 'position' ? 'pos.' : 'pts'}
+                                    factores={factores} onChange={setFactores}
+                                    previas={sancionesPrevias(penalties, selectedAccused, selectedPreset.id)} />
+                            )}
+
                             {/* Puntos adicionales cuando hay preset seleccionado */}
                             {!customMode && selectedPreset && (
                                 <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3 space-y-2">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-orange-300 text-xs font-semibold">➕ Puntos adicionales</span>
-                                        <span className="text-gray-400 text-xs">Base: <span className="text-red-400 font-bold">-{puntosBase(selectedPreset, nivelDanos)} pts</span></span>
+                                        <span className="text-orange-300 text-xs font-semibold">➕ Extras por daños (art. 6.4)</span>
+                                        <span className="text-gray-400 text-xs">Sanción: <span className="text-red-400 font-bold">-{puntosConFactores(selectedPreset, nivelDanos, factores)} pts</span></span>
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <div>
@@ -2057,7 +2167,7 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                                     {extraPoints > 0 && (
                                         <div className="text-center text-xs">
                                             <span className="text-gray-400">Total: </span>
-                                            <span className="text-red-400 font-bold">-{puntosBase(selectedPreset, nivelDanos) + extraPoints} pts</span>
+                                            <span className="text-red-400 font-bold">-{puntosConFactores(selectedPreset, nivelDanos, factores) + extraPoints} pts</span>
                                         </div>
                                     )}
                                 </div>
@@ -2087,7 +2197,7 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-gray-400 text-xs block mb-1">Pts amonestación</label>
+                                            <label className="text-gray-400 text-xs block mb-1">Pts licencia</label>
                                             <input
                                                 type="number" min="0" max="10"
                                                 value={customForm.warningPoints}

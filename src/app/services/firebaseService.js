@@ -16,7 +16,8 @@ import {
   increment,
   writeBatch,
   deleteField,
-  runTransaction
+  runTransaction,
+  serverTimestamp
 } from "firebase/firestore";
 import {
   getStorage,
@@ -27,6 +28,7 @@ import {
 } from "firebase/storage";
 import { app, auth } from "../api/firebase/firebaseConfig";
 import { declarationDocId } from "../utils/carUsageCalculator";
+import { idDescargo } from "../utils/descargo";
 import { planificarDescarte } from "../utils/pilotIdentityMatcher";
 import { normalizarRedes } from "../utils/casterLinks";
 import { conflictosDeMiembros } from "../utils/teamTagMatcher";
@@ -1563,6 +1565,36 @@ export class FirebaseService {
     } catch (error) {
       console.error("Error creating appeal:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Descargo del piloto acusado antes de resolver (reglamento 6.6.3). Uno por
+   * piloto y reclamación: el id lo fija, y las reglas solo permiten crearlo.
+   * createdAt lo pone el servidor para que el plazo sea fiable.
+   */
+  static async createDefense(championshipId, { claimId, accusedName, text, evidence = [] }) {
+    const ref = doc(db, "championships", championshipId, "defenses", idDescargo(claimId, accusedName));
+    await setDoc(ref, {
+      claimId,
+      accusedName,
+      text: (text || "").trim(),
+      evidence: (evidence || []).filter(Boolean),
+      createdAt: serverTimestamp(),
+    });
+    return { success: true, id: ref.id };
+  }
+
+  static async getDefensesByChampionship(championshipId) {
+    try {
+      const snapshot = await getDocs(collection(db, "championships", championshipId, "defenses"));
+      return snapshot.docs.map(d => {
+        const data = d.data();
+        return { id: d.id, ...data, createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt };
+      });
+    } catch (error) {
+      console.error("Error fetching defenses:", error);
+      return [];
     }
   }
 

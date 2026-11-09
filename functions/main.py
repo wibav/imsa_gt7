@@ -1380,7 +1380,7 @@ def _contexto_reclamacion(db, champ_ref, champ: dict, org: dict, claim: dict, ac
             if p.get('type') == 'position' and p.get('positionsLost'):
                 efectos.append(f'-{p["positionsLost"]} posiciones en el resultado de la carrera')
             if p.get('warningPoints'):
-                efectos.append(f'+{p["warningPoints"]} puntos de amonestación')
+                efectos.append(f'+{p["warningPoints"]} puntos de licencia')
             if p.get('timeSeconds'):
                 efectos.append(f'+{p["timeSeconds"]} s')
             if p.get('type') == 'disqualification':
@@ -1388,7 +1388,7 @@ def _contexto_reclamacion(db, champ_ref, champ: dict, org: dict, claim: dict, ac
             lineas.append(f'- id="{p["id"]}"' + (f' (art. {p["article"]})' if p.get('article') else '') + f' · {p.get("name") or ""}: {p.get("description") or ""}'
                           f' [{", ".join(efectos) or "sin efecto en puntos"}]')
     if cfg.get('warningThreshold'):
-        lineas.append(f'Umbrales: al acumular {cfg["warningThreshold"]} puntos de amonestación se restan '
+        lineas.append(f'Umbrales: al acumular {cfg["warningThreshold"]} puntos de licencia se restan '
                       f'{cfg.get("autoPointsPenalty") or 10} puntos automáticamente'
                       + (f'; con {cfg["autoDisqualifyThreshold"]} hay descalificación.' if cfg.get('autoDisqualifyThreshold') else '.'))
 
@@ -1411,7 +1411,7 @@ def _contexto_reclamacion(db, champ_ref, champ: dict, org: dict, claim: dict, ac
                 f'R{p.get("round") or "?"} {p.get("name") or p.get("type") or "sanción"}'
                 for p in previas[-_CTX_HISTORIAL_MAX:]
             )
-            lineas.append(f'{nombre}: {len(previas)} sanción(es), {amonestacion} puntos de amonestación acumulados. {detalle}')
+            lineas.append(f'{nombre}: {len(previas)} sanción(es), {amonestacion} puntos de licencia acumulados. {detalle}')
 
     track_id = claim.get('trackId')
     if track_id:
@@ -1426,6 +1426,18 @@ def _contexto_reclamacion(db, champ_ref, champ: dict, org: dict, claim: dict, ac
         if sala:
             usado['salaCarrera'] = True
             lineas += ['', '=== CONFIGURACIÓN DE SALA DE ESA CARRERA (lo que el propio juego ya penaliza) ==='] + sala
+
+    # Descargos de los acusados (reglamento 6.6.3): su versión antes de resolver
+    descargos = [d.to_dict() or {} for d in champ_ref.collection('defenses').where('claimId', '==', claim.get('id') or '').stream()]
+    usado['descargos'] = len(descargos)
+    lineas += ['', '=== DESCARGOS DE LOS ACUSADOS (su versión de lo ocurrido; valóralos frente a las pruebas) ===']
+    if descargos:
+        for d in descargos:
+            texto, _ = _recortar_contexto((d.get('text') or '').strip(), 2000)
+            videos = ', '.join(d.get('evidence') or [])
+            lineas.append(f'{d.get("accusedName") or "?"}: {texto}' + (f' (vídeos del acusado: {videos})' if videos else ''))
+    else:
+        lineas.append('Ningún acusado ha presentado descargo.')
 
     criterio = (cfg.get('stewardCriteria') or '').strip()
     if criterio:
@@ -1518,7 +1530,7 @@ def _precedentes_reclamacion(db, champ_ref, champ: dict, claim: dict, accused_na
                 if pd.get('points'):
                     efectos.append(f'-{pd["points"]} pts')
                 if pd.get('warningPoints'):
-                    efectos.append(f'+{pd["warningPoints"]} amonestación')
+                    efectos.append(f'+{pd["warningPoints"]} pts de licencia')
                 sancion = f'{pd.get("name") or "sanción"}' + (f' ({", ".join(efectos)})' if efectos else '')
         elegidos.append({
             'campeonato': datos.get('name') or ref.id,

@@ -2156,7 +2156,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                             <h3 className="text-xl font-bold text-white mb-2">⚠️ Sistema de Sanciones</h3>
                                             <p className="text-gray-300 text-sm">
                                                 {formData.penaltiesConfig.enabled
-                                                    ? 'Gestiona sanciones, amonestaciones y reclamaciones de los pilotos'
+                                                    ? 'Gestiona sanciones, puntos de licencia y reclamaciones de los pilotos'
                                                     : 'Activa el sistema de sanciones para gestionar infracciones'}
                                             </p>
                                         </div>
@@ -2171,7 +2171,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                         <div className="space-y-4 mt-4 pt-4 border-t border-white/10">
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-300 mb-2">Umbral Amonestaciones</label>
+                                                    <label className="block text-sm font-medium text-gray-300 mb-2">Umbral de puntos de licencia</label>
                                                     <input type="number" min="1" max="50"
                                                         value={formData.penaltiesConfig.warningThreshold}
                                                         onChange={(e) => setFormData(prev => ({
@@ -2179,7 +2179,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                             penaltiesConfig: { ...prev.penaltiesConfig, warningThreshold: parseInt(e.target.value) || 8 }
                                                         }))}
                                                         className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
-                                                    <p className="text-xs text-gray-400 mt-1">Puntos de amonestación para penalización automática</p>
+                                                    <p className="text-xs text-gray-400 mt-1">Puntos de licencia para penalización automática</p>
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-300 mb-2">Puntos Auto-Deducidos</label>
@@ -2201,7 +2201,7 @@ export default function ChampionshipForm({ isEditing = false }) {
                                                             penaltiesConfig: { ...prev.penaltiesConfig, autoDisqualifyThreshold: parseInt(e.target.value) || 16 }
                                                         }))}
                                                         className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500" />
-                                                    <p className="text-xs text-gray-400 mt-1">Amonestaciones para descalificación</p>
+                                                    <p className="text-xs text-gray-400 mt-1">Puntos de licencia para descalificación</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center justify-between">

@@ -1,6 +1,6 @@
 {
- "version": "2.1",
- "fecha": "2026-10-23",
+ "version": "2.2",
+ "fecha": "2026-11-08",
  "idioma": "en",
  "sections": [
   {
@@ -12,7 +12,7 @@
      "subtitle": "Scope",
      "items": [
       "These general rules apply to every GT7 Championships championship and event.",
-      "The specific rules of each championship or event take precedence over these wherever they differ (cars, points system, warning thresholds, lobby settings, etc.).",
+      "The specific rules of each championship or event take precedence over these wherever they differ (cars, points system, licence point thresholds, lobby settings, etc.).",
       "Anything not covered here is decided by the stewards, using as reference the FIA Code of Driving Conduct on Circuits (International Sporting Code, Appendix L, Chapter IV) and its Driving Standards Guidelines, adapted to Gran Turismo 7.",
       "Articles are quoted by their number (for example, 5.3.2). Each published version shows its update date; decisions follow the version in force on the day of the race."
      ]
@@ -75,8 +75,14 @@
       },
       {
        "cells": [
-        "Warning points",
-        "Points added by some penalties, accumulated over the championship (see 7.2)."
+        "Warning",
+        "A notice for minor misconduct. It does not deduct championship points; it only adds licence points (see 7.2)."
+       ]
+      },
+      {
+       "cells": [
+        "Licence points",
+        "A record of the driver's conduct during the championship. Some offences and warnings add them. They are not a second penalty: they only take effect when they accumulate (see 7.2)."
        ]
       },
       {
@@ -187,7 +193,7 @@
      "headers": [
       "Offence",
       "Penalty",
-      "Warning points"
+      "Licence points"
      ],
      "rows": [
       {
@@ -233,7 +239,7 @@
      "items": [
       "A car is within the limits if at least two wheels on different axles (one front and one rear) remain on the track. The white line is track; the kerb is not.",
       "Shortcut penalties are those applied by the game according to the lobby settings, and they stand.",
-      "Overtaking with the car outside the limits, or gaining a lasting advantage by leaving them, means the position must be given back immediately, before the end of the lap at the latest. Failing to do so: -3 positions in the final result.",
+      "Overtaking with the car outside the limits, or gaining a lasting advantage by leaving them, means the position must be given back at the first safe opportunity, and before the end of the lap at the latest. It must be given back without braking sharply or changing line unpredictably. Not giving it back is penalised according to the table in article 6.3.",
       "If systematic abuse of the limits that the game does not penalise is detected, the stewards may apply further penalties."
      ],
      "figuras": [
@@ -251,9 +257,9 @@
       "On the OUTSIDE, the attacker is only entitled to room if at the apex their front axle is ahead of the rival’s front axle. It is the hardest move: whoever tries it takes the risk.",
       "In both cases, the attacker must be in control, brake in time and be able to take the corner within the limits without leaning on the rival. Otherwise it is a divebomb and gives no right to room.",
       "Without an overlap, the driver in front may choose any line without it being considered blocking.",
-      "With an overlap, each driver is entitled to their half of the track (outside or inside) until the corner exit. Neither may push the other beyond the limits.",
+      "With an overlap, each driver is entitled to their side of the track until the corner exit: you must leave the rival at least one car's width between your car and the edge on their side. Neither may push the other beyond the limits.",
       "The overtake ends when the overtaking car has fully passed the other, with no overlap. Until then, the overlap still applies.",
-      "Do not use another driver being lapped to overtake a direct rival. Wait for the next corner."
+      "You may use a lapping manoeuvre to overtake a rival, as long as the move is safe and you impede neither the driver lapping nor the one being lapped."
      ],
      "figuras": [
       {
@@ -286,7 +292,8 @@
       "A driver about to be lapped MUST let the faster car through safely, predictably and without obstructing.",
       "To let someone by, move to one edge of the track and hold that line until they have passed. You may lift off.",
       "Several cars may be trying to lap you: check both sides and use the proximity radar.",
-      "The driver being lapped must NOT race the one lapping them nor use the moment to gain positions on direct rivals."
+      "Once lapping is imminent or has begun, the driver being lapped must NOT race the one lapping them. Lapped drivers may keep racing each other, as long as they do not impede the driver lapping, who has priority.",
+      "Not making way when being lapped, or impeding the driver lapping, is penalised according to the table in article 7.1."
      ]
     },
     {
@@ -294,7 +301,7 @@
      "items": [
       "Respect the pit entry and exit. The game automatically penalises crossing the pit line.",
       "Stopping the car outside the pits during the race is forbidden; if you need to stop, do it in the pits. Penalty: -5 points.",
-      "If you impede other drivers while serving an in-game penalty, you must serve it giving way off the racing line. Failing to do so: -6 points."
+      "When serving an in-game penalty, move off the racing line and give way. Avoidable obstruction is penalised (-6 points): staying on the racing line when you could move aside. Unintended harm the penalty itself causes another driver is not penalised."
      ]
     },
     {
@@ -373,7 +380,7 @@
       "Light dmg.",
       "Moderate dmg.",
       "Heavy dmg.",
-      "Warning points"
+      "Licence points"
      ],
      "rows": [
       {
@@ -435,7 +442,8 @@
       "AGGRAVATING — intent or bad faith: penalty ×2.",
       "MITIGATING — giving the position back after the incident: penalty halved.",
       "MITIGATING — other circumstances that reduce the seriousness or the blame: penalty halved.",
-      "Aggravating and mitigating factors combine, but the final penalty never exceeds three times the base penalty. Damage extras are added afterwards."
+      "Aggravating and mitigating factors combine, but the final penalty never exceeds three times the base penalty. Damage extras are added afterwards.",
+      "The same action is penalised only once. If it fits several offences, the penalty for the most serious one applies, with its aggravating and mitigating factors."
      ]
     },
     {
@@ -443,7 +451,7 @@
      "items": [
       "The stewards review incidents using the game replay, the videos provided and the live broadcast.",
       "They may act on their own initiative, without a protest, if they see an infringement or receive the host’s report.",
-      "Before deciding, the accused driver may give their version and provide their own video within 24 hours of being notified of the protest, through the official stewards’ channel.",
+      "Before deciding, each accused driver may give their version and provide their own video within 24 hours of the protest being published, using the «🛡️ Submit defence» button in the Penalties section. No penalty is imposed without hearing them or before that deadline has ended.",
       "A steward may not decide on incidents they were involved in, nor those of their own team or lobby. In those cases another steward or the championship management decides.",
       "The following are taken into account: intent, room left, relative speed, consequences for the other driver and incident history.",
       "The stewards decide within a maximum of 48 hours after the protest period ends."
@@ -462,7 +470,7 @@
      "headers": [
       "Offence",
       "Penalty",
-      "Warning points",
+      "Licence points",
       "Severity"
      ],
      "rows": [
@@ -511,6 +519,14 @@
         "Impeding while serving an in-game penalty",
         "-6 points",
         "2",
+        "🟠 Moderate"
+       ]
+      },
+      {
+       "cells": [
+        "Not making way when being lapped, or impeding the driver lapping",
+        "-3 points",
+        "1",
         "🟠 Moderate"
        ]
       },
@@ -573,11 +589,11 @@
      ]
     },
     {
-     "subtitle": "Warning points",
+     "subtitle": "Licence points",
      "items": [
-      "Some penalties add warning points as well as deducting points. They accumulate over the whole championship and are not reset between races.",
-      "Each time a driver reaches the championship threshold (by default, 8 warning points, and again at 16, 24…), 10 points are automatically deducted from the standings. The threshold and the deduction may vary in each championship.",
-      "On reaching the championship disqualification threshold (by default, 16 warning points), the stewards consider excluding the driver from the championship.",
+      "Licence points record a driver's conduct. Some offences add them together with their penalty, and warnings add them without deducting championship points. They are not a second penalty for the same act: they only take effect when they accumulate. They accumulate over the whole championship and are not reset between races.",
+      "Each time a driver reaches the championship threshold (by default, 8 licence points, and again at 16, 24…), 10 points are automatically deducted from the standings. The threshold and the deduction may vary in each championship.",
+      "On reaching the championship disqualification threshold (by default, 16 licence points), the stewards consider excluding the driver from the championship.",
       "Each championship page shows its values in the Penalties section."
      ]
     },
@@ -585,7 +601,7 @@
      "subtitle": "Important notes",
      "items": [
       "Points penalties are deducted from the championship total. A driver can end up with negative points.",
-      "Whatever Gran Turismo 7 already penalises during the race (shortcuts, contact, jump start, pit line, flags, mandatory tyres…) is not penalised again. The stewards only act on what the game does not control.",
+      "Whatever Gran Turismo 7 already penalises during the race (shortcuts, contact, jump start, pit line, mandatory tyres…) is not penalised again. The stewards only act on what the game does not control, such as respecting blue flags (5.5).",
       "The values in these rules are the standard ones. Each championship may set its own.",
       "The organisation may exclude from future editions or expel troublesome drivers or those with repeated serious penalties."
      ]
@@ -619,7 +635,7 @@
     {
      "subtitle": "Decision",
      "items": [
-      "The stewards review the evidence, complete it with the replay or the broadcast and hear the accused driver (see 6.6).",
+      "Each protest is published in the Penalties section as soon as it is submitted, with its description and videos. From that moment, the accused driver has 24 hours to submit their defence (see 6.6.3). The stewards then review the evidence and complete it with the replay or the broadcast.",
       "The decision is published on the website, with the ruling and, if any, the penalty applied.",
       "A clearly unfounded or bad-faith protest costs the driver who filed it -5 points. A protest made in good faith that is dismissed is not penalised."
      ]
@@ -710,8 +726,9 @@
     {
      "subtitle": "Divisions, promotion and relegation",
      "items": [
-      "Championships with several divisions use a promotion and relegation system between editions.",
-      "At the end of each edition, drivers in promotion places move up a division and those in relegation places move down.",
+      "Championships with several divisions use a promotion and relegation system. Each championship sets when it applies: at the end of the edition, every few races or halfway through the championship.",
+      "At each change, drivers in promotion places move up a division and those in relegation places move down, according to their division's standings up to that race.",
+      "Changes during the championship are applied automatically 48 hours after the race that closes the block, if there are no open claims from those races. Drivers who change division keep their points.",
       "If there are free spots, drivers just relegated from the division above have priority over those just promoted from the one below.",
       "The number of promotions and relegations is set by each championship."
      ]

@@ -114,6 +114,17 @@ export function notifyAppealCreated({ championshipName, appellantName, reason, o
     );
 }
 
+export function notifyDefenseCreated({ championshipName, accusedName, reporterName, trackName, text, orgName }) {
+    return sendTelegramNotification(
+        `🛡️ <b>Nuevo descargo</b>\n` +
+        orgTag(orgName) +
+        `🏆 ${championshipName}\n` +
+        `👤 ${accusedName}` + (reporterName ? ` (reclamación de ${reporterName})` : '') + `\n` +
+        (trackName ? `🏁 ${trackName}\n` : '') +
+        `📝 ${text}`
+    );
+}
+
 export function notifyAppealResolved({ championshipName, appellantName, status, resolution, orgName }) {
     const statusLabel = { upheld: 'Confirmada', overturned: 'Revocada/Modificada', dismissed: 'Inadmitida' }[status] || status;
     return sendTelegramNotification(

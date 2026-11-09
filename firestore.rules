@@ -77,6 +77,14 @@ service cloud.firestore {
         && request.time <= dia + duration.value(78, 'h');
     }
 
+    // Descargo (6.6.3): la reclamación existe, sigue en estudio y el piloto
+    // que firma está entre sus acusados (también el formato antiguo).
+    function claimEnEstudio(champId, claimId, piloto) {
+      let claim = get(/databases/$(database)/documents/championships/$(champId)/claims/$(claimId)).data;
+      return claim.get('status', 'pending') in ['pending', 'reviewing']
+        && (piloto in claim.get('accusedNames', []) || piloto == claim.get('accusedName', ''));
+    }
+
     // Documento completo del campeonato padre — un solo get() reutilizado
     // tanto para orgId (aislamiento) como para comisarioUids (ADR-009,
     // asignación por campeonato). Firestore memoiza get()s idénticos dentro
@@ -269,6 +277,27 @@ service cloud.firestore {
           && request.resource.data.get('penaltyId', null) == null
           && claimDentroDePlazo(champId, request.resource.data.get('trackId', ''));
         allow update, delete: if canRefereeChamp(champId);
+      }
+
+      // Descargos del piloto acusado antes de resolver (reglamento 6.6.3).
+      // `create` público como el de claims/appeals, pero acotado: la
+      // reclamación debe existir y seguir en estudio, quien firma debe ser
+      // uno de sus acusados y el id (claimId__piloto) impide un segundo
+      // descargo del mismo piloto. createdAt lo pone el servidor, para que
+      // el plazo de 24 h que ven los comisarios sea fiable. Sin update: un
+      // descargo enviado no se reescribe.
+      match /defenses/{defenseId} {
+        allow read: if true;
+        allow create: if defenseId.matches(request.resource.data.claimId + '__.+')
+          && request.resource.data.keys().hasOnly(['claimId', 'accusedName', 'text', 'evidence', 'createdAt'])
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.text is string
+          && request.resource.data.text.size() >= 10
+          && request.resource.data.text.size() <= 4000
+          && request.resource.data.evidence is list
+          && request.resource.data.evidence.size() <= 10
+          && claimEnEstudio(champId, request.resource.data.claimId, request.resource.data.accusedName);
+        allow delete: if canRefereeChamp(champId);
       }
 
       // Alegaciones (apelaciones) sobre la resolución de una reclamación —

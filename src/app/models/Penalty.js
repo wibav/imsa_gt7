@@ -31,7 +31,11 @@ export class Penalty {
         this.positionsLost = data.positionsLost || 0;   // Posiciones que pierde en el resultado de la carrera (type 'position')
         this.damageLevel = data.damageLevel ?? null;    // Nivel de daños elegido (0-3) en sanciones por contacto
         this.article = data.article || '';              // Artículo del reglamento
-        this.warningPoints = data.warningPoints || 0;   // Puntos de amonestación acumulativos
+        this.warningPoints = data.warningPoints || 0;   // Puntos de licencia acumulativos
+        // Cálculo de la sanción (6.4 y 6.5). Sin declararlos aquí, toFirestore() los perdía
+        this.extraPoints = data.extraPoints || 0;              // Extras por daños, sumados tras los factores
+        this.extraPointsReason = data.extraPointsReason || '';
+        this.factores = data.factores || null;                 // { agravantes, atenuantes, base, multiplicador }
 
         // Estado
         this.status = data.status || 'applied';        // 'applied' | 'revoked' | 'appealed'
@@ -232,8 +236,8 @@ export const NIVELES_DANOS = catalogoSanciones.nivelesDanos;
  */
 export const DEFAULT_PENALTIES_CONFIG = {
     enabled: false,
-    warningThreshold: 8,      // Puntos de amonestación para sanción automática
-    autoDisqualifyThreshold: 16, // Puntos de amonestación para descalificación
+    warningThreshold: 8,      // Puntos de licencia para sanción automática
+    autoDisqualifyThreshold: 16, // Puntos de licencia para descalificación
     autoPointsPenalty: 10,     // Puntos deducidos al alcanzar warningThreshold
     allowClaims: false,        // Permitir reclamaciones públicas
     allowAppeals: false,       // Permitir alegaciones sobre reclamaciones resueltas (S3.3)

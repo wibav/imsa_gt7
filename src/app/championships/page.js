@@ -47,6 +47,8 @@ import LoadingSkeleton from "../components/common/LoadingSkeleton";
 import RegistrationForm from "../components/championship/RegistrationForm";
 import ClaimForm from '../components/championship/ClaimForm';
 import AppealForm, { getAppealWindowStatus, getEligibleAppellants } from '../components/championship/AppealForm';
+import DefenseForm from '../components/championship/DefenseForm';
+import { PLAZO_DESCARGO_HORAS, ESTADOS_EN_ESTUDIO, plazoDescargo, descargosDe, acusadosSinDescargo } from '../utils/descargo';
 import CarDeclarationModal from '../components/championship/CarDeclarationModal';
 import ContinuityModal from '../components/championship/ContinuityModal';
 import { CONTINUIDAD, estadoContinuidad } from '../utils/newEdition';
@@ -171,6 +173,8 @@ export default function ChampionshipDetailPage() {
     const [penalties, setPenalties] = useState([]);
     const [claims, setClaims] = useState([]);
     const [appeals, setAppeals] = useState([]);
+    const [defenses, setDefenses] = useState([]);
+    const [defenseFormClaim, setDefenseFormClaim] = useState(null);
     const [divisions, setDivisions] = useState([]);
     // Identidades de piloto fusionadas (ver docs/PLAN_FUSION_PILOTOS.md)
     const [pilotIdentities, setPilotIdentities] = useState([]);
@@ -199,7 +203,7 @@ export default function ChampionshipDetailPage() {
         setTracks([]);
 
         try {
-            const [champData, teamsData, tracksData, penaltiesData, divisionsData, claimsData, appealsData, declarationsData, identitiesData] = await Promise.all([
+            const [champData, teamsData, tracksData, penaltiesData, divisionsData, claimsData, appealsData, declarationsData, identitiesData, defensesData] = await Promise.all([
                 FirebaseService.getChampionship(championshipId),
                 FirebaseService.getTeamsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getTracksByChampionship(championshipId).catch(() => []),
@@ -208,7 +212,8 @@ export default function ChampionshipDetailPage() {
                 FirebaseService.getClaimsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getAppealsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getDeclarations(championshipId).catch(() => ({})),
-                FirebaseService.getPilotIdentities()
+                FirebaseService.getPilotIdentities(),
+                FirebaseService.getDefensesByChampionship(championshipId),
             ]);
             setDeclarations(declarationsData || {});
             if (champData?.edition) {
@@ -222,6 +227,7 @@ export default function ChampionshipDetailPage() {
             setDivisions(divisionsData || []);
             setClaims(claimsData || []);
             setAppeals(appealsData || []);
+            setDefenses(defensesData || []);
             setPilotIdentities(identitiesData || []);
         } catch (error) {
             console.error("Error loading championship data:", error);
@@ -1442,6 +1448,64 @@ export default function ChampionshipDetailPage() {
                                     </div>
                                 )}
 
+                                {/* Reclamaciones en estudio: se publican al presentarse para que
+                                    el acusado pueda dar su versión antes de que se resuelva
+                                    (reglamento 6.6.3 y 8.3.1). */}
+                                {championship.penaltiesConfig?.allowClaims && (() => {
+                                    const enEstudio = claims
+                                        .filter(c => ESTADOS_EN_ESTUDIO.includes(c.status || 'pending'))
+                                        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                                    if (enEstudio.length === 0) return null;
+                                    return (
+                                        <div className="mt-8">
+                                            <h3 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
+                                                🔎 {t('campeonato.sanciones.enEstudio')}
+                                            </h3>
+                                            <p className="text-gray-400 text-sm mb-4">{t('campeonato.sanciones.enEstudioTexto', { h: PLAZO_DESCARGO_HORAS })}</p>
+                                            <div className="space-y-3">
+                                                {enEstudio.map(claim => {
+                                                    const plazo = plazoDescargo(claim);
+                                                    const faltan = acusadosSinDescargo(claim, defenses);
+                                                    return (
+                                                        <div key={claim.id} className="rounded-xl p-4 border bg-yellow-900/10 border-yellow-400/30">
+                                                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                                <span className="text-xs px-2 py-0.5 rounded font-semibold bg-yellow-500/20 text-yellow-200">
+                                                                    {plazo.abierto
+                                                                        ? t('campeonato.reclamacion.plazoDescargo', { fecha: plazo.vence.toLocaleString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) })
+                                                                        : t('campeonato.reclamacion.plazoCerrado')}
+                                                                </span>
+                                                                <span className="text-white font-bold text-sm">
+                                                                    {claim.reporterName} → {(claim.accusedNames?.length > 0 ? claim.accusedNames : [claim.accusedName]).join(', ')}
+                                                                </span>
+                                                            </div>
+                                                            {claim.trackName && (
+                                                                <div className="text-gray-400 text-xs mb-1">
+                                                                    🏁 R{claim.round} - {claim.trackName}
+                                                                    {claim.lap && ` • ${t('campeonato.vuelta', { n: claim.lap })}`}
+                                                                </div>
+                                                            )}
+                                                            <p className="text-gray-300 text-sm">{claim.description}</p>
+                                                            <EnlacesVideo urls={claim.evidence} />
+                                                            <ListaDescargos descargos={descargosDe(claim, defenses)} t={t} />
+                                                            {!plazo.abierto && faltan.length > 0 && descargosDe(claim, defenses).length > 0 && (
+                                                                <p className="text-gray-500 text-xs mt-2">{t('campeonato.reclamacion.sinDescargo', { nombres: faltan.join(', ') })}</p>
+                                                            )}
+                                                            {plazo.abierto && faltan.length > 0 && (
+                                                                <button
+                                                                    onClick={() => setDefenseFormClaim(claim)}
+                                                                    className="mt-3 text-sm px-4 py-2 bg-orange-600/80 hover:bg-orange-600 text-white rounded-lg font-semibold transition-all"
+                                                                >
+                                                                    🛡️ {t('campeonato.reclamacion.presentarDescargo')}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
                                 {/* Historial de reclamaciones resueltas — CA-3.15: cadena
                                     cronológica completa (reclamación → resolución →
                                     alegación → resolución de la alegación), sin pisar
@@ -1497,6 +1561,7 @@ export default function ChampionshipDetailPage() {
                                                                             </div>
                                                                         )}
                                                                         <p className="text-gray-300 text-sm">{claim.description}</p>
+                                                                        <ListaDescargos descargos={descargosDe(claim, defenses)} t={t} />
                                                                         {claim.resolution && (
                                                                             <div className={`mt-2 p-2 rounded text-xs ${isRejectedLike(claim.status) ? 'bg-red-500/10 text-red-200' : 'bg-green-500/10 text-green-200'}`}>
                                                                                 💬 <strong>{t('campeonato.reclamacion.resolucion')}:</strong> {claim.resolution}
@@ -2278,6 +2343,18 @@ export default function ChampionshipDetailPage() {
                 />
             )}
 
+            {/* Modal de Descargo del acusado sobre una reclamación en estudio */}
+            {defenseFormClaim && (
+                <DefenseForm
+                    championshipId={championshipId}
+                    championship={championship}
+                    claim={defenseFormClaim}
+                    defenses={defenses}
+                    onClose={() => setDefenseFormClaim(null)}
+                    onSubmitted={() => loadChampionshipData()}
+                />
+            )}
+
             {/* Modal de Alegación (apelación) sobre una reclamación resuelta */}
             {appealFormClaim && (
                 <AppealForm
@@ -2509,6 +2586,41 @@ function NotaSancionesCarrera({ cambios }) {
                         : <>{t('campeonato.pierdePosiciones', { n: c.puestos, de: c.de, a: c.a })}</>}
                     <span className="text-red-300/70"> · {c.sancion}</span>
                 </p>
+            ))}
+        </div>
+    );
+}
+
+
+const dominio = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
+
+/** Enlaces a los vídeos de una reclamación o descargo. */
+function EnlacesVideo({ urls }) {
+    const lista = (Array.isArray(urls) ? urls : (urls ? [urls] : [])).filter(u => /^https?:\/\//.test(u));
+    if (lista.length === 0) return null;
+    return (
+        <div className="flex flex-wrap gap-2 mt-2">
+            {lista.map((url, i) => (
+                <a key={url} href={url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs px-2 py-1 rounded bg-blue-500/15 border border-blue-400/30 text-blue-200 hover:bg-blue-500/25">
+                    🎥 {lista.length > 1 ? `${i + 1}` : ''}{' '}{dominio(url)}
+                </a>
+            ))}
+        </div>
+    );
+}
+
+/** Descargos de los acusados (6.6.3), publicados junto a la reclamación. */
+function ListaDescargos({ descargos, t }) {
+    if (!descargos?.length) return null;
+    return (
+        <div className="mt-3 pl-3 border-l-2 border-sky-500/40 space-y-2">
+            {descargos.map(d => (
+                <div key={d.id} className="text-xs">
+                    <div className="text-sky-300 font-semibold">🛡️ {t('campeonato.reclamacion.descargoDe', { nombre: d.accusedName })}</div>
+                    <div className="text-gray-300 whitespace-pre-line">{d.text}</div>
+                    <EnlacesVideo urls={d.evidence} />
+                </div>
             ))}
         </div>
     );

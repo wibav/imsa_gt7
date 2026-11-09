@@ -18,6 +18,97 @@ export function resumenPreset(preset) {
     return preset.points > 0 ? `-${preset.points} pts` : '';
 }
 
+// ── Agravantes y atenuantes (reglamento general, 6.5) ──────────────────
+// Cada agravante duplica la sanción y cada atenuante la reduce a la mitad.
+// Se combinan, pero el resultado nunca supera el triple de la base. Los
+// extras por daños (6.4) se suman después, fuera de este cálculo.
+export const AGRAVANTES = [
+    { id: 'vuelta', etiqueta: 'Primera o última vuelta' },
+    { id: 'reincidencia', etiqueta: 'Reincidencia (la misma infracción en este campeonato)' },
+    { id: 'malaFe', etiqueta: 'Intencionalidad o mala fe' },
+];
+export const ATENUANTES = [
+    { id: 'devolvio', etiqueta: 'Devolvió la posición tras el incidente' },
+    { id: 'otras', etiqueta: 'Otras circunstancias que reducen la gravedad o la culpa' },
+];
+export const SIN_FACTORES = { agravantes: [], atenuantes: [] };
+
+/** Multiplicador de los factores marcados: ×2 por agravante, ×½ por atenuante. */
+export function multiplicadorFactores(factores) {
+    return Math.pow(2, factores?.agravantes?.length || 0) * Math.pow(0.5, factores?.atenuantes?.length || 0);
+}
+
+/** Sanción tras agravantes y atenuantes, redondeada y con el tope del triple. */
+export function aplicarFactores(base, factores) {
+    if (!base) return 0;
+    return Math.min(Math.round(base * multiplicadorFactores(factores)), base * 3);
+}
+
+/** ¿Los factores se aplican a este preset? Solo a puntos y posiciones. */
+export const admiteFactores = (preset) => preset?.type === 'points' || preset?.type === 'position';
+
+/** Lo que se guarda en la sanción para dejar constancia del cálculo. */
+export function registroFactores(base, factores) {
+    return {
+        agravantes: factores?.agravantes || [],
+        atenuantes: factores?.atenuantes || [],
+        base,
+        multiplicador: multiplicadorFactores(factores),
+    };
+}
+
+/**
+ * Casillas de agravantes y atenuantes con el resultado calculado.
+ *
+ * @param {number}   base          - puntos o posiciones antes de los factores
+ * @param {string}   unidad        - 'pts' | 'pos.'
+ * @param {object}   factores      - { agravantes: [], atenuantes: [] }
+ * @param {Function} onChange
+ * @param {number}   previas       - sanciones previas del piloto por la misma infracción
+ */
+export function FactoresSancion({ base, unidad = 'pts', factores, onChange, previas = 0 }) {
+    const alternar = (grupo, id) => {
+        const lista = factores[grupo] || [];
+        onChange({ ...factores, [grupo]: lista.includes(id) ? lista.filter(x => x !== id) : [...lista, id] });
+    };
+    const resultado = aplicarFactores(base, factores);
+    const mult = multiplicadorFactores(factores);
+    const topado = base > 0 && Math.round(base * mult) > base * 3;
+    const casilla = (grupo, f, color) => (
+        <label key={f.id} className="flex items-start gap-2 text-xs text-gray-300 cursor-pointer">
+            <input type="checkbox" checked={(factores[grupo] || []).includes(f.id)} onChange={() => alternar(grupo, f.id)}
+                className={`mt-0.5 w-4 h-4 ${color}`} />
+            <span>
+                {f.etiqueta}
+                {f.id === 'reincidencia' && previas > 0 && (
+                    <span className="block text-yellow-300">Ya tiene {previas} sanción(es) por esta infracción en el campeonato.</span>
+                )}
+            </span>
+        </label>
+    );
+    return (
+        <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+                <h4 className="text-purple-200 font-semibold text-sm">⚖️ Agravantes y atenuantes <span className="text-gray-500 font-normal">(art. 6.5)</span></h4>
+                <span className="text-xs text-gray-400 whitespace-nowrap">
+                    -{base} {unidad}{mult !== 1 && <> ×{mult} → <span className="text-red-300 font-bold">-{resultado} {unidad}</span></>}
+                </span>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                    <p className="text-[11px] uppercase tracking-wide text-red-300">Agravantes (×2 cada uno)</p>
+                    {AGRAVANTES.map(f => casilla('agravantes', f, 'accent-red-500'))}
+                </div>
+                <div className="space-y-1.5">
+                    <p className="text-[11px] uppercase tracking-wide text-green-300">Atenuantes (÷2 cada uno)</p>
+                    {ATENUANTES.map(f => casilla('atenuantes', f, 'accent-green-500'))}
+                </div>
+            </div>
+            {topado && <p className="text-[11px] text-gray-400">Limitada al triple de la sanción base.</p>}
+        </div>
+    );
+}
+
 /** La sanción necesita una carrera concreta (cambia su resultado). */
 export const cambiaResultado = (preset) => preset?.type === 'position' || preset?.type === 'disqualification';
 
@@ -87,6 +178,9 @@ export function EfectoSancion({ penalty, compacto = false }) {
             {penalty.type === 'disqualification' && <span className="text-red-400 font-bold text-sm">DSQ</span>}
             {penalty.type === 'position' && penalty.positionsLost > 0 && <span className="text-orange-400 font-bold text-sm">-{penalty.positionsLost} {t('sanciones.pos')}</span>}
             {penalty.points > 0 && <span className="text-red-400 font-bold text-sm">-{penalty.points} pts</span>}
+            {penalty.factores && penalty.factores.multiplicador !== 1 && (
+                <span className="text-gray-500 text-[11px]">{penalty.factores.base} ×{penalty.factores.multiplicador}</span>
+            )}
             {penalty.warningPoints > 0 && <span className="text-yellow-400 text-xs">+{penalty.warningPoints} ⚠️</span>}
             {nivel && <span className="text-gray-500 text-[11px]">{nivel}</span>}
             {penalty.article && <span className="text-gray-500 text-[11px]">{t('sanciones.art', { art: penalty.article })}</span>}

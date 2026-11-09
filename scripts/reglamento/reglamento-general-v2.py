@@ -14,8 +14,8 @@ no alterar esa numeración.
 import json
 from pathlib import Path
 
-VERSION = '2.1'
-FECHA = '2026-10-23'
+VERSION = '2.2'
+FECHA = '2026-11-08'
 
 
 def lista(subtitulo, items, figuras=None):
@@ -60,7 +60,7 @@ SANCIONES = [
          descripcion='Adelantar sin derecho a espacio o ganando ventaja fuera de los límites sin devolver la posición (5.2.3, 5.3).'),
     # 7.1 General
     dict(id='amonestacion', nombre='Amonestación por incidente leve', icon='🟡', tipo='warning', puntos=0, amon=1, gravedad='minor', tabla='general', articulo='7.1',
-         descripcion='Incidente leve sin consecuencias suficientes para restar puntos (6.2).'),
+         descripcion='Aviso por un incidente leve: no resta puntos del campeonato, solo suma puntos de licencia (6.2, 7.2).'),
     dict(id='no_presentarse', nombre='No presentarse a la sala sin avisar', icon='👻', tipo='points', puntos=3, amon=0, gravedad='minor', tabla='general', articulo='7.1',
          descripcion='Inscrito que no se presenta a la carrera sin haber avisado. En campeonatos por equipos, -15 puntos al equipo.'),
     dict(id='danos_graves_no_ceder', nombre='No facilitar el paso circulando con daños graves', icon='🛠️', tipo='points', puntos=3, amon=1, gravedad='minor', tabla='general', articulo='7.1',
@@ -70,7 +70,9 @@ SANCIONES = [
     dict(id='rafagas', nombre='Uso abusivo de ráfagas de luces para distraer', icon='🔦', tipo='points', puntos=3, amon=1, gravedad='moderate', tabla='general', articulo='7.1',
          descripcion='Ráfagas reiteradas para presionar o distraer al piloto de delante.'),
     dict(id='estorbar_penalizacion', nombre='Estorbar al cumplir una penalización del juego', icon='⏳', tipo='points', puntos=6, amon=2, gravedad='moderate', tabla='general', articulo='7.1',
-         descripcion='Cumplir una penalización del juego en la trazada, estorbando a otros pilotos (5.6.3).'),
+         descripcion='Cumplir una penalización del juego en la trazada pudiendo apartarse, y estorbar a otros pilotos (5.6.3).'),
+    dict(id='bandera_azul', nombre='No facilitar un doblaje o estorbar al piloto que dobla', icon='🔵', tipo='points', puntos=3, amon=1, gravedad='moderate', tabla='general', articulo='7.1',
+         descripcion='Ignorar la bandera azul, competir con quien dobla o cerrarle el paso (5.5).'),
     dict(id='cambio_trayectoria', nombre='Más de un cambio de trayectoria en recta, o moverse con un coche en paralelo', icon='↔️', tipo='points', puntos=5, amon=2, gravedad='severe', tabla='general', articulo='7.1',
          descripcion='Defensa ilegal: zigzaguear, moverse en la frenada o cerrar a un coche en paralelo (5.4).'),
     dict(id='reclamacion_infundada', nombre='Reclamación manifiestamente infundada o de mala fe', icon='🚩', tipo='points', puntos=5, amon=0, gravedad='severe', tabla='general', articulo='7.1',
@@ -116,7 +118,7 @@ SECCIONES = [
         'content': [
             lista('Aplicación', [
                 'Este reglamento general aplica a todos los campeonatos y eventos de GT7 Championships.',
-                'El reglamento particular de cada campeonato o evento prevalece sobre este en todo lo que regule de forma distinta (coches, sistema de puntos, umbrales de amonestación, configuración de sala, etc.).',
+                'El reglamento particular de cada campeonato o evento prevalece sobre este en todo lo que regule de forma distinta (coches, sistema de puntos, umbrales de puntos de licencia, configuración de sala, etc.).',
                 'Lo no previsto lo resuelven los comisarios, tomando como referencia el Código de Conducta en Pista de la FIA (Código Deportivo Internacional, Anexo L, capítulo IV) y sus guías de pilotaje (Driving Standards Guidelines), adaptados a Gran Turismo 7.',
                 'Los artículos se citan con su numeración (por ejemplo, 5.3.2). Cada versión publicada indica su fecha de actualización; las resoluciones se rigen por la versión vigente el día de la carrera.',
             ]),
@@ -129,7 +131,8 @@ SECCIONES = [
                 ['Ventaja duradera', 'Posición o tiempo ganados al salirse de los límites de pista o con una maniobra ilegal, que se mantienen después de la maniobra.'],
                 ['Incidente de carrera', 'Contacto en el que ningún piloto es total o predominantemente responsable. No se sanciona.'],
                 ['Responsabilidad predominante', 'Cuando la mayor parte de la culpa de un incidente recae en un piloto, aunque el otro haya contribuido.'],
-                ['Puntos de amonestación', 'Puntos que suman algunas sanciones y que se acumulan durante el campeonato (ver 7.2).'],
+                ['Amonestación', 'Aviso por una conducta leve. No resta puntos del campeonato; solo suma puntos de licencia (ver 7.2).'],
+                ['Puntos de licencia', 'Registro de la conducta del piloto durante el campeonato. Los suman algunas infracciones y las amonestaciones. No son una segunda sanción: solo tienen efecto al acumularse (ver 7.2).'],
                 ['Comisarios', 'Personas designadas por la organización para revisar incidentes y resolver reclamaciones.'],
                 ['Host (anfitrión)', 'Piloto que crea y configura la sala de cada carrera (ver sección 3).'],
                 ['DNF / OUT', 'DNF: no terminó la carrera. OUT: terminó sin completar el mínimo de vueltas para puntuar (ver 10.6).'],
@@ -189,7 +192,7 @@ SECCIONES = [
                 'En las vueltas de salida o de enfriamiento, mantén una línea predecible y apártate de la trazada.',
                 'Permanece en pista al terminar el tiempo de clasificación. Si sales, el juego puede colocarte en una posición que no te corresponde.',
             ]),
-            tabla('Sanciones en clasificación', ['Infracción', 'Sanción', 'Amonestación'],
+            tabla('Sanciones en clasificación', ['Infracción', 'Sanción', 'Puntos de licencia'],
                   [[x['nombre'], texto_sancion(x), str(x['amon'])] for x in filas_tabla('clasificacion')]
                   + [['Penalizaciones automáticas del juego (límites de pista)', 'Se respetan tal cual', '—']]),
         ],
@@ -205,7 +208,7 @@ SECCIONES = [
             lista('Límites de pista', [
                 'Un coche está dentro de los límites si al menos dos ruedas de ejes distintos (una delantera y una trasera) siguen sobre la pista. La línea blanca es pista; el piano, no.',
                 'Las penalizaciones por atajar son las que impone el juego según la configuración de la sala, y se respetan.',
-                'Adelantar con el coche fuera de los límites, o ganar una ventaja duradera saliéndose de ellos, obliga a devolver la posición de inmediato, como muy tarde antes del final de la vuelta. No hacerlo: -3 posiciones en el resultado final.',
+                'Adelantar con el coche fuera de los límites, o ganar una ventaja duradera saliéndose de ellos, obliga a devolver la posición en la primera oportunidad segura, y como muy tarde antes del final de la vuelta. Hay que devolverla sin frenar bruscamente ni cambiar de trayectoria de forma imprevisible. No devolverla se sanciona según la tabla del artículo 6.3.',
                 'Si se detecta un abuso sistemático de los límites que el juego no penaliza, los comisarios pueden aplicar sanciones adicionales.',
             ], figuras=[('limites-pista', 'Límites de pista: dos ruedas de ejes distintos sobre la pista')]),
             lista('Adelantamientos', [
@@ -214,9 +217,9 @@ SECCIONES = [
                 'Por FUERA, el atacante solo tiene derecho a espacio si en el vértice su eje delantero va por delante del eje delantero del rival. Es la maniobra más difícil: quien la intenta asume su riesgo.',
                 'En los dos casos, el atacante debe ir controlado, frenar a tiempo y poder trazar la curva dentro de los límites sin apoyarse en el rival. Si no es así, es un divebomb y no da derecho a espacio.',
                 'Sin paralelo, el piloto de delante puede elegir cualquier trazada sin que se considere bloqueo.',
-                'Con paralelo, cada piloto tiene derecho a su mitad de la pista (exterior o interior) hasta la salida de la curva. Ninguno puede empujar al otro fuera de los límites.',
+                'Con paralelo, cada piloto tiene derecho a su lado de la pista hasta la salida de la curva: hay que dejar al rival al menos el ancho de un coche entre tu coche y el borde por el que va él. Ninguno puede empujar al otro fuera de los límites.',
                 'El adelantamiento termina cuando el coche que adelanta ha superado por completo al otro, sin solaparse. Hasta entonces, el paralelo sigue vigente.',
-                'No aproveches el doblaje de otro piloto para adelantar a un rival directo. Espera a la siguiente curva.',
+                'Puedes aprovechar un doblaje para adelantar a un rival, siempre que la maniobra sea segura y no estorbes ni al piloto que dobla ni al doblado.',
             ], figuras=[('adelantamiento-interior', 'Adelantamiento por dentro: cuándo hay paralelo'),
                         ('adelantamiento-exterior', 'Adelantamiento por fuera: cuándo hay derecho a espacio')]),
             lista('Defensa de posición', [
@@ -228,12 +231,13 @@ SECCIONES = [
                 'El piloto que va a ser doblado DEBE facilitar el paso de forma segura, predecible y sin obstruir.',
                 'Para dejar pasar, pégate a un borde de la pista y mantén esa línea hasta que te superen. Puedes levantar el pie.',
                 'Puede haber varios coches intentando doblarte: mira a ambos lados y usa el radar de proximidad.',
-                'El piloto doblado NO debe competir con quien le dobla ni aprovechar el paso para ganar posiciones a rivales directos.',
+                'Cuando el doblaje es inminente o ya ha empezado, el piloto doblado NO debe competir con quien le dobla. Los pilotos doblados pueden seguir luchando entre ellos, siempre que no estorben al que dobla, que tiene prioridad.',
+                'No facilitar el doblaje, o estorbar al piloto que dobla, se sanciona según la tabla del artículo 7.1.',
             ]),
             lista('Boxes', [
                 'Respeta la entrada y salida de boxes. El juego penaliza automáticamente pisar la línea de boxes.',
                 'Está prohibido detener el coche fuera de boxes durante la carrera; si necesitas pararte, hazlo en boxes. Sanción: -5 puntos.',
-                'Si, al cumplir una penalización del juego, estorbas a otros pilotos, tienes que cumplirla cediendo el paso fuera de la trazada. No hacerlo: -6 puntos.',
+                'Al cumplir una penalización del juego, apártate de la trazada y cede el paso. Se sanciona la obstrucción evitable (-6 puntos): quedarse en la trazada pudiendo apartarse. No se sanciona el perjuicio involuntario que la propia penalización cause a otro piloto.',
             ]),
             lista('Neumáticos obligatorios', [
                 'Los compuestos obligatorios los fija la configuración de la sala y los controla el propio juego.',
@@ -263,7 +267,7 @@ SECCIONES = [
                 'INCIDENTE MUY GRAVE: acción deliberada para sacar a otro piloto, torpedeo intencionado o represalia. Descalificación de la carrera y posible expulsión del campeonato.',
                 'Se sanciona al piloto total o predominantemente responsable. Si la responsabilidad es compartida, los comisarios pueden declarar incidente de carrera o sancionar a ambos de forma proporcional.',
             ]),
-            tabla('Sanciones por contacto en carrera', ['Tipo de contacto', 'Sin daños', 'D. leves', 'D. moderados', 'D. graves', 'Amonestación'],
+            tabla('Sanciones por contacto en carrera', ['Tipo de contacto', 'Sin daños', 'D. leves', 'D. moderados', 'D. graves', 'Puntos de licencia'],
                   [[x['nombre'], *[f'-{p} pts' for p in x['danos']], str(x['amon'])] if x.get('danos')
                    else [x['nombre'], texto_sancion(x), '—', '—', '—', str(x['amon'])]
                    for x in filas_tabla('contacto')]),
@@ -280,11 +284,12 @@ SECCIONES = [
                 'ATENUANTE — devolver la posición tras el incidente: sanción reducida a la mitad.',
                 'ATENUANTE — otras circunstancias que reduzcan la gravedad o la culpa: sanción reducida a la mitad.',
                 'Agravantes y atenuantes se combinan, pero la sanción final nunca supera el triple de la sanción base. Los extras por daños se suman después.',
+                'Una misma acción se sanciona una sola vez. Si encaja en varias infracciones, se aplica la sanción de la más grave, con sus agravantes y atenuantes.',
             ]),
             lista('Procedimiento de evaluación', [
                 'Los comisarios revisan los incidentes con la repetición del juego, los vídeos aportados y la retransmisión en directo.',
                 'Pueden actuar de oficio, sin necesidad de reclamación, si observan una infracción o reciben el informe del Host.',
-                'Antes de resolver, el piloto acusado puede dar su versión y aportar su propio vídeo en un plazo de 24 horas desde que se le comunica la reclamación, por el canal oficial de comisarios.',
+                'Antes de resolver, cada piloto acusado puede dar su versión y aportar su propio vídeo en un plazo de 24 horas desde que se publica la reclamación, con el botón «🛡️ Presentar descargo» de la sección Sanciones. No se impone ninguna sanción sin haberle oído o sin que haya terminado ese plazo.',
                 'Un comisario no puede resolver incidentes en los que haya participado, ni los de su propio equipo o su sala. En esos casos resuelve otro comisario o la dirección del campeonato.',
                 'Se tienen en cuenta: intencionalidad, espacio dejado, velocidad relativa, consecuencias para el otro piloto e historial de incidentes.',
                 'Los comisarios resuelven en un plazo máximo de 48 horas desde que termina el plazo de reclamaciones.',
@@ -294,18 +299,18 @@ SECCIONES = [
     {
         'id': 'sanciones', 'icon': '⚖️', 'title': 'Sistema de Sanciones',
         'content': [
-            tabla('Tabla general de sanciones', ['Infracción', 'Sanción', 'Amonestación', 'Gravedad'],
+            tabla('Tabla general de sanciones', ['Infracción', 'Sanción', 'Puntos de licencia', 'Gravedad'],
                   [[x['nombre'], texto_sancion(x), str(x['amon']), GRAVEDAD[x['gravedad']]] for x in filas_tabla('general')]
                   + [EXPULSION]),
-            lista('Puntos de amonestación', [
-                'Algunas sanciones suman puntos de amonestación además de restar puntos. Se acumulan durante todo el campeonato y no se reinician entre carreras.',
-                'Cada vez que un piloto alcanza el umbral del campeonato (por defecto, 8 puntos de amonestación, y de nuevo a los 16, 24…), se le restan automáticamente 10 puntos de la clasificación. Umbral y descuento pueden variar en cada campeonato.',
-                'Al llegar al umbral de descalificación del campeonato (por defecto, 16 puntos de amonestación), los comisarios estudian su exclusión del campeonato.',
+            lista('Puntos de licencia', [
+                'Los puntos de licencia registran la conducta del piloto. Algunas infracciones los suman junto a su sanción, y las amonestaciones los suman sin restar puntos del campeonato. No son una segunda sanción por el mismo hecho: solo tienen efecto al acumularse. Se acumulan durante todo el campeonato y no se reinician entre carreras.',
+                'Cada vez que un piloto alcanza el umbral del campeonato (por defecto, 8 puntos de licencia, y de nuevo a los 16, 24…), se le restan automáticamente 10 puntos de la clasificación. Umbral y descuento pueden variar en cada campeonato.',
+                'Al llegar al umbral de descalificación del campeonato (por defecto, 16 puntos de licencia), los comisarios estudian su exclusión del campeonato.',
                 'La página de cada campeonato muestra sus valores en la sección Sanciones.',
             ]),
             lista('Notas importantes', [
                 'Las sanciones en puntos se descuentan del total del campeonato. Un piloto puede quedar con puntos negativos.',
-                'Lo que ya penaliza el propio Gran Turismo 7 durante la carrera (atajos, contactos, salida anticipada, línea de boxes, banderas, neumáticos obligatorios…) no se vuelve a sancionar. Los comisarios solo actúan sobre lo que el juego no controla.',
+                'Lo que ya penaliza el propio Gran Turismo 7 durante la carrera (atajos, contactos, salida anticipada, línea de boxes, neumáticos obligatorios…) no se vuelve a sancionar. Los comisarios solo actúan sobre lo que el juego no controla, como el respeto a las banderas azules (5.5).',
                 'Los valores de este reglamento son los estándar. Cada campeonato puede configurar los suyos.',
                 'La organización puede excluir de futuras ediciones o expulsar a pilotos conflictivos o con sanciones graves reiteradas.',
             ]),
@@ -328,7 +333,7 @@ SECCIONES = [
                 'Si no puedes subirlo, envíalo por privado a los comisarios; ellos lo adjuntarán a la reclamación.',
             ]),
             lista('Resolución', [
-                'Los comisarios revisan la evidencia, la completan con la repetición o la retransmisión y escuchan al piloto acusado (ver 6.6).',
+                'Cada reclamación se publica en la sección Sanciones en cuanto se presenta, con su descripción y sus vídeos. Desde ese momento, el piloto acusado tiene 24 horas para presentar su descargo (ver 6.6.3). Después, los comisarios revisan la evidencia y la completan con la repetición o la retransmisión.',
                 'La resolución se publica en la web con la decisión y, si la hay, la sanción aplicada.',
                 'Una reclamación manifiestamente infundada o de mala fe supone -5 puntos para quien la presenta. Una reclamación de buena fe que se desestima no se sanciona.',
             ]),
@@ -388,8 +393,9 @@ SECCIONES = [
                 'Los puntos del Sprint se suman a los de la carrera principal.',
             ]),
             lista('Divisiones, ascensos y descensos', [
-                'Los campeonatos con varias divisiones usan un sistema de ascensos y descensos entre ediciones.',
-                'Al terminar cada edición, los pilotos en puesto de ascenso suben de división y los de descenso bajan.',
+                'Los campeonatos con varias divisiones usan un sistema de ascensos y descensos. Cada campeonato fija cuándo se aplican: al terminar la edición, cada cierto número de carreras o a mitad de campeonato.',
+                'En cada cambio, los pilotos en puesto de ascenso suben de división y los de descenso bajan, según la clasificación de su división hasta esa carrera.',
+                'Los cambios durante el campeonato se aplican solos 48 horas después de la carrera que cierra el tramo, si no quedan reclamaciones abiertas de esas carreras. Quien cambia de división conserva sus puntos.',
                 'Si quedan plazas libres, los pilotos que acaban de descender de la división superior tienen prioridad sobre los que acaban de ascender de la inferior.',
                 'El número de ascensos y descensos lo fija cada campeonato.',
             ]),

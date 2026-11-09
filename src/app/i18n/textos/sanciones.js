@@ -1,5 +1,5 @@
 // Sanciones: gravedad, niveles de daños y tipos del catálogo del reglamento
-// general (data/sanciones.js, v2.1). El español sale del propio catálogo y de
+// general (data/sanciones.js, v2.2). El español sale del propio catálogo y de
 // lo que guardó el comisario, así que aquí solo van inglés y portugués de los
 // tipos. Si el catálogo cambia, añadir aquí los tipos nuevos: mientras falten
 // se muestra el nombre en español.
@@ -32,12 +32,13 @@ const sanciones = {
             golpe_curva: { nombre: 'Contact while overtaking in a corner (including divebomb)', descripcion: 'Contact when trying to overtake in a corner without being entitled to room, or a divebomb (5.3).' },
             reincorporacion: { nombre: 'Unsafe rejoin', descripcion: 'Rejoining the track without giving way to cars already on it (5.8).' },
             sin_paralelo: { nombre: 'Overtaking without overlap, or gaining an advantage off track without giving it back', descripcion: 'Overtaking without being entitled to room, or gaining an advantage beyond track limits without giving the position back (5.2.3, 5.3).' },
-            amonestacion: { nombre: 'Warning for a minor incident', descripcion: 'Minor incident without enough consequences to deduct points (6.2).' },
+            amonestacion: { nombre: 'Warning for a minor incident', descripcion: 'Notice for a minor incident: no championship points are deducted, it only adds licence points (6.2, 7.2).' },
             no_presentarse: { nombre: 'Not showing up to the lobby without notice', descripcion: 'Registered driver who does not show up to the race without notice. In team championships, -15 points to the team.' },
             danos_graves_no_ceder: { nombre: 'Not letting faster cars by while driving with heavy damage', descripcion: 'With heavy damage, not letting cars from behind through (except on the last lap) (5.8.3).' },
             detenerse_fuera_boxes: { nombre: 'Stopping the car outside the pits during the race', descripcion: 'Stopping the car on track or in the run-off during the race (5.6.2).' },
             rafagas: { nombre: 'Abusive headlight flashing to distract', descripcion: 'Repeated flashing to pressure or distract the driver in front.' },
-            estorbar_penalizacion: { nombre: 'Impeding while serving an in-game penalty', descripcion: 'Serving an in-game penalty on the racing line, impeding other drivers (5.6.3).' },
+            estorbar_penalizacion: { nombre: 'Impeding while serving an in-game penalty', descripcion: 'Serving an in-game penalty on the racing line when you could move aside, impeding other drivers (5.6.3).' },
+            bandera_azul: { nombre: 'Not making way when being lapped, or impeding the driver lapping', descripcion: 'Ignoring the blue flag, racing the driver lapping or blocking their way (5.5).' },
             cambio_trayectoria: { nombre: 'More than one change of direction on a straight, or moving on a car alongside', descripcion: 'Illegal defending: weaving, moving under braking or squeezing a car alongside (5.4).' },
             reclamacion_infundada: { nombre: 'Clearly unfounded or bad-faith protest', descripcion: 'Protest with no basis or filed in bad faith (8.3.3).' },
             reclamar_fuera_formulario: { nombre: 'Protesting outside the official form', descripcion: 'Protesting through WhatsApp, the stream chat or any other channel instead of the form (8.1.1).' },
@@ -66,12 +67,13 @@ const sanciones = {
             golpe_curva: { nombre: 'Toque ao ultrapassar numa curva (incluindo divebomb)', descripcion: 'Contacto ao tentar ultrapassar numa curva sem direito a espaço, ou divebomb (5.3).' },
             reincorporacion: { nombre: 'Reentrada perigosa em pista', descripcion: 'Voltar à pista sem dar passagem a quem circula nela (5.8).' },
             sin_paralelo: { nombre: 'Ultrapassagem sem estar lado a lado, ou vantagem fora de pista sem a devolver', descripcion: 'Ultrapassar sem direito a espaço ou ganhando vantagem fora dos limites sem devolver a posição (5.2.3, 5.3).' },
-            amonestacion: { nombre: 'Advertência por incidente leve', descripcion: 'Incidente leve sem consequências suficientes para retirar pontos (6.2).' },
+            amonestacion: { nombre: 'Advertência por incidente leve', descripcion: 'Aviso por um incidente ligeiro: não retira pontos do campeonato, apenas soma pontos de licença (6.2, 7.2).' },
             no_presentarse: { nombre: 'Não comparecer na sala sem avisar', descripcion: 'Inscrito que não comparece à corrida sem ter avisado. Em campeonatos por equipas, -15 pontos para a equipa.' },
             danos_graves_no_ceder: { nombre: 'Não dar passagem ao circular com danos graves', descripcion: 'Com danos graves, não deixar passar quem vem atrás (exceto na última volta) (5.8.3).' },
             detenerse_fuera_boxes: { nombre: 'Parar o carro fora das boxes durante a corrida', descripcion: 'Parar o carro em pista ou na escapatória durante a corrida (5.6.2).' },
             rafagas: { nombre: 'Uso abusivo de sinais de luzes para distrair', descripcion: 'Sinais de luzes repetidos para pressionar ou distrair o piloto da frente.' },
-            estorbar_penalizacion: { nombre: 'Atrapalhar ao cumprir uma penalização do jogo', descripcion: 'Cumprir uma penalização do jogo na trajetória, atrapalhando outros pilotos (5.6.3).' },
+            estorbar_penalizacion: { nombre: 'Atrapalhar ao cumprir uma penalização do jogo', descripcion: 'Cumprir uma penalização do jogo na trajetória podendo afastar-se, atrapalhando outros pilotos (5.6.3).' },
+            bandera_azul: { nombre: 'Não facilitar uma dobragem ou atrapalhar o piloto que dobra', descripcion: 'Ignorar a bandeira azul, competir com quem dobra ou fechar-lhe a passagem (5.5).' },
             cambio_trayectoria: { nombre: 'Mais de uma mudança de trajetória na reta, ou fechar um carro lado a lado', descripcion: 'Defesa ilegal: ziguezaguear, mudar de trajetória na travagem ou apertar um carro lado a lado (5.4).' },
             reclamacion_infundada: { nombre: 'Reclamação manifestamente infundada ou de má-fé', descripcion: 'Reclamação sem fundamento ou apresentada de má-fé (8.3.3).' },
             reclamar_fuera_formulario: { nombre: 'Reclamar fora do formulário oficial', descripcion: 'Reclamar por WhatsApp, no chat da transmissão ou por outro meio em vez do formulário (8.1.1).' },

@@ -135,7 +135,7 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             categoryWins: 0,      // Victorias dentro de la categoría (multicategoría)
             categoryPodiums: 0,   // Podiums dentro de la categoría (multicategoría)
             penaltyPoints: 0,     // Puntos deducidos por sanciones
-            warningPoints: 0,     // Puntos de amonestación acumulados
+            warningPoints: 0,     // Puntos de licencia acumulados
             penalties: []         // Lista de sanciones aplicadas
         };
     });
@@ -457,7 +457,7 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
         }
     });
 
-    // ── Amonestaciones acumulativas ──
+    // ── Puntos de licencia acumulativos ──
     if (championship.penaltiesConfig?.enabled && championship.penaltiesConfig?.warningThreshold > 0) {
         const threshold = championship.penaltiesConfig.warningThreshold;
         const autoPenalty = championship.penaltiesConfig.autoPointsPenalty || 10;
