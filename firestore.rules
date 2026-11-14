@@ -202,6 +202,13 @@ service cloud.firestore {
         allow read: if true;
         allow write: if isOrgAdmin(parentChampOrgId(champId));
       }
+      // Imágenes de campeones por sala (pestaña «Imágenes»). Pedir una a la
+      // IA es poner status 'generando': solo el admin de la organización,
+      // porque cada generación cuesta dinero en Gemini.
+      match /podiumImages/{clave} {
+        allow read: if true;
+        allow write: if isOrgAdmin(parentChampOrgId(champId));
+      }
       match /events/{subEventId} {
         allow read: if true;
         allow write: if isOrgAdmin(parentChampOrgId(champId));

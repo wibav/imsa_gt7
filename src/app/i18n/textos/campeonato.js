@@ -18,7 +18,12 @@ const campeonato = {
         pestanas: {
             info: 'ℹ️ Información', clasificacion: '📊 Clasificación', calendario: '📅 Calendario',
             estadisticas: '📈 Estadísticas', prequaly: '🎯 Pre-Qualy', salas: '🏟️ Salas',
-            autos: '🚗 Autos', sanciones: '⚠️ Sanciones',
+            autos: '🚗 Autos', sanciones: '⚠️ Sanciones', imagenes: '🖼️ Imágenes',
+        },
+        imagenes: {
+            titulo: '🏆 Campeones', vacio: 'Las imágenes de campeones aparecerán aquí cuando termine cada sala.',
+            sala: 'Sala {nombre}', campeones: 'Campeones', alt: 'Imagen de los campeones · {sala}',
+            generando: 'Generando la imagen…', puntos: '{n} pts', descargar: 'Descargar imagen',
         },
         clasificacionActual: 'Clasificación Actual',
         todasSalas: 'Todas las Salas',
@@ -128,6 +133,7 @@ const campeonato = {
             sinDescargo: 'Sin descargo de {nombres}',
         },
         vuelta: 'Vuelta {n}',
+        suplente: '🔁 Suplente: {nombre} · 50 %',
         info: {
             titulo: 'Información del Campeonato',
             detalles: 'Detalles Generales',
@@ -255,7 +261,12 @@ const campeonato = {
         pestanas: {
             info: 'ℹ️ Information', clasificacion: '📊 Standings', calendario: '📅 Calendar',
             estadisticas: '📈 Statistics', prequaly: '🎯 Pre-Qualy', salas: '🏟️ Lobbies',
-            autos: '🚗 Cars', sanciones: '⚠️ Penalties',
+            autos: '🚗 Cars', sanciones: '⚠️ Penalties', imagenes: '🖼️ Images',
+        },
+        imagenes: {
+            titulo: '🏆 Champions', vacio: 'Champion images will appear here when each lobby finishes.',
+            sala: '{nombre} lobby', campeones: 'Champions', alt: 'Champions image · {sala}',
+            generando: 'Generating the image…', puntos: '{n} pts', descargar: 'Download image',
         },
         clasificacionActual: 'Current standings',
         todasSalas: 'All lobbies',
@@ -365,6 +376,7 @@ const campeonato = {
             sinDescargo: 'No defence from {nombres}',
         },
         vuelta: 'Lap {n}',
+        suplente: '🔁 Substitute: {nombre} · 50%',
         info: {
             titulo: 'Championship information',
             detalles: 'General details',
@@ -492,7 +504,12 @@ const campeonato = {
         pestanas: {
             info: 'ℹ️ Informação', clasificacion: '📊 Classificação', calendario: '📅 Calendário',
             estadisticas: '📈 Estatísticas', prequaly: '🎯 Pré-Qualy', salas: '🏟️ Salas',
-            autos: '🚗 Carros', sanciones: '⚠️ Penalizações',
+            autos: '🚗 Carros', sanciones: '⚠️ Penalizações', imagenes: '🖼️ Imagens',
+        },
+        imagenes: {
+            titulo: '🏆 Campeões', vacio: 'As imagens dos campeões vão aparecer aqui quando cada sala terminar.',
+            sala: 'Sala {nombre}', campeones: 'Campeões', alt: 'Imagem dos campeões · {sala}',
+            generando: 'A gerar a imagem…', puntos: '{n} pts', descargar: 'Descarregar imagem',
         },
         clasificacionActual: 'Classificação atual',
         todasSalas: 'Todas as salas',
@@ -602,6 +619,7 @@ const campeonato = {
             sinDescargo: 'Sem defesa de {nombres}',
         },
         vuelta: 'Volta {n}',
+        suplente: '🔁 Suplente: {nombre} · 50 %',
         info: {
             titulo: 'Informação do campeonato',
             detalles: 'Detalhes gerais',

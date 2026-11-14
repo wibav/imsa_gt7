@@ -15,6 +15,7 @@
 import { isPenaltyCounting } from '../models/Penalty.js';
 import { aplicarSancionesDeCarrera } from './raceSanctions.js';
 import { mapaSinMayusculas, claveNombre } from './nombresPiloto.js';
+import { puntosPosicion, suplentesDeBloque, tieneSuplente } from './suplentes.js';
 
 /**
  * Calcula la clasificación avanzada con estadísticas y desempate.
@@ -260,6 +261,8 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
         // datos: en la GR.4, la pole y la vuelta rápida de Zeus no contaban
         // (las columnas 🎯 y ⚡ salían a 0) porque mandaba la de Poseidon.
         const poleDrivers = new Set();
+        // 10.7: titulares por los que corrió un suplente en esta carrera
+        const suplentesCarrera = {};
         const fastestLapDrivers = new Set();
         let sprintPointsMap = track.sprintPoints || {};
 
@@ -272,6 +275,7 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             // Nuevo formato: resultados por división
             Object.values(results.divisions).forEach(divResult => {
                 Object.assign(racePositions, divResult.racePositions || {});
+                Object.assign(suplentesCarrera, suplentesDeBloque(divResult, championship));
                 anotarExtras(divResult.qualifying, divResult.fastestLap);
                 // Sprint: fusionar también
                 if (divResult.sprintPositions) {
@@ -281,6 +285,7 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
         } else {
             // Formato legado: plano
             racePositions = results.racePositions || {};
+            Object.assign(suplentesCarrera, suplentesDeBloque(results, championship));
             anotarExtras(results.qualifying, results.fastestLap);
         }
 
@@ -303,7 +308,7 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
                 const pos = parseInt(posStr);
                 if (isNaN(pos)) return; // DNF/DSQ sin número no participan en el ranking intra-cat
                 if (!byCategory[cat]) byCategory[cat] = [];
-                byCategory[cat].push({ canonical, pos });
+                byCategory[cat].push({ canonical, pos, nameOrAlias });
             });
 
             // Por cada categoría, ordenar por posición global y asignar puntos del sistema
@@ -311,9 +316,10 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             Object.values(byCategory).forEach(entries => {
                 entries
                     .sort((a, b) => a.pos - b.pos)
-                    .forEach(({ canonical }, rankIdx) => {
+                    .forEach(({ canonical, nameOrAlias }, rankIdx) => {
                         const rank = rankIdx + 1; // 1-based
-                        catPointsMap[canonical] = basePointsSystem[rank] ?? 0;
+                        // 10.7: con suplente, la mitad de los puntos de posición
+                        catPointsMap[canonical] = puntosPosicion(basePointsSystem[rank] ?? 0, tieneSuplente(suplentesCarrera, [canonical, nameOrAlias]));
                     });
             });
             effectivePointsMap = catPointsMap;
@@ -374,7 +380,10 @@ export function calculateAdvancedStandings(championship, teams, tracks, penaltie
             stat.totalPoints += effectivePoints;
             stat.races += 1;
 
-            if (position) {
+            // 10.7: la victoria o el podio de un suplente no cuentan para los desempates del titular
+            const corrioSuplente = tieneSuplente(suplentesCarrera, [driverName, ...aliases]);
+            if (corrioSuplente) stat.racesWithSubstitute = (stat.racesWithSubstitute || 0) + 1;
+            if (position && !corrioSuplente) {
                 // Estadísticas basadas en posición global
                 if (position === 1) stat.wins += 1;
                 if (position <= 3) stat.podiums += 1;

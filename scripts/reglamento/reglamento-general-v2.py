@@ -14,8 +14,8 @@ no alterar esa numeración.
 import json
 from pathlib import Path
 
-VERSION = '2.2'
-FECHA = '2026-11-08'
+VERSION = '2.3'
+FECHA = '2026-11-14'
 
 
 def lista(subtitulo, items, figuras=None):
@@ -401,11 +401,22 @@ SECCIONES = [
             ]),
             lista('Puntuación y desempates', [
                 'Cada campeonato publica su sistema de puntos (carrera, clasificación y vuelta rápida) en la sección Información de su página.',
-                'En caso de empate a puntos en la clasificación general, se desempata por: 1) más victorias, 2) más podios, 3) mejor resultado en una carrera.',
+                'En caso de empate a puntos en la clasificación general, se desempata por: 1) más victorias, 2) más podios, 3) mejor resultado en una carrera. No cuentan las victorias ni los podios logrados por un suplente (ver 10.7).',
             ]),
             lista('Requisitos para puntuar', [
                 'Para puntuar hay que completar al menos el 75 % de las vueltas del ganador.',
                 'Quien no llega al 75 % aparece como OUT: cuenta como asistencia, pero no suma puntos.',
+            ]),
+            lista('Suplentes', [
+                'Si un piloto inscrito no puede correr una carrera por motivos personales, puede correr por él un suplente. Hay que avisar a la organización por el canal oficial antes de que se abra la sala, indicando el nombre del suplente.',
+                'El suplente no puede estar inscrito en el campeonato, en ninguna de sus salas o divisiones.',
+                'No hay límite de carreras con suplente, pero cada una se avisa por separado.',
+                'El titular suma el 50 % de los puntos de la posición en la que termine su suplente, redondeado al entero más cercano (los medios puntos, hacia arriba). Los puntos de pole y de vuelta rápida que logre el suplente se suman completos.',
+                'El resto de pilotos puntúa según su posición real en la carrera, con el suplente ocupando la suya.',
+                'Las victorias y los podios de un suplente no cuentan para el titular en los desempates (ver 10.5).',
+                'El titular responde de su suplente: las sanciones por lo que haga el suplente se aplican al titular, y el suplente debe respetar los coches y las reglas de uso del titular (ver 10.1).',
+                'Si corre un suplente sin haberlo avisado, el resultado no suma puntos para el titular.',
+                'Este apartado rige en los campeonatos que empiezan a partir del 14 de noviembre de 2026. Los campeonatos que ya estaban en curso terminan con las reglas con las que empezaron.',
             ]),
         ],
     },

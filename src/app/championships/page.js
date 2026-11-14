@@ -48,6 +48,9 @@ import RegistrationForm from "../components/championship/RegistrationForm";
 import ClaimForm from '../components/championship/ClaimForm';
 import AppealForm, { getAppealWindowStatus, getEligibleAppellants } from '../components/championship/AppealForm';
 import DefenseForm from '../components/championship/DefenseForm';
+import PodiumImagesTab from '../components/championship/PodiumImagesTab';
+import { salasDelCampeonato, podioDe } from '../utils/podiumImages';
+import { suplentesDeBloque } from '../utils/suplentes';
 import { PLAZO_DESCARGO_HORAS, ESTADOS_EN_ESTUDIO, plazoDescargo, descargosDe, acusadosSinDescargo } from '../utils/descargo';
 import CarDeclarationModal from '../components/championship/CarDeclarationModal';
 import ContinuityModal from '../components/championship/ContinuityModal';
@@ -174,6 +177,7 @@ export default function ChampionshipDetailPage() {
     const [claims, setClaims] = useState([]);
     const [appeals, setAppeals] = useState([]);
     const [defenses, setDefenses] = useState([]);
+    const [podiumImages, setPodiumImages] = useState([]);
     const [defenseFormClaim, setDefenseFormClaim] = useState(null);
     const [divisions, setDivisions] = useState([]);
     // Identidades de piloto fusionadas (ver docs/PLAN_FUSION_PILOTOS.md)
@@ -203,7 +207,7 @@ export default function ChampionshipDetailPage() {
         setTracks([]);
 
         try {
-            const [champData, teamsData, tracksData, penaltiesData, divisionsData, claimsData, appealsData, declarationsData, identitiesData, defensesData] = await Promise.all([
+            const [champData, teamsData, tracksData, penaltiesData, divisionsData, claimsData, appealsData, declarationsData, identitiesData, defensesData, podiumImagesData] = await Promise.all([
                 FirebaseService.getChampionship(championshipId),
                 FirebaseService.getTeamsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getTracksByChampionship(championshipId).catch(() => []),
@@ -214,6 +218,7 @@ export default function ChampionshipDetailPage() {
                 FirebaseService.getDeclarations(championshipId).catch(() => ({})),
                 FirebaseService.getPilotIdentities(),
                 FirebaseService.getDefensesByChampionship(championshipId),
+                FirebaseService.getPodiumImages(championshipId),
             ]);
             setDeclarations(declarationsData || {});
             if (champData?.edition) {
@@ -228,6 +233,7 @@ export default function ChampionshipDetailPage() {
             setClaims(claimsData || []);
             setAppeals(appealsData || []);
             setDefenses(defensesData || []);
+            setPodiumImages(podiumImagesData || []);
             setPilotIdentities(identitiesData || []);
         } catch (error) {
             console.error("Error loading championship data:", error);
@@ -352,6 +358,18 @@ export default function ChampionshipDetailPage() {
                 };
             })
         : [];
+
+    // ── Imágenes de campeones: salas terminadas con su podio ──
+    const salasImagen = salasDelCampeonato(championship, tracks, divisions).map(sala => {
+        const tabla = sala.key === 'general'
+            ? advancedDriverStandings
+            : divisionsStandings.find(d => d.division.id === sala.key)?.driverStandings || [];
+        return { ...sala, podium: podioDe(tabla, tracks) };
+    });
+    const imagenesListas = podiumImages.filter(i => i.imageUrl);
+    const salasSinImagen = isAdmin() ? salasImagen.filter(s => s.terminada && !podiumImages.some(i => i.id === s.key)) : [];
+    const mostrarImagenes = imagenesListas.length > 0 || (isAdmin() && salasImagen.some(s => s.terminada));
+    const recargarImagenes = async () => setPodiumImages(await FirebaseService.getPodiumImages(championshipId));
 
     // Streaming: detectar si hay una carrera "en vivo" (status 'in-progress')
     const liveTrack = tracks.find(t => t.status === 'in-progress');
@@ -489,7 +507,8 @@ export default function ChampionshipDetailPage() {
                             ...(championship?.preQualy?.enabled ? [{ id: 'prequaly', label: t('campeonato.pestanas.prequaly'), icon: '🎯' }] : []),
                             ...(championship?.divisionsConfig?.enabled ? [{ id: 'salas', label: t('campeonato.pestanas.salas'), icon: '🏟️' }] : []),
                             ...(championship?.carUsageTracking?.enabled ? [{ id: 'cars', label: t('campeonato.pestanas.autos'), icon: '🚗' }] : []),
-                            ...(championship.penaltiesConfig?.enabled ? [{ id: 'penalties', label: t('campeonato.pestanas.sanciones'), icon: '⚠️' }] : [])
+                            ...(championship.penaltiesConfig?.enabled ? [{ id: 'penalties', label: t('campeonato.pestanas.sanciones'), icon: '⚠️' }] : []),
+                            ...(mostrarImagenes ? [{ id: 'images', label: t('campeonato.pestanas.imagenes'), icon: '🖼️' }] : [])
                         ].map(tab => (
                             <button
                                 key={tab.id}
@@ -522,6 +541,29 @@ export default function ChampionshipDetailPage() {
                         defecto) — empuja al sidebar fuera del viewport en
                         vez de que el contenido haga wrap o scroll interno. */}
                     <div className="lg:col-span-3 min-w-0">
+                        {/* Al terminar una sala, el sistema pregunta al admin cómo crear
+                            la imagen de campeones (no se genera nada sin pedirlo) */}
+                        {salasSinImagen.length > 0 && activeTab !== 'images' && (
+                            <div className="mb-6 flex flex-wrap items-center gap-3 bg-orange-500/10 border border-orange-500/30 rounded-xl px-4 py-3" role="status">
+                                <span className="text-white text-sm flex-1 min-w-[12rem]">
+                                    🖼️ {salasSinImagen.map(s => s.name ? `Sala ${s.name}` : 'El campeonato').join(', ')} {salasSinImagen.length > 1 ? 'han' : 'ha'} terminado: ¿generas la imagen de campeones con IA o subes la tuya?
+                                </span>
+                                <button type="button" onClick={() => setActiveTab('images')}
+                                    className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white">
+                                    Elegir →
+                                </button>
+                            </div>
+                        )}
+                        {activeTab === 'images' && (
+                            <PodiumImagesTab
+                                championshipId={championshipId}
+                                championship={championship}
+                                salas={salasImagen}
+                                images={podiumImages}
+                                esAdmin={isAdmin()}
+                                onChange={recargarImagenes}
+                            />
+                        )}
                         {/* TAB: Clasificación */}
                         {activeTab === 'standings' && (
                             <div className="space-y-6">
@@ -2461,6 +2503,7 @@ export default function ChampionshipDetailPage() {
                                                         const divColor = div.color || '#f97316';
                                                         const entries = ordenarPosiciones(Object.entries(divResult.racePositions));
                                                         const extras = extrasDeCarrera(divResult, canonPiloto);
+                                                        const suplentes = suplentesDeBloque(divResult, championship);
                                                         return (
                                                             <div key={div.id}>
                                                                 <div
@@ -2487,6 +2530,7 @@ export default function ChampionshipDetailPage() {
                                                                                     <span className="truncate">{medal && <span className="mr-1">{medal}</span>}{driverName}</span>
                                                                                     <ExtrasPiloto extra={extra} />
                                                                                 </span>
+                                                                                {suplentes[driverName] && <span className="text-[11px] text-purple-300 flex-shrink-0">{t('campeonato.suplente', { nombre: suplentes[driverName] })}</span>}
                                                                                 {pts != null && (
                                                                                     <span className={`font-bold text-xs flex-shrink-0 ${colors.text}`}>
                                                                                         {sumados > 0 && <span className="text-gray-500 font-normal mr-1">{pts}+{sumados}=</span>}
@@ -2503,6 +2547,7 @@ export default function ChampionshipDetailPage() {
                                             </div>
                                         ) : hasNonDivResults ? (() => {
                                             const extras = extrasDeCarrera(trackVista.results, canonPiloto);
+                                            const suplentes = suplentesDeBloque(trackVista.results, championship);
                                             return (
                                             <div className="space-y-1">
                                                 <ExtrasCarrera extras={extras} />
@@ -2522,6 +2567,7 @@ export default function ChampionshipDetailPage() {
                                                                     <span className="truncate">{medal && <span className="mr-1">{medal}</span>}{driverName}</span>
                                                                     <ExtrasPiloto extra={extra} />
                                                                 </span>
+                                                                {suplentes[driverName] && <span className="text-[11px] text-purple-300 flex-shrink-0">{t('campeonato.suplente', { nombre: suplentes[driverName] })}</span>}
                                                                 {pts != null && (
                                                                     <span className={`font-bold text-xs flex-shrink-0 ${colors.text}`}>
                                                                         {sumados > 0 && <span className="text-gray-500 font-normal mr-1">{pts}+{sumados}=</span>}

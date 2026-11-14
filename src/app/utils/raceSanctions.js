@@ -14,6 +14,7 @@
  * Módulo puro: sin React ni Firebase.
  */
 import { isPenaltyCounting } from '../models/Penalty.js';
+import { puntosPosicion, suplentesDeBloque, tieneSuplente } from './suplentes.js';
 
 const normalizar = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -50,7 +51,7 @@ function claveDe(nombre, posiciones, grupos) {
  * resultados ({ racePositions, racePoints }) y ajusta `puntosTotales`.
  * Devuelve la lista de cambios aplicados.
  */
-function aplicarABloque(bloque, puntosTotales, sanciones, tablaPuntos, grupos) {
+function aplicarABloque(bloque, puntosTotales, sanciones, tablaPuntos, grupos, championship) {
     const posiciones = { ...(bloque.racePositions || {}) };
     const puntosCarrera = { ...(bloque.racePoints || {}) };
     const cambios = [];
@@ -85,11 +86,13 @@ function aplicarABloque(bloque, puntosTotales, sanciones, tablaPuntos, grupos) {
         }
     });
 
-    // Nuevas posiciones y puntos de carrera
+    // Nuevas posiciones y puntos de carrera (con suplente, la mitad: 10.7)
+    const suplentes = suplentesDeBloque(bloque, championship);
     orden.forEach((k, i) => {
         const nuevaPos = i + 1;
-        const antes = puntosCarrera[k] ?? (tablaPuntos[posicionOriginal[k]] || 0);
-        const ahora = tablaPuntos[nuevaPos] || 0;
+        const conSuplente = tieneSuplente(suplentes, [k]);
+        const antes = puntosCarrera[k] ?? puntosPosicion(tablaPuntos[posicionOriginal[k]] || 0, conSuplente);
+        const ahora = puntosPosicion(tablaPuntos[nuevaPos] || 0, conSuplente);
         posiciones[k] = String(nuevaPos);
         puntosCarrera[k] = ahora;
         if (k in puntosTotales) puntosTotales[k] += ahora - antes;
@@ -129,9 +132,9 @@ export function aplicarSancionesDeCarrera(tracks = [], penalties = [], champions
 
         const copia = { ...track, points: { ...(track.points || {}) }, results: JSON.parse(JSON.stringify(track.results)) };
         if (copia.results.divisions && Object.keys(copia.results.divisions).length > 0) {
-            Object.values(copia.results.divisions).forEach(div => aplicarABloque(div, copia.points, deLaCarrera, tablaPuntos, grupos));
+            Object.values(copia.results.divisions).forEach(div => aplicarABloque(div, copia.points, deLaCarrera, tablaPuntos, grupos, championship));
         } else {
-            aplicarABloque(copia.results, copia.points, deLaCarrera, tablaPuntos, grupos);
+            aplicarABloque(copia.results, copia.points, deLaCarrera, tablaPuntos, grupos, championship);
         }
         return copia;
     });

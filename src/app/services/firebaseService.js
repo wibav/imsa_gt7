@@ -1653,6 +1653,43 @@ export class FirebaseService {
   // DIVISIONS METHODS (subcolección championships/{id}/divisions)
   // ========================================
 
+  // ── Imágenes de campeones (src/app/utils/podiumImages.js) ──────────────
+  static async getPodiumImages(championshipId) {
+    try {
+      const snapshot = await getDocs(collection(db, "championships", championshipId, "podiumImages"));
+      return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (error) {
+      console.error("Error fetching podium images:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Pide a la IA la imagen de una sala (la genera la función
+   * generar_imagen_podio al ver status 'generando').
+   */
+  static async requestPodiumImage(championshipId, clave, datos) {
+    const ahora = new Date().toISOString();
+    await setDoc(doc(db, "championships", championshipId, "podiumImages", clave), {
+      ...datos, status: "generando", source: "ia", imageUrl: null, error: null, requestedAt: ahora, updatedAt: ahora,
+    }, { merge: true });
+  }
+
+  /** Sube una imagen propia como imagen de campeones de una sala. */
+  static async uploadPodiumImage(championshipId, clave, file, datos) {
+    const extension = (file.name?.split(".").pop() || "png").toLowerCase();
+    const url = await this.uploadImage(file, `championships/${championshipId}/podios/${clave}-${Date.now()}.${extension}`);
+    const ahora = new Date().toISOString();
+    await setDoc(doc(db, "championships", championshipId, "podiumImages", clave), {
+      ...datos, status: "lista", source: "subida", imageUrl: url, error: null, updatedAt: ahora,
+    }, { merge: true });
+    return url;
+  }
+
+  static async deletePodiumImage(championshipId, clave) {
+    await deleteDoc(doc(db, "championships", championshipId, "podiumImages", clave));
+  }
+
   static async getDivisionsByChampionship(championshipId) {
     try {
       const col = collection(db, "championships", championshipId, "divisions");

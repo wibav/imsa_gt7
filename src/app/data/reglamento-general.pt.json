@@ -1,6 +1,6 @@
 {
- "version": "2.2",
- "fecha": "2026-11-08",
+ "version": "2.3",
+ "fecha": "2026-11-14",
  "idioma": "pt",
  "sections": [
   {
@@ -737,7 +737,7 @@
      "subtitle": "Pontuação e desempates",
      "items": [
       "Cada campeonato publica o seu sistema de pontos (corrida, qualificação e volta mais rápida) na secção Informação da sua página.",
-      "Em caso de empate em pontos na classificação geral, desempata-se por: 1) mais vitórias, 2) mais pódios, 3) melhor resultado numa corrida."
+      "Em caso de empate a pontos na classificação geral, desempata-se por: 1) mais vitórias, 2) mais pódios, 3) melhor resultado numa corrida. Não contam as vitórias nem os pódios obtidos por um suplente (ver 10.7)."
      ]
     },
     {
@@ -745,6 +745,20 @@
      "items": [
       "Para pontuar é preciso completar pelo menos 75% das voltas do vencedor.",
       "Quem não chegar aos 75% aparece como OUT: conta como presença, mas não soma pontos."
+     ]
+    },
+    {
+     "subtitle": "Suplentes",
+     "items": [
+      "Se um piloto inscrito não puder correr uma corrida por motivos pessoais, pode correr por ele um suplente. É preciso avisar a organização pelo canal oficial antes de a sala abrir, indicando o nome do suplente.",
+      "O suplente não pode estar inscrito no campeonato, em nenhuma das suas salas ou divisões.",
+      "Não há limite de corridas com suplente, mas cada uma é avisada separadamente.",
+      "O titular soma 50 % dos pontos da posição em que o seu suplente terminar, arredondados ao inteiro mais próximo (as metades, para cima). Os pontos de pole e de volta mais rápida que o suplente obtiver somam-se por inteiro.",
+      "Os restantes pilotos pontuam segundo a sua posição real na corrida, com o suplente a ocupar a sua.",
+      "As vitórias e os pódios de um suplente não contam para o titular nos desempates (ver 10.5).",
+      "O titular responde pelo seu suplente: as penalizações pelo que o suplente fizer aplicam-se ao titular, e o suplente deve respeitar os carros e as regras de utilização do titular (ver 10.1).",
+      "Se um suplente correr sem aviso prévio, o resultado não soma pontos para o titular.",
+      "Esta secção aplica-se aos campeonatos que começam a partir de 14 de novembro de 2026. Os campeonatos que já estavam a decorrer terminam com as regras com que começaram."
      ]
     }
    ]

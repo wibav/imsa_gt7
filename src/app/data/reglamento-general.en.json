@@ -1,6 +1,6 @@
 {
- "version": "2.2",
- "fecha": "2026-11-08",
+ "version": "2.3",
+ "fecha": "2026-11-14",
  "idioma": "en",
  "sections": [
   {
@@ -737,7 +737,7 @@
      "subtitle": "Scoring and tie-breaks",
      "items": [
       "Each championship publishes its points system (race, qualifying and fastest lap) in the Information section of its page.",
-      "If drivers are tied on points in the overall standings, the tie is broken by: 1) more wins, 2) more podiums, 3) best single race result."
+      "If the points are tied in the overall standings, the tie is broken by: 1) most wins, 2) most podiums, 3) best result in a race. Wins and podiums achieved by a substitute do not count (see 10.7)."
      ]
     },
     {
@@ -745,6 +745,20 @@
      "items": [
       "To score, you must complete at least 75% of the winner’s laps.",
       "Anyone below 75% is shown as OUT: it counts as attendance, but scores no points."
+     ]
+    },
+    {
+     "subtitle": "Substitutes",
+     "items": [
+      "If a registered driver cannot race for personal reasons, a substitute may race in their place. The organisation must be notified through the official channel before the lobby opens, giving the substitute's name.",
+      "The substitute cannot be registered in the championship, in any of its lobbies or divisions.",
+      "There is no limit on races with a substitute, but each one is notified separately.",
+      "The registered driver scores 50% of the points for the position in which their substitute finishes, rounded to the nearest whole number (halves rounded up). Pole and fastest lap points achieved by the substitute are added in full.",
+      "The rest of the drivers score according to their real position in the race, with the substitute occupying theirs.",
+      "Wins and podiums achieved by a substitute do not count for the registered driver in tie-breaks (see 10.5).",
+      "The registered driver is responsible for their substitute: penalties for what the substitute does apply to the registered driver, and the substitute must follow the registered driver's cars and usage rules (see 10.1).",
+      "If a substitute races without prior notice, the result scores no points for the registered driver.",
+      "This section applies to championships starting on or after 14 November 2026. Championships already under way finish under the rules they started with."
      ]
     }
    ]

@@ -18,6 +18,7 @@ import { buildGt7IdMap, esAbandono } from '../../utils/championshipUtils';
 import { calculateCarUsage, validateRaceCarUsage, buildCarUsageSummary, flattenRegistrations, applyDeclarations, CHAMPIONSHIP_CATEGORIES, categoryLabel, getExcludedCars } from '../../utils/carUsageCalculator';
 import CarNameInput from '../../components/common/CarNameInput';
 import ResultsImport from '../../components/championship/ResultsImport';
+import { aplicaReglaSuplentes, puntosPosicion, suplentesDeBloque, suplentesDesdeTiempos, suplentesNoValidos, FACTOR_PUNTOS_SUPLENTE } from '../../utils/suplentes';
 import PilotIdInput from '../../components/common/PilotIdInput';
 import { isPenaltyCounting } from '../../models/Penalty';
 
@@ -1336,6 +1337,8 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
     // Carga desde capturas de GT7: tiempos e invitados por sala ('_' sin divisiones)
     const [tiemposCarrera, setTiemposCarrera] = useState({});
     const [invitadosCarrera, setInvitadosCarrera] = useState({});
+    // Suplentes por sala ('_' sin divisiones): { titular: nombreDelSuplente } (reglamento 10.7)
+    const [suplentesCarrera, setSuplentesCarrera] = useState({});
     const [importandoCapturas, setImportandoCapturas] = useState(false);
     const [aliasCapturasLocal, setAliasCapturasLocal] = useState({});
     const [divQualyTop3, setDivQualyTop3] = useState({});
@@ -1439,6 +1442,13 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
             setDivSprintPositions(divSprint);
             setTiemposCarrera(Object.fromEntries(sortedDivisions.map(div => [div.id, track.results?.divisions?.[div.id]?.raceTimes || {}])));
             setInvitadosCarrera(Object.fromEntries(sortedDivisions.map(div => [div.id, track.results?.divisions?.[div.id]?.invitados || []])));
+            setSuplentesCarrera(Object.fromEntries(sortedDivisions.map(div => {
+                // Guardados con la clave canónica: se vuelven a la clave de div.drivers
+                const guardados = suplentesDeBloque(track.results?.divisions?.[div.id], championship);
+                return [div.id, Object.fromEntries((div.drivers || [])
+                    .map(d => [d, guardados[resolveDriverKey(d)] ?? guardados[d]])
+                    .filter(([, sup]) => sup))];
+            })));
             setDivQualyTop3(divQualy);
             setDivFastestLap(divFL);
             setActiveDivisionTab(sortedDivisions[0]?.id || null);
@@ -1457,6 +1467,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
             setSprintPositions(currentSprintPositions);
             setTiemposCarrera({ _: existing.raceTimes || {} });
             setInvitadosCarrera({ _: existing.invitados || [] });
+            setSuplentesCarrera({ _: suplentesDeBloque(existing, championship) });
             setQualyTop3(existing.qualifying?.top3 || { first: '', second: '', third: '' });
             setFastestLapDriver(existing.fastestLap?.driver || '');
         }
@@ -1483,6 +1494,14 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
 
     // Guardar resultados completos de la pista
     const handleSaveResults = async () => {
+        const todosSuplentes = Object.assign({}, ...Object.values(suplentesCarrera));
+        const sinNombre = Object.entries(todosSuplentes).filter(([, s]) => !String(s || '').trim()).map(([t]) => t);
+        if (sinNombre.length) return alert(`Indica el nombre del suplente de: ${sinNombre.join(', ')}`);
+        const invalidos = suplentesNoValidos(todosSuplentes, approvedRegs);
+        if (invalidos.length) {
+            return alert('Un suplente no puede estar inscrito en el campeonato (reglamento 10.7):\n'
+                + invalidos.map(x => `· ${x.suplente} (por ${x.titular})`).join('\n'));
+        }
         setSavingResults(true);
         try {
             if (hasDivisions) {
@@ -1496,9 +1515,11 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
 
                     // Puntos de carrera
                     const racePoints = {};
+                    const supl = suplentesCarrera[divId] || {};
                     Object.entries(divPositions[divId] || {}).forEach(([driver, position]) => {
                         if (position !== '') {
-                            const pts = (esAbandono(position) ? 0 : calculateRacePoints(parseInt(position)));
+                            // 10.7: si corrió un suplente, el titular suma la mitad de los puntos de posición
+                            const pts = (esAbandono(position) ? 0 : puntosPosicion(calculateRacePoints(parseInt(position)), !!supl[driver]));
                             racePoints[driver] = pts;
                             totalPoints[driver] = (totalPoints[driver] || 0) + pts;
                         }
@@ -1553,6 +1574,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                         // Tiempos leídos de las capturas (base de las penalizaciones de tiempo)
                         ...(Object.keys(tiemposCarrera[divId] || {}).length ? { raceTimes: normalizeDriverKeys(tiemposCarrera[divId]) } : {}),
                         ...((invitadosCarrera[divId] || []).length ? { invitados: invitadosCarrera[divId] } : {}),
+                        ...(Object.keys(suplentesCarrera[divId] || {}).length ? { suplentes: normalizeDriverKeys(suplentesCarrera[divId]) } : {}),
                     };
                 });
 
@@ -1593,10 +1615,12 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
             } else {
                 // ── Modo sin divisiones (lógica original) ──
                 const racePoints = {};
+                const supl = suplentesCarrera._ || {};
                 Object.entries(positions).forEach(([driver, position]) => {
                     if (position && position !== '') {
                         const pos = parseInt(position);
-                        racePoints[driver] = calculateRacePoints(pos);
+                        // 10.7: si corrió un suplente, el titular suma la mitad de los puntos de posición
+                        racePoints[driver] = puntosPosicion(calculateRacePoints(pos), !!supl[driver]);
                     }
                 });
 
@@ -1668,6 +1692,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                 }
                 if (Object.keys(tiemposCarrera._ || {}).length) trackUpdate.results.raceTimes = normalizeDriverKeys(tiemposCarrera._);
                 if ((invitadosCarrera._ || []).length) trackUpdate.results.invitados = invitadosCarrera._;
+                if (Object.keys(suplentesCarrera._ || {}).length) trackUpdate.results.suplentes = suplentesCarrera._;
                 await FirebaseService.updateTrack(championshipId, selectedTrack.id, trackUpdate);
             }
 
@@ -2041,6 +2066,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                     }
                                     setTiemposCarrera(prev => ({ ...prev, [claveSala]: tiempos }));
                                     setInvitadosCarrera(prev => ({ ...prev, [claveSala]: invitados }));
+                                    if (aplicaReglaSuplentes(championship)) setSuplentesCarrera(prev => ({ ...prev, [claveSala]: suplentesDesdeTiempos(tiempos) }));
                                     setCarUsageErrors([]);
                                     if (Object.keys(aprendidos).length) {
                                         setAliasCapturasLocal(prev => ({ ...prev, ...aprendidos }));
@@ -2081,7 +2107,15 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                     {modalDriverNames.map(driver => {
                                         const pos = hasDivisions ? (divPositions[activeDivisionTab]?.[driver] || '') : (positions[driver] || '');
                                         const abandono = esAbandono(pos);
-                                        const pts = pos && !abandono ? calculateRacePoints(parseInt(pos)) : null;
+                                        const salaSup = hasDivisions ? activeDivisionTab : '_';
+                                        const suplente = suplentesCarrera[salaSup]?.[driver];
+                                        const conSuplente = suplente !== undefined;
+                                        const pts = pos && !abandono ? puntosPosicion(calculateRacePoints(parseInt(pos)), conSuplente) : null;
+                                        const fijarSuplente = (valor) => setSuplentesCarrera(prev => {
+                                            const sala = { ...(prev[salaSup] || {}) };
+                                            if (valor === null) delete sala[driver]; else sala[driver] = valor;
+                                            return { ...prev, [salaSup]: sala };
+                                        });
                                         const fijarPos = (valor) => {
                                             if (hasDivisions) {
                                                 setDivPositions(prev => ({
@@ -2096,9 +2130,22 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                             <div key={driver} className={`rounded-lg p-3 border ${abandono ? 'bg-red-900/20 border-red-500/40' : 'bg-white/5 border-white/20'}`}>
                                                 <div className="flex items-center justify-between mb-2">
                                                     <span className="text-white font-medium text-sm">{driverLabelMap[driver] || driver}</span>
-                                                    {pts !== null && <span className="text-sm text-orange-400 font-bold">= {pts} pts</span>}
+                                                    {pts !== null && <span className="text-sm text-orange-400 font-bold">= {pts} pts{conSuplente && <span className="text-purple-300 font-normal text-xs"> ({FACTOR_PUNTOS_SUPLENTE * 100} %)</span>}</span>}
                                                     {abandono && <span className="text-sm text-red-300 font-bold">DNF · 0 pts</span>}
                                                 </div>
+                                                {conSuplente && (
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <span className="text-[11px] text-purple-200 whitespace-nowrap">🔁 Corrió</span>
+                                                        <input
+                                                            type="text"
+                                                            value={suplente}
+                                                            onChange={e => fijarSuplente(e.target.value)}
+                                                            placeholder="Nombre del suplente"
+                                                            aria-label={`Suplente de ${driver}`}
+                                                            className="flex-1 min-w-0 px-2 py-1 bg-purple-900/30 border border-purple-400/40 rounded text-white placeholder-gray-400 text-xs"
+                                                        />
+                                                    </div>
+                                                )}
                                                 <div className="flex gap-2">
                                                     {abandono ? (
                                                         <div className="flex-1 px-3 py-2 bg-red-900/30 border border-red-500/40 rounded-lg text-red-200 text-sm">
@@ -2125,6 +2172,19 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                                     >
                                                         {abandono ? '↩︎ Deshacer' : 'DNF'}
                                                     </button>
+                                                    {/* 10.7: corrió un suplente por este piloto → mitad de los puntos de posición.
+                                                        Solo en campeonatos que empiezan desde la vigencia de la regla */}
+                                                    {aplicaReglaSuplentes(championship) && <button
+                                                        type="button"
+                                                        onClick={() => fijarSuplente(conSuplente ? null : '')}
+                                                        aria-pressed={conSuplente}
+                                                        title={conSuplente ? 'Quitar el suplente' : 'Corrió un suplente por este piloto: suma el 50 % de los puntos de posición (10.7)'}
+                                                        className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${conSuplente
+                                                            ? 'bg-purple-600/60 border-purple-300/60 text-white'
+                                                            : 'bg-purple-900/30 border-purple-500/40 text-purple-200 hover:bg-purple-800/50'}`}
+                                                    >
+                                                        🔁
+                                                    </button>}
                                                 </div>
                                             </div>
                                         );

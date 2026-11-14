@@ -1,6 +1,6 @@
 // Generado por scripts/reglamento/reglamento-general-v2.py — no editar a mano
 const catalogoSanciones = {
- "version": "2.2",
+ "version": "2.3",
  "nivelesDanos": [
   "Sin daños",
   "Daños leves",
