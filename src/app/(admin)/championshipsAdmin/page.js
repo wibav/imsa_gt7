@@ -12,6 +12,8 @@ import PenaltiesTab from '../../components/championship/PenaltiesTab';
 import DivisionsTab from '../../components/championship/DivisionsTab';
 import CarDeclarationModal from '../../components/championship/CarDeclarationModal';
 import ContinuityTab from '../../components/championship/ContinuityTab';
+import PodiumImagesAdmin from '../../components/championship/PodiumImagesAdmin';
+import { salasDelCampeonato } from '../../utils/podiumImages';
 import { DEFAULT_SPRINT_POINTS, STATUS_LABELS } from '../../utils/constants';
 import { notifyResultsSaved, notifyRegistrationUpdated } from '../../utils/telegram';
 import { buildGt7IdMap, esAbandono } from '../../utils/championshipUtils';
@@ -58,6 +60,8 @@ export default function ChampionshipDetail() {
     const [divisions, setDivisions] = useState([]);
     // Declaraciones de autos: subcolección aparte, ver firestore.rules
     const [declarations, setDeclarations] = useState({});
+    // Imágenes de campeones por sala (pestaña Imágenes)
+    const [podiumImages, setPodiumImages] = useState([]);
     const [championshipsTeams, setChampionshipsTeams] = useState({}); // Equipos por campeonato
 
     // Sección activa del panel principal (cuando no hay championshipId)
@@ -112,16 +116,18 @@ export default function ChampionshipDetail() {
 
         try {
             // Cargar todo en paralelo
-            const [champData, teamsData, tracksData, eventsData, penaltiesData, divisionsData, declarationsData] = await Promise.all([
+            const [champData, teamsData, tracksData, eventsData, penaltiesData, divisionsData, declarationsData, podiumImagesData] = await Promise.all([
                 FirebaseService.getChampionship(championshipId),
                 FirebaseService.getTeamsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getTracksByChampionship(championshipId).catch(() => []),
                 FirebaseService.getEventsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getPenaltiesByChampionship(championshipId).catch(() => []),
                 FirebaseService.getDivisionsByChampionship(championshipId).catch(() => []),
-                FirebaseService.getDeclarations(championshipId).catch(() => ({}))
+                FirebaseService.getDeclarations(championshipId).catch(() => ({})),
+                FirebaseService.getPodiumImages(championshipId)
             ]);
             setDeclarations(declarationsData || {});
+            setPodiumImages(podiumImagesData || []);
 
             setChampionship(champData);
             setTeams(teamsData || []);
@@ -335,6 +341,8 @@ export default function ChampionshipDetail() {
         );
     }
 
+    const recargarImagenes = async () => setPodiumImages(await FirebaseService.getPodiumImages(championshipId));
+
     // Construir tabs según el tipo de campeonato y el rol del usuario
     const tabs = [];
 
@@ -410,6 +418,14 @@ export default function ChampionshipDetail() {
     // Panel de autos — solo para admins cuando carUsageTracking está habilitado
     if (!userIsComisario && championship.carUsageTracking?.enabled) {
         tabs.push({ id: 'cars', label: '🚗 Autos', icon: '🚗' });
+    }
+
+    // Imágenes de campeones — solo admins. El aviso cuenta las salas que ya
+    // terminaron y aún no tienen imagen: el sistema pregunta, no genera solo.
+    if (!userIsComisario) {
+        const sinImagen = salasDelCampeonato(championship, tracks, divisions)
+            .filter(s => s.terminada && !podiumImages.some(i => i.id === s.key)).length;
+        tabs.push({ id: 'images', label: '🖼️ Imágenes', icon: '🖼️', badge: sinImagen > 0 ? sinImagen : undefined });
     }
 
     return (
@@ -601,6 +617,20 @@ export default function ChampionshipDetail() {
                             tracks={tracks}
                             declarations={declarations}
                             onDeclarationsChange={() => FirebaseService.getDeclarations(championshipId).then(d => setDeclarations(d || {})).catch(() => {})}
+                        />
+                    )}
+
+                    {currentTab === 'images' && (
+                        <PodiumImagesAdmin
+                            championshipId={championshipId}
+                            championship={championship}
+                            teams={teams}
+                            tracks={tracks}
+                            penalties={penalties}
+                            divisions={divisions}
+                            declarations={declarations}
+                            images={podiumImages}
+                            onChange={recargarImagenes}
                         />
                     )}
                 </div>

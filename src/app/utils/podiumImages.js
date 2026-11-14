@@ -11,9 +11,13 @@
  * de una sala cambia cuando la rotación mueve a sus pilotos, y la imagen
  * tiene que retratar a quienes ganaron.
  *
+ * La parte pública solo muestra y descarga las imágenes; generar, subir o
+ * quitar se hace desde el panel de administración.
+ *
  * Módulo puro: sin React ni Firebase.
  */
 import { claveNombre } from './nombresPiloto.js';
+import { clasificacionesPorDivision } from './divisionRotation.js';
 
 export const CLAVE_GENERAL = 'general';
 
@@ -53,6 +57,22 @@ export function salasDelCampeonato(championship, tracks = [], divisions = []) {
         terminada: hayCarreras && carreras.every(t => tienePosiciones(t.results) ||
             Object.values(t.results?.divisions || {}).some(tienePosiciones)),
     }];
+}
+
+/**
+ * Salas con su podio actual, con la misma clasificación que la web pública
+ * (fusiones de identidad, entradas invalidadas por uso de autos, sanciones).
+ *
+ * @returns {Array<{ key, name, color, terminada, podium }>}
+ */
+export function salasConPodio({ championship, teams = [], tracks = [], penalties = [], divisions = [], pilotIdentities = [], declarations = {} }) {
+    const salas = salasDelCampeonato(championship, tracks, divisions);
+    // Sin salas, una «división» sin filtro de pilotos da la clasificación general
+    const bloques = salas.length === 1 && salas[0].key === CLAVE_GENERAL
+        ? [{ id: CLAVE_GENERAL, drivers: [] }]
+        : divisions;
+    const tablas = clasificacionesPorDivision({ championship, teams, tracks, penalties, divisions: bloques, pilotIdentities, declarations });
+    return salas.map(s => ({ ...s, podium: podioDe(tablas[s.key] || [], tracks) }));
 }
 
 /** Coche que más usó un piloto en el campeonato (según carsUsed de cada carrera). */

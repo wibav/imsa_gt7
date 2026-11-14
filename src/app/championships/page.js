@@ -48,7 +48,7 @@ import RegistrationForm from "../components/championship/RegistrationForm";
 import ClaimForm from '../components/championship/ClaimForm';
 import AppealForm, { getAppealWindowStatus, getEligibleAppellants } from '../components/championship/AppealForm';
 import DefenseForm from '../components/championship/DefenseForm';
-import PodiumImagesTab from '../components/championship/PodiumImagesTab';
+import PodiumImagesTab, { imagenLista } from '../components/championship/PodiumImagesTab';
 import { salasDelCampeonato, podioDe } from '../utils/podiumImages';
 import { suplentesDeBloque } from '../utils/suplentes';
 import { PLAZO_DESCARGO_HORAS, ESTADOS_EN_ESTUDIO, plazoDescargo, descargosDe, acusadosSinDescargo } from '../utils/descargo';
@@ -366,10 +366,8 @@ export default function ChampionshipDetailPage() {
             : divisionsStandings.find(d => d.division.id === sala.key)?.driverStandings || [];
         return { ...sala, podium: podioDe(tabla, tracks) };
     });
-    const imagenesListas = podiumImages.filter(i => i.imageUrl);
-    const salasSinImagen = isAdmin() ? salasImagen.filter(s => s.terminada && !podiumImages.some(i => i.id === s.key)) : [];
-    const mostrarImagenes = imagenesListas.length > 0 || (isAdmin() && salasImagen.some(s => s.terminada));
-    const recargarImagenes = async () => setPodiumImages(await FirebaseService.getPodiumImages(championshipId));
+    // Solo lectura: se generan, suben y quitan desde el panel de administración
+    const mostrarImagenes = podiumImages.some(imagenLista);
 
     // Streaming: detectar si hay una carrera "en vivo" (status 'in-progress')
     const liveTrack = tracks.find(t => t.status === 'in-progress');
@@ -541,27 +539,10 @@ export default function ChampionshipDetailPage() {
                         defecto) — empuja al sidebar fuera del viewport en
                         vez de que el contenido haga wrap o scroll interno. */}
                     <div className="lg:col-span-3 min-w-0">
-                        {/* Al terminar una sala, el sistema pregunta al admin cómo crear
-                            la imagen de campeones (no se genera nada sin pedirlo) */}
-                        {salasSinImagen.length > 0 && activeTab !== 'images' && (
-                            <div className="mb-6 flex flex-wrap items-center gap-3 bg-orange-500/10 border border-orange-500/30 rounded-xl px-4 py-3" role="status">
-                                <span className="text-white text-sm flex-1 min-w-[12rem]">
-                                    🖼️ {salasSinImagen.map(s => s.name ? `Sala ${s.name}` : 'El campeonato').join(', ')} {salasSinImagen.length > 1 ? 'han' : 'ha'} terminado: ¿generas la imagen de campeones con IA o subes la tuya?
-                                </span>
-                                <button type="button" onClick={() => setActiveTab('images')}
-                                    className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white">
-                                    Elegir →
-                                </button>
-                            </div>
-                        )}
                         {activeTab === 'images' && (
                             <PodiumImagesTab
-                                championshipId={championshipId}
-                                championship={championship}
                                 salas={salasImagen}
                                 images={podiumImages}
-                                esAdmin={isAdmin()}
-                                onChange={recargarImagenes}
                             />
                         )}
                         {/* TAB: Clasificación */}
