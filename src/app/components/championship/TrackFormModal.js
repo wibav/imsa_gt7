@@ -1,4 +1,5 @@
 "use client";
+import ModalPortal from '../common/ModalPortal';
 import ImageSpecHint from '../common/ImageSpecHint';
 
 import { useState, useEffect } from 'react';
@@ -166,7 +167,7 @@ export default function TrackFormModal({ track, championship, onSave, onClose })
     ];
 
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <ModalPortal><div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 rounded-xl border border-white/30 shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
 
                 {/* Header sticky */}
@@ -472,6 +473,6 @@ export default function TrackFormModal({ track, championship, onSave, onClose })
                     </div>
                 </div>
             </div>
-        </div>
+        </div></ModalPortal>
     );
 }

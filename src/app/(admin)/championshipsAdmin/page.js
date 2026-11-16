@@ -1,5 +1,6 @@
 "use client";
 
+import ModalPortal from '../../components/common/ModalPortal';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
@@ -1283,7 +1284,7 @@ function TeamsTab({ championshipId, teams, tracks, editMode, onUpdate, champions
 
             {/* Modal para agregar piloto */}
             {showAddDriverModal && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                <ModalPortal><div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="bg-slate-800 border border-white/30 rounded-lg p-6 w-full max-w-md">
                         <h3 className="text-xl font-bold text-white mb-4">Agregar Piloto</h3>
 
@@ -1336,7 +1337,7 @@ function TeamsTab({ championshipId, teams, tracks, editMode, onUpdate, champions
                             </div>
                         </div>
                     </div>
-                </div>
+                </div></ModalPortal>
             )}
 
             <p className="text-gray-400 mt-6 text-center text-sm">
@@ -2042,7 +2043,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                 const modalDriverNames = hasDivisions ? (activeDivObj?.drivers || []) : allDriverNames;
 
                 return (
-                    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <ModalPortal><div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                         <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-white/30 rounded-xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
                             <div className="flex items-center justify-between mb-6">
                                 <div>
@@ -2461,7 +2462,7 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </div></ModalPortal>
                 );
             })()}
         </div>

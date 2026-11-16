@@ -1,5 +1,6 @@
 "use client";
 
+import ModalPortal from '../common/ModalPortal';
 import { useState, useMemo } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { DEFAULT_DIVISION_COLORS } from '../../utils/constants';
@@ -669,7 +670,7 @@ export default function DivisionsTab({
 
             {/* ── Modal: Auto-asignar por Pre-Qualy ── */}
             {showPreQualyModal && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                <ModalPortal><div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-white/30 rounded-xl p-6 w-full max-w-2xl max-h-[85vh] flex flex-col">
                         <div className="flex items-center justify-between mb-4 flex-shrink-0">
                             <div>
@@ -750,12 +751,12 @@ export default function DivisionsTab({
                             </button>
                         </div>
                     </div>
-                </div>
+                </div></ModalPortal>
             )}
 
             {/* ── Modal: Ascensos/Descensos ── */}
             {showPromotions && promotionPreview && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                <ModalPortal><div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-white/30 rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-xl font-bold text-white">🔄 Preview de Ascensos/Descensos</h3>
@@ -797,7 +798,7 @@ export default function DivisionsTab({
                             </button>
                         </div>
                     </div>
-                </div>
+                </div></ModalPortal>
             )}
         </div>
     );

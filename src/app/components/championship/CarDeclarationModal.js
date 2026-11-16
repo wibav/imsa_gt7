@@ -1,5 +1,6 @@
 "use client";
 
+import ModalPortal from '../common/ModalPortal';
 import { useEffect, useMemo, useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { getAllowedCars, getExcludedCars, resumenLimitadores } from '../../utils/carUsageCalculator';
@@ -253,7 +254,7 @@ export default function CarDeclarationModal({ championship, registration, regist
     const driverLabel = (r) => r.gt7Id || r.psnId || r.name || t('componentes.tabla.piloto');
 
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <ModalPortal><div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 border border-white/30 rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
                 {aviso && (
                     <div className="absolute inset-0 z-10 bg-black/70 flex items-center justify-center p-4 rounded-xl" role="alertdialog" aria-modal="true" aria-labelledby="aviso-declaracion">
@@ -493,6 +494,6 @@ export default function CarDeclarationModal({ championship, registration, regist
                     )}
                 </div>
             </div>
-        </div>
+        </div></ModalPortal>
     );
 }
