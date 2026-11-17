@@ -1,4 +1,5 @@
 "use client";
+import SubirVideoEvidencia from './SubirVideoEvidencia';
 import { useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { notifyAppealCreated } from '../../utils/telegram';
@@ -49,6 +50,8 @@ export default function AppealForm({ championshipId, championship, claim, existi
     const [appellantName, setAppellantName] = useState(eligible[0] || '');
     const [reason, setReason] = useState('');
     const [evidenceInput, setEvidenceInput] = useState('');
+    // Mientras sube un clip a YouTube no se envía el formulario (su enlace aún no está)
+    const [subiendoVideo, setSubiendoVideo] = useState(false);
     const [evidence, setEvidence] = useState([]);
     const [saving, setSaving] = useState(false);
     const [submitted, setSubmitted] = useState(false);
@@ -78,6 +81,7 @@ export default function AppealForm({ championshipId, championship, claim, existi
     const handleSubmit = async (e) => {
         e.preventDefault();
         const errs = [];
+        if (subiendoVideo) errs.push(t('formularios.video.esperaSubida'));
         if (!appellantName) errs.push(al('errQuien'));
         if (alreadyAppealed) errs.push(al('errYaExiste', { nombre: appellantName, estado: t(`campeonato.reclamacion.estadoAlegacion.${alreadyAppealed.status}`) }));
         if (!reason.trim() || reason.trim().length < REASON_MIN) errs.push(al('errMin', { n: REASON_MIN }));
@@ -209,6 +213,13 @@ export default function AppealForm({ championshipId, championship, claim, existi
                                     ))}
                                 </ul>
                             )}
+                            <SubirVideoEvidencia
+                                tipo="alegacion"
+                                championshipId={championshipId}
+                                claimId={claim?.id}
+                                onSubido={url => setEvidence(prev => prev.includes(url) ? prev : [...prev, url])}
+                                onOcupado={setSubiendoVideo}
+                            />
                             <div className="flex gap-2">
                                 <input
                                     type="url"

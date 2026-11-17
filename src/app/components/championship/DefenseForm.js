@@ -1,4 +1,5 @@
 "use client";
+import SubirVideoEvidencia from './SubirVideoEvidencia';
 import { useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { notifyDefenseCreated } from '../../utils/telegram';
@@ -21,6 +22,8 @@ export default function DefenseForm({ championshipId, championship, claim, defen
     const [accusedName, setAccusedName] = useState(pendientes[0] || '');
     const [text, setText] = useState('');
     const [evidenceInput, setEvidenceInput] = useState('');
+    // Mientras sube un clip a YouTube no se envía el formulario (su enlace aún no está)
+    const [subiendoVideo, setSubiendoVideo] = useState(false);
     const [evidence, setEvidence] = useState([]);
     const [saving, setSaving] = useState(false);
     const [submitted, setSubmitted] = useState(false);
@@ -38,6 +41,7 @@ export default function DefenseForm({ championshipId, championship, claim, defen
     const handleSubmit = async (e) => {
         e.preventDefault();
         const errs = [];
+        if (subiendoVideo) errs.push(t('formularios.video.esperaSubida'));
         if (!accusedName) errs.push(de('errQuien'));
         if (text.trim().length < DESCARGO_MIN) errs.push(de('errMin', { n: DESCARGO_MIN }));
         if (text.length > DESCARGO_MAX) errs.push(de('errMax', { n: DESCARGO_MAX }));
@@ -171,6 +175,13 @@ export default function DefenseForm({ championshipId, championship, claim, defen
                                     ))}
                                 </ul>
                             )}
+                            <SubirVideoEvidencia
+                                tipo="descargo"
+                                championshipId={championshipId}
+                                claimId={claim?.id}
+                                onSubido={url => setEvidence(prev => prev.includes(url) ? prev : [...prev, url])}
+                                onOcupado={setSubiendoVideo}
+                            />
                             <div className="flex gap-2">
                                 <input
                                     id="descargo-video"

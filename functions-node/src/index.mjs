@@ -161,3 +161,6 @@ export const generar_imagen_podio = onDocumentWritten(
         }
     }
 );
+
+// Clips de prueba de reclamaciones, descargos y alegaciones → YouTube
+export { subir_video_youtube } from './videoYoutube.mjs';

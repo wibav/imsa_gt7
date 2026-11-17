@@ -1,4 +1,5 @@
 "use client";
+import SubirVideoEvidencia from './SubirVideoEvidencia';
 import { useState, useEffect, useRef } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import {
@@ -1748,6 +1749,9 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
     const [nuevaEvidencia, setNuevaEvidencia] = useState('');
     const [guardandoEvidencia, setGuardandoEvidencia] = useState(false);
     const [errorEvidencia, setErrorEvidencia] = useState('');
+    // La subida a YouTube termina después de renderizar: lee la lista vigente
+    const evidenciasRef = useRef(evidencias);
+    evidenciasRef.current = evidencias;
     const esYouTube = (u) => /youtube\.com|youtu\.be/i.test(u);
     const hayYouTube = evidencias.some(esYouTube);
 
@@ -1955,7 +1959,7 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                             </ul>
                         ) : (
                             <p className="text-gray-500 text-xs mb-2">
-                                Sin evidencia. Si el piloto te mandó el video por privado, súbelo a YouTube como «Oculto» y pega aquí el enlace.
+                                Sin evidencia. Si el piloto te mandó el vídeo por privado, súbelo con el botón de abajo o pega aquí su enlace de YouTube.
                             </p>
                         )}
                         <div className="flex gap-2">
@@ -1977,6 +1981,18 @@ function ResolveClaimModal({ claim, championshipId, org, allDrivers, tracks, pre
                             </button>
                         </div>
                         {errorEvidencia && <p className="text-orange-300 text-xs mt-1">⚠️ {errorEvidencia}</p>}
+                        <div className="mt-3">
+                            <SubirVideoEvidencia
+                                admin
+                                tipo="reclamacion"
+                                championshipId={championshipId}
+                                claimId={claim.id}
+                                onSubido={url => {
+                                    const actual = evidenciasRef.current;
+                                    if (!actual.includes(url)) guardarEvidencias([...actual, url]);
+                                }}
+                            />
+                        </div>
                     </div>
 
                     <div>

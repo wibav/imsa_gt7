@@ -1,4 +1,5 @@
 "use client";
+import SubirVideoEvidencia from './SubirVideoEvidencia';
 import { useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { notifyClaimCreated } from '../../utils/telegram';
@@ -57,6 +58,8 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
     });
     const [accusedInput, setAccusedInput] = useState('');
     const [evidenceInput, setEvidenceInput] = useState('');
+    // Mientras sube un clip a YouTube no se envía el formulario (su enlace aún no está)
+    const [subiendoVideo, setSubiendoVideo] = useState(false);
     const [saving, setSaving] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [errors, setErrors] = useState([]);
@@ -108,6 +111,7 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
 
     const validate = () => {
         const errs = [];
+        if (subiendoVideo) errs.push(t('formularios.video.esperaSubida'));
         if (!form.reporterName) errs.push(r('errNombre'));
         if (form.accusedNames.length === 0) errs.push(r('errInfractor'));
         if (!form.trackId) errs.push(r('errCarrera'));
@@ -345,6 +349,13 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
                                     ))}
                                 </ul>
                             )}
+                            <SubirVideoEvidencia
+                                tipo="reclamacion"
+                                championshipId={championshipId}
+                                trackId={form.trackId}
+                                onSubido={url => setForm(prev => prev.evidence.includes(url) ? prev : ({ ...prev, evidence: [...prev.evidence, url] }))}
+                                onOcupado={setSubiendoVideo}
+                            />
                             <div className="flex gap-2">
                                 <input
                                     type="url"
