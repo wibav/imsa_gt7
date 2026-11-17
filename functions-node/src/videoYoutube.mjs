@@ -1,11 +1,13 @@
 /**
  * Subida de clips de prueba a YouTube (ver src/app/utils/videoEvidencia.js).
  *
- * POST { accion: 'iniciar', tipo, championshipId, trackId?, claimId?, tamano, mime }
+ * POST { accion: 'iniciar', tipo, championshipId, trackId?, claimId?, contexto?, tamano, mime }
  *   → { ok, uploadUrl, registroId }
  *   Abre en YouTube una sesión de subida reanudable como «Oculto» y devuelve
  *   su dirección: el navegador envía ahí el archivo. La sesión solo admite
  *   ese vídeo, con ese tamaño, así que no expone la autorización de la cuenta.
+ *   Título y descripción llevan el contexto del incidente: con claimId, el
+ *   de la reclamación guardada; si no, el borrador del formulario.
  *
  * POST { accion: 'confirmar', registroId, videoId }
  *   → { ok, url }
@@ -23,7 +25,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { createHash } from 'node:crypto';
 import {
-    VIDEO_MAX_BYTES, SUBIDAS_POR_IP_DIA, SUBIDAS_TOTALES_DIA, TIPOS_VIDEO, tituloVideo,
+    VIDEO_MAX_BYTES, SUBIDAS_POR_IP_DIA, SUBIDAS_TOTALES_DIA, TIPOS_VIDEO, tituloVideo, descripcionVideo, contextoSeguro,
 } from '../../src/app/utils/videoEvidencia.js';
 
 const YOUTUBE_OAUTH = defineSecret('YOUTUBE_OAUTH');
@@ -100,11 +102,17 @@ async function iniciar(db, body, origen, ip, idToken) {
     const champ = (await champRef.get()).data();
     if (!champ || !champ.penaltiesConfig?.enabled) throw new ErrorVideo('campeonato', 'El campeonato no admite reclamaciones', 404);
 
-    // Carrera, para el título: la del formulario o la de la reclamación
+    // Reclamación guardada (descargo, alegación o panel): sus datos mandan
+    // sobre el borrador, que lo escribe el piloto
+    const borrador = contextoSeguro(body.contexto);
+    const guardada = typeof claimId === 'string' && /^[\w-]{1,64}$/.test(claimId)
+        ? (await champRef.collection('claims').doc(claimId).get()).data()
+        : null;
+    const reclamacion = guardada
+        ? contextoSeguro({ ...guardada, accusedNames: guardada.accusedNames || [guardada.accusedName].filter(Boolean) })
+        : borrador;
     let idCarrera = typeof trackId === 'string' ? trackId : '';
-    if (!idCarrera && typeof claimId === 'string' && /^[\w-]{1,64}$/.test(claimId)) {
-        idCarrera = (await champRef.collection('claims').doc(claimId).get()).data()?.trackId || '';
-    }
+    if (!idCarrera && guardada) idCarrera = guardada.trackId || '';
     const pista = /^[\w-]{1,64}$/.test(idCarrera)
         ? (await champRef.collection('tracks').doc(idCarrera).get()).data()
         : null;
@@ -113,7 +121,12 @@ async function iniciar(db, body, origen, ip, idToken) {
     const personal = await esPersonal(idToken, champ.orgId);
     await reservarCupo(db, ipHash, personal);
 
-    const titulo = tituloVideo({ tipo, campeonato: champ.name, carrera: pista?.name, ronda: pista?.round });
+    const datosVideo = {
+        tipo, campeonato: champ.name, carrera: pista?.name, ronda: pista?.round, fecha: pista?.date,
+        reclamacion, autor: borrador.autor, texto: borrador.texto,
+        url: `${origen}/championships/?id=${championshipId}`,
+    };
+    const titulo = tituloVideo(datosVideo);
     const res = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {
         method: 'POST',
         headers: {
@@ -127,7 +140,7 @@ async function iniciar(db, body, origen, ip, idToken) {
         body: JSON.stringify({
             snippet: {
                 title: titulo,
-                description: `${TIPOS_VIDEO[tipo]} enviada desde ${origen}/championships/?id=${championshipId}`,
+                description: descripcionVideo(datosVideo),
                 categoryId: '20', // Gaming
             },
             status: { privacyStatus: 'unlisted', selfDeclaredMadeForKids: false, embeddable: true },

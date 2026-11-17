@@ -62,9 +62,16 @@ function enviarAYoutube(uploadUrl, file, onProgreso) {
  * Con `admin` (panel de comisarios): textos en español y sin el máximo de
  * clips por formulario ni el de duración; el de tamaño se mantiene.
  *
+ * El vídeo lleva en YouTube el contexto del incidente (título y
+ * descripción): con `claimId` la función lo lee de la reclamación guardada;
+ * en una reclamación nueva viaja el borrador del formulario (`contexto`).
+ * Mientras `bloqueo` traiga una clave de texto, el botón explica qué falta
+ * rellenar antes de subir.
+ *
  * @param {'reclamacion'|'descargo'|'alegacion'} tipo
+ * @param {{ reporterName?, accusedNames?, lap?, minute?, description?, autor?, texto? }} contexto
  */
-export default function SubirVideoEvidencia({ tipo, championshipId, trackId, claimId, onSubido, onOcupado, admin = false }) {
+export default function SubirVideoEvidencia({ tipo, championshipId, trackId, claimId, contexto, bloqueo, onSubido, onOcupado, admin = false }) {
     const { t } = useI18n();
     const v = (clave, vars) => (admin
         ? traducir('es', `formularios.video.${clave}`, vars)
@@ -97,6 +104,7 @@ export default function SubirVideoEvidencia({ tipo, championshipId, trackId, cla
             const { uploadUrl, registroId } = await llamarFuncion({
                 accion: 'iniciar', tipo, championshipId,
                 trackId: trackId || undefined, claimId: claimId || undefined,
+                contexto: contexto || undefined,
                 tamano: file.size, mime: file.type,
             });
             cambiarEstado('subiendo');
@@ -116,7 +124,10 @@ export default function SubirVideoEvidencia({ tipo, championshipId, trackId, cla
 
     return (
         <div className="space-y-2">
-            <button type="button" onClick={() => archivo.current?.click()} disabled={ocupado || agotado}
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 text-amber-100 text-xs">
+                🎥 {v('requisitos')}
+            </div>
+            <button type="button" onClick={() => archivo.current?.click()} disabled={ocupado || agotado || !!bloqueo}
                 className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 transition-all">
                 {estado === 'preparando' ? `⏳ ${v('preparando')}`
                     : estado === 'subiendo' ? `⏳ ${v('subiendo', { p: progreso })}`
@@ -128,6 +139,7 @@ export default function SubirVideoEvidencia({ tipo, championshipId, trackId, cla
                 </div>
             )}
             <input ref={archivo} type="file" accept="video/*" onChange={elegir} className="hidden" aria-label={v('subir')} />
+            {bloqueo && !ocupado && <p className="text-amber-300 text-xs">{v(bloqueo)}</p>}
             <p className="text-gray-500 text-xs">
                 {agotado ? v('errMaximo', { n: VIDEOS_POR_FORMULARIO }) : v(admin ? 'ayudaAdmin' : 'ayuda', { seg: VIDEO_MAX_SEGUNDOS, mb: VIDEO_MAX_MB })}
             </p>

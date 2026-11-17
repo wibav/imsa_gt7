@@ -217,6 +217,8 @@ export default function AppealForm({ championshipId, championship, claim, existi
                                 tipo="alegacion"
                                 championshipId={championshipId}
                                 claimId={claim?.id}
+                                contexto={{ autor: appellantName, texto: reason }}
+                                bloqueo={appellantName ? null : 'faltaQuien'}
                                 onSubido={url => setEvidence(prev => prev.includes(url) ? prev : [...prev, url])}
                                 onOcupado={setSubiendoVideo}
                             />

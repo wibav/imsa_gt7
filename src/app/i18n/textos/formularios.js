@@ -194,6 +194,9 @@ const formularios = {
         },
         video: {
             subir: 'Subir clip a YouTube',
+            requisitos: 'El clip debe mostrar tu coche en cámara de tercera persona y el HUD visible: velocidad, acelerador, freno y daños.',
+            faltaReclamacion: 'Antes de subir el clip, elige la carrera, quién reporta y a quién reportas: esos datos van en la descripción del vídeo.',
+            faltaQuien: 'Antes de subir el clip, elige quién lo presenta: su nombre va en la descripción del vídeo.',
             ayudaAdmin: 'Sube el clip que te mandó el piloto (máx. {mb} MB). Queda como «Oculto» en la cuenta de reclamaciones y se guarda en esta reclamación.',
             ayuda: 'Elige el clip de tu consola (máx. {seg} s y {mb} MB). Se publica como «Oculto» en la cuenta de la organización: solo lo ve quien tenga el enlace.',
             preparando: 'Preparando la subida…',
@@ -444,6 +447,9 @@ const formularios = {
         },
         video: {
             subir: 'Upload clip to YouTube',
+            requisitos: 'The clip must show your car in third-person camera with the HUD visible: speed, throttle, brake and damage.',
+            faltaReclamacion: 'Before uploading the clip, choose the race, who is reporting and who you are reporting: they go in the video description.',
+            faltaQuien: 'Before uploading the clip, choose who is submitting it: their name goes in the video description.',
             ayudaAdmin: 'Upload the clip the driver sent you (max. {mb} MB). It is published as «Unlisted» on the claims account and saved to this claim.',
             ayuda: 'Pick the clip from your console (max. {seg} s and {mb} MB). It is published as «Unlisted» on the organisers\' account: only people with the link can see it.',
             preparando: 'Preparing the upload…',
@@ -694,6 +700,9 @@ const formularios = {
         },
         video: {
             subir: 'Enviar clipe ao YouTube',
+            requisitos: 'O clipe deve mostrar o seu carro em câmara de terceira pessoa com o HUD visível: velocidade, acelerador, travão e danos.',
+            faltaReclamacion: 'Antes de enviar o clipe, escolha a corrida, quem reporta e quem está a reportar: esses dados vão na descrição do vídeo.',
+            faltaQuien: 'Antes de enviar o clipe, escolha quem o apresenta: o nome vai na descrição do vídeo.',
             ayudaAdmin: 'Envie o clipe que o piloto lhe mandou (máx. {mb} MB). Fica «Não listado» na conta de reclamações e é guardado nesta reclamação.',
             ayuda: 'Escolha o clipe da sua consola (máx. {seg} s e {mb} MB). É publicado como «Não listado» na conta da organização: só o vê quem tiver o link.',
             preparando: 'A preparar o envio…',

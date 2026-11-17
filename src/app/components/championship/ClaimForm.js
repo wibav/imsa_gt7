@@ -353,6 +353,8 @@ export default function ClaimForm({ championshipId, championship, teams = [], tr
                                 tipo="reclamacion"
                                 championshipId={championshipId}
                                 trackId={form.trackId}
+                                contexto={{ reporterName: form.reporterName, accusedNames: form.accusedNames, lap: form.lap, minute: form.minute, description: form.description }}
+                                bloqueo={!form.trackId || !form.reporterName.trim() || form.accusedNames.length === 0 ? 'faltaReclamacion' : null}
                                 onSubido={url => setForm(prev => prev.evidence.includes(url) ? prev : ({ ...prev, evidence: [...prev.evidence, url] }))}
                                 onOcupado={setSubiendoVideo}
                             />

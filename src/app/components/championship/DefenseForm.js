@@ -179,6 +179,8 @@ export default function DefenseForm({ championshipId, championship, claim, defen
                                 tipo="descargo"
                                 championshipId={championshipId}
                                 claimId={claim?.id}
+                                contexto={{ autor: accusedName, texto: text }}
+                                bloqueo={accusedName ? null : 'faltaQuien'}
                                 onSubido={url => setEvidence(prev => prev.includes(url) ? prev : [...prev, url])}
                                 onOcupado={setSubiendoVideo}
                             />
