@@ -182,11 +182,30 @@ export class FirebaseService {
   // simultáneas compartan una sola lectura.
   static _identitiesPromise = null;
 
+  // Las identidades (~70 documentos) se leían enteras en cada visita a un
+  // campeonato. Cambian muy poco: se guardan unas horas en el navegador.
+  static _CLAVE_IDENTIDADES = 'gt7:pilotIdentities:v1';
+  static _VIGENCIA_IDENTIDADES_MS = 3 * 60 * 60 * 1000;
+
+  static _identidadesGuardadas() {
+    try {
+      const g = JSON.parse(localStorage.getItem(FirebaseService._CLAVE_IDENTIDADES) || 'null');
+      if (g && Array.isArray(g.datos) && Date.now() - g.t < FirebaseService._VIGENCIA_IDENTIDADES_MS) return g.datos;
+    } catch { /* sin almacenamiento o dato corrupto: se lee de Firestore */ }
+    return null;
+  }
+
   static async getPilotIdentities() {
     if (!FirebaseService._identitiesPromise) {
       FirebaseService._identitiesPromise = (async () => {
+        const guardadas = FirebaseService._identidadesGuardadas();
+        if (guardadas) return guardadas;
         const snapshot = await getDocs(collection(db, "pilotIdentities"));
-        return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        const datos = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        try {
+          localStorage.setItem(FirebaseService._CLAVE_IDENTIDADES, JSON.stringify({ t: Date.now(), datos }));
+        } catch { /* modo privado o lleno: solo esta visita */ }
+        return datos;
       })().catch(error => {
         FirebaseService._identitiesPromise = null;
         // Un fallo aquí NO debe tumbar la página: sin identidades, los nombres
@@ -240,6 +259,7 @@ export class FirebaseService {
   static invalidatePilotIdentitiesCache() {
     FirebaseService._knownNamesPromise = null;
     FirebaseService._identitiesPromise = null;
+    try { localStorage.removeItem(FirebaseService._CLAVE_IDENTIDADES); } catch { /* sin almacenamiento */ }
   }
 
   /**
@@ -2553,12 +2573,14 @@ export class FirebaseService {
   // ══════════════════════════════════════════
 
   /** Obtener una organización por id (branding, reglamento, plan, etc.) */
-  static async getOrganization(orgId) {
+  static async getOrganization(orgId, { lanzarSiFalla = false } = {}) {
     try {
       const snap = await getDoc(doc(db, 'organizations', orgId));
       return snap.exists() ? { id: snap.id, ...snap.data() } : null;
     } catch (error) {
       console.error('Error getting organization:', error);
+      // OrganizationContext necesita distinguir «no existe» de «no se pudo leer»
+      if (lanzarSiFalla) throw error;
       return null;
     }
   }

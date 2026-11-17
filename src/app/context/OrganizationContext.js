@@ -142,7 +142,25 @@ export function OrganizationProvider({ children }) {
                 orgId = DEFAULT_ORG_ID;
             }
 
-            const data = await FirebaseService.getOrganization(orgId);
+            // Un fallo de red no es «organización inexistente»: se reintenta y,
+            // si sigue fallando, se continúa con su id para que cada página
+            // intente cargar sus datos (antes se mostraba la página de 404).
+            let data;
+            for (let intento = 0; ; intento++) {
+                try {
+                    data = await FirebaseService.getOrganization(orgId, { lanzarSiFalla: true });
+                    break;
+                } catch {
+                    if (cancelled) return;
+                    if (intento >= 2) {
+                        FirebaseService.setCurrentOrgId(orgId);
+                        setOrg({ id: orgId });
+                        setLoading(false);
+                        return;
+                    }
+                    await new Promise(r => setTimeout(r, 1500 * (intento + 1)));
+                }
+            }
 
             if (cancelled) return;
 

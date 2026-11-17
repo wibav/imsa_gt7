@@ -38,7 +38,9 @@ export function ChampionshipProvider({ children }) {
      * Recuperar campeonato seleccionado desde localStorage al montar
      */
     useEffect(() => {
-        const savedChampionshipId = localStorage.getItem('selectedChampionshipId');
+        // localStorage lanza en navegadores con el almacenamiento bloqueado
+        let savedChampionshipId = null;
+        try { savedChampionshipId = localStorage.getItem('selectedChampionshipId'); } catch { /* sin almacenamiento */ }
         if (savedChampionshipId && championships.length > 0) {
             const championship = championships.find(c => c.id === savedChampionshipId);
             if (championship) {
@@ -59,7 +61,7 @@ export function ChampionshipProvider({ children }) {
      */
     useEffect(() => {
         if (selectedChampionship) {
-            localStorage.setItem('selectedChampionshipId', selectedChampionship.id);
+            try { localStorage.setItem('selectedChampionshipId', selectedChampionship.id); } catch { /* sin almacenamiento */ }
         }
     }, [selectedChampionship]);
 

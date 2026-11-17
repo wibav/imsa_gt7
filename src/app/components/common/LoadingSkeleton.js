@@ -1,3 +1,35 @@
+"use client";
+import { useEffect, useState } from 'react';
+import { useI18n, traducir } from '../../i18n';
+import { recargarLimpio } from '../../utils/recarga';
+
+const ESPERA_AVISO_MS = 15000;
+
+/**
+ * Si la carga se alarga, lo dice y ofrece recargar (vaciando la caché del
+ * service worker). Sin esto, una lectura que no respondía dejaba la rueda
+ * girando para siempre sin que el piloto supiera qué hacer.
+ */
+function AvisoCargaLenta() {
+    const i18n = useI18n();
+    const t = i18n?.t || ((clave) => traducir('es', clave));
+    const [lenta, setLenta] = useState(false);
+    useEffect(() => {
+        const id = setTimeout(() => setLenta(true), ESPERA_AVISO_MS);
+        return () => clearTimeout(id);
+    }, []);
+    if (!lenta) return null;
+    return (
+        <div className="mt-6 max-w-sm mx-auto space-y-3" role="status">
+            <p className="text-gray-300 text-sm">{t('comun.carga.lenta')}</p>
+            <button type="button" onClick={recargarLimpio}
+                className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white font-semibold">
+                🔄 {t('comun.carga.reintentar')}
+            </button>
+        </div>
+    );
+}
+
 /**
  * Skeleton de carga reutilizable con múltiples variantes.
  * 
@@ -13,10 +45,11 @@ export default function LoadingSkeleton({ variant = 'card', rows = 3, className 
     // Página completa centrada
     if (variant === 'page') {
         return (
-            <div className={`min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center ${className}`}>
+            <div className={`min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center px-4 ${className}`}>
                 <div className="text-center">
                     <div className="inline-block w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4" />
                     <p className="text-white text-xl">{message || 'Cargando...'}</p>
+                    <AvisoCargaLenta />
                 </div>
             </div>
         );

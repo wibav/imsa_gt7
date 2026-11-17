@@ -1,7 +1,9 @@
 // Subir esta versión purga la caché anterior al activarse el nuevo SW (ver
 // el listener 'activate'). Hacerlo cuando cambie la estrategia de caché o si
 // hay que forzar que los usuarios suelten assets viejos.
-const CACHE_NAME = 'gt7-champs-v2';
+// v3: deja de guardar los index.txt de Next (sin versión en el nombre), que
+// tras un despliegue apuntaban a código que ya no existía.
+const CACHE_NAME = 'gt7-champs-v3';
 
 // Archivos del shell de la app que siempre deben estar disponibles offline
 const PRECACHE_ASSETS = [
@@ -65,12 +67,20 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Cache-first para assets estáticos (JS, CSS, imágenes, fuentes)
+    // Cache-first solo para lo que no cambia sin cambiar de nombre: el código
+    // de Next (lleva un hash en la ruta) y las imágenes y fuentes de la web.
+    // El resto (index.txt de navegación, JSON, otros dominios) va siempre a
+    // la red: servirlo de la caché dejaba páginas a medias tras publicar.
+    const mismoOrigen = url.origin === self.location.origin;
+    const inmutable = mismoOrigen && url.pathname.startsWith('/_next/static/');
+    const imagen = mismoOrigen && /\.(png|jpe?g|gif|svg|webp|ico|woff2?)$/i.test(url.pathname);
+    if (!inmutable && !imagen) return;
+
     event.respondWith(
         caches.match(request).then((cached) => {
             if (cached) return cached;
             return fetch(request).then((response) => {
-                if (response.ok && response.type !== 'opaque') {
+                if (response.ok && response.type === 'basic') {
                     const clone = response.clone();
                     caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
                 }

@@ -43,10 +43,11 @@ export default function PodiumImagesAdmin({ championshipId, championship, teams,
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-2xl font-bold text-white">🖼️ Imágenes de campeones</h2>
+                <h2 className="text-2xl font-bold text-white">🏆 Podios por sala</h2>
                 <p className="text-gray-300 text-sm mt-1">
-                    Cuando una sala corre todas sus carreras, aquí eliges cómo crear su imagen. En la web pública
-                    los pilotos solo ven la imagen y pueden descargarla.
+                    Cuando una sala corre todas sus carreras, aquí eliges cómo crear la imagen de su podio. En la web
+                    pública la pestaña «Podios» aparece cuando el campeonato está finalizado; los pilotos solo ven la
+                    imagen y pueden descargarla.
                 </p>
             </div>
 

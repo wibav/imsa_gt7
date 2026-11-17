@@ -8,7 +8,7 @@ export const MEDALLAS = { 1: '🥇', 2: '🥈', 3: '🥉' };
 export const imagenLista = (imagen) => !!imagen?.imageUrl && imagen.status !== ESTADO_IMAGEN.GENERANDO;
 
 /**
- * Pestaña pública «Imágenes»: la imagen de campeones de cada sala, su podio
+ * Pestaña pública «Podios»: la imagen del podio final de cada sala, sus tres primeros
  * y el enlace de descarga. Solo lectura: generar con IA, subir o quitar
  * imágenes se hace desde el panel de administración (PodiumImagesAdmin),
  * para que nadie gaste créditos de Gemini desde la web pública.
@@ -33,7 +33,10 @@ export default function PodiumImagesTab({ salas = [], images = [] }) {
 
     return (
         <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-white">{im('titulo')}</h2>
+            <div>
+                <h2 className="text-2xl font-bold text-white">🏆 {visibles.some(s => s.name) ? im('titulo') : im('tituloGeneral')}</h2>
+                {visibles.some(s => s.name) && <p className="text-gray-300 text-sm mt-1">{im('subtitulo')}</p>}
+            </div>
             <div className="grid md:grid-cols-2 gap-6">
                 {visibles.map(sala => {
                     const imagen = porClave[sala.key];

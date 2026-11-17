@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { FirebaseService } from "../services/firebaseService";
 import { useAuth } from "../context/AuthContext";
@@ -197,6 +197,28 @@ export default function ChampionshipDetailPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [championshipId]);
 
+    // Reclamaciones, alegaciones y descargos solo se ven en la pestaña
+    // Sanciones: se leen al abrirla (eran ~1/3 de las lecturas de cada visita).
+    const sancionesCargadas = useRef(false);
+    const cargarSanciones = async () => {
+        if (!championshipId) return;
+        const [claimsData, appealsData, defensesData] = await Promise.all([
+            FirebaseService.getClaimsByChampionship(championshipId).catch(() => []),
+            FirebaseService.getAppealsByChampionship(championshipId).catch(() => []),
+            FirebaseService.getDefensesByChampionship(championshipId).catch(() => []),
+        ]);
+        sancionesCargadas.current = true;
+        setClaims(claimsData || []);
+        setAppeals(appealsData || []);
+        setDefenses(defensesData || []);
+    };
+    useEffect(() => {
+        if (activeTab === 'penalties' && !sancionesCargadas.current) cargarSanciones();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, championshipId]);
+    const pestanaInicialFijada = useRef(false);
+    useEffect(() => { sancionesCargadas.current = false; pestanaInicialFijada.current = false; }, [championshipId]);
+
     const loadChampionshipData = async () => {
         if (!championshipId) return;
 
@@ -207,19 +229,23 @@ export default function ChampionshipDetailPage() {
         setTracks([]);
 
         try {
-            const [champData, teamsData, tracksData, penaltiesData, divisionsData, claimsData, appealsData, declarationsData, identitiesData, defensesData, podiumImagesData] = await Promise.all([
-                FirebaseService.getChampionship(championshipId),
+            // Las declaraciones de autos solo cuentan en la clasificación si el
+            // campeonato controla el uso de autos: si no, no se leen.
+            const champPromise = FirebaseService.getChampionship(championshipId);
+            const [champData, teamsData, tracksData, penaltiesData, divisionsData, declarationsData, identitiesData, podiumImagesData] = await Promise.all([
+                champPromise,
                 FirebaseService.getTeamsByChampionship(championshipId).catch(() => []),
                 FirebaseService.getTracksByChampionship(championshipId).catch(() => []),
                 FirebaseService.getPenaltiesByChampionship(championshipId).catch(() => []),
                 FirebaseService.getDivisionsByChampionship(championshipId).catch(() => []),
-                FirebaseService.getClaimsByChampionship(championshipId).catch(() => []),
-                FirebaseService.getAppealsByChampionship(championshipId).catch(() => []),
-                FirebaseService.getDeclarations(championshipId).catch(() => ({})),
+                champPromise
+                    .then(c => (c?.carUsageTracking?.enabled ? FirebaseService.getDeclarations(championshipId) : {}))
+                    .catch(() => ({})),
                 FirebaseService.getPilotIdentities(),
-                FirebaseService.getDefensesByChampionship(championshipId),
                 FirebaseService.getPodiumImages(championshipId),
             ]);
+            // Tras enviar una reclamación, descargo o alegación se recarga todo
+            if (sancionesCargadas.current) cargarSanciones().catch(() => {});
             setDeclarations(declarationsData || {});
             if (champData?.edition) {
                 FirebaseService.getContinuations(championshipId).then(setContinuations).catch(() => {});
@@ -230,10 +256,12 @@ export default function ChampionshipDetailPage() {
             setTracks(tracksData || []);
             setPenalties(penaltiesData || []);
             setDivisions(divisionsData || []);
-            setClaims(claimsData || []);
-            setAppeals(appealsData || []);
-            setDefenses(defensesData || []);
             setPodiumImages(podiumImagesData || []);
+            // Campeonato finalizado con podios: se abre en ellos, solo al entrar
+            if (!pestanaInicialFijada.current) {
+                pestanaInicialFijada.current = true;
+                if (champData?.status === 'completed' && (podiumImagesData || []).some(imagenLista)) setActiveTab('images');
+            }
             setPilotIdentities(identitiesData || []);
         } catch (error) {
             console.error("Error loading championship data:", error);
@@ -366,8 +394,9 @@ export default function ChampionshipDetailPage() {
             : divisionsStandings.find(d => d.division.id === sala.key)?.driverStandings || [];
         return { ...sala, podium: podioDe(tabla, tracks) };
     });
-    // Solo lectura: se generan, suben y quitan desde el panel de administración
-    const mostrarImagenes = podiumImages.some(imagenLista);
+    // Podios: solo con el campeonato finalizado y alguna imagen lista. Se
+    // generan, suben y quitan desde el panel de administración.
+    const mostrarImagenes = championship?.status === 'completed' && podiumImages.some(imagenLista);
 
     // Streaming: detectar si hay una carrera "en vivo" (status 'in-progress')
     const liveTrack = tracks.find(t => t.status === 'in-progress');
@@ -498,6 +527,7 @@ export default function ChampionshipDetailPage() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
                     <ScrollTabs activeKey={activeTab}>
                         {[
+                            ...(mostrarImagenes ? [{ id: 'images', label: t('campeonato.pestanas.imagenes'), icon: '🏆' }] : []),
                             { id: 'info', label: t('campeonato.pestanas.info'), icon: 'ℹ️' },
                             { id: 'standings', label: t('campeonato.pestanas.clasificacion'), icon: '📊' },
                             { id: 'calendar', label: t('campeonato.pestanas.calendario'), icon: '📅' },
@@ -505,8 +535,7 @@ export default function ChampionshipDetailPage() {
                             ...(championship?.preQualy?.enabled ? [{ id: 'prequaly', label: t('campeonato.pestanas.prequaly'), icon: '🎯' }] : []),
                             ...(championship?.divisionsConfig?.enabled ? [{ id: 'salas', label: t('campeonato.pestanas.salas'), icon: '🏟️' }] : []),
                             ...(championship?.carUsageTracking?.enabled ? [{ id: 'cars', label: t('campeonato.pestanas.autos'), icon: '🚗' }] : []),
-                            ...(championship.penaltiesConfig?.enabled ? [{ id: 'penalties', label: t('campeonato.pestanas.sanciones'), icon: '⚠️' }] : []),
-                            ...(mostrarImagenes ? [{ id: 'images', label: t('campeonato.pestanas.imagenes'), icon: '🖼️' }] : [])
+                            ...(championship.penaltiesConfig?.enabled ? [{ id: 'penalties', label: t('campeonato.pestanas.sanciones'), icon: '⚠️' }] : [])
                         ].map(tab => (
                             <button
                                 key={tab.id}

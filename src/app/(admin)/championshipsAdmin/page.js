@@ -426,7 +426,7 @@ export default function ChampionshipDetail() {
     if (!userIsComisario) {
         const sinImagen = salasDelCampeonato(championship, tracks, divisions)
             .filter(s => s.terminada && !podiumImages.some(i => i.id === s.key)).length;
-        tabs.push({ id: 'images', label: '🖼️ Imágenes', icon: '🖼️', badge: sinImagen > 0 ? sinImagen : undefined });
+        tabs.push({ id: 'images', label: '🏆 Podios', icon: '🏆', badge: sinImagen > 0 ? sinImagen : undefined });
     }
 
     return (

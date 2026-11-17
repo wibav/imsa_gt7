@@ -70,12 +70,33 @@ export default function RootLayout({ children }) {
           strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js')
+              if ('serviceWorker' in navigator && ${process.env.NODE_ENV !== 'production'}) {
+                // En desarrollo el código no lleva versión en el nombre: un service
+                // worker lo serviría viejo desde la caché. Se quita si quedó uno.
+                navigator.serviceWorker.getRegistrations().then(function(rs) { rs.forEach(function(r) { r.unregister(); }); });
+              } else if ('serviceWorker' in navigator) {
+                var registrarSW = function() {
+                  navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+                    .then(function(reg) { reg.update(); })
                     .catch(function(err) { console.error('SW registration failed:', err); });
-                });
+                };
+                // afterInteractive puede llegar después de 'load': entonces se registra ya
+                if (document.readyState === 'complete') registrarSW();
+                else window.addEventListener('load', registrarSW);
               }
+              // Si falta un archivo de código de una versión anterior (la web se
+              // publicó mientras la página estaba abierta o en caché), se vacía
+              // la caché y se recarga una vez por sesión en vez de quedarse a medias.
+              (function() {
+                var esFalloDeCodigo = function(m) { return /ChunkLoadError|Loading chunk [\\w-]+ failed|Loading CSS chunk|dynamically imported module/i.test(String(m || '')); };
+                var recuperar = function() {
+                  try { if (sessionStorage.getItem('gt7-recarga-codigo')) return; sessionStorage.setItem('gt7-recarga-codigo', '1'); } catch (e) { return; }
+                  var fin = function() { window.location.reload(); };
+                  if (window.caches) caches.keys().then(function(k) { return Promise.all(k.map(function(x) { return caches.delete(x); })); }).then(fin, fin); else fin();
+                };
+                window.addEventListener('error', function(e) { if (esFalloDeCodigo(e && (e.message || (e.error && e.error.name)))) recuperar(); });
+                window.addEventListener('unhandledrejection', function(e) { var r = e && e.reason; if (esFalloDeCodigo(r && (r.name + ' ' + r.message))) recuperar(); });
+              })();
             `
           }}
         />
