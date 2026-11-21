@@ -177,6 +177,8 @@ function NuevaEdicion() {
                 preQualy: {
                     ...pq,
                     date: '',
+                    // Las fechas se vacían; cada una conserva su franja horaria
+                    ...(Array.isArray(pq.sessions) ? { sessions: pq.sessions.map(se => ({ ...se, date: '' })) } : {}),
                     results: tiempos,
                 },
                 divisionsConfig: anterior.divisionsConfig || null,

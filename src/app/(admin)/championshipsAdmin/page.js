@@ -1,5 +1,6 @@
 "use client";
 
+import { getPreQualySessions, formatTimeWindow } from '../../utils/dateUtils';
 import ModalPortal from '../../components/common/ModalPortal';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -1812,10 +1813,14 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
                             {/* Config */}
                             <div>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                                    {championship.preQualy.date && (
+                                    {getPreQualySessions(championship).length > 0 && (
                                         <div className="bg-white/5 rounded-lg p-2">
-                                            <div className="text-gray-400 text-xs mb-1">Fecha</div>
-                                            <div className="text-white">{new Date(championship.preQualy.date).toLocaleDateString('es-ES')}</div>
+                                            <div className="text-gray-400 text-xs mb-1">{getPreQualySessions(championship).length > 1 ? 'Fechas' : 'Fecha'}</div>
+                                            {getPreQualySessions(championship).map(se => (
+                                                <div key={`${se.date}-${se.desde}`} className="text-white">
+                                                    {new Date(se.date + 'T00:00:00').toLocaleDateString('es-ES')} · {formatTimeWindow(se)}
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
                                     {championship.preQualy.track && (

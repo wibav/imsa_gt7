@@ -2,7 +2,7 @@
  * Utilidades de campeonatos compartidas
  * Centraliza lógica duplicada de progreso, próxima carrera y clasificaciones
  */
-import { preQualyEnd } from './dateUtils.js';
+import { preQualyEnd, getPreQualySessions, proximaSesionPreQualy } from './dateUtils.js';
 import { mapaSinMayusculas, claveNombre } from './nombresPiloto.js';
 
 /**
@@ -156,21 +156,24 @@ export const displayDriverName = (name, gt7Map = {}) => gt7Map[name] || name;
  * corre, y con el primero la tarjeta ya saltaba a la Ronda 1 en plena
  * Pre-Qualy.
  *
- * @returns {{tipo: 'prequaly'|'carrera', date: string, name: string, track?: Object}|null}
+ * @returns {{tipo: 'prequaly'|'carrera', date: string, name: string, track?: Object, sesion?: Object}|null}
  */
 export const getNextEvent = (championship, tracks) => {
     const nextRace = getNextRace(tracks);
 
     const pq = championship?.preQualy;
+    const sesiones = getPreQualySessions(championship);
     const fin = preQualyEnd(championship);
     const pqPendiente = pq?.enabled
-        && pq.date
+        && sesiones.length > 0
         && ((fin && new Date() < fin) || (pq.results || []).length === 0);
 
     if (pqPendiente) {
         const hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
-        const fechaPq = new Date(pq.date + 'T00:00:00');
+        // Con varias fechas se anuncia la siguiente que no ha terminado
+        const sesion = proximaSesionPreQualy(championship) || sesiones[sesiones.length - 1];
+        const fechaPq = new Date(sesion.date + 'T00:00:00');
         // Mientras la franja siga abierta no ha pasado, aunque el día sí: la
         // de 21:00 a 00:30 sigue en marcha a las 00:10 del día siguiente.
         const yaPaso = fechaPq < hoy && !(fin && new Date() < fin);
@@ -178,7 +181,7 @@ export const getNextEvent = (championship, tracks) => {
         // Pasado su día, deja de anunciarse aunque falten resultados: la
         // tarjeta pasa a la siguiente carrera.
         if (!yaPaso && antesQueLaCarrera) {
-            return { tipo: 'prequaly', date: pq.date, name: pq.track || 'Pre-Qualy', prequaly: pq };
+            return { tipo: 'prequaly', date: sesion.date, name: pq.track || 'Pre-Qualy', prequaly: pq, sesion };
         }
     }
 

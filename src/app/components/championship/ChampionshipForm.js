@@ -18,7 +18,7 @@ import { REGULATIONS_MAX_BYTES, regulationsByteSize, normalizeRegulationsForSave
 import { sanitizeRegulationsHtml } from '../../utils/regulationsSanitize';
 import { getCarsForCategories, CHAMPIONSHIP_CATEGORIES, categoryLabel, aplicarLimitadores, opcionesLimitadores, hayLimitadores } from '../../utils/carUsageCalculator';
 import { CarAdder } from '../common/CarNameInput';
-import { DEFAULT_RACE_TIME, getRaceTime, getPreQualyTime, formatTimeWindow, localTimeWindow } from '../../utils/dateUtils';
+import { DEFAULT_RACE_TIME, getRaceTime, getPreQualySessions, formatTimeWindow, localTimeWindow } from '../../utils/dateUtils';
 import ImageSpecHint from '../common/ImageSpecHint';
 import LoadingSkeleton from '../common/LoadingSkeleton';
 import ErrorMessage from '../common/ErrorMessage';
@@ -119,6 +119,8 @@ function getEmptyFormData() {
         },
         preQualy: {
             enabled: false,
+            // Una o varias fechas, cada una con su franja (ver getPreQualySessions)
+            sessions: [{ date: '', time: '', timeEnd: '' }],
             date: '',
             time: '',
             timeEnd: '',
@@ -383,6 +385,11 @@ export default function ChampionshipForm({ isEditing = false }) {
             },
             preQualy: {
                 enabled: champ.preQualy?.enabled || false,
+                // Los campeonatos de antes solo tienen date/time/timeEnd: una sesión
+                sessions: (champ.preQualy?.sessions?.length
+                    ? champ.preQualy.sessions
+                    : [{ date: champ.preQualy?.date || '', time: champ.preQualy?.time || '', timeEnd: champ.preQualy?.timeEnd || '' }]
+                ).map(se => ({ date: se.date || '', time: se.time || '', timeEnd: se.timeEnd || '' })),
                 date: champ.preQualy?.date || '',
                 time: champ.preQualy?.time || '',
                 timeEnd: champ.preQualy?.timeEnd || '',
@@ -967,8 +974,22 @@ export default function ChampionshipForm({ isEditing = false }) {
                 format: formData.regulationsFormat
             });
 
+            // Sesiones de Pre-Qualy: sin las vacías, por fecha, y la primera
+            // copiada en date/time/timeEnd para lo que aún lea el formato antiguo
+            const sesionesPq = (formData.preQualy?.sessions || [])
+                .filter(se => se.date)
+                .sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
+            const preQualy = formData.preQualy ? {
+                ...formData.preQualy,
+                sessions: sesionesPq,
+                date: sesionesPq[0]?.date || '',
+                time: sesionesPq[0]?.time || '',
+                timeEnd: sesionesPq[0]?.timeEnd || '',
+            } : formData.preQualy;
+
             const championshipData = {
                 ...formData,
+                preQualy,
                 banner: bannerUrl,
                 startDate: formData.startDate ? new Date(formData.startDate).toISOString() : null,
                 endDate: formData.endDate ? new Date(formData.endDate).toISOString() : null,
@@ -1833,45 +1854,69 @@ export default function ChampionshipForm({ isEditing = false }) {
 
                                     {formData.preQualy?.enabled && (
                                         <div className="space-y-6 mt-4 pt-4 border-t border-purple-400/20">
-                                            {/* Fecha, Circuito y Duración */}
+                                            {/* Fechas: una o varias, cada una con su franja */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                    📅 Fechas y horarios <span className="text-gray-500 font-normal">(hora española)</span>
+                                                </label>
+                                                <div className="space-y-2">
+                                                    {(formData.preQualy.sessions || []).map((se, idx) => {
+                                                        const cambiar = (campo, valor) => setFormData(prev => ({
+                                                            ...prev,
+                                                            preQualy: {
+                                                                ...prev.preQualy,
+                                                                sessions: prev.preQualy.sessions.map((x, i) => (i === idx ? { ...x, [campo]: valor } : x)),
+                                                            },
+                                                        }));
+                                                        return (
+                                                            <div key={idx} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end bg-white/5 border border-white/10 rounded-lg p-3">
+                                                                <div>
+                                                                    <label className="block text-xs text-gray-400 mb-1">Fecha {formData.preQualy.sessions.length > 1 ? idx + 1 : ''}</label>
+                                                                    <input type="date" value={se.date || ''} onChange={(e) => cambiar('date', e.target.value)}
+                                                                        className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-xs text-gray-400 mb-1">🕐 Desde</label>
+                                                                    <input type="time" value={se.time || ''} onChange={(e) => cambiar('time', e.target.value)}
+                                                                        className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-xs text-gray-400 mb-1">🕐 Hasta <span className="text-gray-500">(opcional)</span></label>
+                                                                    <input type="time" value={se.timeEnd || ''} onChange={(e) => cambiar('timeEnd', e.target.value)}
+                                                                        className="w-full px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                                                                </div>
+                                                                <button type="button"
+                                                                    onClick={() => setFormData(prev => ({
+                                                                        ...prev,
+                                                                        preQualy: { ...prev.preQualy, sessions: prev.preQualy.sessions.filter((_, i) => i !== idx) },
+                                                                    }))}
+                                                                    disabled={formData.preQualy.sessions.length <= 1}
+                                                                    className="px-3 py-2 rounded-lg text-sm bg-red-900/30 hover:bg-red-800/50 text-red-200 disabled:opacity-30"
+                                                                    aria-label={`Quitar fecha ${idx + 1}`}>
+                                                                    🗑️
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                                <button type="button"
+                                                    onClick={() => setFormData(prev => {
+                                                        const lista = prev.preQualy.sessions || [];
+                                                        const ultima = lista[lista.length - 1] || {};
+                                                        // La nueva fecha hereda la franja de la anterior
+                                                        return { ...prev, preQualy: { ...prev.preQualy, sessions: [...lista, { date: '', time: ultima.time || '', timeEnd: ultima.timeEnd || '' }] } };
+                                                    })}
+                                                    className="mt-2 px-3 py-2 rounded-lg text-sm font-semibold bg-purple-600 hover:bg-purple-700 text-white">
+                                                    + Añadir fecha
+                                                </button>
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    «Desde» vacío = {formData.settings?.defaultRaceTime || DEFAULT_RACE_TIME} (la del campeonato). «Hasta» si la Pre-Qualy está abierta durante una franja, no a una hora fija.
+                                                    La Pre-Qualy termina al acabar su última fecha.
+                                                </p>
+                                            </div>
+
+                                            {/* Circuito y Duración */}
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-300 mb-2">📅 Fecha</label>
-                                                    <input type="date"
-                                                        value={formData.preQualy.date}
-                                                        onChange={(e) => setFormData(prev => ({
-                                                            ...prev, preQualy: { ...prev.preQualy, date: e.target.value }
-                                                        }))}
-                                                        className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                        🕐 Hora <span className="text-gray-500 font-normal">(española)</span>
-                                                    </label>
-                                                    <input type="time"
-                                                        value={formData.preQualy.time || ''}
-                                                        onChange={(e) => setFormData(prev => ({
-                                                            ...prev, preQualy: { ...prev.preQualy, time: e.target.value }
-                                                        }))}
-                                                        className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                                                    <p className="text-xs text-gray-400 mt-1">
-                                                        Vacío = {formData.settings?.defaultRaceTime || DEFAULT_RACE_TIME} (la del campeonato)
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                        🕐 Hasta <span className="text-gray-500 font-normal">(opcional)</span>
-                                                    </label>
-                                                    <input type="time"
-                                                        value={formData.preQualy.timeEnd || ''}
-                                                        onChange={(e) => setFormData(prev => ({
-                                                            ...prev, preQualy: { ...prev.preQualy, timeEnd: e.target.value }
-                                                        }))}
-                                                        className="w-full px-4 py-2 bg-white/10 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                                                    <p className="text-xs text-gray-400 mt-1">
-                                                        Si la Pre-Qualy está abierta durante una franja, no a una hora fija.
-                                                    </p>
-                                                </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-300 mb-2">⏱️ Duración (min)</label>
                                                     <input type="number" min="5" max="120"
@@ -2855,23 +2900,19 @@ export default function ChampionshipForm({ isEditing = false }) {
                                         <div className="bg-white/5 border border-purple-400/30 rounded-lg p-4">
                                             <h3 className="text-white font-medium mb-2">🎯 Pre-Qualy</h3>
                                             <div className="space-y-1 text-sm">
-                                                {formData.preQualy.date && (
-                                                    <div className="flex justify-between text-gray-300">
-                                                        <span>Fecha:</span>
-                                                        <span className="text-white">{new Date(formData.preQualy.date).toLocaleDateString('es-ES')}</span>
+                                                {getPreQualySessions(formData).map(se => (
+                                                    <div key={`${se.date}-${se.desde}`} className="flex justify-between gap-3 text-gray-300">
+                                                        <span>{new Date(se.date + 'T00:00:00').toLocaleDateString('es-ES')}</span>
+                                                        <span className="text-white text-right">
+                                                            {formatTimeWindow(se)} (España)
+                                                            {localTimeWindow(se.date, se) && (
+                                                                <span className="block text-gray-400 text-xs">
+                                                                    {formatTimeWindow(localTimeWindow(se.date, se))} tu hora
+                                                                </span>
+                                                            )}
+                                                        </span>
                                                     </div>
-                                                )}
-                                                <div className="flex justify-between text-gray-300">
-                                                    <span>Hora:</span>
-                                                    <span className="text-white text-right">
-                                                        {formatTimeWindow(getPreQualyTime(formData))} (España)
-                                                        {formData.preQualy.date && localTimeWindow(formData.preQualy.date, getPreQualyTime(formData)) && (
-                                                            <span className="block text-gray-400 text-xs">
-                                                                {formatTimeWindow(localTimeWindow(formData.preQualy.date, getPreQualyTime(formData)))} tu hora
-                                                            </span>
-                                                        )}
-                                                    </span>
-                                                </div>
+                                                ))}
                                                 {formData.preQualy.track && (
                                                     <div className="flex justify-between text-gray-300">
                                                         <span>Circuito:</span>

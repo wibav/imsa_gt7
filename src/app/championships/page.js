@@ -9,6 +9,7 @@ import {
     getRaceTime,
     localRaceTime,
     getPreQualyTime,
+    getPreQualySessions,
     formatTimeWindow,
     localTimeWindow,
     hoyEnEspana,
@@ -1373,7 +1374,7 @@ export default function ChampionshipDetailPage() {
                                                             return textoPreQualyWhatsApp({
                                                                 campeonato: championship.name,
                                                                 circuito: pq.track,
-                                                                fecha: pq.date ? formatDateFull(pq.date) : '',
+                                                                fecha: getPreQualySessions(championship).map(se => formatDateFull(se.date)).join(' · '),
                                                                 clasificados: classified.map(r => ({ nombre: nombre(r), tiempo: r.time })),
                                                                 noClasificados: notClassified.map(r => ({ nombre: nombre(r), tiempo: r.time })),
                                                                 etiquetas: { clasificados: t('campeonato.prequaly.clasificados'), noClasificados: t('campeonato.prequaly.noClasificados') },
@@ -2091,7 +2092,9 @@ export default function ChampionshipDetailPage() {
                                 const esPq = nextEvent.tipo === 'prequaly';
                                 const pista = nextEvent.track;
                                 // La Pre-Qualy tiene hora propia y puede ser una franja
-                                const ventana = esPq ? getPreQualyTime(championship) : null;
+                                const ventana = esPq
+                                    ? (nextEvent.sesion ? { desde: nextEvent.sesion.desde, hasta: nextEvent.sesion.hasta } : getPreQualyTime(championship))
+                                    : null;
                                 const hora = esPq ? ventana.desde : getRaceTime(championship, pista);
                                 // En una franja se convierten inicio y fin, no solo el inicio
                                 const ventanaLocal = esPq ? localTimeWindow(nextEvent.date, ventana) : null;

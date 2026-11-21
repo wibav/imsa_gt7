@@ -27,17 +27,39 @@ export const getRaceTime = (championship, track) =>
     track?.time || championship?.settings?.defaultRaceTime || DEFAULT_RACE_TIME;
 
 /**
- * Ventana horaria de la Pre-Qualy, en hora española.
+ * Sesiones de la Pre-Qualy, en hora española y ordenadas por fecha:
+ * [{ date, desde, hasta }].
+ *
+ * Una Pre-Qualy puede abrirse varios días, cada uno con su franja
+ * (preQualy.sessions: [{ date, time, timeEnd }]). Los campeonatos de antes
+ * solo tienen date/time/timeEnd y cuentan como una sesión. Sin hora propia,
+ * cada sesión cae en la hora del campeonato.
+ */
+export const getPreQualySessions = (championship) => {
+    const pq = championship?.preQualy || {};
+    const lista = Array.isArray(pq.sessions) && pq.sessions.length > 0
+        ? pq.sessions
+        : (pq.date ? [{ date: pq.date, time: pq.time, timeEnd: pq.timeEnd }] : []);
+    const base = getRaceTime(championship);
+    return lista
+        .filter(s => s?.date)
+        .map(s => ({ date: s.date, desde: s.time || base, hasta: s.timeEnd || null }))
+        .sort((a, b) => a.date.localeCompare(b.date) || a.desde.localeCompare(b.desde));
+};
+
+/**
+ * Ventana horaria de la Pre-Qualy, en hora española: la de la próxima sesión
+ * (o la primera, si ya pasaron todas).
  *
  * Tiene hora propia porque no siempre se corre a la misma hora que las
  * carreras, y admite un rango: muchas ligas la abren durante una franja
  * ("de 18:00 a 23:00") en vez de a una hora concreta.
  *
- * Si no se define hora propia, cae en la del campeonato.
- *
  * @returns {{desde: string, hasta: string|null}}
  */
 export const getPreQualyTime = (championship) => {
+    const sesion = proximaSesionPreQualy(championship) || getPreQualySessions(championship)[0];
+    if (sesion) return { desde: sesion.desde, hasta: sesion.hasta };
     const pq = championship?.preQualy || {};
     return {
         desde: pq.time || getRaceTime(championship),
@@ -151,18 +173,24 @@ export const localTimeWindow = (dateStr, ventana) => {
     return { desde: desde || ventana.desde, hasta: ventana.hasta ? (hasta || ventana.hasta) : null };
 };
 
+/** Fin de una sesión de Pre-Qualy. Sin hora de fin, se da el día entero. */
+export const finSesionPreQualy = (sesion) => (sesion.hasta
+    ? raceDateTime(fechaFinDeFranja(sesion.date, sesion), sesion.hasta)
+    : raceDateTime(sesion.date, '23:59'));
+
 /**
- * Instante en que termina la Pre-Qualy. Sin hora de fin, se da el día entero.
+ * Instante en que termina la Pre-Qualy: el fin de su última sesión.
  * @returns {Date|null}
  */
 export const preQualyEnd = (championship) => {
-    const pq = championship?.preQualy;
-    if (!pq?.date) return null;
-    const ventana = getPreQualyTime(championship);
-    return ventana.hasta
-        ? raceDateTime(fechaFinDeFranja(pq.date, ventana), ventana.hasta)
-        : raceDateTime(pq.date, '23:59');
+    const fines = getPreQualySessions(championship).map(finSesionPreQualy);
+    return fines.length ? new Date(Math.max(...fines.map(f => f.getTime()))) : null;
 };
+
+/** Primera sesión que aún no ha terminado (en curso o por venir), o null. */
+export function proximaSesionPreQualy(championship, ahora = new Date()) {
+    return getPreQualySessions(championship).find(s => ahora < finSesionPreQualy(s)) || null;
+}
 
 /**
  * Formato corto de fecha: "01 ene"

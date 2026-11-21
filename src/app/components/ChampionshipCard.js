@@ -28,7 +28,7 @@ const franjaCorta = ({ desde, hasta }) => (hasta ? `${desde}–${hasta}h` : `${d
 function horarioDe(nextEvent, championship) {
     if (!nextEvent?.date) return null;
     const ventana = nextEvent.tipo === 'prequaly'
-        ? getPreQualyTime(championship)
+        ? (nextEvent.sesion ? { desde: nextEvent.sesion.desde, hasta: nextEvent.sesion.hasta } : getPreQualyTime(championship))
         : { desde: getRaceTime(championship, nextEvent.track), hasta: null };
     const local = nextEvent.tipo === 'prequaly'
         ? localTimeWindow(nextEvent.date, ventana)

@@ -1,5 +1,5 @@
 "use client";
-import { formatDateFull, getPreQualyTime, formatTimeWindow, localTimeWindow } from '../../utils';
+import { formatDateFull, getPreQualySessions, formatTimeWindow, localTimeWindow } from '../../utils';
 import RoomConfigView from './RoomConfigView';
 import { useI18n } from '../../i18n';
 import { frasesSala } from '../../utils/roomConfigI18n';
@@ -34,8 +34,22 @@ export default function PreQualyInfo({
 
     // La misma franja en la hora del visitante, como en la tarjeta de la
     // próxima carrera: muchos pilotos están en Latinoamérica.
-    const ventana = getPreQualyTime(championship);
-    const ventanaLocal = pq.date ? localTimeWindow(pq.date, ventana) : null;
+    // Una o varias fechas, cada una con su franja (y en la hora del visitante)
+    const sesiones = getPreQualySessions(championship).map(se => ({
+        ...se, local: localTimeWindow(se.date, se),
+    }));
+    const unaSesion = sesiones.length <= 1;
+    const horario = (se) => (
+        <>
+            {formatTimeWindow(se, lang)}{' '}
+            <span className="text-gray-400 font-normal text-xs">({t('campeonato.espana')})</span>
+            {se.local && (
+                <div className="text-gray-400 font-normal text-xs mt-0.5">
+                    {t('componentes.prequaly.tuHora', { hora: formatTimeWindow(se.local, lang) })}
+                </div>
+            )}
+        </>
+    );
 
     const tieneSala = pq.rules && Object.keys(pq.rules).length > 0;
     const salaComoCarrera = {
@@ -67,23 +81,27 @@ export default function PreQualyInfo({
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-sm">
-                {pq.date && celda(`📅 ${t('componentes.prequaly.fecha')}`, formatDateFull(pq.date, locale))}
-                {celda(
-                    `🕐 ${t('componentes.prequaly.hora')}`,
-                    <>
-                        {formatTimeWindow(ventana, lang)}{' '}
-                        <span className="text-gray-400 font-normal text-xs">({t('campeonato.espana')})</span>
-                        {ventanaLocal && (
-                            <div className="text-gray-400 font-normal text-xs mt-0.5">
-                                {t('componentes.prequaly.tuHora', { hora: formatTimeWindow(ventanaLocal, lang) })}
-                            </div>
-                        )}
-                    </>
-                )}
+                {unaSesion && sesiones[0] && celda(`📅 ${t('componentes.prequaly.fecha')}`, formatDateFull(sesiones[0].date, locale))}
+                {unaSesion && sesiones[0] && celda(`🕐 ${t('componentes.prequaly.hora')}`, horario(sesiones[0]))}
                 {pq.track && celda(`📍 ${t('componentes.prequaly.circuito')}`, pq.track)}
                 {celda(`⏱️ ${t('componentes.prequaly.duracion')}`, `${pq.duration ?? 15} min`)}
                 {resultados && celda(`🏁 ${t('campeonato.prequaly.clasificados')}`, `${resultados.clasificados} / ${resultados.total}`)}
             </div>
+
+            {!unaSesion && (
+                <div className="mt-3 bg-white/5 rounded-lg p-3">
+                    <div className="text-gray-400 text-xs mb-2">📅 {t('componentes.prequaly.fechas')}</div>
+                    <ul className="space-y-2">
+                        {sesiones.map(se => (
+                            <li key={`${se.date}-${se.desde}`} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm">
+                                <span className="text-white font-medium min-w-[7rem]">{formatDateFull(se.date, locale)}</span>
+                                <div className="text-white">{horario(se)}</div>
+                            </li>
+                        ))}
+                    </ul>
+                    <p className="text-purple-300 text-xs mt-2">{t('componentes.prequaly.variasFechas')}</p>
+                </div>
+            )}
 
             {pq.allowedCars?.length > 0 && (
                 <div className="mt-3 inline-flex items-start gap-2 bg-orange-500/15 border border-orange-500/30 text-orange-100 px-3 py-2 rounded-lg text-sm">

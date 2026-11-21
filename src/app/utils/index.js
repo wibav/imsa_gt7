@@ -12,6 +12,9 @@ export {
     localTimeWindow,
     hoyEnEspana,
     preQualyEnd,
+    getPreQualySessions,
+    proximaSesionPreQualy,
+    finSesionPreQualy,
 } from './dateUtils';
 export {
     calculateProgress,
