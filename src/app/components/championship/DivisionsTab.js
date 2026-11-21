@@ -1,7 +1,7 @@
 "use client";
 
 import ModalPortal from '../common/ModalPortal';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { DEFAULT_DIVISION_COLORS } from '../../utils/constants';
 import { hoyEnEspana, localRaceTime } from '../../utils/dateUtils';
@@ -68,13 +68,26 @@ export default function DivisionsTab({
     });
 
     // Snapshot inicial para detectar cambios pendientes
-    const [pqTimesSnapshot] = useState(() => {
+    const [pqTimesSnapshot, setPqTimesSnapshot] = useState(() => {
         const map = {};
         (championship?.preQualy?.results || []).forEach(r => {
             if (r.driverName) map[r.driverName] = r.time || '';
         });
         return map;
     });
+
+    // Tiempos guardados que cambian fuera de esta tabla (al corregir un
+    // inscrito, o desde el panel): se recargan si no hay cambios pendientes.
+    // Antes se quedaban las claves viejas en memoria y al guardar volvían.
+    useEffect(() => {
+        const map = {};
+        (championship?.preQualy?.results || []).forEach(r => {
+            if (r.driverName) map[r.driverName] = r.time || '';
+        });
+        setPqTimes(prev => (JSON.stringify(prev) === JSON.stringify(pqTimesSnapshot) ? map : prev));
+        setPqTimesSnapshot(map);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [championship?.preQualy?.results]);
 
     // ── Datos derivados ──────────────────────────────────────────
 

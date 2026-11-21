@@ -94,6 +94,7 @@ const campeonato = {
         tiempo: 'Tiempo',
         prequaly: {
             subtitulo: 'Los resultados determinan la asignación a salas',
+            copiar: 'Copiar para WhatsApp', copiado: '¡Copiado! Pégalo en WhatsApp', errCopiar: 'No se pudo copiar',
             pendientes: 'Resultados pendientes',
             sePublicaran: 'Los resultados se publicarán una vez finalice la sesión',
             clasificados: 'Clasificados',
@@ -339,6 +340,7 @@ const campeonato = {
         tiempo: 'Time',
         prequaly: {
             subtitulo: 'The results decide the lobby assignments',
+            copiar: 'Copy for WhatsApp', copiado: 'Copied! Paste it in WhatsApp', errCopiar: 'Could not copy',
             pendientes: 'Results pending',
             sePublicaran: 'Results will be published once the session is over',
             clasificados: 'Qualified',
@@ -584,6 +586,7 @@ const campeonato = {
         tiempo: 'Tempo',
         prequaly: {
             subtitulo: 'Os resultados determinam a atribuição das salas',
+            copiar: 'Copiar para o WhatsApp', copiado: 'Copiado! Cole-o no WhatsApp', errCopiar: 'Não foi possível copiar',
             pendientes: 'Resultados pendentes',
             sePublicaran: 'Os resultados serão publicados quando a sessão terminar',
             clasificados: 'Qualificados',

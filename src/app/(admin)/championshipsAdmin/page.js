@@ -1384,6 +1384,13 @@ function TracksTab({ championshipId, tracks, teams, championship, editMode, onUp
     const [newPQRow, setNewPQRow] = useState({ driverName: '', time: '', classified: true });
     const [showAddPQ, setShowAddPQ] = useState(false);
     const [preQualyCollapsed, setPreQualyCollapsed] = useState(true);
+    // Si los tiempos guardados cambian (p. ej. al corregir un inscrito) y no se
+    // están editando, se recargan: antes se guardaba la copia de memoria, con
+    // las claves viejas, y el piloto quedaba duplicado.
+    useEffect(() => {
+        if (!editingPreQualy) setPreQualyResults([...(championship?.preQualy?.results || [])]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [championship?.preQualy?.results]);
 
     // Obtener todos los pilotos según tipo de campeonato
     const allDrivers = championship?.settings?.isTeamChampionship

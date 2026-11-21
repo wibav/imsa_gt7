@@ -51,6 +51,7 @@ import DefenseForm from '../components/championship/DefenseForm';
 import PodiumImagesTab, { imagenLista } from '../components/championship/PodiumImagesTab';
 import { salasDelCampeonato, podioDe } from '../utils/podiumImages';
 import { suplentesDeBloque } from '../utils/suplentes';
+import { normalizarResultadosPreQualy, textoPreQualyWhatsApp } from '../utils/preQualy';
 import { PLAZO_DESCARGO_HORAS, ESTADOS_EN_ESTUDIO, plazoDescargo, descargosDe, acusadosSinDescargo } from '../utils/descargo';
 import CarDeclarationModal from '../components/championship/CarDeclarationModal';
 import ContinuityModal from '../components/championship/ContinuityModal';
@@ -1327,7 +1328,9 @@ export default function ChampionshipDetailPage() {
                         {/* TAB: Pre-Qualy */}
                         {activeTab === 'prequaly' && championship?.preQualy?.enabled && (() => {
                             const pq = championship.preQualy;
-                            const results = pq.results || [];
+                            // Una fila por piloto y con su GT7 ID vigente, aunque en los datos
+                            // quede alguna con la clave de antes de corregir al inscrito
+                            const results = normalizarResultadosPreQualy(pq.results || [], championship.registrations || []);
                             const classified = results.filter(r => r.classified !== false);
                             const notClassified = results.filter(r => r.classified === false);
                             // Mapa driverName → { gt7Id, psnId } desde registrations
@@ -1360,9 +1363,23 @@ export default function ChampionshipDetailPage() {
                                         <div className="space-y-4">
                                             {/* Tabla clasificados */}
                                             <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
-                                                <div className="px-5 py-3 border-b border-white/10 flex items-center gap-2">
+                                                <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-center gap-2">
                                                     <span className="text-green-400 font-bold">✅ {t('campeonato.prequaly.clasificados')}</span>
                                                     <span className="bg-green-500/20 text-green-300 text-xs px-2 py-0.5 rounded-full">{classified.length}</span>
+                                                    <BotonCopiarPreQualy
+                                                        className="ml-auto"
+                                                        texto={() => {
+                                                            const nombre = (r) => pqRegMap[r.driverName]?.gt7Id || r.gt7Id || r.driverName;
+                                                            return textoPreQualyWhatsApp({
+                                                                campeonato: championship.name,
+                                                                circuito: pq.track,
+                                                                fecha: pq.date ? formatDateFull(pq.date) : '',
+                                                                clasificados: classified.map(r => ({ nombre: nombre(r), tiempo: r.time })),
+                                                                noClasificados: notClassified.map(r => ({ nombre: nombre(r), tiempo: r.time })),
+                                                                etiquetas: { clasificados: t('campeonato.prequaly.clasificados'), noClasificados: t('campeonato.prequaly.noClasificados') },
+                                                            });
+                                                        }}
+                                                    />
                                                 </div>
                                                 <table className="w-full text-sm">
                                                     <thead>
@@ -1376,7 +1393,7 @@ export default function ChampionshipDetailPage() {
                                                     <tbody className="divide-y divide-white/5">
                                                         {classified.map((r, idx) => {
                                                             const info = pqRegMap[r.driverName] || {};
-                                                            const gt7Id = r.gt7Id || info.gt7Id || r.driverName;
+                                                            const gt7Id = info.gt7Id || r.gt7Id || r.driverName;
                                                             const psnId = info.psnId || '—';
                                                             return (
                                                                 <tr key={idx} className={`hover:bg-white/5 transition-colors ${idx < 3 ? 'bg-yellow-500/5' : ''}`}>
@@ -1409,7 +1426,7 @@ export default function ChampionshipDetailPage() {
                                                     <div className="divide-y divide-white/5">
                                                         {notClassified.map((r, idx) => {
                                                             const info = pqRegMap[r.driverName] || {};
-                                                            const gt7Id = r.gt7Id || info.gt7Id || r.driverName;
+                                                            const gt7Id = info.gt7Id || r.gt7Id || r.driverName;
                                                             const psnId = info.psnId || '—';
                                                             return (
                                                                 <div key={idx} className="px-5 py-3 flex items-center justify-between gap-4">
@@ -2679,5 +2696,28 @@ function ListaDescargos({ descargos, t }) {
                 </div>
             ))}
         </div>
+    );
+}
+
+/** Copia al portapapeles la lista de la Pre-Qualy con formato de WhatsApp. */
+function BotonCopiarPreQualy({ texto, className = '' }) {
+    const { t } = useI18n();
+    const [estado, setEstado] = useState('');
+    const copiar = async () => {
+        try {
+            await navigator.clipboard.writeText(texto());
+            setEstado('ok');
+        } catch {
+            setEstado('error');
+        }
+        setTimeout(() => setEstado(''), 2500);
+    };
+    return (
+        <button type="button" onClick={copiar}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-600 hover:bg-green-700 text-white transition-all ${className}`}>
+            {estado === 'ok' ? `✅ ${t('campeonato.prequaly.copiado')}`
+                : estado === 'error' ? `⚠️ ${t('campeonato.prequaly.errCopiar')}`
+                    : `📋 ${t('campeonato.prequaly.copiar')}`}
+        </button>
     );
 }

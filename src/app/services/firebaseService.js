@@ -19,6 +19,7 @@ import {
   runTransaction,
   serverTimestamp
 } from "firebase/firestore";
+import { normalizarResultadosPreQualy } from '../utils/preQualy';
 import {
   getStorage,
   ref,
@@ -2086,8 +2087,13 @@ export class FirebaseService {
   static async savePreQualyResults(championshipId, results) {
     try {
       const docRef = doc(db, 'championships', championshipId);
+      // Cada fila se reengancha a su inscrito actual y queda una por piloto:
+      // los editores podían reenviar filas con la clave de antes de corregir
+      // un GT7 ID o PSN, y el piloto salía duplicado (utils/preQualy.js).
+      const snap = await getDoc(docRef);
+      const normalizados = normalizarResultadosPreQualy(results, snap.data()?.registrations || []);
       await updateDoc(docRef, {
-        'preQualy.results': results
+        'preQualy.results': normalizados
       });
       return { success: true };
     } catch (error) {
@@ -2205,11 +2211,15 @@ export class FirebaseService {
       touched = true;
     }
 
-    // 2) championship.preQualy.results[]
-    if (Array.isArray(champ.preQualy?.results) && champ.preQualy.results.some(r => isOld(r.driverName))) {
-      const updatedResults = champ.preQualy.results.map(r => isOld(r.driverName) ? { ...r, driverName: newKey } : r);
-      batch.update(champRef, { 'preQualy.results': updatedResults });
-      touched = true;
+    // 2) championship.preQualy.results[]: su clave es name || psnId || gt7Id
+    // (no newKey) y la fila guarda además el gt7Id, así que se reengancha al
+    // inscrito ya actualizado en lugar de renombrarse a ciegas.
+    if (Array.isArray(champ.preQualy?.results) && champ.preQualy.results.length > 0) {
+      const updatedResults = normalizarResultadosPreQualy(champ.preQualy.results, champ.registrations || []);
+      if (JSON.stringify(updatedResults) !== JSON.stringify(champ.preQualy.results)) {
+        batch.update(champRef, { 'preQualy.results': updatedResults });
+        touched = true;
+      }
     }
 
     // 3) divisions/{divId}.drivers[]
