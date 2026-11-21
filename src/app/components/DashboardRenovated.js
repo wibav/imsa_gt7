@@ -1,4 +1,5 @@
 "use client";
+import { enlaceComunidad } from '../utils/comunidad';
 import { useEffect, useState } from "react";
 import { FirebaseService } from "../services/firebaseService";
 import { useChampionship } from "../context/ChampionshipContext";
@@ -226,7 +227,7 @@ export default function DashboardRenovated() {
                             {t('portada.comunidad')}
                         </p>
                         <a
-                            href="https://chat.whatsapp.com/LSKsgLvzwCg06me2uXMizo?mode=gi_t"
+                            href={enlaceComunidad({ orgId: DEFAULT_ORG_ID })}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-full lg:w-auto flex items-center justify-center gap-1.5 bg-green-500 hover:bg-green-400 text-white text-xs sm:text-sm font-bold px-3 sm:px-4 py-2 rounded-full transition-colors whitespace-nowrap"

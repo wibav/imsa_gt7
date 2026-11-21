@@ -1,4 +1,5 @@
 "use client";
+import AvisoComunidad from '../components/common/AvisoComunidad';
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { FirebaseService } from "../services/firebaseService";
@@ -2268,6 +2269,7 @@ export default function ChampionshipDetailPage() {
                                     >
                                         🏁 {t('campeonato.inscripcion.inscribirme')}
                                     </button>
+                                    <AvisoComunidad orgId={championship.orgId} className="mt-3" />
                                 </div>
                             )}
 
@@ -2295,6 +2297,12 @@ export default function ChampionshipDetailPage() {
                                         </p>
                                     )}
                                 </div>
+                            )}
+
+                            {/* Ya inscritos (o campeonato en curso): avisos y dudas por WhatsApp.
+                                Mientras está abierta, el aviso va en la tarjeta «Inscríbete». */}
+                            {!(championship.registration?.enabled && registro.abierta) && championship.status !== 'completed' && (
+                                <AvisoComunidad orgId={championship.orgId} />
                             )}
 
                             {/* Transmisión: todos los casters, con las salas que narra cada uno */}

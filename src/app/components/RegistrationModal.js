@@ -1,5 +1,6 @@
 "use client";
 
+import AvisoComunidad from './common/AvisoComunidad';
 import { useState } from "react";
 import SimilarPilotHint from "./common/SimilarPilotHint";
 import { useI18n } from "../i18n";
@@ -85,6 +86,9 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
                         <p className="text-gray-300 text-sm leading-relaxed mb-6">
                             {registrationMessage.replace(/^[✅⏳❌]\s*/, "")}
                         </p>
+                        {(isSuccess || isWaitlist) && (
+                            <AvisoComunidad orgId={event?.orgId} variante="ultimoPaso" className="mb-6" />
+                        )}
                         <button
                             onClick={onClose}
                             className="bg-white/10 border border-white/20 text-white px-6 py-2 rounded-lg font-semibold hover:bg-white/20 transition-all"
@@ -157,6 +161,8 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
                             )}
 
 
+
+                            <AvisoComunidad orgId={event?.orgId} variante="compacto" />
 
                             {/* Botones */}
                             <div className="flex gap-3 pt-4">

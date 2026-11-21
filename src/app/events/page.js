@@ -1,4 +1,5 @@
 "use client";
+import AvisoComunidad from '../components/common/AvisoComunidad';
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -821,6 +822,11 @@ function EventDetailContent() {
                         </a>
                     )}
                 </div>
+
+                {/* Comunidad: avisos y dudas del evento van por WhatsApp */}
+                {event.registration?.enabled && eventStatus !== "completed" && (
+                    <AvisoComunidad orgId={event.orgId} className="max-w-xl mx-auto mt-6" />
+                )}
 
                 {/* Export Results as Image (completed events) */}
                 {eventStatus === "completed" && (

@@ -1,5 +1,6 @@
 "use client";
 
+import AvisoComunidad from '../common/AvisoComunidad';
 import { useState } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { sendTelegramNotification } from '../../utils/telegram';
@@ -217,6 +218,7 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                                 </p>
                             </div>
                         )}
+                    <AvisoComunidad orgId={championship.orgId} variante="ultimoPaso" className="mb-6" />
                     <button onClick={onClose}
                         className="px-6 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg transition-all font-bold">
                         {t('formularios.inscripcion.entendido')}
@@ -474,6 +476,9 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                             )}
                         </div>
                     )}
+
+                    {/* Comunidad: avisos y dudas van por WhatsApp */}
+                    <AvisoComunidad orgId={championship.orgId} variante="compacto" />
 
                     {/* Submit */}
                     <div className="flex gap-3 pt-2">
