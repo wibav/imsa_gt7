@@ -89,3 +89,31 @@ export function textoPreQualyWhatsApp({ campeonato, circuito, fecha, clasificado
     }
     return partes.filter((l, i) => l !== '' || i > 0).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
+
+/**
+ * Texto para WhatsApp con los inscritos que aún no tienen tiempo de
+ * Pre-Qualy, para preguntarles si lo van a hacer (panel de Divisiones).
+ *
+ * @param {Object} p
+ * @param {string} p.campeonato
+ * @param {Array<{gt7Id?: string, psnId?: string, nombre?: string}>} p.pilotos
+ * @param {Array<string>} [p.sesiones] - sesiones que quedan, ya formateadas
+ */
+export function textoSinTiempoWhatsApp({ campeonato, pilotos = [], sesiones = [] }) {
+    const linea = (p, i) => {
+        const principal = p.gt7Id || p.nombre || p.psnId || '—';
+        const psn = p.psnId && p.psnId.toLowerCase() !== principal.toLowerCase() ? ` (PSN: ${p.psnId})` : '';
+        return `${i + 1}. ${principal}${psn}`;
+    };
+    const partes = [
+        `⏱️ *Pre-Qualy ${campeonato}*`,
+        '',
+        `Estos pilotos inscritos todavía no tienen tiempo (${pilotos.length}):`,
+        ...pilotos.map(linea),
+    ];
+    if (sesiones.length) {
+        partes.push('', `📅 ${sesiones.length === 1 ? 'Sesión que queda' : 'Sesiones que quedan'}:`, ...sesiones.map(s => `• ${s}`));
+    }
+    partes.push('', '¿Vais a hacer vuestro tiempo? Contestad por aquí, por favor 🙏');
+    return partes.join('\n');
+}

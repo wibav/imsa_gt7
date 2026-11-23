@@ -239,9 +239,12 @@ const formularios = {
         similar: {
             sonSiglasDe: 'son las siglas de',
             orgConfirma: 'La organización confirma los miembros de cada equipo.',
-            eresTu: '¿Eres tú? Ya corre en la liga',
+            eresTu: '¿Eres tú? Ya corre en la liga:',
             siEsTuCaso: 'Si es tu caso, usa el mismo nombre para que no se te partan las estadísticas. Si eres otro piloto, sigue con el tuyo.',
-            noSoyYo: 'No soy yo',
+            noSoyYo: 'No, soy otro piloto',
+            siSoy: 'Sí, soy {n}',
+            responde: 'Contesta antes de enviar la inscripción.',
+            errPendiente: 'Antes de enviar, contesta al aviso «¿Eres tú?» del GT7 ID.',
         },
         pestanas: {
             anteriores: 'Ver pestañas anteriores',
@@ -494,7 +497,10 @@ const formularios = {
             orgConfirma: 'The organisers confirm the members of each team.',
             eresTu: 'Is this you? Already racing in the league:',
             siEsTuCaso: 'If so, use the same name so your statistics are not split. If you are a different driver, keep yours.',
-            noSoyYo: 'Not me',
+            noSoyYo: 'No, I am a different driver',
+            siSoy: 'Yes, I am {n}',
+            responde: 'Please answer before submitting your registration.',
+            errPendiente: 'Before submitting, answer the “Is this you?” notice under the GT7 ID.',
         },
         pestanas: {
             anteriores: 'Previous tabs',
@@ -747,7 +753,10 @@ const formularios = {
             orgConfirma: 'A organização confirma os membros de cada equipa.',
             eresTu: 'És tu? Já corre na liga:',
             siEsTuCaso: 'Se for o teu caso, usa o mesmo nome para que as tuas estatísticas não fiquem divididas. Se és outro piloto, continua com o teu.',
-            noSoyYo: 'Não sou eu',
+            noSoyYo: 'Não, sou outro piloto',
+            siSoy: 'Sim, sou {n}',
+            responde: 'Responde antes de enviar a inscrição.',
+            errPendiente: 'Antes de enviar, responde ao aviso «És tu?» do GT7 ID.',
         },
         pestanas: {
             anteriores: 'Separadores anteriores',

@@ -231,27 +231,49 @@ export class FirebaseService {
   static _knownNamesPromise = null;
 
   static async getKnownPilotNames() {
+    return [...(await FirebaseService._getKnownPilotSources()).keys()];
+  }
+
+  /**
+   * Nombres conocidos sin contar los que solo aparecen en un campeonato: sirve
+   * para revisar sus inscripciones contra el resto de la liga (si se contara
+   * el propio campeonato, cada inscrito «ya existiría» y nunca se avisaría).
+   */
+  static async getKnownPilotNamesExcept(championshipId) {
+    const fuentes = await FirebaseService._getKnownPilotSources();
+    return [...fuentes.entries()]
+      .filter(([, origen]) => [...origen].some(o => o !== championshipId))
+      .map(([nombre]) => nombre);
+  }
+
+  /** nombre → Set de orígenes (id de campeonato o 'identidad'). Se cachea. */
+  static async _getKnownPilotSources() {
     if (!FirebaseService._knownNamesPromise) {
       FirebaseService._knownNamesPromise = (async () => {
         const [champs, identities] = await Promise.all([
           FirebaseService.getChampionships(),
           FirebaseService.getPilotIdentities(),
         ]);
-        const nombres = new Set();
-        const add = v => { const n = String(v || '').trim(); if (n) nombres.add(n); };
+        const nombres = new Map();
+        const add = (v, origen) => {
+          const n = String(v || '').trim();
+          if (!n) return;
+          if (!nombres.has(n)) nombres.set(n, new Set());
+          nombres.get(n).add(origen);
+        };
         champs.forEach(c => {
           (c.registrations || []).forEach(reg => {
             const entradas = Array.isArray(reg.drivers) && reg.drivers.length ? reg.drivers : [reg];
-            entradas.forEach(e => [e.gt7Id, e.psnId, e.name].forEach(add));
+            entradas.forEach(e => [e.gt7Id, e.psnId, e.name].forEach(n => add(n, c.id)));
           });
         });
-        identities.forEach(i => { add(i.canonical); (i.aliases || []).forEach(add); });
-        return [...nombres];
+        identities.forEach(i => { add(i.canonical, 'identidad'); (i.aliases || []).forEach(a => add(a, 'identidad')); });
+        return nombres;
       })().catch(error => {
         FirebaseService._knownNamesPromise = null;
         // El aviso es una ayuda, no un requisito: si falla, la inscripción sigue.
         console.error('Error fetching known pilot names: ', error);
-        return [];
+        return new Map();
       });
     }
     return FirebaseService._knownNamesPromise;
@@ -2149,7 +2171,11 @@ export class FirebaseService {
    * @param {string} newKey - nuevo identificador canónico (gt7Id corregido)
    * @returns {Promise<{renamed: boolean}>}
    */
-  static async renameDriverEverywhere(championshipId, oldKeys, newKey) {
+  static async renameDriverEverywhere(championshipId, oldKeys, newKey, { claveSala } = {}) {
+    // Las salas guardan al piloto por name || psnId || gt7Id (DivisionsTab),
+    // no por el GT7 ID: corregir solo el GT7 ID de alguien con PSN no debe
+    // cambiar cómo figura en su sala.
+    const nuevoEnSala = claveSala || newKey;
     const candidates = [...new Set(oldKeys)].filter(k => k && k !== newKey);
     if (candidates.length === 0) return { renamed: false };
 
@@ -2227,7 +2253,8 @@ export class FirebaseService {
     divsSnap.forEach(d => {
       const drivers = d.data().drivers || [];
       if (drivers.some(isOld)) {
-        batch.update(d.ref, { drivers: renameArrayEntries(drivers) });
+        const renombrados = drivers.map(v => isOld(v) ? nuevoEnSala : v);
+        batch.update(d.ref, { drivers: renombrados.filter((v, i) => renombrados.indexOf(v) === i) });
         touched = true;
       }
     });

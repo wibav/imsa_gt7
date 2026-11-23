@@ -13,6 +13,9 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
     });
 
     const [errors, setErrors] = useState({});
+    // «¿Eres tú?» sin contestar: hay que responder antes de enviar
+    const [avisoPendiente, setAvisoPendiente] = useState(false);
+    const [marcarAviso, setMarcarAviso] = useState(false);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -34,6 +37,10 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
 
         if (!formData.gt7Id.trim()) {
             newErrors.gt7Id = t('formularios.inscripcion.errGt7');
+        }
+        else if (avisoPendiente) {
+            newErrors.gt7Id = t('formularios.similar.errPendiente');
+            setMarcarAviso(true);
         }
 
         setErrors(newErrors);
@@ -57,6 +64,7 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
         await onSubmit(data);
 
         // Limpiar formulario
+        setMarcarAviso(false);
         setFormData({
             gt7Id: "",
             psnId: "",
@@ -133,6 +141,8 @@ export default function RegistrationModal({ event, isOpen, onClose, onSubmit, is
                                 <SimilarPilotHint
                                     value={formData.gt7Id}
                                     onUsar={n => setFormData(prev => ({ ...prev, gt7Id: n }))}
+                                    onPendiente={setAvisoPendiente}
+                                    marcar={marcarAviso}
                                 />
                             </div>
 

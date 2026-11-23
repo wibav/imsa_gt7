@@ -47,6 +47,11 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
 
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
+    // Avisos «¿Eres tú?» sin contestar, por campo ('gt7Id', 'piloto-0'…)
+    const [avisosPendientes, setAvisosPendientes] = useState({});
+    const [marcarAvisos, setMarcarAvisos] = useState(false);
+    const avisoPendiente = (clave) => (p) => setAvisosPendientes(prev => (prev[clave] === p ? prev : { ...prev, [clave]: p }));
+    const hayAvisoPendiente = Object.values(avisosPendientes).some(Boolean);
     const [success, setSuccess] = useState(false);
 
     // ── Handlers modo individual ──
@@ -87,6 +92,12 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+
+        if (hayAvisoPendiente) {
+            setMarcarAvisos(true);
+            setError(t('formularios.similar.errPendiente'));
+            return;
+        }
 
         if (isTeamMode) {
             const teamError = validateTeam();
@@ -342,6 +353,8 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                                             <SimilarPilotHint
                                                 value={driver.gt7Id}
                                                 onUsar={n => handleDriverChange(idx, 'gt7Id', n)}
+                                                onPendiente={avisoPendiente(`piloto-${idx}`)}
+                                                marcar={marcarAvisos}
                                             />
                                         </div>
                                         <div>
@@ -435,6 +448,8 @@ export default function RegistrationForm({ championship, onClose, onSuccess }) {
                                             <SimilarPilotHint
                                                 value={formData.gt7Id}
                                                 onUsar={n => setFormData(prev => ({ ...prev, gt7Id: n }))}
+                                                onPendiente={avisoPendiente('gt7Id')}
+                                                marcar={marcarAvisos}
                                             />
                                         )}
                                     </div>

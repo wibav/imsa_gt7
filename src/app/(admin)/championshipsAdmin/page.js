@@ -25,6 +25,7 @@ import ResultsImport from '../../components/championship/ResultsImport';
 import { aplicaReglaSuplentes, puntosPosicion, suplentesDeBloque, suplentesDesdeTiempos, suplentesNoValidos, FACTOR_PUNTOS_SUPLENTE } from '../../utils/suplentes';
 import PilotIdInput from '../../components/common/PilotIdInput';
 import { isPenaltyCounting } from '../../models/Penalty';
+import { revisarNombreInscrito } from '../../utils/pilotIdentityMatcher';
 
 /** Convierte "M:SS.mmm" o "SS.mmm" a milisegundos para sort correcto de tiempos */
 function parseTimeToMs(str) {
@@ -2821,6 +2822,48 @@ function StatCard({ icon, label, value }) {
 // ============================================================
 // Tab de Inscripciones (Fase 2)
 // ============================================================
+
+/**
+ * Aviso dentro de una inscripción cuyo nombre conviene revisar: se parece a
+ * un piloto que ya corre en la liga o tiene un posible fallo de tecleo. La
+ * corrección es un clic, pero siempre la decide el administrador.
+ */
+function AvisoNombreInscrito({ revision = [], ocupado, onCorregir, onRevisado }) {
+    if (revision.length === 0) return null;
+    const boton = 'px-2.5 py-1 rounded text-xs font-semibold disabled:opacity-50';
+    return (
+        <div className="mt-2 bg-amber-500/10 border border-amber-400/40 rounded-lg px-3 py-2 space-y-2">
+            {revision.map(({ campo, valor, parecidos, limpio }) => (
+                <div key={campo} className="space-y-1.5">
+                    <p className="text-xs text-amber-100">
+                        ⚠️ {campo === 'gt7Id' ? 'GT7 ID' : 'PSN ID'} <span className="font-mono text-white">«{valor}»</span>
+                        {parecidos.length > 0 && <> se parece a {parecidos.length === 1 ? 'un piloto' : 'pilotos'} de la liga</>}
+                        {parecidos.length === 0 && limpio && <> puede tener un fallo de tecleo</>}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {parecidos.map(n => (
+                            <button key={n} type="button" disabled={ocupado} onClick={() => onCorregir(campo, n)}
+                                className={`${boton} bg-amber-500/30 hover:bg-amber-500/50 text-white border border-amber-300/40`}>
+                                Usar «{n}»
+                            </button>
+                        ))}
+                        {limpio && (
+                            <button type="button" disabled={ocupado} onClick={() => onCorregir(campo, limpio)}
+                                className={`${boton} bg-amber-500/30 hover:bg-amber-500/50 text-white border border-amber-300/40`}>
+                                Corregir a «{limpio}»
+                            </button>
+                        )}
+                    </div>
+                </div>
+            ))}
+            <button type="button" disabled={ocupado} onClick={onRevisado}
+                className={`${boton} bg-white/10 hover:bg-white/20 text-gray-200 border border-white/20`}>
+                {ocupado ? '⏳ Guardando…' : '✓ Está bien así'}
+            </button>
+        </div>
+    );
+}
+
 function RegistrationsTab({ championshipId, championship, divisions = [], onUpdate }) {
     const { org } = useOrganization();
     const [filter, setFilter] = useState('all');
@@ -2836,8 +2879,26 @@ function RegistrationsTab({ championshipId, championship, divisions = [], onUpda
     const [altaGuardando, setAltaGuardando] = useState(false);
     const [altaMensaje, setAltaMensaje] = useState('');
 
+    // Nombres de la liga fuera de este campeonato, para señalar inscritos que
+    // se parecen a un piloto que ya corre o tienen un fallo de tecleo.
+    const [conocidos, setConocidos] = useState(null);
+    const [revisando, setRevisando] = useState(null); // id de la inscripción en curso
+    useEffect(() => {
+        let vivo = true;
+        FirebaseService.getKnownPilotNamesExcept(championshipId)
+            .then(n => { if (vivo) setConocidos(n); })
+            .catch(() => { if (vivo) setConocidos([]); });
+        return () => { vivo = false; };
+    }, [championshipId]);
+
     const registrations = championship.registrations || [];
-    const filtered = filter === 'all' ? registrations : registrations.filter(r => r.status === filter);
+    const revisionDe = (r) => (conocidos && !r.teamName && !r.nombreRevisado && r.status !== 'rejected')
+        ? revisarNombreInscrito(r, conocidos)
+        : [];
+    const porRevisar = registrations.filter(r => revisionDe(r).length > 0);
+    const filtered = filter === 'all' ? registrations
+        : filter === 'revisar' ? porRevisar
+        : registrations.filter(r => r.status === filter);
 
     const counts = {
         all: registrations.length,
@@ -2899,22 +2960,56 @@ function RegistrationsTab({ championshipId, championship, divisions = [], onUpda
         }
     };
 
+    // Guarda datos de una inscripción y, si cambió el GT7 ID/PSN ID, propaga
+    // el renombre a división, resultados, reclamaciones y sanciones — si no,
+    // el piloto quedaría duplicado bajo el identificador viejo en todo lo
+    // demás (ver FirebaseService.renameDriverEverywhere).
+    const guardarDatosInscripcion = async (id, fields) => {
+        const reg = registrations.find(r => r.id === id);
+        const oldKeys = reg ? [reg.name, reg.psnId, reg.gt7Id] : [];
+        await FirebaseService.updateRegistrationData(championshipId, id, fields);
+        const nuevo = { ...(reg || {}), ...fields };
+        const newKey = nuevo.gt7Id || nuevo.psnId;
+        if (newKey) {
+            await FirebaseService.renameDriverEverywhere(championshipId, oldKeys, newKey, {
+                claveSala: nuevo.name || nuevo.psnId || nuevo.gt7Id,
+            });
+        }
+    };
+
+    // Corrección rápida desde el aviso de nombre a revisar
+    const corregirNombre = async (r, campo, valor) => {
+        const etiqueta = campo === 'gt7Id' ? 'GT7 ID' : 'PSN ID';
+        if (!window.confirm(`¿Cambiar el ${etiqueta} de «${r[campo]}» a «${valor}»?\n\nSe corrige también en su sala, resultados, reclamaciones y sanciones de este campeonato.`)) return;
+        setRevisando(r.id);
+        try {
+            await guardarDatosInscripcion(r.id, { [campo]: valor });
+            onUpdate();
+        } catch (error) {
+            alert('Error al corregir el nombre: ' + error.message);
+        } finally {
+            setRevisando(null);
+        }
+    };
+
+    const marcarNombreRevisado = async (r) => {
+        setRevisando(r.id);
+        try {
+            await FirebaseService.updateRegistrationData(championshipId, r.id, { nombreRevisado: true });
+            onUpdate();
+        } catch (error) {
+            alert('Error al guardar: ' + error.message);
+        } finally {
+            setRevisando(null);
+        }
+    };
+
     const handleEditSave = async () => {
         if (!editingReg) return;
         setEditSaving(true);
         try {
             const { id, ...fields } = editingReg;
-            const reg = registrations.find(r => r.id === id);
-            const oldKeys = reg ? [reg.name, reg.psnId, reg.gt7Id] : [];
-            await FirebaseService.updateRegistrationData(championshipId, id, fields);
-            // Si cambió el GT7 ID/PSN ID, propagar el renombre a división,
-            // resultados, reclamaciones y sanciones — si no, el piloto
-            // quedaría duplicado bajo el identificador viejo en todo lo
-            // demás (ver FirebaseService.renameDriverEverywhere).
-            const newKey = fields.gt7Id || fields.psnId;
-            if (newKey) {
-                await FirebaseService.renameDriverEverywhere(championshipId, oldKeys, newKey);
-            }
+            await guardarDatosInscripcion(id, fields);
             setEditingReg(null);
             onUpdate();
         } catch (error) {
@@ -3069,6 +3164,27 @@ function RegistrationsTab({ championshipId, championship, divisions = [], onUpda
                             </p>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Nombres a revisar */}
+            {porRevisar.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-amber-500/10 border border-amber-400/40 rounded-xl p-4">
+                    <div>
+                        <p className="text-sm font-semibold text-amber-200">
+                            ⚠️ {porRevisar.length} {porRevisar.length === 1 ? 'inscrito tiene un nombre' : 'inscritos tienen un nombre'} a revisar
+                        </p>
+                        <p className="text-xs text-amber-100/70 mt-0.5">
+                            Se parecen a un piloto que ya corre en la liga o tienen un posible fallo de tecleo (espacios, signos al final…).
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setFilter(filter === 'revisar' ? 'all' : 'revisar')}
+                        className="px-4 py-2 rounded-lg text-sm font-semibold bg-amber-500/30 hover:bg-amber-500/50 text-white border border-amber-300/40"
+                    >
+                        {filter === 'revisar' ? 'Ver todos' : 'Ver solo esos'}
+                    </button>
                 </div>
             )}
 
@@ -3251,6 +3367,12 @@ function RegistrationsTab({ championshipId, championship, divisions = [], onUpda
                                                         {r.preferredCar && <span>🚗 {r.preferredCar}</span>}
                                                     </div>
                                                 )}
+                                                <AvisoNombreInscrito
+                                                    revision={revisionDe(r)}
+                                                    ocupado={revisando === r.id}
+                                                    onCorregir={(campo, valor) => corregirNombre(r, campo, valor)}
+                                                    onRevisado={() => marcarNombreRevisado(r)}
+                                                />
                                                 <div className="flex flex-wrap gap-x-4 text-xs text-gray-500 mt-1">
                                                     <span>📅 {new Date(r.createdAt).toLocaleDateString('es-ES')}</span>
                                                     {r.reviewedAt && <span>✏️ {new Date(r.reviewedAt).toLocaleDateString('es-ES')}</span>}

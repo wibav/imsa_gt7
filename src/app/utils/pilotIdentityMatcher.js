@@ -202,6 +202,8 @@ export function nombresParecidosA(valor, conocidos = [], { umbral = 0.86, maximo
             return largo > 0 && corto / largo >= 0.6;
         })
         .sort((a, b) => b.score - a.score)
+        // «lokoracing» y «LOKORACING» son el mismo nombre: se ofrece una vez
+        .filter((x, i, lista) => lista.findIndex(y => normalizarNombre(y.nombre) === normalizarNombre(x.nombre)) === i)
         .slice(0, maximo)
         .map(x => x.nombre);
 }
@@ -234,4 +236,52 @@ export function planificarDescarte(nombres = [], existentes = []) {
     );
 
     return { cubiertoPor, absorbidos };
+}
+
+/**
+ * Versión sin fallos de tecleo evidentes de un GT7 ID: espacios al principio,
+ * al final o repetidos, espacios pegados a «_» o «-» («SFRT_ Merenguay») y
+ * signos sueltos al principio o al final («ERG_JonySport.», «@InmensaMinoria»).
+ * Devuelve el mismo texto si no hay nada que corregir.
+ *
+ * Es una sugerencia para el administrador, nunca se aplica sola: no hay
+ * garantía de qué caracteres admite GT7.
+ */
+export function nombreSinFallosDeTecleo(valor) {
+    return String(valor ?? '')
+        .trim()
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\s*([_-])\s*/g, '$1')
+        .replace(/^[@.,;:!?¡¿'"`´]+/, '')
+        .replace(/[.,;:!?¡¿'"`´]+$/, '')
+        .trim();
+}
+
+/**
+ * Qué revisar del nombre de un inscrito (panel de Inscripciones).
+ *
+ * @param {Object} reg - inscripción individual ({ gt7Id, psnId })
+ * @param {Array<string>} conocidos - nombres de la liga fuera de este campeonato
+ * @returns {Array<{campo: 'gt7Id'|'psnId', valor: string, parecidos: string[], limpio: string|null}>}
+ *          una entrada por campo con algo que revisar (vacío si todo está bien)
+ */
+export function revisarNombreInscrito(reg = {}, conocidos = []) {
+    return ['gt7Id', 'psnId']
+        .map(campo => {
+            const valor = String(reg?.[campo] || '');
+            if (!valor.trim()) return null;
+            const limpio = nombreSinFallosDeTecleo(valor);
+            // Sus otros identificadores no cuentan: «MGR-LOKORACING» con PSN
+            // «lokoracing» no es un piloto distinto, es él con otras siglas.
+            const propios = new Set([reg.gt7Id, reg.psnId, reg.name].filter(Boolean).map(normalizarNombre));
+            const parecidos = nombresParecidosA(valor, conocidos)
+                .filter(n => !propios.has(normalizarNombre(n)));
+            return {
+                campo,
+                valor,
+                parecidos,
+                limpio: limpio && limpio !== valor ? limpio : null,
+            };
+        })
+        .filter(r => r && (r.parecidos.length > 0 || r.limpio));
 }

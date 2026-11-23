@@ -4,7 +4,8 @@ import ModalPortal from '../common/ModalPortal';
 import { useState, useMemo, useEffect } from 'react';
 import { FirebaseService } from '../../services/firebaseService';
 import { DEFAULT_DIVISION_COLORS } from '../../utils/constants';
-import { hoyEnEspana, localRaceTime } from '../../utils/dateUtils';
+import { hoyEnEspana, localRaceTime, getPreQualySessions, finSesionPreQualy, formatDateFull, formatTimeWindow } from '../../utils/dateUtils';
+import { textoSinTiempoWhatsApp } from '../../utils/preQualy';
 import { repartirPorPreQualy, cuposTotales } from '../../utils/divisionAssignment';
 import { calculateAdvancedStandings } from '../../utils/standingsCalculator';
 import { repartirNuevaEdicion } from '../../utils/newEdition';
@@ -139,6 +140,30 @@ export default function DivisionsTab({
             .filter(r => r.time)
             .sort((a, b) => parseTimeToMs(a.time) - parseTimeToMs(b.time));
     }, [approvedRegs, pqTimes]);
+
+    // Inscritos aprobados sin tiempo de Pre-Qualy (los que ve el admin en la tabla)
+    const sinTiempo = useMemo(
+        () => approvedRegs.filter(r => !pqTimes[r.name || r.psnId || r.gt7Id || '']),
+        [approvedRegs, pqTimes]
+    );
+    const [copiadoSinTiempo, setCopiadoSinTiempo] = useState('');
+    const copiarSinTiempo = async () => {
+        const ahora = new Date();
+        const sesiones = getPreQualySessions(championship)
+            .filter(se => ahora < finSesionPreQualy(se))
+            .map(se => `${formatDateFull(se.date)} ${formatTimeWindow(se)}`);
+        try {
+            await navigator.clipboard.writeText(textoSinTiempoWhatsApp({
+                campeonato: championship?.name || '',
+                pilotos: sinTiempo.map(r => ({ gt7Id: r.gt7Id, psnId: r.psnId, nombre: r.name })),
+                sesiones,
+            }));
+            setCopiadoSinTiempo('ok');
+        } catch {
+            setCopiadoSinTiempo('error');
+        }
+        setTimeout(() => setCopiadoSinTiempo(''), 2500);
+    };
 
     // ── Handlers ───────────────────────────────────────────────
 
@@ -547,12 +572,23 @@ export default function DivisionsTab({
                                 ({approvedRegs.length} en total • {assignedCount} asignados)
                             </span>
                         </h3>
+                        <div className="flex flex-wrap items-center gap-2">
+                        {sinTiempo.length > 0 && (
+                            <button type="button" onClick={copiarSinTiempo}
+                                title="Copia la lista de inscritos sin tiempo para preguntarles por WhatsApp si lo harán"
+                                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs rounded-lg font-medium transition-colors">
+                                {copiadoSinTiempo === 'ok' ? '✅ Copiado, pégalo en WhatsApp'
+                                    : copiadoSinTiempo === 'error' ? '⚠️ No se pudo copiar'
+                                        : `📋 Sin tiempo (${sinTiempo.length}) · Copiar para WhatsApp`}
+                            </button>
+                        )}
                         {pqTimesHaveChanges && (
                             <button onClick={handleSavePqTimes} disabled={savingTimes}
                                 className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs rounded-lg font-medium disabled:opacity-50 transition-colors">
                                 {savingTimes ? '⏳ Guardando...' : '💾 Guardar tiempos Pre-Qualy'}
                             </button>
                         )}
+                        </div>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
