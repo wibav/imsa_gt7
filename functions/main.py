@@ -2110,6 +2110,186 @@ def close_edition_continuity(event: scheduler_fn.ScheduledEvent) -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# Respuesta de continuidad al momento
+#
+# Antes, la respuesta del piloto se quedaba en `continuations` hasta que el
+# admin pulsaba «Aplicar» y hacía el reparto: los que confirmaban no
+# aparecían en ninguna sala. Ahora, en cuanto llega una respuesta:
+#   - confirmó    → inscripción aprobada y piloto en la sala que le toca por
+#                   su ascenso/descenso (si no está ya en alguna: si el admin
+#                   lo movió, se respeta)
+#   - no continúa → baja y fuera de las salas
+#   - el admin la borra (vuelve a «pendiente») → fuera de las salas
+# y, si respondió el piloto, aviso por Telegram.
+#
+# La conciliación recorre a TODOS los veteranos, no solo al de la respuesta:
+# así se aplican también las respuestas anteriores a esta función y se
+# rehace lo que un guardado del admin con datos viejos hubiera pisado.
+# Mismas claves y misma división de destino que el cliente
+# (clavePreQualy y divisionDestino en src/app/utils).
+# ══════════════════════════════════════════════════════════════════════════
+
+_FLECHA_CONTINUIDAD = {'up': '▲ sube', 'down': '▼ baja', 'stay': '= se mantiene'}
+
+
+def _clave_sala(reg: dict) -> str:
+    """Nombre con el que el piloto figura en las divisiones."""
+    return reg.get('name') or reg.get('psnId') or reg.get('gt7Id') or ''
+
+
+def _claves_piloto(reg: dict) -> set:
+    return {str(v).strip().lower() for v in (reg.get('name'), reg.get('psnId'), reg.get('gt7Id')) if v}
+
+
+def _indice_destino(carryover: dict, num_divs: int) -> int:
+    i = int(carryover.get('divisionIndex') or 0)
+    i += {'up': -1, 'down': 1}.get(carryover.get('movement'), 0)
+    return min(max(0, i), max(0, num_divs - 1))
+
+
+def conciliar_continuidad(db, champ_id: str, quitar_reg_id: str | None = None, dry_run: bool = False) -> dict:
+    """Vuelca las respuestas de continuidad en inscripciones y divisiones.
+
+    @param quitar_reg_id  inscripción cuya respuesta se acaba de borrar: sale
+                          de las salas.
+    @returns {'cambios': [(reg, nuevo_estado, sala|None)], 'confirmados': n, 'veteranos': n}
+    """
+    champ_ref = db.collection('championships').document(champ_id)
+    ahora = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+
+    @fb_firestore.transactional
+    def _aplicar(tx):
+        champ_snap = champ_ref.get(transaction=tx)
+        if not champ_snap.exists:
+            return None
+        champ = champ_snap.to_dict() or {}
+        if not champ.get('edition'):
+            return None
+        div_snaps = sorted(
+            champ_ref.collection('divisions').get(transaction=tx),
+            key=lambda s: ((s.to_dict() or {}).get('order') or 0),
+        )
+        respuestas = {s.id: (s.to_dict() or {}).get('status')
+                      for s in champ_ref.collection('continuations').get(transaction=tx)}
+        salas = [list((s.to_dict() or {}).get('drivers') or []) for s in div_snaps]
+        originales = [list(x) for x in salas]
+
+        def en_alguna_sala(claves):
+            return any(str(d).strip().lower() in claves for sala in salas for d in sala)
+
+        def sacar_de_salas(claves):
+            for k, sala in enumerate(salas):
+                salas[k] = [d for d in sala if str(d).strip().lower() not in claves]
+
+        cambios = []
+        registrations = []
+        for reg in champ.get('registrations') or []:
+            co = reg.get('carryover')
+            if co is None:
+                registrations.append(reg)
+                continue
+            doc_id = str(reg.get('id') or '').replace('/', '_')
+            respuesta = respuestas.get(doc_id)
+            actual = co.get('continuity') or 'pending'
+            claves = _claves_piloto(reg)
+
+            if quitar_reg_id and doc_id == quitar_reg_id and respuesta is None:
+                sacar_de_salas(claves)
+
+            if respuesta not in ('confirmed', 'declined') or respuesta == actual or actual == 'expired':
+                registrations.append(reg)
+                continue
+
+            sala = None
+            if respuesta == 'confirmed':
+                nuevo = {**reg, 'status': 'approved'}
+                if salas and not en_alguna_sala(claves):
+                    k = _indice_destino(co, len(salas))
+                    salas[k].append(_clave_sala(reg))
+                    sala = (div_snaps[k].to_dict() or {}).get('name')
+            else:
+                nuevo = {**reg, 'status': 'withdrawn'}
+                sacar_de_salas(claves)
+            nuevo['updatedAt'] = ahora
+            nuevo['carryover'] = {**co, 'continuity': respuesta, 'resolvedAt': ahora}
+            registrations.append(nuevo)
+            cambios.append((reg, respuesta, sala))
+
+        veteranos = [r for r in registrations if r.get('carryover')]
+        resumen = {
+            'cambios': cambios,
+            'veteranos': len(veteranos),
+            'confirmados': sum(1 for r in veteranos if (r['carryover'].get('continuity') == 'confirmed'
+                                                       or respuestas.get(str(r.get('id') or '').replace('/', '_')) == 'confirmed')),
+            'champ': champ,
+            'salas': {(div_snaps[k].to_dict() or {}).get('name'): salas[k] for k in range(len(salas))},
+        }
+        if dry_run:
+            return resumen
+        if cambios:
+            tx.update(champ_ref, {'registrations': registrations, 'updatedAt': ahora})
+        for k, s in enumerate(div_snaps):
+            if salas[k] != originales[k]:
+                tx.update(s.reference, {'drivers': salas[k], 'updatedAt': ahora})
+        return resumen
+
+    return _aplicar(db.transaction())
+
+
+@firestore_fn.on_document_written(document='championships/{champId}/continuations/{regId}',
+                                  region='us-central1', secrets=['TELEGRAM_BOT_TOKEN'])
+def on_continuation_written(event: firestore_fn.Event) -> None:
+    champ_id = event.params['champId']
+    reg_id = event.params['regId']
+    antes = event.data.before.to_dict() if event.data and event.data.before and event.data.before.exists else None
+    despues = event.data.after.to_dict() if event.data and event.data.after and event.data.after.exists else None
+    db = fb_firestore.client()
+    try:
+        resumen = conciliar_continuidad(db, champ_id, quitar_reg_id=reg_id if despues is None else None)
+    except Exception:
+        print(f'[on_continuation_written] {champ_id}/{reg_id}: {tb.format_exc()}')
+        return
+    if not resumen or not despues:
+        return
+    estado = despues.get('status')
+    # Solo lo que responde el piloto (los cambios del admin los hace él), y
+    # solo si la respuesta cambió: pulsar dos veces «Confirmo» no avisa dos veces.
+    if despues.get('by', 'piloto') != 'piloto' or (antes or {}).get('status') == estado:
+        return
+    champ = resumen['champ']
+    reg = next((r for r in champ.get('registrations') or []
+                if str(r.get('id') or '').replace('/', '_') == reg_id), None)
+    if not reg:
+        return
+    piloto = reg.get('gt7Id') or reg.get('name') or reg.get('psnId') or 'Piloto'
+    psn = reg.get('psnId')
+    psn_info = f' (PSN: {_esc(psn)})' if psn and psn.lower() != piloto.lower() else ''
+    org_tag = ''
+    if champ.get('orgId'):
+        try:
+            org_name = (db.collection('organizations').document(champ['orgId']).get().to_dict() or {}).get('name')
+            org_tag = f'🏢 {_esc(org_name)}\n' if org_name else ''
+        except Exception:
+            pass
+    co = reg.get('carryover') or {}
+    if estado == 'confirmed':
+        sala = next((s for (r, _e, s) in resumen['cambios'] if r.get('id') == reg.get('id')), None)
+        if not sala:
+            sala = next((nombre for nombre, pilotos in resumen['salas'].items()
+                         if any(str(d).strip().lower() in _claves_piloto(reg) for d in pilotos)), None)
+        linea_sala = f'📍 {_esc(sala)} ({_FLECHA_CONTINUIDAD.get(co.get("movement"), "")})' if sala \
+            else '📍 Sin sala todavía (no hay divisiones creadas)'
+        cabecera = '🔁 <b>Continuidad confirmada</b> ✅'
+    else:
+        linea_sala = f'📍 Venía de {_esc(co.get("divisionName") or "—")}: su plaza queda libre'
+        cabecera = '🚪 <b>No continúa</b>'
+    _send_telegram_message(
+        f'{cabecera}\n{org_tag}🏆 {_esc(champ.get("name"))}\n🎮 {_esc(piloto)}{psn_info}\n{linea_sala}\n'
+        f'📊 {resumen["confirmados"]} de {resumen["veteranos"]} veteranos confirmados'
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # Páginas de compartición dinámicas
 #
 # Las previews de enlace (Telegram, WhatsApp…) se pre-generan en el build con
