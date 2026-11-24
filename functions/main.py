@@ -2282,7 +2282,7 @@ def on_continuation_written(event: firestore_fn.Event) -> None:
         cabecera = '🔁 <b>Continuidad confirmada</b> ✅'
     else:
         linea_sala = f'📍 Venía de {_esc(co.get("divisionName") or "—")}: su plaza queda libre'
-        cabecera = '🚪 <b>No continúa</b>'
+        cabecera = '🚪 <b>Se retira del campeonato</b>'
     _send_telegram_message(
         f'{cabecera}\n{org_tag}🏆 {_esc(champ.get("name"))}\n🎮 {_esc(piloto)}{psn_info}\n{linea_sala}\n'
         f'📊 {resumen["confirmados"]} de {resumen["veteranos"]} veteranos confirmados'

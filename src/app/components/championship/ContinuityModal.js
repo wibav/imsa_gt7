@@ -147,9 +147,9 @@ export default function ContinuityModal({ championship, divisions = [], continua
                             <button
                                 onClick={() => setConfirmarRechazo(true)}
                                 disabled={guardando || estado === CONTINUIDAD.RECHAZADA}
-                                className="flex-1 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-gray-200 rounded-lg disabled:opacity-50"
+                                className="flex-1 px-4 py-2.5 bg-red-900/30 hover:bg-red-800/50 border border-red-500/60 text-red-100 font-semibold rounded-lg disabled:opacity-50"
                             >
-                                {c('noContinuo')}
+                                🚪 {c('noContinuo')}
                             </button>
                         </div>
                     )
