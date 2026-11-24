@@ -99,6 +99,16 @@ export default function CarUsageTab({ championship, tracks = [], divisions = [],
                         : t('componentes.autos.resumenLibre', { autos: datos.maxAutos, usos: datos.maxUsos })}
                     {datos.carreras.length > 0 && ` · ${t('componentes.autos.carrerasRegistradas', { n: datos.carreras.length })}`}
                 </p>
+                {datos.esFijo && (
+                    <>
+                        <p className="text-gray-300 text-sm mt-3">{t('componentes.autos.explicaFijo', { n: datos.maxUsos })}</p>
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                            {datos.catalogo.map(auto => (
+                                <span key={auto} className="px-2 py-0.5 bg-white/10 border border-white/20 text-white text-xs rounded-full">🏎️ {auto}</span>
+                            ))}
+                        </div>
+                    </>
+                )}
                 {conAvisos > 0 && (
                     <p className="text-red-300 text-sm mt-2">
                         ⚠️ {t('componentes.autos.superanLimite', { n: conAvisos })}

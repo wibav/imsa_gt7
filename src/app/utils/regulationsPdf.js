@@ -24,15 +24,10 @@ function formatDateRange(startDate, endDate) {
 }
 
 /**
- * @param {object} params
- * @param {object} params.championship
- * @param {object|null} [params.org]
- * @param {Array} params.bodyContent - nodos pdfmake ya convertidos desde HTML por el caller
- * @param {string} params.generatedAt - fecha/hora ya formateada
- * @param {{ championshipLogo?: string|null, orgLogo?: string|null }} [params.logos]
- * @returns {object} docDefinition de pdfmake
+ * Cabecera común de los PDF del campeonato: nombre, datos y logo.
+ * @returns {Array} nodos pdfmake (columnas + línea separadora)
  */
-export function buildRegulationsDocDefinition({ championship, org = null, bodyContent, generatedAt, logos = {} }) {
+export function buildChampionshipHeader({ championship, org = null, logos = {} }) {
     const champ = championship || {};
     const headerLines = [];
 
@@ -66,9 +61,26 @@ export function buildRegulationsDocDefinition({ championship, org = null, bodyCo
         ? [{ stack: headerLines, width: '*' }, { stack: logoNodes, width: 70 }]
         : [{ stack: headerLines, width: '*' }];
 
-    const content = [
+    return [
         { columns: headerColumns, margin: [0, 0, 0, 10] },
         { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, lineColor: THEME.border }], margin: [0, 0, 0, 16] },
+    ];
+}
+
+export const PDF_THEME = THEME;
+
+/**
+ * @param {object} params
+ * @param {object} params.championship
+ * @param {object|null} [params.org]
+ * @param {Array} params.bodyContent - nodos pdfmake ya convertidos desde HTML por el caller
+ * @param {string} params.generatedAt - fecha/hora ya formateada
+ * @param {{ championshipLogo?: string|null, orgLogo?: string|null }} [params.logos]
+ * @returns {object} docDefinition de pdfmake
+ */
+export function buildRegulationsDocDefinition({ championship, org = null, bodyContent, generatedAt, logos = {} }) {
+    const content = [
+        ...buildChampionshipHeader({ championship, org, logos }),
         { text: 'Reglamento', style: 'sectionHeading', margin: [0, 0, 0, 10] },
         ...(Array.isArray(bodyContent) ? bodyContent : [bodyContent].filter(Boolean))
     ];

@@ -44,6 +44,8 @@ const componentes = {
         autos: {
             resumenFijo_one: 'Catálogo fijo de {autos} autos · máximo {usos} uso por auto',
             resumenFijo_other: 'Catálogo fijo de {autos} autos · máximo {usos} usos por auto',
+            explicaFijo_one: 'En cada carrera eliges con qué auto corres de esta lista. Cada auto lo puedes usar en {n} carrera; aquí ves cuáles te quedan.',
+            explicaFijo_other: 'En cada carrera eliges con qué auto corres de esta lista. Cada auto lo puedes usar en {n} carreras; aquí ves cuáles te quedan.',
             resumenLibre: 'Hasta {autos} autos por piloto · máximo {usos} usos de cada uno',
             carrerasRegistradas: '{n} carreras registradas',
             superanLimite: '{n} piloto(s) superan algún límite',
@@ -170,6 +172,8 @@ const componentes = {
         autos: {
             resumenFijo_one: 'Fixed list of {autos} cars · max. {usos} use per car',
             resumenFijo_other: 'Fixed list of {autos} cars · max. {usos} uses per car',
+            explicaFijo_one: 'In each race you pick which car from this list you drive. Each car can be used in {n} race; here you can see which ones you have left.',
+            explicaFijo_other: 'In each race you pick which car from this list you drive. Each car can be used in {n} races; here you can see which ones you have left.',
             resumenLibre: 'Up to {autos} cars per driver · max. {usos} uses of each',
             carrerasRegistradas: '{n} races recorded',
             superanLimite: '{n} driver(s) over a limit',
@@ -296,6 +300,8 @@ const componentes = {
         autos: {
             resumenFijo_one: 'Lista fixa de {autos} carros · máx. {usos} utilização por carro',
             resumenFijo_other: 'Lista fixa de {autos} carros · máx. {usos} utilizações por carro',
+            explicaFijo_one: 'Em cada corrida escolhes com que carro desta lista corres. Cada carro pode ser usado em {n} corrida; aqui vês quais te restam.',
+            explicaFijo_other: 'Em cada corrida escolhes com que carro desta lista corres. Cada carro pode ser usado em {n} corridas; aqui vês quais te restam.',
             resumenLibre: 'Até {autos} carros por piloto · máx. {usos} utilizações de cada um',
             carrerasRegistradas: '{n} corridas registadas',
             superanLimite: '{n} piloto(s) ultrapassam algum limite',

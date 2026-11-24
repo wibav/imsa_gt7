@@ -26,6 +26,15 @@ import { aplicaReglaSuplentes, puntosPosicion, suplentesDeBloque, suplentesDesde
 import PilotIdInput from '../../components/common/PilotIdInput';
 import { isPenaltyCounting } from '../../models/Penalty';
 import { revisarNombreInscrito } from '../../utils/pilotIdentityMatcher';
+import dynamic from 'next/dynamic';
+import RegulationsView from '../../components/championship/RegulationsView';
+import { REGULATIONS_MAX_BYTES, regulationsByteSize, normalizeRegulationsForSave, isRegulationsEmpty } from '../../utils/regulations';
+import { sanitizeRegulationsHtml } from '../../utils/regulationsSanitize';
+
+const RegulationsEditor = dynamic(() => import('../../components/championship/RegulationsEditor'), {
+    ssr: false,
+    loading: () => <div className="regulations-rich regulations-rich--editor animate-pulse h-40" />
+});
 
 /** Convierte "M:SS.mmm" o "SS.mmm" a milisegundos para sort correcto de tiempos */
 function parseTimeToMs(str) {
@@ -894,9 +903,96 @@ function InfoTab({ championship, editMode, onUpdate }) {
                 </div>
             )}
 
+            <ReglamentoCard championship={championship} onUpdate={onUpdate} />
+
             {/* InfoTab solo se renderiza para admins (userIsComisario nunca
                 incluye 'info' en tabs) — no hace falta otro chequeo de rol aquí. */}
             <ComisariosCard championship={championship} onUpdate={onUpdate} />
+        </div>
+    );
+}
+
+/**
+ * Reglamento del campeonato editable desde «Información», sin pasar por el
+ * asistente completo de configuración. Se guarda igual que en el
+ * formulario: HTML saneado, con el mismo tope de tamaño, y vacío = sin
+ * reglamento.
+ */
+function ReglamentoCard({ championship, onUpdate }) {
+    const [editando, setEditando] = useState(false);
+    const [borrador, setBorrador] = useState({ html: championship.regulations || '', format: championship.regulationsFormat });
+    const [guardando, setGuardando] = useState(false);
+    const [mensaje, setMensaje] = useState('');
+    const vacio = isRegulationsEmpty(championship.regulations, championship.regulationsFormat);
+
+    const abrir = () => {
+        setBorrador({ html: championship.regulations || '', format: championship.regulationsFormat });
+        setMensaje('');
+        setEditando(true);
+    };
+
+    const guardar = async () => {
+        if (regulationsByteSize(borrador.html) > REGULATIONS_MAX_BYTES) {
+            setMensaje(`❌ El reglamento supera el tamaño máximo (${Math.round(REGULATIONS_MAX_BYTES / 1024)} KB). Acórtalo antes de guardar.`);
+            return;
+        }
+        setGuardando(true);
+        setMensaje('');
+        try {
+            const datos = normalizeRegulationsForSave({
+                html: borrador.format === 'html' ? sanitizeRegulationsHtml(borrador.html) : borrador.html,
+                format: borrador.format,
+            });
+            await FirebaseService.updateChampionship(championship.id, datos);
+            setEditando(false);
+            setMensaje('✅ Reglamento guardado. Ya se ve en la página pública.');
+            await onUpdate?.();
+        } catch (error) {
+            setMensaje('❌ No se pudo guardar el reglamento: ' + error.message);
+        } finally {
+            setGuardando(false);
+        }
+    };
+
+    return (
+        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+            <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                <span className="text-white font-semibold">📜 Reglamento del campeonato</span>
+                {!editando && (
+                    <button onClick={abrir}
+                        className="px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/30 text-white rounded-lg text-sm font-medium">
+                        ✏️ {vacio ? 'Escribir reglamento' : 'Editar reglamento'}
+                    </button>
+                )}
+            </div>
+
+            {editando ? (
+                <div className="space-y-3">
+                    <RegulationsEditor
+                        value={borrador.html}
+                        format={borrador.format}
+                        maxBytes={REGULATIONS_MAX_BYTES}
+                        onChange={(html) => setBorrador({ html, format: 'html' })}
+                    />
+                    <div className="flex gap-2 flex-wrap">
+                        <button onClick={guardar} disabled={guardando}
+                            className="px-5 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold rounded-lg disabled:opacity-50">
+                            {guardando ? '⏳ Guardando...' : '💾 Guardar reglamento'}
+                        </button>
+                        <button onClick={() => { setEditando(false); setMensaje(''); }} disabled={guardando}
+                            className="px-5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg disabled:opacity-50">
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            ) : vacio ? (
+                <p className="text-gray-400 text-sm">Este campeonato todavía no tiene reglamento propio.</p>
+            ) : (
+                <div className="max-h-96 overflow-y-auto bg-white/5 rounded-lg p-4">
+                    <RegulationsView regulations={championship.regulations} format={championship.regulationsFormat} />
+                </div>
+            )}
+            {mensaje && <p className={`text-sm mt-3 ${mensaje.startsWith('✅') ? 'text-green-300' : 'text-red-300'}`}>{mensaje}</p>}
         </div>
     );
 }

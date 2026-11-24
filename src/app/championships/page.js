@@ -71,6 +71,7 @@ import { getInvalidatedEntries, flattenRegistrations, applyDeclarations, categor
 import { isRegulationsEmpty } from '../utils/regulations';
 import RegulationsView from '../components/championship/RegulationsView';
 import RegulationsPdfButton from '../components/championship/RegulationsPdfButton';
+import ChampionshipInfoPdfButton from '../components/championship/ChampionshipInfoPdfButton';
 import PilotTeamAvatar from '../components/common/PilotTeamAvatar';
 import TrackLogo from '../components/common/TrackLogo';
 import ScrollTabs from '../components/common/ScrollTabs';
@@ -489,6 +490,9 @@ export default function ChampionshipDetailPage() {
                                     title={championship.name}
                                     version={championship.updatedAt}
                                 />
+
+                                {/* Toda la información del campeonato en un PDF */}
+                                <ChampionshipInfoPdfButton championship={championship} tracks={tracks} divisions={divisions} />
 
                                 {isAdmin() && (
                                     <button
