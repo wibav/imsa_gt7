@@ -15,8 +15,56 @@
  * Nada de esto escribe en Firestore: son copias en memoria.
  */
 
+import { claveNombre } from './nombresPiloto.js';
+
 /** Nombre canónico de un piloto según el mapa alias → canónico. */
 const canon = (nombre, mapa) => mapa[nombre] || nombre;
+
+/**
+ * Completa el mapa de fusiones con lo que dicen las inscripciones de UN
+ * campeonato: si la identidad fusionada cubre uno de los nombres de una
+ * inscripción (GT7 ID, PSN o nombre), los demás van al mismo canónico.
+ *
+ * Sin esto, un piloto desaparecía de la clasificación de su sala aunque tenía
+ * puntos (Desafío del Asfalto, nov. 2026): la sala guardaba su PSN
+ * «Limoneti32mlg», que la identidad lleva a «PRN_LimonetiMIg» (con i
+ * mayúscula), y sus puntos estaban con su GT7 ID «PRN_LimonetiMlg» (con ele),
+ * que la identidad no conocía. La inscripción dice que son la misma persona.
+ *
+ * Si los nombres de una inscripción llevan a canónicos distintos no se toca
+ * nada: eso lo tiene que resolver el admin en /pilotsAdmin.
+ *
+ * @param {Object} mapa - alias → canónico (applyPilotIdentities)
+ * @param {Array} registrations - championship.registrations (sin aplanar)
+ * @returns {Object} el mismo mapa si no hay nada que añadir; si no, uno ampliado
+ */
+export function ampliarConInscripciones(mapa = {}, registrations = []) {
+    const extra = {};
+    (registrations || []).forEach(reg => {
+        const pilotos = Array.isArray(reg?.drivers) && reg.drivers.length > 0 ? reg.drivers : [reg];
+        pilotos.forEach(p => {
+            const ids = [p?.gt7Id, p?.psnId, p?.name].map(v => String(v || '').trim()).filter(Boolean);
+            const canonicos = [...new Set(ids.map(id => mapa[id]).filter(Boolean))];
+            if (canonicos.length !== 1) return;
+            const c = canonicos[0];
+            ids.forEach(id => {
+                if (!mapa[id] && claveNombre(id) !== claveNombre(c)) extra[id] = c;
+            });
+        });
+    });
+    if (Object.keys(extra).length === 0) return mapa;
+
+    const extraPorClave = {};
+    Object.entries(extra).forEach(([k, v]) => { extraPorClave[claveNombre(k)] = v; });
+    // Proxy como el de mapaSinMayusculas: búsqueda exacta y, si no, sin
+    // mayúsculas; lo que no es de las inscripciones lo resuelve el mapa base.
+    return new Proxy({ ...mapa, ...extra }, {
+        get(objeto, clave, receptor) {
+            if (typeof clave !== 'string' || clave in objeto) return Reflect.get(objeto, clave, receptor);
+            return extraPorClave[claveNombre(clave)] ?? mapa[clave];
+        },
+    });
+}
 
 /** Suma valores numéricos al fusionar dos claves en una. */
 function fusionarNumericos(objeto = {}, mapa) {

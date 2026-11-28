@@ -39,6 +39,7 @@ import {
     aplicarIdentidadesAEquipos,
     aplicarIdentidadesAPistas,
     aplicarIdentidadesADivisiones,
+    ampliarConInscripciones,
 } from "../utils/pilotIdentityApply";
 import { configRotacion, proximaRotacion, PLAZO_RECLAMACIONES_HORAS } from "../utils/divisionRotation";
 import CarUsageTab from "../components/championship/CarUsageTab";
@@ -326,8 +327,9 @@ export default function ChampionshipDetailPage() {
     // Solo se aplica el mapa de fusiones confirmadas a mano, no driverGt7Map:
     // este último incluye además los alias psnId↔gt7Id de las inscripciones, y
     // consolidar por esos cambiaría clasificaciones ya publicadas sin decisión
-    // de nadie.
-    const mapaFusiones = applyPilotIdentities({}, pilotIdentities);
+    // de nadie. La excepción es la inscripción de un piloto ya fusionado a mano:
+    // sus otros nombres van al mismo canónico (ver ampliarConInscripciones).
+    const mapaFusiones = ampliarConInscripciones(applyPilotIdentities({}, pilotIdentities), championship?.registrations);
     const championshipFusionado = aplicarIdentidadesACampeonato(championship, mapaFusiones);
     const teamsFusionados = aplicarIdentidadesAEquipos(teams, mapaFusiones);
     const tracksFusionados = aplicarIdentidadesAPistas(tracks, mapaFusiones);

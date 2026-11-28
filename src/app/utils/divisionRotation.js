@@ -33,6 +33,7 @@ import {
     aplicarIdentidadesAEquipos,
     aplicarIdentidadesAPistas,
     aplicarIdentidadesADivisiones,
+    ampliarConInscripciones,
 } from './pilotIdentityApply.js';
 import { applyDeclarations, flattenRegistrations, getInvalidatedEntries } from './carUsageCalculator.js';
 import { getRaceTime, raceDateTime } from './dateUtils.js';
@@ -137,7 +138,7 @@ export function rotacionPendiente({ championship, divisions = [], tracks = [], c
  * (la misma resolución que hace calculateAdvancedStandings).
  */
 export function resolverClaveClasificacion(championship, pilotIdentities = []) {
-    const mapaFusiones = applyPilotIdentities({}, pilotIdentities);
+    const mapaFusiones = ampliarConInscripciones(applyPilotIdentities({}, pilotIdentities), championship?.registrations);
     const psnAGt7 = {};
     (championship?.registrations || []).forEach(r => {
         if (r?.psnId && r?.gt7Id) psnAGt7[claveNombre(r.psnId)] = r.gt7Id;
@@ -155,7 +156,7 @@ export function resolverClaveClasificacion(championship, pilotIdentities = []) {
  * @returns {Object} { [divId]: driverStandings }
  */
 export function clasificacionesPorDivision({ championship, teams = [], tracks = [], penalties = [], divisions = [], pilotIdentities = [], declarations = {} }) {
-    const mapaFusiones = applyPilotIdentities({}, pilotIdentities);
+    const mapaFusiones = ampliarConInscripciones(applyPilotIdentities({}, pilotIdentities), championship?.registrations);
     const campeonato = aplicarIdentidadesACampeonato(championship, mapaFusiones);
     const equipos = aplicarIdentidadesAEquipos(teams, mapaFusiones);
     const pistas = aplicarIdentidadesAPistas(tracks, mapaFusiones);

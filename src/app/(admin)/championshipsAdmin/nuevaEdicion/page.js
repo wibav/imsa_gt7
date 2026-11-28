@@ -11,6 +11,7 @@ import {
     aplicarIdentidadesAEquipos,
     aplicarIdentidadesAPistas,
     aplicarIdentidadesADivisiones,
+    ampliarConInscripciones,
 } from '../../../utils/pilotIdentityApply';
 import {
     MOVIMIENTO,
@@ -81,7 +82,7 @@ function NuevaEdicion() {
 
                 // Misma clasificación que la página pública: con las fusiones de
                 // identidad aplicadas y por división.
-                const mapa = applyPilotIdentities({}, identidades);
+                const mapa = ampliarConInscripciones(applyPilotIdentities({}, identidades), champ.registrations);
                 const campF = aplicarIdentidadesACampeonato(champ, mapa);
                 const teamsF = aplicarIdentidadesAEquipos(teams, mapa);
                 const tracksF = aplicarIdentidadesAPistas(tracks, mapa);

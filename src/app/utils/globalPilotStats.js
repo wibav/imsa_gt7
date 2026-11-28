@@ -7,6 +7,7 @@ import {
     aplicarIdentidadesACampeonato,
     aplicarIdentidadesAEquipos,
     aplicarIdentidadesAPistas,
+    ampliarConInscripciones,
 } from "./pilotIdentityApply";
 
 /**
@@ -67,9 +68,10 @@ export async function cargarEstadisticasPilotos({ allOrgs = false } = {}) {
         // que cambió de nombre a mitad de temporada sigue teniendo dos
         // entradas en la clasificación —con los puntos partidos— y su
         // perfil muestra el mismo campeonato dos veces.
-        const championship = aplicarIdentidadesACampeonato(champRaw, mapaFusiones);
-        const teams = aplicarIdentidadesAEquipos(teamsRaw, mapaFusiones);
-        const tracks = aplicarIdentidadesAPistas(tracksRaw, mapaFusiones);
+        const mapaCampeonato = ampliarConInscripciones(mapaFusiones, champRaw?.registrations);
+        const championship = aplicarIdentidadesACampeonato(champRaw, mapaCampeonato);
+        const teams = aplicarIdentidadesAEquipos(teamsRaw, mapaCampeonato);
+        const tracks = aplicarIdentidadesAPistas(tracksRaw, mapaCampeonato);
         const { driverStandings } = calculateAdvancedStandings(championship, teams, tracks, penalties);
 
         driverStandings.forEach(driver => {
